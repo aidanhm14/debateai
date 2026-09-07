@@ -33,6 +33,7 @@
  *   month_key: string (YYYY-MM)
  *   by_day: { 'YYYY-MM-DD': N }  (rolling day buckets, pruned to DAY_KEEP)
  *   by_day_since: string (first day bucketing started — coverage marker)
+ *   by_time: { '<epoch milliseconds>': N } (eight days of exact tick times)
  *   by_format: { apda: N, bp: N, ... }
  *   updatedAt: server timestamp
  *
@@ -50,6 +51,7 @@
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { rollingSevenDays, ACTIVITY_KEEP_MS } from './lib/rolling-spar-activity.mjs';
 
 const COUNTER_DOC = 'metrics/missed_matches';
 const ATTEMPTS_DOC = 'metrics/spar_attempts';
@@ -180,6 +182,7 @@ function defaultCounts(){
     month_key: monthKey(new Date()),
     by_format: {},
     rolling: { count: 0, days: 0, window: ROLLING_DAYS, complete: false },
+    rolling7: rollingSevenDays(),
   };
 }
 
@@ -195,6 +198,7 @@ async function readCounts(docRef){
     month_key: typeof d.month_key === 'string' ? d.month_key : monthKey(new Date()),
     by_format: d.by_format && typeof d.by_format === 'object' ? d.by_format : {},
     rolling: rollingFrom(d.by_day, d.by_day_since, new Date()),
+    rolling7: rollingSevenDays(d),
   };
 }
 
@@ -218,12 +222,13 @@ async function tickCounter(docRef, format, reason){
       month_count: 1,
       month_key: currentMonth,
       by_day: { [currentDay]: 1 },
+      by_time: { [now.getTime()]: 1 },
       by_day_since: currentDay,
       by_format: { [format]: 1 },
       last_reason: reason,
       updatedAt: FieldValue.serverTimestamp(),
     });
-    return { total: 1, week_count: 1, week_key: currentWeek, month_count: 1, month_key: currentMonth, by_format: { [format]: 1 }, rolling: { count: 1, days: 1, window: ROLLING_DAYS, complete: false } };
+    return await readCounts(docRef);
   }
 
   const stored = snap.data() || {};
@@ -233,6 +238,7 @@ async function tickCounter(docRef, format, reason){
     total: FieldValue.increment(1),
     [`by_format.${format}`]: FieldValue.increment(1),
     [`by_day.${currentDay}`]: FieldValue.increment(1),
+    [`by_time.${now.getTime()}`]: FieldValue.increment(1),
     last_reason: reason,
     updatedAt: FieldValue.serverTimestamp(),
   };
@@ -245,6 +251,11 @@ async function tickCounter(docRef, format, reason){
   for (const k of Object.keys(stored.by_day || {})){
     const t = Date.parse(k + 'T00:00:00Z');
     if (Number.isNaN(t) || t < pruneCutoff) update[`by_day.${k}`] = FieldValue.delete();
+  }
+  for (const key of Object.keys(stored.by_time || {})){
+    if (!Number.isFinite(Number(key)) || Number(key) < now.getTime() - ACTIVITY_KEEP_MS) {
+      update[`by_time.${key}`] = FieldValue.delete();
+    }
   }
   if (sameWeek){
     update.week_count = FieldValue.increment(1);
@@ -307,7 +318,7 @@ export default async (request) => {
   try {
     db = getDb();
   } catch (err) {
-    return jsonResponse({ ...defaultCounts(), attempts: defaultCounts() }, 200, request);
+    return jsonResponse({ ...defaultCounts(), attempts: defaultCounts(), unavailable: true }, 200, request);
   }
   const missesRef = db.doc(COUNTER_DOC);
   const attemptsRef = db.doc(ATTEMPTS_DOC);
@@ -328,7 +339,7 @@ export default async (request) => {
       return jsonResponse({ ...misses, attempts, recent }, 200, request);
     } catch (err) {
       console.error('log-missed-match GET failed:', err.message);
-      return jsonResponse({ ...defaultCounts(), attempts: defaultCounts(), recent: [] }, 200, request);
+      return jsonResponse({ ...defaultCounts(), attempts: defaultCounts(), recent: [], unavailable: true }, 200, request);
     }
   }
 

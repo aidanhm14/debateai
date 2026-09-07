@@ -349,7 +349,13 @@ h1 em{color:var(--accent);font-style:normal}
   color:var(--text-ghost);letter-spacing:.04em;
   font-variant-numeric:tabular-nums;
 }
+.meta-strip .meta-cell{white-space:nowrap}
 .meta-strip .meta-cell strong{color:var(--text);font-weight:600}
+.meta-strip .meta-missed-cell::before{content:'·';opacity:.45;margin-right:10px}
+@media(max-width:640px){
+  .meta-strip{flex-direction:column}
+  .meta-strip .meta-missed-cell::before{display:none}
+}
 .meta-strip .meta-sep{opacity:.45}
 .meta-strip .meta-dot{
   display:inline-block;width:5px;height:5px;border-radius:50%;
@@ -5215,15 +5221,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // which nothing writes to anymore since the join-the-waitlist
       // board was replaced by the /tournaments link — 2026-08-11.)
       '<div class="meta-strip" id="metaStrip" aria-live="polite">' +
-        '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> <span id="metaQueueLabel">people available now</span></span>' +
-        // "Missed this week" — appears only when the public counter
-        // reads >=3 (avoids "1 missed this week" looking sadder than
-        // not showing it). Pulled from /api/log-missed-match on mount
-        // via fetchMissedMatchCount().
-        '<span class="meta-sep meta-missed-sep" id="metaMissedSep" style="display:none">·</span>' +
-        '<span class="meta-cell meta-missed-cell" id="metaMissedCell" style="display:none"><strong id="metaMissed">0</strong> missed each other this week</span>' +
-        '<span class="meta-sep meta-month-sep" id="metaMonthSep" style="display:none">·</span>' +
-        '<span class="meta-cell meta-month-cell" id="metaMonthCell" style="display:none"><strong id="metaMonth">0</strong> this month</span>' +
+        '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> <span id="metaQueueLabel">available now</span></span>' +
+        '<span class="meta-cell meta-missed-cell" id="metaMissedCell" hidden><strong id="metaMissed">0</strong> <span id="metaMissedLabel">round attempts in the past 7 days</span></span>' +
       '</div>' +
       // Recent-attempts timeline cut in the 2026-08-05 cozy pass — the
       // rotating "a debater looked for X" rows added a whole extra text
@@ -5950,66 +5949,20 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // restore a floor, a pad, or a multiplier: the pills show the raw
   // metrics/spar_attempts counters or they show nothing.
 
-  // Pulls the public "missed each other this week / this month" counts
-  // from /api/log-missed-match (GET). Each pill renders independently;
-  // both hide under a count of 3 so a tiny number doesn't read sadder
-  // than showing nothing. Week prefers the broader "attempts" count;
-  // falls back to "misses." Month mirrors that.
-  //
-  // 2026-09-02: the second pill used to print month_count flat, and on
-  // 2 September that read "133 this week - 103 this month". Both numbers
-  // were true (the ISO week had started 31 August, the month counter had
-  // reset on the 1st) and together they were nonsense, because a month
-  // that contains a week cannot be smaller than it. The endpoint now
-  // keeps day buckets, so the pill prefers a real trailing 30 days.
-  // Until 30 days of buckets exist the rolling figure would understate,
-  // so it falls back to month-to-date and shows it ONLY while that is at
-  // least the week figure. In the straddle window neither is publishable
-  // and the pill hides: one honest number beats two that argue.
+  // Read the rolling seven-day history, independent of the legacy ISO-week
+  // and month counters. Zero is a real result; a failed request is not.
   function fetchMissedMatchCount(){
+    metaHistoryFetchedAt = Date.now();
     fetch('/api/log-missed-match', { method: 'GET' })
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){
-        if (!j) return;
-        var attempts = (j.attempts && typeof j.attempts.week_count === 'number') ? j.attempts.week_count : 0;
-        var misses = (typeof j.week_count === 'number') ? j.week_count : 0;
-        var attemptsM = (j.attempts && typeof j.attempts.month_count === 'number') ? j.attempts.month_count : 0;
-        var missesM = (typeof j.month_count === 'number') ? j.month_count : 0;
-        // No baseline, no multiplier: the >=3 gates below do the
-        // small-number hiding honestly.
-        // Weekly pill
-        var n, label;
-        if (attempts >= 3) { n = attempts; label = 'looked for a live round this week'; }
-        else if (misses >= 3) { n = misses; label = 'missed each other this week'; }
-        if (n){
-          var sep = document.getElementById('metaMissedSep');
-          var cell = document.getElementById('metaMissedCell');
-          if (sep) sep.style.display = '';
-          if (cell) cell.style.display = '';
-          if (cell) cell.innerHTML = '<strong id="metaMissed">' + String(n) + '</strong> ' + label;
-        }
-        // Second pill — trailing 30 days once the buckets cover it,
-        // month-to-date while they don't, nothing when month-to-date
-        // would print below the week number beside it.
-        var roll = (j.attempts && j.attempts.rolling) || null;
-        var weekShown = n || 0;
-        var nM, labelM;
-        if (roll && roll.complete && roll.count >= 3 && roll.count >= weekShown) {
-          nM = roll.count; labelM = 'in the last 30 days';
-        } else if (attemptsM >= 3 && attemptsM >= weekShown) {
-          nM = attemptsM; labelM = 'this month';
-        } else if (missesM >= 3 && missesM >= weekShown) {
-          nM = missesM; labelM = 'this month';
-        }
-        if (nM){
-          var sepM = document.getElementById('metaMonthSep');
-          var cellM = document.getElementById('metaMonthCell');
-          if (sepM) sepM.style.display = '';
-          if (cellM) cellM.style.display = '';
-          if (cellM) cellM.innerHTML = '<strong id="metaMonth">' + String(nM) + '</strong> ' + labelM;
-        }
-        // Ordered "who looked, and when" timeline under the counts.
-        renderRecentSeeks(Array.isArray(j.recent) ? j.recent : []);
+        if (j && j.unavailable) return;
+        var roll = j && j.attempts && j.attempts.rolling7;
+        var cell = document.getElementById('metaMissedCell');
+        if (!cell || !roll || typeof roll.count !== 'number') return;
+        document.getElementById('metaMissed').textContent = String(roll.count);
+        document.getElementById('metaMissedLabel').textContent = (roll.count === 1 ? 'round attempt' : 'round attempts') + ' in the past 7 days';
+        cell.hidden = false;
       })
       .catch(function(){});
   }
@@ -6092,6 +6045,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // when they are so the strip doesn't pretend a quiet moment is busy.
   var metaLiveUnsub = { queue: null };
   var metaLiveCounts = { queue: 0 };
+  var metaQueueSnapshot = null;
+  var metaLiveTimer = null;
+  var metaHistoryFetchedAt = 0;
 
   function renderMetaLive(){
     var qEl = document.getElementById('metaQueue');
@@ -6099,11 +6055,23 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // Strip torn down (user navigated to matched / fallback). Drop
       // subscriptions so we don't leak listeners across views.
       if (metaLiveUnsub.queue){ try { metaLiveUnsub.queue(); } catch(e){} metaLiveUnsub.queue = null; }
+      if (metaLiveTimer){ clearInterval(metaLiveTimer); metaLiveTimer = null; }
+      metaQueueSnapshot = null;
       return;
     }
+    // Expire silent peers even when Firestore emits no new snapshot.
+    var now = Date.now();
+    metaLiveCounts.queue = 0;
+    if (metaQueueSnapshot) metaQueueSnapshot.forEach(function(d){
+      if (!queuePeerCanMatch(d)) return;
+      var j = (d.data() || {}).joinedAt;
+      var t = j && typeof j.toMillis === 'function' ? j.toMillis()
+        : j && typeof j.seconds === 'number' ? j.seconds * 1000 : 0;
+      if (t > 0 && now - t <= 120000) metaLiveCounts.queue++;
+    });
     qEl.textContent = String(metaLiveCounts.queue);
     var qLabel = document.getElementById('metaQueueLabel');
-    if (qLabel) qLabel.textContent = (metaLiveCounts.queue === 1 ? 'person' : 'people') + ' available now';
+    if (qLabel) qLabel.textContent = 'available now';
     var dot = document.querySelector('#metaStrip .meta-dot');
     var anyLive = metaLiveCounts.queue > 0;
     if (dot){
@@ -6115,8 +6083,15 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
   function startMetaLive(){
     if (metaLiveUnsub.queue){ try { metaLiveUnsub.queue(); } catch(e){} metaLiveUnsub.queue = null; }
+    if (metaLiveTimer) clearInterval(metaLiveTimer);
+    metaQueueSnapshot = null;
     metaLiveCounts = { queue: 0 };
     renderMetaLive();
+    metaLiveTimer = setInterval(function(){
+      if (document.hidden) return;
+      renderMetaLive();
+      if (document.getElementById('metaStrip') && Date.now() - metaHistoryFetchedAt >= 60000) fetchMissedMatchCount();
+    }, 15000);
     if (!firebaseDb) return;
     // (a) Matchmaking queue. Excludes self so the
     // strip never reads "1 waiting" off the user's own presence.
@@ -6124,32 +6099,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       metaLiveUnsub.queue = firebaseDb.collection('matchmaking_queue')
         .where('status', '==', 'waiting')
         .onSnapshot(function(snap){
-          // Count only TRULY-LIVE peers. A searching session re-stamps
-          // joinedAt every QUEUE_HEARTBEAT_MS (90s), so a live doc is
-          // never older than ~92s; a backgrounded/closed tab stops
-          // heartbeating and goes stale. The server's 3-min STALE_PEER_MS
-          // is a generous pairing cutoff, but for the headline "N debaters
-          // available now" it over-counts: a session that went dark still
-          // showed as available for up to 3 min, promising humans who were
-          // gone. Tie the "available" window to one heartbeat + grace
-          // (120s) so the number means "heartbeated within the last two
-          // minutes = actually here," and a ghost drops off a minute
-          // sooner. Docs with an unresolved/missing joinedAt
-          // (serverTimestamp lands a beat after the local write) count as
-          // fresh — same default as joinedAtMs() server-side.
-          var STALE_MS = 120 * 1000;
-          var now = Date.now();
-          var n = 0;
-          snap.forEach(function(d){
-            if (!queuePeerCanMatch(d)) return;
-            var v = d.data() || {};
-            var j = v.joinedAt;
-            var t = (j && typeof j.toMillis === 'function') ? j.toMillis()
-                  : (j && j.seconds != null) ? j.seconds * 1000
-                  : now; // unresolved timestamp = just written = fresh
-            if (now - t <= STALE_MS) n++;
-          });
-          metaLiveCounts.queue = n;
+          metaQueueSnapshot = snap;
           renderMetaLive();
         }, function(err){
           // Missing composite index or rules denial: degrade to 0,
