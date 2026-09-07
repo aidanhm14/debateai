@@ -1,4 +1,4 @@
-/* Account wall, 2026-09-05. Forty visible seconds across pages.
+/* Account wall, 2026-09-07. Three visible minutes across pages.
    A direct human round and a round in the site shell stay uninterrupted.
    AI starts have their own immediate account gate, including server checks. */
 (function () {
@@ -20,7 +20,7 @@
   if (/[?&]oobCode=/.test(location.search)) return;
   if (/bot|crawl|spider|slurp|lighthouse|preview|monitor|pingdom|gtmetrix/i.test(navigator.userAgent || '')) return;
   window.__ditSigninWallArmed = true;
-  var WALL_SECONDS = 40;
+  var WALL_SECONDS = 180;
   var SPENT_KEY = 'debatable-wall-seconds';
   var SHOWN_KEY = 'debatable-wall-shown';
   var seconds = 0, shown = false, signedIn = false, watching = false;
@@ -78,6 +78,7 @@
         document.documentElement.classList.contains('da-debate-invite-open') ||
         document.querySelector('.da-match-overlay') ||
         document.getElementById('sparGateCard') ||
+        document.querySelector('.match-profile-flow') ||
         document.querySelector('.ob-modal.is-open') ||
         document.documentElement.getAttribute('data-intro') === '1') return;
     if (!window.openAuthModal) { ensureChooser(); return; }

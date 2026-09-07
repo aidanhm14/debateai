@@ -7,8 +7,7 @@ the API contract checks still read the real public endpoints.
 push to `main` (`.github/workflows/e2e-smoke.yml`) once the Netlify deploy is
 live, and fails loudly if a promise the site makes to a stranger stops being
 true: the first screen and its three doors (including returning visitors
-from the retired claim experiment), `/spar` sign-in without a required
-questionnaire, `/watch` static copy, `/practice` mounting, retired
+from the retired claim experiment), `/spar` image choices followed by sign-in before matching, `/watch` static copy, `/practice` mounting, retired
 routes redirecting, `sw.js` parsing with a `CACHE_NAME`, `/api/claude`
 refusing a tokenless call, the public read endpoints, and the judge season
 calendar not having expired.

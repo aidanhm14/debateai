@@ -9,7 +9,7 @@
      steps: [{ key, q, hint, options:[{value,label,sub}], default }],
      onDone: function (answers) { ... },     // required
      onSkip: function (answers) { ... },     // optional, defaults to onDone
-     launch: { title, hint, cta }            // the last panel
+     launch: { title, hint, cta }            // false finishes after the last question
    })
 
    SOUND IS SYNTHESISED, NOT DOWNLOADED. Three tones out of WebAudio
@@ -140,7 +140,7 @@
     var rail = el('div', 'afl-rail');
     var dots = el('div', 'afl-dots');
     var dotEls = [];
-    for (var d = 0; d <= steps.length; d++) {
+    for (var d = 0; d < steps.length + (cfg.launch === false ? 0 : 1); d++) {
       var dot = el('span', 'afl-dot');
       dots.appendChild(dot);
       dotEls.push(dot);
@@ -382,31 +382,33 @@
     });
 
     /* ── launch panel ── */
-    var launch = cfg.launch || {};
-    var lp = el('section', 'afl-panel afl-panel--launch');
-    var lpIn = el('div', 'afl-panel-in');
-    lpIn.appendChild(el('p', 'afl-step', 'Ready'));
-    lpIn.appendChild(el('h2', 'afl-q', launch.title || 'That is the setup.'));
-    if (launch.hint) lpIn.appendChild(el('p', 'afl-hint', launch.hint));
-    var summary = el('ul', 'afl-summary');
-    lpIn.appendChild(summary);
-    var launchExtra = el('div', 'afl-launch-extra');
-    lpIn.appendChild(launchExtra);
-    var goBtn = el('button', 'afl-go', launch.cta || 'Start the round');
-    goBtn.type = 'button';
-    goBtn.addEventListener('click', function () {
-      play('go');
-      close();
-      cfg.onDone(answers);
-    });
-    lpIn.appendChild(goBtn);
-    var lback = el('button', 'afl-back', '← Change something');
-    lback.type = 'button';
-    lback.addEventListener('click', function () { play('back'); go(steps.length - 1); });
-    lpIn.appendChild(lback);
-    lp.appendChild(lpIn);
-    track.appendChild(lp);
-    panels.push(lp);
+    if (cfg.launch !== false) {
+      var launch = cfg.launch || {};
+      var lp = el('section', 'afl-panel afl-panel--launch');
+      var lpIn = el('div', 'afl-panel-in');
+      lpIn.appendChild(el('p', 'afl-step', 'Ready'));
+      lpIn.appendChild(el('h2', 'afl-q', launch.title || 'That is the setup.'));
+      if (launch.hint) lpIn.appendChild(el('p', 'afl-hint', launch.hint));
+      var summary = el('ul', 'afl-summary');
+      lpIn.appendChild(summary);
+      var launchExtra = el('div', 'afl-launch-extra');
+      lpIn.appendChild(launchExtra);
+      var goBtn = el('button', 'afl-go', launch.cta || 'Start the round');
+      goBtn.type = 'button';
+      goBtn.addEventListener('click', function () {
+        play('go');
+        close();
+        cfg.onDone(answers);
+      });
+      lpIn.appendChild(goBtn);
+      var lback = el('button', 'afl-back', '← Change something');
+      lback.type = 'button';
+      lback.addEventListener('click', function () { play('back'); go(steps.length - 1); });
+      lpIn.appendChild(lback);
+      lp.appendChild(lpIn);
+      track.appendChild(lp);
+      panels.push(lp);
+    }
     root.appendChild(track);
 
     function paintSummary() {
@@ -505,10 +507,15 @@
       });
     }
     function go(i) {
+      if (cfg.launch === false && i >= panels.length) {
+        close();
+        cfg.onDone(answers);
+        return;
+      }
       if (i < 0) i = 0;
       if (i > panels.length - 1) i = panels.length - 1;
       at = i;
-      if (i === panels.length - 1) paintSummary();
+      if (cfg.launch !== false && i === panels.length - 1) paintSummary();
       paintDots();
       travelTo(i * track.clientHeight);
       // Move focus with the panel or the keyboard stays on the previous
@@ -530,7 +537,7 @@
         var i = Math.round(track.scrollTop / h);
         if (i !== at && i >= 0 && i < panels.length) {
           at = i;
-          if (i === panels.length - 1) paintSummary();
+          if (cfg.launch !== false && i === panels.length - 1) paintSummary();
           paintDots();
         }
       }, 90);

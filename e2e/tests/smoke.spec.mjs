@@ -77,15 +77,30 @@ test.describe('public pages', () => {
   // /spar is a LIVE queue with humans in it. Keep these browsers signed
   // out: Google/Apple comes before any queue
   // entry. Neither test authenticates or writes a queue document.
-  test('/spar first-timer: sign-in opens directly without a questionnaire', async ({ page }) => {
+  test('/spar first-timer: image choices precede sign-in and survive continuing', async ({ page }) => {
     const errors = trackErrors(page);
     // A deterministic empty queue keeps the waiting-person invitation
     // from covering the account door.
     await page.route('**/api/spar-queue', route => route.fulfill({ json: { waiting: 0 } }));
     await page.goto('/spar');
     const desk = page.getByRole('dialog', { name: /AI MATCHMAKING/i });
-    await expect(page.locator('#signInBtn')).toBeVisible({ timeout: 20_000 });
+    await expect(desk).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('#signInBtn')).toHaveCount(0);
+    await expect(desk.locator('.afl-panel')).toHaveCount(1);
+    const pictures = desk.locator('.afl-opt--img');
+    await pictures.nth(0).click();
+    await pictures.nth(1).click();
+    await expect(desk).toBeVisible();
+    await desk.locator('.afl-next').click();
+    await expect(page.locator('#signInBtn')).toBeVisible();
     await expect(desk).toHaveCount(0);
+    const profile = await page.evaluate(() => JSON.parse(localStorage.getItem('da-spar-match-profile-v5')));
+    expect(profile.agree).toHaveLength(2);
+    expect(profile.mode).toBe('fast');
+    await page.reload();
+    await expect(page.locator('#signInBtn')).toBeVisible();
+    await expect(desk).toHaveCount(0);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('da-spar-match-profile-v5')).agree)).toEqual(profile.agree);
     await expect(page.locator('#signInBtn')).toContainText(/with Google/i);
     await expect(page.locator('#appleInBtn')).toBeVisible();
     await expect(page.getByRole('dialog', { name: /how old are you/i })).toHaveCount(0);
@@ -110,7 +125,9 @@ test.describe('public pages', () => {
     await page.route('**/api/spar-queue', route => route.fulfill({ json: { waiting: 1 } }));
     await page.goto('/spar');
     const desk = page.getByRole('dialog', { name: /AI MATCHMAKING/i });
-    await expect(page.locator('#signInBtn')).toBeVisible({ timeout: 20_000 });
+    await expect(desk).toBeVisible({ timeout: 20_000 });
+    await desk.locator('.mp-skip-big').click();
+    await expect(page.locator('#signInBtn')).toBeVisible();
     await expect(desk).toHaveCount(0);
     await expect(page.locator('#signInBtn')).toContainText(/with Google/i);
     await expect(page.locator('#appleInBtn')).toContainText(/with Apple/i);

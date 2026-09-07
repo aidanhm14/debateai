@@ -3805,12 +3805,20 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       return;
     }
     var profileContinueLabel = opts.editing ? 'Save changes' : (state.named ? 'Save and continue' : 'Save and continue · SIGN IN');
+    var profileSteps = matchProfileSteps(matchProfile);
+    if (opts.firstQuestionOnly) {
+      profileSteps = profileSteps.slice(0, 1);
+      profileSteps[0].nextLabel = 'Sign in and continue';
+    }
+    function savedAnswers(answers){
+      return profileFromAnswers(Object.assign({}, matchProfile || defaultMatchProfile(), answers));
+    }
     var run = window.ArcadeFlow.start({
       label: 'AI MATCHMAKING',
       topSlot: matchProfileMasthead(),
       skipLabel: profileContinueLabel,
-      steps: matchProfileSteps(matchProfile),
-      launch: {
+      steps: profileSteps,
+      launch: opts.firstQuestionOnly ? false : {
         title: 'Your side of the table is set.',
         hint: 'Entering the queue saves your issue answers to a private match profile. Debatable uses them to rank viewpoint matches and generate a motion from a shared disagreement. Other people and the judge never see them.',
         cta: opts.editing ? 'Save changes' : (state.named ? 'Find my opponent' : 'Sign in and find my opponent')
@@ -3818,7 +3826,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       onSkip: function(answers){
         activeMatchProfileRun = null;
         document.body.classList.remove('match-profile-open');
-        matchProfile = answers ? profileFromAnswers(answers) : (matchProfile || defaultMatchProfile());
+        matchProfile = answers ? savedAnswers(answers) : (matchProfile || defaultMatchProfile());
         saveMatchProfileLocal();
         applyMatchProfileExperience();
         state.profileReady = true;
@@ -3832,7 +3840,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       onDone: function(answers){
         activeMatchProfileRun = null;
         document.body.classList.remove('match-profile-open');
-        matchProfile = profileFromAnswers(answers);
+        matchProfile = savedAnswers(answers);
         saveMatchProfileLocal();
         applyMatchProfileExperience();
         state.profileReady = true;
@@ -3853,7 +3861,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     activeMatchProfileRun = run;
     window.__sparSaveDeskProgress = function(){
       if (!state.profileFlowOpen) return;
-      matchProfile = profileFromAnswers(run.answers);
+      matchProfile = savedAnswers(run.answers);
       saveMatchProfileLocal();
     };
     var root = document.querySelector('.afl');
@@ -3883,7 +3891,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           railSkip.click();
         });
         root.appendChild(bar);
-        if (!opts.editing) waitingOffer = deskWaitingOffer(root, function(){ railSkip.click(); });
+        if (!opts.editing && !opts.firstQuestionOnly) waitingOffer = deskWaitingOffer(root, function(){ railSkip.click(); });
         // On the launch panel the on-panel button is the action, so the
         // footer stands down rather than stacking two red buttons.
         var launchPanel = root.querySelector('.afl-panel--launch');
@@ -4065,7 +4073,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       '</div>';
     var b = document.getElementById('startMatchProfileBtn');
     if (b) b.addEventListener('click', function(){
-      startMatchProfileFlow({ onDone: joinQueue, onClose: renderProfileGate });
+      startMatchProfileFlow({ firstQuestionOnly: !state.named, onDone: joinQueue, onClose: renderProfileGate });
     });
     var sk = document.getElementById('skipMatchProfileBtn');
     if (sk) sk.addEventListener('click', function(){
@@ -4625,10 +4633,14 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     gateLivePollTimer = setInterval(refresh, 15000);
   }
 
-  // 2026-09-06: meeting someone takes priority over the optional Match
-  // Desk. Sign in, search, then enter once both people confirm readiness.
+  // Let a new visitor answer the image question before the account ask.
+  // The rest of the desk stays optional after sign-in while searching.
   function renderSignedOutEntry(){
-    renderGate();
+    if (matchProfile || qs.get('dm') || qs.get('thread') || qs.get('inbox') || qs.get('invite')) {
+      renderGate();
+      return;
+    }
+    startMatchProfileFlow({ firstQuestionOnly: true, onDone: renderGate, onClose: renderProfileGate });
   }
 
   // Guest with a session: queue if someone is there and a round is left,
@@ -9541,13 +9553,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         if (badge) badge.hidden = true;
         var fabBadge = document.getElementById('wlFabBadge');
         if (fabBadge) fabBadge.hidden = true;
-        // No session: show the live-video account door. Matching
-        // preferences remain optional after sign-in.
+        // A first image question precedes the live-video account door.
         if (!mintGuestSession()) renderSignedOutEntry();
       }
     });
   } else {
-    renderGate();
+    renderSignedOutEntry();
   }
 })();
 </script>
