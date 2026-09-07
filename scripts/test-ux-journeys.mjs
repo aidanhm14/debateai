@@ -313,10 +313,11 @@ check(
 // with a blinking dot directly above the example board, not a pill in the
 // CTA column.
 check(
-  // 2026-09-07: the two-sentence pitch sits between the wrap and the live
-  // line (founder's memo: "two sentences ... so that I understand what this
-  // is but I can still see join the debate").
-  /<div class="fs-board-wrap">\s*(?:<!--[\s\S]*?-->\s*)*<div class="fs-pitch">[\s\S]*?<\/div>\s*<div class="fs-live-line" data-live-now-wrap>[\s\S]*?<div class="fs-board" id="fsBoard">/.test(landing)
+  // 2026-09-07: a visible pitch block lived between the wrap and the live
+  // line for an hour and the founder cut it ("straight bad"). Comments may
+  // sit there; no copy may.
+  /<div class="fs-board-wrap">\s*(?:<!--[\s\S]*?-->\s*)*<div class="fs-live-line" data-live-now-wrap>[\s\S]*?<div class="fs-board" id="fsBoard">/.test(landing)
+    && !landing.includes('class="fs-pitch"')
     && !landing.includes('fs-live-now--signed')
     && !landing.includes('class="fs-live-now"'),
   'landing puts the live count above the example board as a plain red line',
@@ -328,10 +329,9 @@ check(
   /<div class="fs-board" id="fsBoard">[\s\S]*?<div class="fs-actions">\s*<a class="fs-cta fs-cta--primary" href="\/spar"[\s\S]*?<div class="fs-actions-row">[\s\S]*?fs-cta--watch[\s\S]*?fs-cta--ai[\s\S]*?<\/div><!-- \/\.fs-board-wrap -->/.test(landing)
     && !landing.includes('<div class="fs-ctas">')
     && landing.includes('.fscreen-copy{display:none}')
-    && !landing.includes('<h1 class="fs-h1--sr">')
-    && /<h1 class="fs-pitch-h1">A debate game with an AI judge\.<\/h1>\s*<p class="fs-pitch-p">/.test(landing)
-    && /<p class="mh-sub mh-pitch"><b>A debate game with an AI judge\.<\/b>/.test(landing),
-  'landing desktop first screen is pitch, board, doors under it, no headline column (2026-09-07: the h1 is the visible one-line pitch above the board, and the phone carries it under the door)',
+    && /<h1 class="fs-h1--sr">[\s\S]*?<div class="fscreen-wrap">/.test(landing)
+    && !landing.includes('mh-pitch'),
+  'landing desktop first screen is board, doors under it, no headline column (2026-09-07: the one-hour pitch block is gone, per the founder)',
 );
 
 const topbar = read('app/js/topbar.js');
