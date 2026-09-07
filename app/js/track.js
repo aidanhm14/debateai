@@ -80,16 +80,32 @@
   // invisible for retention curves and cohort math.
   const HEARTBEAT_MS = 180_000;
 
+  // Storage can throw in embedded browsers. Keep this page observable even
+  // then; cross-page attribution still requires browser storage to work.
+  const sessionMemory = new Map();
+  function sessionGet(key) {
+    if (sessionMemory.has(key)) return sessionMemory.get(key);
+    try { return sessionStorage.getItem(key); } catch (e) { return null; }
+  }
+  function sessionSet(key, value) {
+    sessionMemory.set(key, String(value));
+    try { sessionStorage.setItem(key, String(value)); } catch (e) {}
+  }
+  function sessionRemove(key) {
+    sessionMemory.set(key, null);
+    try { sessionStorage.removeItem(key); } catch (e) {}
+  }
+
   // ── Session identity (per browser tab, survives SPA nav) ─────────
-  let sessionId = sessionStorage.getItem('_da_sid');
-  let sessionStart = Number(sessionStorage.getItem('_da_sst') || 0);
+  let sessionId = sessionGet('_da_sid');
+  let sessionStart = Number(sessionGet('_da_sst') || 0);
   if (!sessionId) {
     sessionId =
       (crypto && crypto.randomUUID && crypto.randomUUID()) ||
       (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
     sessionStart = Date.now();
-    sessionStorage.setItem('_da_sid', sessionId);
-    sessionStorage.setItem('_da_sst', String(sessionStart));
+    sessionSet('_da_sid', sessionId);
+    sessionSet('_da_sst', String(sessionStart));
   }
 
   // The first page in the tab is the acquisition door. Keep it for the
@@ -98,8 +114,8 @@
   // This deliberately follows the existing per-tab session lifetime.
   let sessionEntryPath = location.pathname || '/';
   try {
-    sessionEntryPath = sessionStorage.getItem('_da_entry_path') || sessionEntryPath;
-    sessionStorage.setItem('_da_entry_path', sessionEntryPath);
+    sessionEntryPath = sessionGet('_da_entry_path') || sessionEntryPath;
+    sessionSet('_da_entry_path', sessionEntryPath);
   } catch (e) {}
 
   // Durable anonymous id. sessionId resets per tab; this survives, so
@@ -121,7 +137,7 @@
 
   let currentUser = null;
   let heartbeatTimer = null;
-  let startFiredThisSession = sessionStorage.getItem('_da_sstf') === '1';
+  let startFiredThisSession = sessionGet('_da_sstf') === '1';
   let endFired = false;
   let pageViewFired = false;
   let pageViews = 0;
@@ -178,11 +194,11 @@
   // same-tab navigation only stays trusted if an interaction opened v2.
   let presenceReady = false;
   try {
-    if (sessionStorage.getItem('_da_pgate') === PRESENCE_GATE_VERSION) {
-      presenceReady = Number(sessionStorage.getItem('_da_plast') || 0) > 0;
+    if (sessionGet('_da_pgate') === PRESENCE_GATE_VERSION) {
+      presenceReady = Number(sessionGet('_da_plast') || 0) > 0;
     } else {
-      sessionStorage.removeItem('_da_plast');
-      sessionStorage.removeItem('_da_pgate');
+      sessionRemove('_da_plast');
+      sessionRemove('_da_pgate');
     }
   } catch (e) {}
 
@@ -198,7 +214,7 @@
     if (presenceReady) return;
     if (!event || event.isTrusted !== true) return;
     presenceReady = true;
-    try { sessionStorage.setItem('_da_pgate', PRESENCE_GATE_VERSION); } catch (e) {}
+    try { sessionSet('_da_pgate', PRESENCE_GATE_VERSION); } catch (e) {}
     presenceGateOff();
     presenceBeat();
   }
@@ -217,7 +233,7 @@
     try {
       if (document.hidden) return;
       if (presenceAutomated || !presenceReady) return;
-      const last = Number(sessionStorage.getItem('_da_plast') || 0);
+      const last = Number(sessionGet('_da_plast') || 0);
       if (Date.now() - last < PRESENCE_MIN_GAP_MS) return;
       // No prior beat in this tab = first beat of this session. Same
       // sessionStorage lifecycle as `_da_sid`, so it lines up with the
@@ -226,7 +242,7 @@
       // `path` for the entry-page tally — it cannot infer "first beat"
       // on its own without paying a read per beat.
       const isFirst = !last;
-      sessionStorage.setItem('_da_plast', String(Date.now()));
+      sessionSet('_da_plast', String(Date.now()));
       fetch('/api/presence-live', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -369,11 +385,9 @@
    * would otherwise lose the source on the second page, which is exactly
    * the page where the entry happens.
    *
-   * Two fields, not five, and only when present, so an organic visitor
-   * adds zero bytes to every event. utm_content and utm_term are read
-   * into the stash for the session_start row but are not carried on
-   * every heartbeat; source and campaign are what answer "which channel
-   * produced entrants", which is the whole question.
+   * Only populated fields ride on events, so an organic visitor adds
+   * zero campaign bytes. Source, medium, campaign, content and term
+   * survive navigation to connect creator clips to later round activity.
    */
   /* Entry referrer (2026-08-31). document.referrer only exists on the
    * arrival page's page_view; every later event in the session reads as
@@ -388,7 +402,7 @@
   const REF_KEY = '_da_refhost';
   let refHost = '';
   try {
-    const stashedRef = sessionStorage.getItem(REF_KEY);
+    const stashedRef = sessionGet(REF_KEY);
     if (stashedRef !== null) {
       refHost = stashedRef;
     } else {
@@ -396,7 +410,7 @@
       try { h = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
       if (/(^|\.)itsdebatable\.com$|(^|\.)debateai\.com$|^localhost$/.test(h)) h = '';
       refHost = h.slice(0, 60);
-      sessionStorage.setItem(REF_KEY, refHost);
+      sessionSet(REF_KEY, refHost);
     }
   } catch (e) {
     refHost = '';
@@ -405,25 +419,27 @@
   const UTM_KEY = '_da_utm';
   let campaign = null;
   try {
-    const stashed = sessionStorage.getItem(UTM_KEY);
-    if (stashed) {
-      campaign = JSON.parse(stashed);
-    } else {
-      const q = new URLSearchParams(location.search);
-      const src = (q.get('utm_source') || '').slice(0, 40);
-      if (src) {
-        campaign = {
-          utm_source: src,
-          utm_medium: (q.get('utm_medium') || '').slice(0, 40),
-          utm_campaign: (q.get('utm_campaign') || '').slice(0, 60),
-          utm_content: (q.get('utm_content') || '').slice(0, 60),
-          utm_term: (q.get('utm_term') || '').slice(0, 60),
-        };
-        sessionStorage.setItem(UTM_KEY, JSON.stringify(campaign));
-      }
+    const stashed = JSON.parse(sessionGet(UTM_KEY) || 'null');
+    if (stashed && typeof stashed.utm_source === 'string' && stashed.utm_source) {
+      campaign = {};
+      ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].forEach(function (key) {
+        campaign[key] = typeof stashed[key] === 'string' ? stashed[key].slice(0, key === 'utm_source' || key === 'utm_medium' ? 40 : 60) : '';
+      });
     }
-  } catch (e) {
-    campaign = null; // storage blocked, or a malformed stash: attribution is not worth an exception
+  } catch (e) {} // A damaged stash must not hide the current arrival link.
+  if (!campaign) {
+    const q = new URLSearchParams(location.search);
+    const src = (q.get('utm_source') || '').slice(0, 40);
+    if (src) {
+      campaign = {
+        utm_source: src,
+        utm_medium: (q.get('utm_medium') || '').slice(0, 40),
+        utm_campaign: (q.get('utm_campaign') || '').slice(0, 60),
+        utm_content: (q.get('utm_content') || '').slice(0, 60),
+        utm_term: (q.get('utm_term') || '').slice(0, 60),
+      };
+      sessionSet(UTM_KEY, JSON.stringify(campaign));
+    }
   }
 
   function baseMeta(extra) {
@@ -434,6 +450,7 @@
     };
     if (campaign && campaign.utm_source) {
       m.utm_source = campaign.utm_source;
+      if (campaign.utm_medium) m.utm_medium = campaign.utm_medium;
       if (campaign.utm_campaign) m.utm_campaign = campaign.utm_campaign;
       // 2026-09-01: content (the ad group) and term (the keyword) ride too,
       // so /api/admin/campaign can say WHICH ad produced a round rather
@@ -587,7 +604,7 @@
   function fireSessionStart() {
     if (startFiredThisSession) return;
     startFiredThisSession = true;
-    sessionStorage.setItem('_da_sstf', '1');
+    sessionSet('_da_sstf', '1');
     post('session_start', baseMeta({
       user_agent: (navigator.userAgent || '').slice(0, 200),
       screen: screen.width + 'x' + screen.height,
@@ -596,7 +613,7 @@
   }
 
   function fireHeartbeat() {
-    if (document.visibilityState !== 'visible') return;
+    if (!currentUser || document.visibilityState !== 'visible') return;
     post('session_heartbeat', baseMeta({
       duration_s: Math.floor((Date.now() - sessionStart) / 1000),
     }));
@@ -706,8 +723,9 @@
       stampGaIdentity(user);
       fireLifecycle();
       // Heartbeat stays signed-in only. See the note above.
-      if (!currentUser) return;
       if (heartbeatTimer) clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+      if (!currentUser) return;
       heartbeatTimer = setInterval(fireHeartbeat, HEARTBEAT_MS);
     });
   }

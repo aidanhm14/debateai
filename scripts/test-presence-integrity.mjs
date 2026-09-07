@@ -136,7 +136,7 @@ test('client gate does not treat scrolling as proof', () => {
 
 test('client gate invalidates sessions trusted by v1', () => {
   assert.match(track, /PRESENCE_GATE_VERSION = '2'/);
-  assert.match(track, /sessionStorage\.removeItem\('_da_plast'\)/);
+  assert.match(track, /sessionRemove\('_da_plast'\)/);
 });
 
 test('session replay also waits for trusted interaction', () => {

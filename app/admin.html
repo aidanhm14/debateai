@@ -741,7 +741,7 @@
         <button type="button" id="pc-reload">Reload</button>
       </div>
       <div style="color:var(--muted);font-size:12px;margin-bottom:12px;line-height:1.55">
-        Rounds started by visitors whose session carried this campaign tag, then the funnel that produced them. Clicks and cost live in Google Ads; the pass bar lives here. A start counted "via device" came from a later tab of the same person.
+        Activity from tagged sessions and later activity linked to the same account or device, after its first tagged visit. A human start means the room opened, not that a speech finished. Later activity can overlap other campaigns; it does not prove this campaign caused a return. The start target is an initial check, not a signal to increase spending.
       </div>
       <div id="pc-body" class="ts" style="padding:2px">Loading…</div>
     </div>
@@ -2931,14 +2931,14 @@ async function loadCampaign(fresh){
     if (!body) return;
     var r = d.rounds || {}, f = d.funnel || {};
     var passCls = d.passed ? 'ok' : 'no';
-    var passTxt = d.passed ? 'Pass bar met' : 'Below pass bar';
+    var passTxt = d.passed ? 'Start target met' : 'Below start target';
     if (!f.sessions) passTxt = 'No tagged traffic yet';
     var html = '<div class="pc-hero"><span class="big">' + (r.started || 0) + '</span>' +
       '<span style="font-size:13px;color:var(--muted)">rounds started of ' + d.passBar + ' needed</span>' +
       '<span class="pass ' + passCls + '">' + passTxt + '</span></div>';
     function step(k, v){ return '<div class="pc-step"><div class="k">' + k + '</div><div class="v">' + (v == null ? '–' : v) + '</div></div>'; }
     html += '<div class="pc-steps">' +
-      step('Sessions (ad clicks seen)', f.sessions) +
+      step('Tagged sessions', f.sessions) +
       step('Engaged', f.engagedSessions) +
       step('Reached /spar', f.reachedSpar) +
       step('Signed in', f.signedIn) +
@@ -2948,7 +2948,7 @@ async function loadCampaign(fresh){
       step('Rounds completed', r.completed) +
       '</div>';
     var kinds = Object.entries(r.byKind || {}).map(function(e){ return e[0] + ' ' + e[1]; }).join(' · ') || 'none';
-    html += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">By kind: <b>' + esc(kinds) + '</b> · via session ' + (r.viaSession || 0) + ' · via device ' + (r.viaDevice || 0) + ' · distinct people ' + (r.distinctStarters || 0) +
+    html += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">By kind: <b>' + esc(kinds) + '</b> · starts via session ' + (r.viaSession || 0) + ' · starts via account/device ' + (r.viaDevice || 0) + ' · distinct starter IDs ' + (r.distinctStarters || 0) + ' · completions via account/device ' + (r.completedViaDevice || 0) +
       (f.aiFallbacks ? ' · AI fallbacks ' + f.aiFallbacks : '') + (f.abandoned ? ' · abandon beacons ' + f.abandoned : '') + '</div>';
     var paths = Object.entries(d.pageViewsByPath || {}).sort(function(a, b){ return b[1] - a[1]; }).slice(0, 8);
     if (paths.length){
@@ -2966,7 +2966,7 @@ async function loadCampaign(fresh){
         html += '<div class="pc-row"><span>' + esc(s.kind) + (s.format ? ' · ' + esc(s.format) : '') + ' · ' + esc(s.uid || '') + (s.anon ? ' (anon)' : '') + ' · via ' + esc(s.via) + '</span><span class="n">' + (s.ts ? new Date(s.ts).toLocaleString() : '') + '</span></div>';
       });
     }
-    html += '<div style="font-size:11px;color:var(--muted);margin-top:10px">' + (d.indexed ? 'Indexed query' : 'Fallback query (composite index still building)') + (d.truncated ? ' · TRUNCATED at cap, counts are floors' : '') + ' · first tagged event ' + (d.firstSeen ? new Date(d.firstSeen).toLocaleString() : 'none') + ' · generated ' + (d.generatedAt ? new Date(d.generatedAt).toLocaleTimeString() : '') + '</div>';
+    html += '<div style="font-size:11px;color:var(--muted);margin-top:10px">' + (d.indexed ? 'Indexed query' : 'Fallback query (composite index still building)') + (d.truncated ? ' · TRUNCATED at cap, counts are floors' : '') + (d.incomplete ? ' · INCOMPLETE: some activity queries failed' : '') + ' · first tagged event ' + (d.firstSeen ? new Date(d.firstSeen).toLocaleString() : 'none') + ' · generated ' + (d.generatedAt ? new Date(d.generatedAt).toLocaleTimeString() : '') + '</div>';
     body.innerHTML = html;
   } catch (e) {
     if (body) body.innerHTML = '<div class="err-box">' + esc(e.message || String(e)) + '</div>';

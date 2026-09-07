@@ -196,6 +196,15 @@ if [ -f "$UX_JOURNEY_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Creator spend must not be judged on missing visits or pre-campaign rounds.
+if [ -f "$REPO_ROOT/scripts/test-campaign-readiness.mjs" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node --test scripts/test-campaign-readiness.mjs >/tmp/campaign-readiness-guard.log 2>&1); then
+    echo "[campaign-readiness] commit blocked - acquisition tracking or attribution regressed:" >&2
+    tail -40 /tmp/campaign-readiness-guard.log >&2
+    exit 1
+  fi
+fi
+
 # The canonical AI round must work in browsers that do not ship the Web
 # Speech API. Exercise its real hook with a fake MediaRecorder, including
 # the asynchronous final segment that used to be dropped on End speech.
