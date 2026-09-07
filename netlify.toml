@@ -20,7 +20,7 @@
 # ════════════════════════════════════════════════════════════════════
 
 [build]
-  command = "node scripts/bake-firestore-creds.mjs && echo 'Static Netlify deploy: publishing app/ without Vite build'"
+  command = "node scripts/bake-firestore-creds.mjs && node scripts/build-design.mjs && echo 'Static Netlify deploy: publishing app/ without Vite build'"
   publish = "app"
   functions = "app/netlify/functions"
   edge_functions = "app/netlify/edge-functions"
@@ -1814,6 +1814,19 @@
   from = "/director"
   to = "/director.html"
   status = 200
+
+# Private visual editor. Every draft API read and write requires admin auth.
+[[headers]]
+  for = "/design*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    Cache-Control = "private, no-store"
+
+[[redirects]]
+  from = "/design"
+  to = "/design.html"
+  status = 200
+  force = true
 
 [[redirects]]
   from = "/admin"

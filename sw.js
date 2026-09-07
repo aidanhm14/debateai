@@ -6,7 +6,7 @@
 
 
 
-const CACHE_NAME = 'debateos-v3497';
+const CACHE_NAME = 'debateos-v3498';
 
 
 
@@ -169,6 +169,10 @@ self.addEventListener('fetch', (event) => {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     return;
   }
+
+  // Private editor previews carry a fresh URL on each load. Caching them
+  // would accumulate one disposable copy of a large page per edit session.
+  if (url.searchParams.has('__design') || /^\/design(?:\.html)?$/.test(url.pathname)) return;
 
   // Never intercept API calls — let them go straight to the network.
   // API 404s were being cached and replayed, which broke /api/claude etc.
