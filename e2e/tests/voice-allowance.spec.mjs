@@ -134,14 +134,14 @@ test('a late allowance response cannot overwrite the next account or sign-out', 
   await expect(page.locator('[data-voice-allowance="setup"]')).toContainText('5 voice minutes left');
 });
 
-test('meter fits a phone and uses readable light-theme colors', async ({ page }) => {
+test('meter fits a phone and uses readable light-theme colors', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await boot(page, { ...free, remaining: 0, ok: false, reason: 'free_limit' });
   const meter = page.locator('[data-voice-allowance="setup"]');
   await expect(meter).toBeVisible();
   expect(await meter.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
   expect(await meter.locator('a').first().evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
-  await page.screenshot({ path: '/private/tmp/debatable-allowance-mobile.png' });
+  await page.screenshot({ path: testInfo.outputPath('debatable-allowance-mobile.png') });
   await page.evaluate(() => document.documentElement.dataset.theme = 'light');
   expect(await meter.locator('.va-detail').evaluate(el => getComputedStyle(el).color)).toBe('rgba(22, 22, 26, 0.58)');
 });
