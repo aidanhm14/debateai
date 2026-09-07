@@ -15117,10 +15117,17 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         v.dc = dc;
         dc.onopen = function(){
           if (v.stopped) return;
+          // The script goes over as a user MESSAGE, not only in the
+          // session instructions. Measured on production 2026-09-07: with
+          // the ballot in the mint's instructions alone the model answered
+          // "I don't have the text of the ballot in this conversation" and
+          // read nothing; as a conversation item it read all of it,
+          // verbatim, on the same session config. The mint's instructions
+          // still set who is speaking and how.
           try {
-            dc.send(JSON.stringify({ type: 'session.update', session: { type: 'realtime', output_modalities: ['audio'],
-              audio: { input: { turn_detection: null }, output: { voice: mint.voice || 'cedar', speed: 1.0 } } } }));
-            dc.send(JSON.stringify({ type: 'response.create', response: { instructions: 'Read the BALLOT now, word for word, from its first word to its last. Say nothing before it and nothing after it.' } }));
+            dc.send(JSON.stringify({ type: 'conversation.item.create', item: { type: 'message', role: 'user',
+              content: [{ type: 'input_text', text: 'BALLOT:\n\n' + text }] } }));
+            dc.send(JSON.stringify({ type: 'response.create', response: { instructions: 'Read the BALLOT in the message above out loud, word for word, from its first word to its last. Say nothing before it and nothing after it.' } }));
           } catch(err){ fail(err); return; }
           if (settled) return;
           settled = true;
@@ -15136,12 +15143,18 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
             if (!settled) fail(new Error((msg.error && msg.error.message) || 'realtime-error'));
             return;
           }
+          // response.done fires when GENERATION finishes, and the model
+          // generates far ahead of real time: measured 2026-09-07, done at
+          // 2.9s against playback ending at 15.3s. Tearing down there cut
+          // the read after two seconds. output_audio_buffer.stopped is the
+          // event that means the room has heard the last of it.
           if (msg.type === 'response.done'){
-            // Generation is done; the last audio frames are still on the
-            // wire for a moment. Give them time to land before the pill
-            // goes, so the read never ends a syllable early.
             v.done = true;
-            setTimeout(teardown, 1800);
+            // Safety net only: a stopped event that never arrives.
+            setTimeout(function(){ if (!v.stopped) teardown(); }, 240000);
+          }
+          if (msg.type === 'output_audio_buffer.stopped' && v.done){
+            setTimeout(teardown, 400);
           }
         };
         pc.onconnectionstatechange = function(){

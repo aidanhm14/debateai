@@ -17,9 +17,16 @@
 //   free to mint), an IP backstop, a 4800-char cap, and a session whose
 //   instructions forbid anything but reading the text it was handed.
 // - Output only. No mic track, no tools, no turn detection. The client
-//   opens a recv-only audio transceiver, sends one response.create, and
-//   tears down on response.done. A session that cannot hear cannot be
+//   opens a recv-only audio transceiver, hands the script over as one
+//   user message, sends one response.create, and tears down on
+//   output_audio_buffer.stopped. A session that cannot hear cannot be
 //   steered into a conversation on our minutes.
+// - The script rides in the mint's instructions AND is re-sent by the
+//   client as a conversation item. Measured on production 2026-09-07:
+//   with the text only in instructions the model said it had no ballot
+//   "in this conversation" and read nothing; as a message it read the
+//   whole thing verbatim. The instructions still set the role and the
+//   delivery; the message is what gets read.
 // - Same GA mint + SDP endpoints as room-topic.mjs; see the "OpenAI
 //   Realtime API reference" section of AGENTS.md before changing the body.
 import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
