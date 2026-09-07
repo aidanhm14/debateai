@@ -152,6 +152,20 @@ if [ -f "$WEBPUSH_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Function-source guard. The publish dir contains the functions tree, so a
+# forced /netlify/* 404 is the only thing between a GET and the build-baked
+# Firestore service-account key (served live until 2026-09-07). Also refuses
+# a commit that stages real values into the _firestore-creds.mjs stub.
+SRC_GUARD="$REPO_ROOT/scripts/test-netlify-source-not-served.mjs"
+if [ -f "$SRC_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-netlify-source-not-served.mjs >/tmp/src-guard.log 2>&1); then
+    echo "[source-guard] commit blocked - the /netlify/* block rule or the creds stub is wrong:" >&2
+    tail -30 /tmp/src-guard.log >&2
+    echo "[source-guard] see scripts/test-netlify-source-not-served.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 # Auth-modal lifecycle guard. Onboarding reacts to the completed Firebase
 # session immediately, so the higher-z-index sign-in card must come down before
 # same-page navigation or it can hide onboarding behind a completed login.

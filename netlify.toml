@@ -78,6 +78,22 @@
 # redirects). All legacy domains must remain Netlify domain aliases
 # with DNS pointed at Netlify for these to fire.
 
+# ── SECURITY: never serve the function source tree as static files ──
+# The publish dir is app/ and the functions live at app/netlify/functions,
+# so every function file (and the build-baked lib/_firestore-creds.mjs,
+# which carries the Firestore service-account private key) was reachable
+# as a plain GET at /netlify/functions/... until 2026-09-07. Real function
+# invocation goes through /.netlify/functions/* (leading dot) and /api/*,
+# so this rule cannot touch a working call. Forced so a same-named file
+# can never win over it, and FIRST so no earlier rule can shadow it.
+# scripts/test-netlify-source-not-served.mjs guards this rule; the e2e
+# smoke also probes the live URL and expects a 404.
+[[redirects]]
+  from = "/netlify/*"
+  to = "/404"
+  status = 404
+  force = true
+
 # ── canonical-host normalization: www + http → https apex ──
 [[redirects]]
   from = "https://www.itsdebatable.com/*"
