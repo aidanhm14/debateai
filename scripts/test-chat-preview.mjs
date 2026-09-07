@@ -102,16 +102,25 @@ const renderer = landing.slice(landing.indexOf('  /* fsChats:'), landing.indexOf
 const code = renderer.slice(renderer.indexOf('(function(){'), renderer.lastIndexOf('  (function(){'));
 function element() {
   const classes = new Set();
-  return { children: [], innerHTML: '', scrollTop: 0, clientHeight: 100, scrollHeight: 200,
-    appendChild(child) { this.children.push(child); }, setAttribute() {},
-    classList: { add: x => classes.add(x), remove: x => classes.delete(x), contains: x => classes.has(x) } };
+  const attributes = new Map();
+  const handlers = {};
+  return { children: [], scrollTop: 0, clientHeight: 100, scrollHeight: 200, attributes, handlers,
+    get innerHTML() { return ''; }, set innerHTML(value) { this.children = []; },
+    appendChild(child) { this.children.push(child); },
+    setAttribute(key, value) { attributes.set(key, value); },
+    addEventListener(name, handler) { handlers[name] = handler; },
+    style: { setProperty() {} },
+    querySelectorAll() { return this.children; },
+    cloneNode() { const copy = element(); copy.children = this.children.map(child => child.cloneNode()); return copy; },
+    classList: { add: x => classes.add(x), remove: x => classes.delete(x), contains: x => classes.has(x),
+      toggle: x => { if (classes.has(x)) { classes.delete(x); return false; } classes.add(x); return true; } } };
 }
-const panel = element(), list = element();
+const panel = element(), list = element(), pause = element();
 let scheduled, nextPayload = new Error('Network unavailable');
 const storage = new Map([['da-fs-chats', JSON.stringify({ at: Date.now(), messages: [{ text: 'Nobody is here!' }] })]]);
 const context = { console, Date, setInterval: fn => { scheduled = fn; },
   sessionStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
-  document: { hidden: false, getElementById: id => id === 'fsChats' ? panel : list,
+  document: { hidden: false, getElementById: id => id === 'fsChats' ? panel : id === 'fsChatsPause' ? pause : list,
     createDocumentFragment: element, createElement: element },
   fetch: async () => {
     if (nextPayload instanceof Error) throw nextPayload;
@@ -133,10 +142,25 @@ nextPayload = payload;
 scheduled();
 await new Promise(resolve => setImmediate(resolve));
 assert.equal(panel.classList.contains('is-live'), true, 'Real messages reveal the chat');
+const firstTrack = list.children[0];
+assert.equal(firstTrack.children.length, 2, 'Two equal groups form the seamless loop');
+assert.equal(firstTrack.children[0].children.length, payload.messages.length, 'Every real highlight is retained');
+assert.equal(firstTrack.children[1].attributes.get('aria-hidden'), 'true', 'The visual copy is not read twice');
+assert.ok(firstTrack.children[1].children.every(row => row.attributes.get('tabindex') === '-1'), 'Repeated links do not repeat in the tab order');
+pause.handlers.click();
+assert.equal(panel.classList.contains('is-paused'), true);
+assert.equal(pause.attributes.get('aria-pressed'), 'true');
+pause.handlers.click();
+assert.equal(panel.classList.contains('is-paused'), false);
+assert.equal(pause.textContent, 'Pause');
+scheduled();
+await new Promise(resolve => setImmediate(resolve));
+assert.equal(list.children[0], firstTrack, 'An unchanged refresh preserves the moving track instead of restarting it');
 nextPayload = { messages: [], error: 'temporarily unavailable' };
 scheduled();
 await new Promise(resolve => setImmediate(resolve));
 assert.equal(panel.classList.contains('is-live'), true, 'A failed poll preserves already curated messages');
+assert.equal(list.children[0], firstTrack, 'A failed poll also preserves the flow position');
 nextPayload = { messages: [], curated: true };
 scheduled();
 await new Promise(resolve => setImmediate(resolve));

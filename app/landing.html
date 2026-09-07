@@ -8468,38 +8468,18 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   [data-theme="light"] .fs-live-cap{color:#1a1a1f}
   .fs-live-cap:empty{display:none}
 
-  /* ── Live chats panel ── 2026-08-29, founder sketch ────────────────
-     The most live community chats sit in a third column between the
-     round display and the leaderboard rail. Wide desktop only: under
-     1360px the screen already spends its width on the copy, the board
-     and the rail, so the panel stands down entirely rather than
-     squeezing the proof. The column is part of the AUTHORED grid at
-     this width (not toggled by the fetch), the lbr-ready lesson: a
-     layout that appears seconds after load is a jolt on the one thing
-     above the fold. Keep that space reserved, but reveal the whole
-     panel only after real messages render. Loading, empty and failed
-     first requests stay blank, including the header and buttons
-     (2026-09-07, Aidan: "chat or blank when not loaded"). */
+  /* Real chat highlights flow over the right edge of the first screen.
+     Keep the board's clearance stable while loading; an empty feed stays blank. */
   .fs-chats{display:none}
   .fs-chats:not(.is-live){visibility:hidden}
   @media(min-width:1360px){
-    /* 2026-09-03, the founder: "widen the display thing and put the comment
-       section a bit more right". Wider board column, wider gap to the chats. */
-    .fscreen-wrap{max-width:1440px;grid-template-columns:minmax(0,676px) minmax(250px,.5fr);column-gap:clamp(48px,5.5vw,110px)}
-    .fs-chats{display:flex;margin-left:14px;/* 2026-09-03, the founder: "more this a little right" */flex-direction:column;grid-column:2;grid-row:1 / span 2;
-      align-self:center;min-width:0;min-height:0;overflow:hidden;
-      /* 2026-09-03, the founder: the sign-in nudge card docks bottom-right
-         and was landing on the panel. Shorter, so the two never meet. */
-      height:min(560px,calc(100svh - 300px));
-      background:linear-gradient(168deg,#232228 0%,#1c1b20 58%,#17161a 100%);
-      border:1px solid rgba(245,239,231,.14);border-radius:18px;
-      padding:15px 15px 13px;color:#f5efe7;
-      box-shadow:0 22px 48px rgba(0,0,0,.42),0 3px 10px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.06)}
-    [data-theme="light"] .fs-chats{background:linear-gradient(168deg,#ffffff 0%,#fdfdfc 58%,#f8f7f5 100%);
-      border-color:rgba(26,26,31,.1);color:#1a1a1f;
-      box-shadow:0 22px 48px rgba(24,22,28,.09),0 3px 10px rgba(24,22,28,.05),inset 0 1px 0 #fff}
+    .fscreen-wrap{position:relative;max-width:1440px;grid-template-columns:minmax(0,676px) minmax(250px,.5fr);column-gap:clamp(48px,5.5vw,110px)}
+    .fs-chats{display:flex;position:absolute;right:0;top:50%;transform:translateY(-50%);
+      width:clamp(270px,23vw,360px);flex-direction:column;min-width:0;min-height:0;
+      height:min(520px,calc(100svh - 300px));color:#f5efe7;pointer-events:none}
+    [data-theme="light"] .fs-chats{color:#1a1a1f}
   }
-  .fs-chats-top{display:flex;align-items:center;gap:8px;margin-bottom:11px;flex:none}
+  .fs-chats-top{display:flex;align-items:center;gap:9px;margin-bottom:12px;flex:none;pointer-events:auto}
   .fs-chats-dot{flex:none;width:8px;height:8px;border-radius:50%;background:rgba(245,239,231,.28)}
   [data-theme="light"] .fs-chats-dot{background:rgba(26,26,31,.22)}
   .fs-chats.is-live .fs-chats-dot{background:#16a34a;
@@ -8508,52 +8488,47 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-chats-title{font-size:.58rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;
     color:rgba(245,239,231,.68)}
   [data-theme="light"] .fs-chats-title{color:rgba(26,26,31,.64)}
-  /* The Discord door (2026-09-04). Blurple on both themes on purpose: it
-     is the platform's colour, and a button that reads as Discord from
-     across the room is the whole point of putting it here. */
-  .fs-chats-discord{margin-left:auto;flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;
-    padding:6px 13px 6px 10px;border-radius:999px;background:#5865F2;color:#fff;text-decoration:none;
-    font-size:.78rem;font-weight:800;letter-spacing:.01em;line-height:1;
-    box-shadow:0 6px 16px rgba(88,101,242,.32);transition:background .14s,transform .14s}
+  .fs-chats-discord{margin-left:auto;flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;
+    color:#a5adff;text-decoration:none;font-size:.78rem;font-weight:800;line-height:1.4}
+  [data-theme="light"] .fs-chats-discord{color:#4752c4}
   .fs-chats-discord svg{flex:none;display:block}
-  .fs-chats-discord:hover{background:#4752c4;transform:translateY(-1px);color:#fff}
+  .fs-chats-discord:hover{text-decoration:underline}
   .fs-chats-discord:focus-visible{outline:2px solid #5865F2;outline-offset:2px}
-  /* The feed. CONVERSATION order, oldest at the top and newest at the
-     bottom (newest-first made every thread read backwards, the bug
-     the founder flagged 2026-08-29). Each row one message: room tag,
-     handle, text, age — every row is chipped with its room since
-     2026-08-31, when the panel became a deliberate mix of every
-     public chat. Rows are anchors into /community so any line someone
-     finds interesting is a door, not a screenshot. */
-  /* The newest message sits at the bottom like a chat. The list owns
-     the scroll, so the header and join button never disappear when a
-     visitor moves upward through the recent conversation. */
-  .fs-chats-list{display:flex;flex:1 1 auto;flex-direction:column;gap:4px;min-height:0;
-    overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;
-    touch-action:pan-y;padding-right:3px}
-  .fs-chats-list::-webkit-scrollbar{width:6px}
-  .fs-chats-list::-webkit-scrollbar-thumb{background:rgba(245,239,231,.2);border-radius:999px}
-  [data-theme="light"] .fs-chats-list::-webkit-scrollbar-thumb{background:rgba(26,26,31,.18)}
-  .fs-chats-msg{display:block;text-decoration:none;color:inherit;border-radius:10px;
-    padding:7px 9px;border:1px solid transparent;
-    transition:background .15s ease,border-color .15s ease}
-  .fs-chats-msg:hover,.fs-chats-msg:focus-visible{background:rgba(245,239,231,.06);
-    border-color:rgba(245,239,231,.12)}
-  [data-theme="light"] .fs-chats-msg:hover,[data-theme="light"] .fs-chats-msg:focus-visible{
-    background:rgba(26,26,31,.04);border-color:rgba(26,26,31,.08)}
-  .fs-chats-meta{display:flex;align-items:baseline;gap:6px;margin-bottom:2px;min-width:0}
-  .fs-chats-room{flex:none;font-size:.6rem;font-weight:800;letter-spacing:.05em;color:#f87171}
+  .fs-chats-pause{border:0;padding:3px 0;background:none;color:inherit;font:inherit;
+    font-size:.66rem;cursor:pointer;opacity:.7}
+  .fs-chats-pause:hover{opacity:1}
+  .fs-chats-list{flex:1 1 auto;min-height:0;overflow:hidden;overscroll-behavior:contain;
+    scrollbar-width:none;pointer-events:auto;
+    mask-image:linear-gradient(to bottom,transparent,#000 10%,#000 88%,transparent)}
+  .fs-chats-list::-webkit-scrollbar{display:none}
+  .fs-chats-track{animation:fsChatsFlow var(--fs-chat-duration,60s) linear infinite}
+  .fs-chats-group{display:flex;flex-direction:column;gap:18px;padding:0 0 18px;min-height:var(--fs-chat-height,0px)}
+  @keyframes fsChatsFlow{to{transform:translateY(-50%)}}
+  .fs-chats:hover .fs-chats-track,.fs-chats.is-paused .fs-chats-track{animation-play-state:paused}
+  .fs-chats-list:focus-within .fs-chats-track{animation:none;transform:none}
+  .fs-chats-list:focus-within{overflow-y:auto;mask-image:none}
+  .fs-chats-list:focus-within .fs-chats-copy{display:none}
+  .fs-chats-msg{display:block;text-decoration:none;color:inherit;padding:0 3px;
+    font-size:.9rem;line-height:1.55;overflow-wrap:anywhere}
+  .fs-chats-msg:hover .fs-chats-text{text-decoration:underline;text-underline-offset:3px}
+  .fs-chats-msg:focus-visible{outline:2px solid var(--accent,#dc2626);outline-offset:1px}
+  .fs-chats-meta{display:inline}
+  .fs-chats-room{font-size:.59rem;font-weight:800;letter-spacing:.05em;color:#f87171;margin-right:6px}
   [data-theme="light"] .fs-chats-room{color:#dc2626}
-  .fs-chats-handle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-    font-size:.72rem;font-weight:700;color:rgba(245,239,231,.85)}
-  [data-theme="light"] .fs-chats-handle{color:rgba(26,26,31,.82)}
-  .fs-chats-text{margin:0;font-size:.78rem;line-height:1.4;color:rgba(245,239,231,.72);
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  [data-theme="light"] .fs-chats-text{color:rgba(26,26,31,.66)}
-  .fs-chats-cta{margin-top:11px;flex:none;text-align:center;font-size:.78rem;font-weight:800;text-decoration:none;
-    color:#fff;background:#dc2626;border-radius:10px;padding:9px 12px;
-    transition:background .15s ease}
-  .fs-chats-cta:hover,.fs-chats-cta:focus-visible{background:#b91c1c}
+  .fs-chats-handle{font-weight:800;color:#f5efe7}
+  [data-theme="light"] .fs-chats-handle{color:#29292e}
+  .fs-chats-handle::after{content:': '}
+  .fs-chats-text{display:inline;margin:0 0 0 5px;color:rgba(245,239,231,.84)}
+  [data-theme="light"] .fs-chats-text{color:rgba(26,26,31,.8)}
+  .fs-chats-cta{margin-top:12px;align-self:flex-start;flex:none;font-size:.75rem;font-weight:700;
+    text-decoration:none;color:inherit;pointer-events:auto}
+  .fs-chats-cta:hover{text-decoration:underline;text-underline-offset:3px}
+  @media(prefers-reduced-motion:reduce){
+    .fs-chats-track{animation:none}
+    .fs-chats-copy{display:none}
+    .fs-chats-list{overflow-y:auto;mask-image:none}
+    .fs-chats-pause{display:none}
+  }
 </style>
 <style>
 /* ── Arena type roles, applied (2026-08-19 redesign) ─────────────────
@@ -9298,14 +9273,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <!-- 2026-09-04, Aidan off a screenshot of this header: "put a discord
              button right there actually its better. itll pull ppl in. take it
              outta nav, just on front page like that." The Discord door left the
-             topbar the same day and lives here, on the one card that already
+         topbar the same day and lives here, beside the feed that already
              shows the Discord rows it opens onto. -->
         <a class="fs-chats-discord" href="https://discord.gg/WMHZW9BKvJ" target="_blank" rel="noopener" data-cta="first-screen-chats-discord" aria-label="Join the Debatable Discord">
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5.2 7.2c4.4-2.5 9.2-2.5 13.6 0 2.4 3 3.2 6.8 2.8 10.4l-3.5 2.1-1.8-3c-2.9 1-5.7 1-8.6 0l-1.8 3-3.5-2.1c-.4-3.6.4-7.4 2.8-10.4z" fill="#fff"/><circle cx="9" cy="12.3" r="1.35" fill="#5865F2"/><circle cx="15" cy="12.3" r="1.35" fill="#5865F2"/><path d="M7.7 15.4c2.8 1.6 5.8 1.6 8.6 0" fill="none" stroke="#5865F2" stroke-width="1.25"/></svg>
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M19.7 5.1a18 18 0 0 0-4.5-1.4l-.6 1.2a16.6 16.6 0 0 0-5.2 0l-.6-1.2a18 18 0 0 0-4.5 1.4C1.5 9.2.7 13.2 1.1 17.2a18 18 0 0 0 5.5 2.8l1.1-1.8-1.7-.8.4-.3c3.6 1.7 7.6 1.7 11.2 0l.4.3-1.7.8 1.1 1.8a18 18 0 0 0 5.5-2.8c.5-4.6-.8-8.6-3.2-12.1ZM8.4 14.8c-1.1 0-1.9-1-1.9-2.2s.8-2.2 1.9-2.2 1.9 1 1.9 2.2-.8 2.2-1.9 2.2Zm7.2 0c-1.1 0-1.9-1-1.9-2.2s.8-2.2 1.9-2.2 1.9 1 1.9 2.2-.8 2.2-1.9 2.2Z" fill="currentColor"/></svg>
           <span>Discord</span>
         </a>
+        <button class="fs-chats-pause" id="fsChatsPause" type="button" aria-label="Pause chat highlights" aria-pressed="false">Pause</button>
       </div>
-      <div class="fs-chats-list" id="fsChatsList"></div>
+      <div class="fs-chats-list" id="fsChatsList" aria-live="off"></div>
       <a class="fs-chats-cta" href="/community" data-community-join data-cta="first-screen-chats-join">Join the conversation</a>
     </aside>
     <script>
@@ -19848,7 +19824,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     setInterval(function(){ if (!document.hidden){ paint(); refreshReal(); } }, 45000);
   })();
 
-  /* fsChats: the "Chat highlights" column between the board and the
+  /* fsChats: the flowing text overlay to the right of the board and the
      leaderboard rail (2026-08-29 founder sketch; remixed 2026-08-31
      into a deliberate MIX of every public room, each row chipped with
      the chat it came from). One source, selected REAL messages from
@@ -19861,7 +19837,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      RETIRED on his newer explicit instruction; do not restore it.
      With no real messages the entire panel stays blank, including
      its header and buttons. There is no loading or failure card.
-     All text lands via textContent, never innerHTML. The panel is
+     The real highlights repeat in a continuous loop; an unchanged poll
+     keeps its place. All text lands via textContent, never innerHTML. The panel is
      display:none under 1360px, so nothing fetches until that layout
      is actually on screen. */
   (function(){
@@ -19871,10 +19848,23 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var mq = window.matchMedia ? window.matchMedia('(min-width:1360px)') : null;
     var started = false;
     var realRows = [];
-    // Keep the full server-capped recent window in the scroll area. The
-    // panel opens at the newest message; moving upward reveals the older
-    // rows without moving the header or join control off screen.
     var MAX_ROWS = 24;
+    var renderedKey = '';
+    var track = null;
+    var group = null;
+    var pauseButton = document.getElementById('fsChatsPause');
+    if (pauseButton) pauseButton.addEventListener('click', function(){
+      var paused = panel.classList.toggle('is-paused');
+      pauseButton.setAttribute('aria-pressed', String(paused));
+      pauseButton.setAttribute('aria-label', paused ? 'Resume chat highlights' : 'Pause chat highlights');
+      pauseButton.textContent = paused ? 'Resume' : 'Pause';
+    });
+    function sizeFlow(){
+      if (!track || !group) return;
+      track.style.setProperty('--fs-chat-height', list.clientHeight + 'px');
+      track.style.setProperty('--fs-chat-duration', Math.max(24, group.scrollHeight / 14) + 's');
+    }
+    if (window.ResizeObserver) new ResizeObserver(sizeFlow).observe(list);
 
     // The payload is a recency-sorted superset across every public
     // room. A plain newest-N cut lets one busy room fill the panel
@@ -19916,14 +19906,19 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       if (!msgs.length){
         panel.classList.remove('is-live');
         list.innerHTML = '';
+        renderedKey = '';
+        track = group = null;
         return;
       }
-      var wasLive = panel.classList.contains('is-live');
-      var nearLatest = !wasLive || list.scrollTop + list.clientHeight >= list.scrollHeight - 28;
-      var previousTop = list.scrollTop;
       msgs = pickMix(msgs);
       msgs.sort(function(a, b){ return (a.at || 0) - (b.at || 0); });
-      var frag = document.createDocumentFragment();
+      var nextKey = JSON.stringify(msgs.map(function(m){ return [m.room, m.label, m.handle, m.text, m.at]; }));
+      if (nextKey === renderedKey) return;
+      renderedKey = nextKey;
+      track = document.createElement('div');
+      track.className = 'fs-chats-track';
+      group = document.createElement('div');
+      group.className = 'fs-chats-group';
       for (var i = 0; i < msgs.length; i++){
         var m = msgs[i];
         var a = document.createElement('a');
@@ -19947,23 +19942,31 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         // an unchipped row would be unattributable.
         var room = document.createElement('span');
         room.className = 'fs-chats-room';
-        room.textContent = String(m.label || '');
+        room.textContent = String(m.label || '') + ' ';
         meta.appendChild(room);
         var handle = document.createElement('span');
         handle.className = 'fs-chats-handle';
         handle.textContent = String(m.handle || '');
         meta.appendChild(handle);
-        var text = document.createElement('p');
+        var text = document.createElement('span');
         text.className = 'fs-chats-text';
         text.textContent = String(m.text);
         a.appendChild(meta); a.appendChild(text);
-        frag.appendChild(a);
+        group.appendChild(a);
       }
+      // The second copy joins the loop seamlessly, without repeating
+      // links in keyboard navigation or assistive reading.
+      var copy = group.cloneNode(true);
+      copy.classList.add('fs-chats-copy');
+      copy.setAttribute('aria-hidden', 'true');
+      Array.prototype.forEach.call(copy.querySelectorAll('a'), function(a){ a.setAttribute('tabindex', '-1'); });
+      track.appendChild(group);
+      track.appendChild(copy);
       list.innerHTML = '';
-      list.appendChild(frag);
+      list.appendChild(track);
+      list.scrollTop = 0;
       panel.classList.add('is-live');
-      if (nearLatest) list.scrollTop = list.scrollHeight;
-      else list.scrollTop = Math.min(previousTop, Math.max(0, list.scrollHeight - list.clientHeight));
+      sizeFlow();
     }
 
     // A failed refresh preserves real messages already on screen;
@@ -19995,7 +19998,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       }
       poll();
       setInterval(function(){
-        if (!document.hidden && (!mq || mq.matches)){ poll(); renderAll(); }
+        if (!document.hidden && (!mq || mq.matches)) poll();
       }, 60000);
     }
     // Fetch only once the three-column layout is actually in use; a
