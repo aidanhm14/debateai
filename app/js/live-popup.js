@@ -371,10 +371,11 @@
 
       '.da-wait-invite{box-sizing:border-box;width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 32px);',
       'padding:32px;margin:auto;border:1px solid var(--border-strong,rgba(255,255,255,.18));border-radius:24px;',
-      'background:var(--bg-card,#19191f);color:var(--text,#fff);box-shadow:0 24px 90px rgba(0,0,0,.45);',
+      // --bg-card is translucent; a modal needs a solid surface above its backdrop.
+      'background:var(--bg-elev-solid,var(--bg,#19191f));color:var(--text,#fff);box-shadow:0 24px 90px rgba(0,0,0,.45);',
       'font-family:"Archivo","Inter",system-ui,sans-serif;text-align:center;overflow:auto}',
       '.da-wait-invite::backdrop{background:rgba(0,0,0,.58);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}',
-      '.da-wait-invite__label{margin:0 0 22px;color:#22c55e;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}',
+      '.da-wait-invite__label{margin:0 0 22px;color:var(--success-text,#4ade80);font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}',
       '.da-wait-invite__avatar{display:grid;place-items:center;width:72px;height:72px;margin:0 auto 20px;',
       'border:1px solid rgba(34,197,94,.45);border-radius:50%;background:rgba(34,197,94,.1);font-size:28px;font-weight:800}',
       '.da-wait-invite h2{margin:0;font-size:28px;line-height:1.2;overflow-wrap:anywhere}',
@@ -383,7 +384,7 @@
       'border:1px solid var(--border-strong,rgba(255,255,255,.2));border-radius:12px;background:transparent;color:inherit;',
       'font:700 16px "Archivo","Inter",system-ui,sans-serif;cursor:pointer}',
       '.da-wait-invite button[data-accept]{background:#dc2626;color:#fff;border-color:#dc2626}',
-      '.da-wait-invite button:focus-visible{outline:3px solid #22c55e;outline-offset:4px}',
+      '.da-wait-invite button:focus-visible{outline:3px solid var(--success-text,#4ade80);outline-offset:4px}',
       'html.da-debate-invite-open,html.da-debate-invite-open body{overflow:hidden!important}',
 
       /* Light themes: the card is a surface, not a hole. */
