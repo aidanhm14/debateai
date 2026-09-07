@@ -14991,11 +14991,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     return lines.join(' ');
   }
 
-  // Stream the verdict + RFD through /api/tts and play it back. Uses
-  // the professor persona (closest match to a measured tournament-
-  // judge cadence). Free-tier OpenAI gpt-4o-mini-tts by default; the
-  // server picks ElevenLabs automatically for paid users via the
-  // shared TTS routing.
+  // The judge reads the ballot in the OpenAI Realtime voice (2026-09-07,
+  // Aidan on the "Judge reading" pill: "use realtime api gpt this is bad
+  // audio i dont like it"). /api/ballot-voice mints an output-only
+  // Realtime session carrying the script in its instructions; this
+  // browser opens a recv-only WebRTC leg, asks for one response, plays
+  // it, and tears down on response.done. The /api/tts path below stays
+  // as the fallback for a mint that fails or a browser without WebRTC,
+  // so the verdict is never silent because the better voice was busy.
   function startBallotReadAloud(b){
     // Tear down any prior audio so re-entering this function never
     // stacks two judge voices.
@@ -15009,6 +15012,128 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       var dot = cut.lastIndexOf('. ');
       text = dot > 3000 ? cut.slice(0, dot + 1) : cut;
     }
+    startBallotRealtimeRead(text).catch(function(err){
+      console.warn('[read-aloud] realtime voice unavailable, falling back to tts', err && err.message);
+      try { gtag('event', 'ballot_read_aloud_fallback', { format: state.formatKey, reason: String(err && err.message || '').slice(0, 60) }); } catch(e){}
+      startBallotTtsRead(text);
+    });
+  }
+
+  // Realtime leg. Resolves once audio is flowing; rejects before any
+  // audio has played so the caller can fall back cleanly.
+  function startBallotRealtimeRead(text){
+    if (!window.RTCPeerConnection) return Promise.reject(new Error('no-webrtc'));
+    if (!state.user || !state.user.getIdToken) return Promise.reject(new Error('no-user'));
+    var v = { pc: null, dc: null, audio: null, stopped: false, done: false };
+    function teardown(){
+      if (v.stopped) return;
+      v.stopped = true;
+      try { if (v.dc) v.dc.close(); } catch(e){}
+      try { if (v.pc) v.pc.close(); } catch(e){}
+      if (v.audio){ try { v.audio.pause(); v.audio.srcObject = null; v.audio.remove(); } catch(e){} }
+      if (state.ballotVoice === v) state.ballotVoice = null;
+      if (state.ballotAudio === v.audio) state.ballotAudio = null;
+      renderBallotAudioControl();
+    }
+    v.teardown = teardown;
+    return state.user.getIdToken().then(function(token){
+      return fetch('/api/ballot-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ room: state.room, text: text })
+      });
+    }).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(d){
+        if (!r.ok || !d.ok || !d.voice || !d.voice.client_secret) throw new Error(d.error || ('mint ' + r.status));
+        return d.voice;
+      });
+    }).then(function(mint){
+      return new Promise(function(resolve, reject){
+        var settled = false;
+        function fail(err){ if (settled) return; settled = true; teardown(); reject(err); }
+        // A new read arriving while this one is still connecting wins.
+        if (state.ballotVoice && state.ballotVoice !== v) state.ballotVoice.teardown();
+        state.ballotVoice = v;
+        var pc = new RTCPeerConnection();
+        v.pc = pc;
+        pc.addTransceiver('audio', { direction: 'recvonly' });
+        v.audio = document.createElement('audio');
+        v.audio.autoplay = true; v.audio.playsInline = true; v.audio.setAttribute('playsinline', '');
+        v.audio.style.display = 'none';
+        document.body.appendChild(v.audio);
+        pc.ontrack = function(ev){
+          if (v.stopped) return;
+          var stream = ev.streams && ev.streams[0];
+          if (!stream) return;
+          v.audio.srcObject = stream;
+          var p = v.audio.play();
+          if (p && p.catch) p.catch(function(err){
+            console.warn('[read-aloud] autoplay blocked', err);
+            toast('Tap the speaker icon to play the verdict.');
+          });
+        };
+        var dc = pc.createDataChannel('oai-events');
+        v.dc = dc;
+        dc.onopen = function(){
+          if (v.stopped) return;
+          try {
+            dc.send(JSON.stringify({ type: 'session.update', session: { type: 'realtime', output_modalities: ['audio'],
+              audio: { input: { turn_detection: null }, output: { voice: mint.voice || 'cedar', speed: 1.0 } } } }));
+            dc.send(JSON.stringify({ type: 'response.create', response: { instructions: 'Read the BALLOT now, word for word, from its first word to its last. Say nothing before it and nothing after it.' } }));
+          } catch(err){ fail(err); return; }
+          if (settled) return;
+          settled = true;
+          state.ballotAudio = v.audio;
+          renderBallotAudioControl();
+          try { gtag('event', 'ballot_read_aloud_play', { format: state.formatKey, engine: 'realtime', model: mint.model || '' }); } catch(e){}
+          resolve();
+        };
+        dc.onmessage = function(ev){
+          var msg; try { msg = JSON.parse(ev.data); } catch(e){ return; }
+          if (msg.type === 'error'){
+            console.warn('[read-aloud] realtime error', msg.error);
+            if (!settled) fail(new Error((msg.error && msg.error.message) || 'realtime-error'));
+            return;
+          }
+          if (msg.type === 'response.done'){
+            // Generation is done; the last audio frames are still on the
+            // wire for a moment. Give them time to land before the pill
+            // goes, so the read never ends a syllable early.
+            v.done = true;
+            setTimeout(teardown, 1800);
+          }
+        };
+        pc.onconnectionstatechange = function(){
+          if (pc.connectionState === 'failed' || pc.connectionState === 'closed'){
+            if (!settled) fail(new Error('webrtc-' + pc.connectionState));
+            else if (!v.done) teardown();
+          }
+        };
+        pc.createOffer().then(function(offer){
+          return pc.setLocalDescription(offer).then(function(){
+            return fetch(mint.sdpUrl || 'https://api.openai.com/v1/realtime/calls', {
+              method: 'POST', body: offer.sdp,
+              headers: { Authorization: 'Bearer ' + mint.client_secret.value, 'Content-Type': 'application/sdp' }
+            });
+          });
+        }).then(function(res){
+          if (!res.ok) throw new Error('sdp ' + res.status);
+          return res.text();
+        }).then(function(answer){
+          if (v.stopped) throw new Error('stopped');
+          return pc.setRemoteDescription({ type: 'answer', sdp: answer });
+        }).catch(fail);
+        // A data channel that never opens is a dead session, not a slow one.
+        setTimeout(function(){ if (!settled) fail(new Error('connect-timeout')); }, 12000);
+      });
+    });
+  }
+
+  // TTS leg: the pre-2026-09-07 read, kept as the fallback. Streams the
+  // verdict + RFD through /api/tts and plays it back with the professor
+  // persona; the server picks ElevenLabs for paid users via the shared
+  // TTS routing and falls to gpt-4o-mini-tts otherwise.
+  function startBallotTtsRead(text){
     fetch('/api/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -15049,7 +15174,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         toast('Tap the speaker icon to play the verdict.');
       });
       renderBallotAudioControl();
-      try { gtag('event', 'ballot_read_aloud_play', { format: state.formatKey }); } catch(e){}
+      try { gtag('event', 'ballot_read_aloud_play', { format: state.formatKey, engine: 'tts' }); } catch(e){}
     }).catch(function(err){
       console.warn('[read-aloud] tts failed', err);
       toast('Read-aloud failed. The verdict is below.');
@@ -15057,6 +15182,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   }
 
   function stopBallotReadAloud(){
+    if (state.ballotVoice){ try { state.ballotVoice.teardown(); } catch(e){} state.ballotVoice = null; }
     var a = state.ballotAudio;
     if (a){ try { a.pause(); } catch(e){} }
     if (state.ballotAudioUrl){ try { URL.revokeObjectURL(state.ballotAudioUrl); } catch(e){} }

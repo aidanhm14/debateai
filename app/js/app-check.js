@@ -40,6 +40,8 @@
     '/api/signin-link',
     // The voice judge mint for the pre-round topic pick (real Realtime money).
     '/api/room-topic',
+    // The Realtime read of a finished ballot (real Realtime money too).
+    '/api/ballot-voice',
     // The stage: a viewer asking to argue on the live broadcast, and the
     // ballot for the round that follows. Both call checkAppCheck().
     '/api/stage', '/api/stage-judge',
