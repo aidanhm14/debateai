@@ -152,7 +152,11 @@ the default AI entry. **Narrow AI-practice exception, called 2026-09-03:**
 `/newvoice`, the public "Debate the AI" door, offers a clearly labeled
 "Competitive practice" path for competitive debaters. It opens
 `/practice?entry=competitive`, where the format picker and format-native
-speech engine are visible. Do not expose
+speech engine are visible. **The typed round on /practice is PAID as of
+2026-09-07:** a named account with no plan gets the plan card on the page and
+402 `PAYMENT_REQUIRED` from `/api/claude` on the `debate-ai*` request tags
+(`TYPED_ROUND_FEATURES` in claude.mjs; `TYPED_ROUND_PAID=0` reopens it).
+/newvoice is the one free way to debate the AI. Do not expose
 those formats on `/spar`, `/live-round`, the default `/practice` entry,
 navigation, marketing, metadata, or public guides. `/partners` and the
 old format guide routes redirect into the casual product.

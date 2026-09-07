@@ -3792,7 +3792,14 @@ function stripPlainMd(s) {
 // 2026-07-02: anonymous preview tightened 5 -> 1 so real practice happens
 // on accounts with saved rounds, leaderboards, and style learning.
 var ANON_LIMIT = 1;
-var SIGNED_IN_LIMIT = 10;
+// 2026-09-07 (Aidan): the typed round is a PAID feature. One free way to
+// debate the AI exists, the live voice round on /newvoice; the six brains
+// and the competitive formats here come with a plan. A named account with
+// no plan therefore has ZERO free rounds on this page and meets the plan
+// card at Start. /api/claude enforces the same rule server-side
+// (PAYMENT_REQUIRED on the debate-ai request tags), so this constant is
+// the on-screen half, not the wall.
+var SIGNED_IN_LIMIT = 0;
 function getUsage() {try {return parseInt(localStorage.getItem('debateos-anon-usage') || '0', 10);} catch {return 0;}}
 function incUsage() {try {localStorage.setItem('debateos-anon-usage', String(getUsage() + 1));} catch {}}
 function getEffectiveLimit() {
@@ -3824,7 +3831,7 @@ function hasCredit() {
 }
 function quotaError() {
   var err = new Error(isSignedIn() ?
-  window.__DB_NATIVE ? 'Your free rounds are used for now.' : 'Your free rounds are used. Upgrade to keep going.' :
+  window.__DB_NATIVE ? 'The typed round is part of a plan.' : 'The typed round comes with Individual, $10/year.' :
   'That was your free round. Sign in to keep going.');
   err.code = isSignedIn() ? 'QUOTA_PRO' : 'QUOTA_SIGNIN';
   if (typeof window !== 'undefined') {
@@ -3865,6 +3872,14 @@ function isOwnerEmail(email) {
   return OWNER_EMAIL_HASHES.has(emailIdentityHash(email));
 }
 function isPro() {return __proStatus;}
+// MUST match TYPED_ROUND_PLANS in netlify/functions/claude.mjs and
+// PAID_PLANS in lib/caller.mjs: individual, team, lifetime, byok, voice.
+// Only explicit Stripe-dead statuses revoke; past_due is a grace state.
+function planPaidFor(team) {
+  var PAID = ['individual', 'team', 'lifetime', 'byok', 'voice'];
+  var DEAD = ['canceled', 'cancelled', 'incomplete_expired', 'unpaid'];
+  return !!(team && PAID.indexOf(team.plan) !== -1 && DEAD.indexOf(team.status) === -1);
+}
 function isSignedIn() {return __signedInStatus;}
 
 // Default trait presets for quick start. "God" is the tournament-champion
@@ -4137,6 +4152,22 @@ async function callAI(sys, user, onChunk, brainKey, opts) {
   // dead", tries to spend the user's own BYOK key on it, and finally tells
   // them the AI is offline. Wrong on all three counts, and it buries the one
   // action that actually fixes it.
+  // 402 PAYMENT_REQUIRED: the typed round needs a plan (2026-09-07). The
+  // same card the round-start check shows, so a mid-round refusal (a plan
+  // that lapsed, or a stale client that skipped the start check) reads as
+  // the plan ask and not as a dead brain.
+  if (r.status === 402) {
+    var payRaw = await r.clone().text().catch(() => '');
+    var payCode = '',payMsg = '';
+    try {var payJson = JSON.parse(payRaw);payCode = payJson.code || '';payMsg = typeof payJson.error === 'string' ? payJson.error : '';} catch (e) {}
+    if (payCode === 'PAYMENT_REQUIRED') {
+      try {if (window.gtag) gtag('event', 'practice_paywall_402', { page: 'practice' });} catch (e) {}
+      var payErr = new Error(payMsg || 'The typed round comes with Individual, $10/year.');
+      payErr.code = 'QUOTA_PRO';
+      try {window.dispatchEvent(new CustomEvent('debateos-quota-hit', { detail: { code: 'QUOTA_PRO' } }));} catch (e) {}
+      throw payErr;
+    }
+  }
   if (r.status === 401) {
     var gateRaw = await r.clone().text().catch(() => '');
     var gateCode = '',gateMsg = '';
@@ -6274,11 +6305,7 @@ function App() {
     // callAI used to swallow as a generic failure and reroute to Claude
     // without saying anything. A failed card presented as the brain
     // picker quietly not working.
-    var PAID_PLANS = ['individual', 'team', 'lifetime', 'byok'];
-    var st = team && team.status;
-    var statusOk = !st || st === 'active' || st === 'trialing';
-    var planPro = !!(team && PAID_PLANS.indexOf(team.plan) !== -1 && statusOk);
-    __proStatus = planPro || isOwnerEmail(user && user.email);
+    __proStatus = planPaidFor(team) || isOwnerEmail(user && user.email);
   }, [team, user]);
 
   // Mirror auth state into the module-level helper. Modules that gate on
@@ -10042,9 +10069,9 @@ Rules:
     onClick: (e) => e.stopPropagation(),
     style: { maxWidth: 480, width: '100%', padding: '28px 28px 24px', background: 'var(--c-surface)', border: '1px solid rgba(239,68,68,.35)', borderRadius: 18, boxShadow: '0 20px 80px rgba(0,0,0,.6)', textAlign: 'center' }
   },
-  el('div', { style: { fontSize: '.6rem', fontWeight: 800, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--danger-text,#fca5a5)', marginBottom: 10 } }, quotaCTA === 'signin' ? 'Free rounds used' : 'Round limit reached'),
+  el('div', { style: { fontSize: '.6rem', fontWeight: 800, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--danger-text,#fca5a5)', marginBottom: 10 } }, quotaCTA === 'signin' ? 'Free rounds used' : window.__DB_NATIVE ? 'Part of a plan' : 'Individual plan'),
   el('div', { style: { fontSize: '1.3rem', fontWeight: 800, color: 'var(--c-bright)', lineHeight: 1.25, marginBottom: 8 } },
-  quotaCTA === 'signin' ? "The AI is starting to learn how you argue. Sign in to keep that." : 'You reached the round limit'
+  quotaCTA === 'signin' ? "The AI is starting to learn how you argue. Sign in to keep that." : 'Six brains and debate formats come with the plan.'
   ),
   el('div', { style: { fontSize: '.86rem', color: 'var(--c-text)', lineHeight: 1.5, marginBottom: 20 } },
   quotaCTA === 'signin' ?
@@ -10052,8 +10079,8 @@ Rules:
   // Apple 3.1.1: inside the native app the cap copy carries no pointer
   // to the web pricing page.
   window.__DB_NATIVE ?
-  "Your current round allowance is used. Return after the limit resets." :
-  "Your current round allowance is used. Individual is $10 a year for 250 requests a month and all six brains."
+  "The typed round is part of a plan. Debating the AI by voice stays free." :
+  "The typed round against the AI, every brain, and the competitive formats are on Individual, $10 a year. Debating the AI by voice stays free."
   ),
   el('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
   quotaCTA === 'signin' ?
@@ -10064,8 +10091,8 @@ Rules:
   // workspace stays as the secondary. Apple 3.1.1 keeps pricing out of
   // the native app, where the workspace remains the only button.
   el(React.Fragment, null,
-  !window.__DB_NATIVE && el('a', { href: '/pricing?source=practice-cap#plans', style: { padding: '12px 24px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 999, fontSize: '.85rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none', display: 'inline-block', boxShadow: '0 4px 16px rgba(239,68,68,.35)' } }, 'See Individual · $10/year →'),
-  el('a', { href: '/profile', style: { padding: '12px 24px', background: window.__DB_NATIVE ? '#ef4444' : 'transparent', color: window.__DB_NATIVE ? '#fff' : 'var(--c-text)', border: window.__DB_NATIVE ? 'none' : '1px solid rgba(127,127,127,.35)', borderRadius: 999, fontSize: '.85rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none', display: 'inline-block' } }, 'Open profile')
+  !window.__DB_NATIVE && el('a', { href: '/pricing?source=practice-paywall#plans', 'data-cta': 'practice-paywall-plan', onClick: () => {try {if (window.gtag) gtag('event', 'practice_paywall_click', { to: 'pricing' });} catch (e) {}}, style: { padding: '12px 24px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 999, fontSize: '.85rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none', display: 'inline-block', boxShadow: '0 4px 16px rgba(239,68,68,.35)' } }, 'Get Individual · $10/year →'),
+  el('a', { href: '/newvoice', 'data-cta': 'practice-paywall-voice', onClick: () => {try {if (window.gtag) gtag('event', 'practice_paywall_click', { to: 'newvoice' });} catch (e) {}}, style: { padding: '12px 24px', background: window.__DB_NATIVE ? '#ef4444' : 'transparent', color: window.__DB_NATIVE ? '#fff' : 'var(--c-text)', border: window.__DB_NATIVE ? 'none' : '1px solid rgba(127,127,127,.35)', borderRadius: 999, fontSize: '.85rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none', display: 'inline-block' } }, 'Debate by voice, free')
   )
   ),
   // 2026-05-27 — soft alt: email capture so anon users hitting the cap
@@ -11056,7 +11083,29 @@ Rules:
       onSkip: function (answers) {applySetupAnswers(answers, 'skip');}
     });
   };
+  // The plan card, shown BEFORE Start to a signed-in account with no plan
+  // (2026-09-07). "Discover the other two" is the founder's framing: the
+  // free way to debate the AI is the voice round, this typed round with its
+  // six brains and competitive formats is the paid one, and the page says
+  // so up front rather than at the first AI speech. Guests do not see it:
+  // they meet the sign-in ask first, then this. Paid status is derived
+  // from the same rule the server enforces (planPaidFor).
+  var typedRoundLocked = !!user && !planPaidFor(team) && !isOwnerEmail(user.email) && !getStoredKey();
+  var planLockCard = typedRoundLocked && !window.__DB_NATIVE && el('div', {
+    'data-practice-paywall': '1',
+    ref: (node) => {if (node && !node.dataset.seen) {node.dataset.seen = '1';try {if (window.gtag) gtag('event', 'practice_paywall_shown', { page: 'practice', where: 'setup' });} catch (e) {}}},
+    style: { margin: '0 auto 22px', padding: '18px 20px', border: '1px solid rgba(239,68,68,.35)', borderRadius: 16, background: 'rgba(239,68,68,.06)', textAlign: 'center' }
+  },
+  el('div', { style: { fontSize: '.6rem', fontWeight: 800, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--danger-text,#ef4444)', marginBottom: 8 } }, 'Individual plan'),
+  el('div', { style: { fontSize: '1.05rem', fontWeight: 800, color: 'var(--c-bright)', lineHeight: 1.3, marginBottom: 6 } }, 'Six brains and debate formats come with the plan.'),
+  el('div', { style: { fontSize: '.86rem', color: 'var(--c-text)', lineHeight: 1.5, marginBottom: 14 } }, 'The typed round, every AI brain, and the competitive formats are on Individual, $10 a year. Debating the AI by voice stays free.'),
+  el('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
+  el('a', { href: '/pricing?source=practice-paywall#plans', 'data-cta': 'practice-paywall-plan', onClick: () => {try {if (window.gtag) gtag('event', 'practice_paywall_click', { to: 'pricing', where: 'setup' });} catch (e) {}}, style: { padding: '11px 22px', background: '#ef4444', color: '#fff', borderRadius: 999, fontSize: '.84rem', fontWeight: 800, textDecoration: 'none', display: 'inline-block' } }, 'Get Individual · $10/year →'),
+  el('a', { href: '/newvoice', 'data-cta': 'practice-paywall-voice', onClick: () => {try {if (window.gtag) gtag('event', 'practice_paywall_click', { to: 'newvoice', where: 'setup' });} catch (e) {}}, style: { padding: '11px 22px', background: 'transparent', color: 'var(--c-text)', border: '1px solid rgba(127,127,127,.35)', borderRadius: 999, fontSize: '.84rem', fontWeight: 800, textDecoration: 'none', display: 'inline-block' } }, 'Debate by voice, free')
+  )
+  );
   var simpleSetupTree = el('div', { style: { maxWidth: 720, width: '100%', margin: '0 auto' } },
+  planLockCard,
   el('div', { style: { textAlign: 'center', marginTop: 6, marginBottom: 22 } },
   el('h2', { style: { fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--c-bright)', lineHeight: 1.2, margin: 0 } }, 'Start a casual 1v1 against the AI.'),
   el('p', { style: { fontSize: '.95rem', color: 'var(--c-text)', lineHeight: 1.5, margin: '8px auto 0', maxWidth: 600 } }, 'Take a side and argue one-on-one on the clock. The AI pushes back, then the judge scores you out of 100 and explains who won and why.')

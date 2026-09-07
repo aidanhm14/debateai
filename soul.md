@@ -230,6 +230,8 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 
 ## 10. Decision log (major decisions with why)
 
+- **The typed AI round is paid; the voice round is the one free way to debate the AI** (2026-09-07, Aidan, off a session replay of a free account running full typed rounds on /practice: first "make users pay for this after a certain point", then, after a detour, the rule in one line: "there is 1 type of AI to debate, to discover the other 2 for smarter brains, debate formats, user must pay"). **What was true before:** the "10 free signed-in rounds" on /practice lived in localStorage, and the only server-side ceiling behind it was `SIGNED_IN_BETA_DAILY_MAX` in `claude.mjs`, 20 calls a day that reset every midnight and never asked for a card. A named free account could run the six-brain typed round forever. **Now:** a named account with no paid plan has zero free typed rounds. `/api/claude` answers 402 `PAYMENT_REQUIRED` on the three request tags only /practice sends (`debate-ai`, `debate-ai-background-gen`, `debate-ai-motion-triage`), so the judge, live-round ballots, /learn, /judge and the voice mint are untouched; a plan-lookup failure fails OPEN (a paying person locked out by a Firestore blip is the worse mistake, the lib/caller.mjs posture). `TYPED_ROUND_PAID=0` in the env reopens it with no deploy. On the page, a signed-in free account sees the plan card at the top of setup before pressing anything ("Six brains and debate formats come with the plan", Get Individual $10/year, Debate by voice free) and the same card on Start or on a mid-round 402; `planPaidFor()` is one function shared by the effect and the render, matching the server's plan set (individual, team, lifetime, byok, voice; the client list had been missing voice). **Deliberately not touched:** /app (index.html), the older typed trainer, which still serves Claude on the daily beta cap; it is linked from four places and gating it is a separate call. Watch `practice_paywall_shown` against `practice_paywall_click` (to pricing vs to newvoice); if the card shows and nobody pays, the price is not the first suspect, the framing is.
+
 - **Timed speeches always count down (2026-09-07, Aidan).** Every timed
   speech clock shows minutes and seconds remaining and holds at `0:00`
   after expiry. It never flips to a positive or negative overtime clock.
@@ -1623,7 +1625,7 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 
 ---
 
-*Last updated: 2026-09-07 (latest pass: security sweep, service-account key rotated, admin flag and four rules holes closed)*
+*Last updated: 2026-09-07 (latest pass: the typed AI round is paid; voice is the one free AI door)*
 
 
 - **AI notes are a shared record of the conversation, and they work on both screen sizes** (2026-09-05, Aidan: notes should be bullet points of what was said for both sides, rather than advice or what the judge thought). Live room notes and saved practice notes summarize only the transcript, split by side. The separate between-speech coaching call is removed; its compact display reuses the same neutral notes. The notes button stays visible during a speech, and completed live rooms keep notes beside the ballot. Google Docs export sends the selected round directly to the Google account the person chooses with drive.file permission, without storing the Google token. A downloadable document is the fallback. No judge rubric or result depends on these notes.

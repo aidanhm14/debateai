@@ -191,6 +191,21 @@ const ANON_FREE_WINDOW_MS = 86_400_000;
 const anonUidHistory = new Map(); // anon uid → array of request timestamps
 
 const SIGNED_IN_BETA_DAILY_MAX = Number(process.env.SIGNED_IN_BETA_DAILY_MAX || 20);
+
+// ── The typed AI round is a paid feature (2026-09-07, Aidan) ──────────
+// There is ONE free way to debate the AI: the live voice round on
+// /newvoice, which mints through realtime-session.mjs and never comes
+// here. The typed round on /practice (six brains, the competitive
+// formats) is the paid one, and until today its only server-side cap was
+// SIGNED_IN_BETA_DAILY_MAX, which resets every day and never asks for a
+// card. /practice tags every request in that round with one of these
+// three _feature values and nothing else on the site does, so this is the
+// whole gate: a named account with no paid plan gets 402 PAYMENT_REQUIRED
+// on them, and the judge, live rounds, /learn, /judge and the voice door
+// are untouched. TYPED_ROUND_PAID=0 in the env reopens it with no deploy.
+const TYPED_ROUND_PAID = (process.env.TYPED_ROUND_PAID || '1') !== '0';
+const TYPED_ROUND_FEATURES = new Set(['debate-ai', 'debate-ai-background-gen', 'debate-ai-motion-triage']);
+const TYPED_ROUND_PLANS = new Set(['individual', 'team', 'lifetime', 'byok', 'voice']);
 const signedInBetaHistory = new Map(); // uid -> array of request timestamps
 
 async function checkRateLimit(userId, max = RATE_LIMIT_MAX) {
@@ -350,6 +365,10 @@ export default async (request, context) => {
   let teamId = null;
   let userId = null;
   let anonUid = null;
+  // true = paid or owner, false = free, null = the plan lookup failed. A
+  // null FAILS OPEN below: a paying person locked out by a Firestore blip
+  // is the worse mistake, and lib/caller.mjs makes the same call.
+  let callerPaid = null;
 
   // Decode first, branch second. A token that fails verification falls DOWN
   // to the anonymous lane rather than 401-ing: js/app-check.js now attaches a
@@ -397,12 +416,16 @@ export default async (request, context) => {
       // experience than anon. On lookup failure we degrade to the no-team
       // beta path (in-memory daily cap), never a hard auth error.
       let result = null;
-      if (!isOwnerEmail(decoded.email)) {
+      if (isOwnerEmail(decoded.email)) {
+        callerPaid = true;
+      } else {
         try {
           result = await withDeadline(getUserTeam(userId), 2500);
+          callerPaid = false; // no team at all is the free tier
         } catch (teamErr) {
           console.warn('[claude] team lookup failed, failing open to beta path:', teamErr && teamErr.message);
           result = null;
+          callerPaid = null;
         }
       }
       if (!result) {
@@ -423,6 +446,7 @@ export default async (request, context) => {
       } else {
         const { team } = result;
         teamId = team.id;
+        callerPaid = TYPED_ROUND_PLANS.has(team.plan) && !new Set(['canceled','cancelled','incomplete_expired','unpaid']).has(team.status);
 
         // Subscription gate. Lifetime is paid-once-active-forever; trial is
         // the free tier. Both bypass the status check entirely and rely on
@@ -554,6 +578,17 @@ export default async (request, context) => {
     // Extract and strip _feature before forwarding to Anthropic
     const feature = body._feature || 'unknown';
     delete body._feature;
+
+    // The typed round needs a plan. See TYPED_ROUND_FEATURES above.
+    if (TYPED_ROUND_PAID && TYPED_ROUND_FEATURES.has(feature) && callerPaid === false) {
+      recordTrip('claude', 'typed_round_paywall', 'named');
+      return new Response(JSON.stringify({
+        error: 'The typed round, all six brains, and the competitive formats come with Individual, $10/year. Debating the AI by voice stays free.',
+        code: 'PAYMENT_REQUIRED',
+        plan: 'individual',
+        free: '/newvoice',
+      }), { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } });
+    }
 
     // Prompt library: client may request server-side prompt injection via
     // _promptId (+ optional _promptVars for {{var}} substitution). Shared
