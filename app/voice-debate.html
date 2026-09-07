@@ -9153,8 +9153,12 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   el('div', { className: 'helper' },
   !voiceGate.signedIn ?
   'Voice rounds need a free account. Sign in and your free minutes start.' :
-  !voiceGate.resolved ?
-  'Your voice minutes are checked when you start.' :
+  !voiceGate.resolved || !Number.isFinite(voiceGate.remaining) ?
+  // The owner answer from /api/voice-allowance carries no remaining
+  // (uncapped), and an unresolved read carries nothing: neither is a
+  // number to print. Measured live 2026-09-07: "null of 20 free voice
+  // minutes left." on the owner account.
+  voiceGate.isPro ? 'Voice is on for this account. Interrupt the AI mid-sentence.' : 'Your voice minutes are checked when you start.' :
   voiceGate.tokenFunded ?
   'Your tokens cover the next round. Interrupt the AI mid-sentence.' :
   voiceGate.period === 'month' ?

@@ -82,3 +82,9 @@ console.log('Voice allowance: auth, owner, minute budgets, legacy migration, mon
   assert.ok(rj.includes('if (user && user.isAnonymous) user = null;'), '/room-judge treats an anonymous Firebase user as signed out');
   console.log('Client authority: /voice-debate reads the allowance endpoint, /room-judge routes the guest refusal to sign-in.');
 }
+// The owner answer has no remaining; the helper must not print "null of 20".
+{
+  const { readFileSync } = await import('node:fs');
+  const vd = readFileSync('app/voice-debate.html', 'utf8');
+  assert.ok(vd.includes('!Number.isFinite(voiceGate.remaining) ?'), '/voice-debate never prints a non-finite remaining');
+}
