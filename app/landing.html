@@ -8547,9 +8547,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-chats-handle{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
     font-size:.72rem;font-weight:700;color:rgba(245,239,231,.85)}
   [data-theme="light"] .fs-chats-handle{color:rgba(26,26,31,.82)}
-  .fs-chats-age{margin-left:auto;flex:none;font-family:var(--font-mono);font-size:.62rem;
-    color:rgba(245,239,231,.56)}
-  [data-theme="light"] .fs-chats-age{color:rgba(26,26,31,.52)}
   .fs-chats-text{margin:0;font-size:.78rem;line-height:1.4;color:rgba(245,239,231,.72);
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   [data-theme="light"] .fs-chats-text{color:rgba(26,26,31,.66)}
@@ -19879,14 +19876,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     // rows without moving the header or join control off screen.
     var MAX_ROWS = 24;
 
-    function relTime(ms){
-      var d = Math.max(0, Date.now() - ms);
-      if (d < 60000) return 'now';
-      if (d < 3600000) return Math.floor(d / 60000) + 'm';
-      if (d < 86400000) return Math.floor(d / 3600000) + 'h';
-      return Math.floor(d / 86400000) + 'd';
-    }
-
     // The payload is a recency-sorted superset across every public
     // room. A plain newest-N cut lets one busy room fill the panel
     // (measured 2026-08-31: all 10 rows were The Commons), so the
@@ -19896,7 +19885,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     // room gets a seat, then recency fills the rest under a per-room
     // cap, then the cap is waived so a lone active room still fills
     // all MAX_ROWS instead of shrinking the feed. Old rows from quiet
-    // rooms surface with their real ages; nothing is invented.
+    // rooms remain eligible for the mix.
     var ROOM_CAP = 3;
     function pickMix(rows){
       var byNew = rows.slice().sort(function(a, b){ return (b.at || 0) - (a.at || 0); });
@@ -19963,10 +19952,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         var handle = document.createElement('span');
         handle.className = 'fs-chats-handle';
         handle.textContent = String(m.handle || '');
-        var age = document.createElement('span');
-        age.className = 'fs-chats-age';
-        age.textContent = m.at ? relTime(m.at) : '';
-        meta.appendChild(handle); meta.appendChild(age);
+        meta.appendChild(handle);
         var text = document.createElement('p');
         text.className = 'fs-chats-text';
         text.textContent = String(m.text);
@@ -20002,8 +19988,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       if (started) return;
       started = true;
       // Return visit: the last payload paints synchronously, before the
-      // network answers. Ages are computed at render, so old rows read
-      // with their real ages, and the fetch below refreshes in place.
+      // network answers, and the fetch below refreshes in place.
       if (window.__fsChatsCache && window.__fsChatsCache.length){
         realRows = window.__fsChatsCache;
         renderAll();

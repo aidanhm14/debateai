@@ -31,6 +31,8 @@ the newer layout adjusted around it.
 
 ## Index
 
+- [2026-09-07 — chat highlight times](2026-09-07-chat-highlight-times.md): removed the relative-time labels from the homepage chat column.
+
 - [2026-09-07 — FAQ slogan](2026-09-07-faq-slogan.md): the oversized two-color introduction, replaced with a smaller descriptive heading.
 
 - [2026-09-07 — FAQ layout](2026-09-07-faq-layout.md): the podium illustration and pill accordion, replaced with grouped questions and a text introduction.
