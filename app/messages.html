@@ -26,6 +26,8 @@
 <!-- One engine for private threads, shared with /spar and /chat.
      Owns the resilient listener, the optimistic echo and the retry. -->
 <script src="/js/dm-core.js"></script>
+<script src="/js/chat-challenge.js"></script>
+<link rel="stylesheet" href="/css/chat-challenge.css">
 
 <script defer src="/js/track.js"></script>
 <script>
@@ -145,6 +147,12 @@ img.msg-av{display:block}
 .msg-peer{display:flex;align-items:center;gap:10px;min-width:0;background:none;border:0;color:var(--text);cursor:pointer;font-family:inherit;text-align:left}
 .msg-peer .nm{font-weight:800;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .msg-peer .hint{font-size:.72rem;color:var(--text-ghost)}
+.msg-peer{flex:1}
+.msg-challenge{flex-shrink:0;margin-left:auto;background:transparent;border:1px solid var(--accent-solid);border-radius:999px;padding:9px 13px;color:var(--accent);font:inherit;font-size:.8rem;font-weight:750;cursor:pointer}
+.msg-challenge:hover{background:rgba(239,68,68,.07)}
+.msg-challenge:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.msg-challenge[hidden]{display:none}
+@media(max-width:480px){.msg-pane-head{flex-wrap:wrap}.msg-pane-head .msg-peer{flex:1 1 calc(100% - 68px)}.msg-pane-head .msg-challenge{width:100%;margin-left:0}.msg-compose input{min-width:0}}
 .msg-feed{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px;display:flex;flex-direction:column;gap:8px}
 .msg-note{align-self:center;font-size:.82rem;color:var(--text-ghost);text-align:center;padding:24px 8px;line-height:1.6;max-width:420px}
 .msg-b{max-width:76%;padding:8px 12px;border-radius:14px;font-size:.92rem;line-height:1.45;word-wrap:break-word;white-space:pre-wrap}
@@ -264,6 +272,7 @@ img.msg-av{display:block}
             <span class="hint" id="msgPeerHint"></span>
           </span>
         </button>
+        <button class="msg-challenge" id="msgChallenge" type="button" hidden>Challenge to debate</button>
       </div>
       <div class="msg-feed" id="msgFeed">
         <div class="msg-note">Pick a conversation on the left, <a href="/friends" style="color:var(--accent);font-weight:700">find a friend</a>, or meet someone on the <a href="/spar" style="color:var(--accent);font-weight:700">live board</a>.</div>
@@ -490,6 +499,7 @@ img.msg-av{display:block}
     var p = peerOf(activeThread);
     $('msgPeerName').textContent = activeThread.isGroup ? (activeThread.groupName || 'Group') : p.name;
     $('msgPeerHint').textContent = activeThread.isGroup ? (activeThread.participants.length + ' members') : 'Tap for profile';
+    $('msgChallenge').hidden = !p.uid;
     $('msgPeerAv').outerHTML = avatarHtml(p.name, p.photo).replace('class="msg-av"', 'class="msg-av" id="msgPeerAv"');
     paintThreads();
     startThread();
@@ -801,6 +811,10 @@ img.msg-av{display:block}
     try { history.replaceState(null, '', '/messages'); } catch(e){}
   });
   $('msgPeerBtn').addEventListener('click', showPeerProfile);
+  $('msgChallenge').addEventListener('click', function(){
+    DBChatChallenge.open({ user:me, db:db, active:activeThread, threads:threads,
+      senderName:myDmName, source:'messages', onSent:openThread });
+  });
   $('pcClose').addEventListener('click', function(){ $('pcModal').classList.remove('on'); });
   $('pcModal').addEventListener('click', function(e){ if (e.target === $('pcModal')) $('pcModal').classList.remove('on'); });
   $('msgSigninBtn').addEventListener('click', function(){

@@ -36,6 +36,8 @@
 <!-- One engine for private threads, shared with /spar and /messages.
      Owns the resilient listener, the optimistic echo and the retry. -->
 <script src="/js/dm-core.js"></script>
+<script src="/js/chat-challenge.js"></script>
+<link rel="stylesheet" href="/css/chat-challenge.css">
 
 <!-- The public room reuses the same client module /community's Live tab
      uses: anonymous handle pinned to localStorage, adaptive polling
@@ -221,6 +223,7 @@ em,i{font-style:normal}
 .cx-head-name{font-size:1.1rem;font-weight:800;letter-spacing:-.01em}
 .cx-head-sub{font-size:.82rem;color:var(--text-dim);margin-top:1px}
 .cx-head-act{display:flex;align-items:center;gap:8px;flex:none}
+@media(max-width:480px){.cx-head{flex-wrap:wrap}.cx-head-act{max-width:100%;flex-wrap:wrap}}
 .cx-chip{
   padding:6px 12px;border-radius:999px;border:1px solid var(--border);
   background:transparent;color:var(--text-dim);
@@ -613,7 +616,7 @@ em,i{font-style:normal}
     paintSidebarSelection();
     $('cxHeadName').textContent = 'The Commons';
     $('cxHeadSub').textContent = 'Everyone who is here right now. Posts are public.';
-    $('cxHeadAct').innerHTML = '<a class="cx-chip" href="/spar">Find a round</a>';
+    $('cxHeadAct').innerHTML = '<button class="cx-chip" type="button" data-challenge>Challenge someone</button>';
     showSurface('commons');
     showPane('thread');
 
@@ -745,6 +748,13 @@ em,i{font-style:normal}
       });
   }
 
+  $('cxHeadAct').addEventListener('click', function(e){
+    if (!e.target.closest('[data-challenge]')) return;
+    DBChatChallenge.open({ user:state.user, db:fbDb,
+      active:state.conv === 'dm' ? state.active : null, threads:state.threads,
+      senderName:function(){ return shortName(state.user); }, source:'chat', onSent:openThread });
+  });
+
   function openThread(threadId, data){
     try { cxSetReply(null); } catch(e){}
     if (!state.user || !fbDb) return;
@@ -771,7 +781,7 @@ em,i{font-style:normal}
     $('cxHeadSub').textContent = data.isGroup
       ? (state.active.participants.length + ' people. Private to the group.')
       : 'Private thread. Only the two of you can read it.';
-    $('cxHeadAct').innerHTML = '<a class="cx-chip" href="/spar">Set up a round</a>';
+    $('cxHeadAct').innerHTML = '<button class="cx-chip" type="button" data-challenge>Challenge to debate</button>';
     $('cxSendErr').textContent = '';
     var input = $('cxDmInput');
     input.value = '';

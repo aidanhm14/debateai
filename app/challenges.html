@@ -496,6 +496,10 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       var r = await post({ action:'accept', id:c.id });
       sfx('confirm'); track('challenge_accept', { format:c.format, mode:c.mode });
       state.busy = false;
+      if (c.mode === 'live' && c.challengedUid){
+        nav({ slug:c.slug });
+        return;
+      }
       // Straight into the round rather than back to a board. Async rounds
       // are recorded at /rounds; a live one is organised on /spar.
       var next = c.mode === 'live' ? '/spar?challenge=1' : '/rounds';
@@ -784,6 +788,13 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       (c.__following ? 'Following' : 'Follow') + ' (' + (c.crowd.followers||0) + ')</button>';
     if (state.user && c.creator && c.creator.uid === state.user.uid && seats < 2){
       acts += '<button class="btn btn-ghost" data-cancel="'+esc(c.id)+'">Cancel</button>';
+    }
+    if (mine && c.mode === 'live' && c.challengedUid && c.status === 'accepted'){
+      var peer = (c.accepted || []).filter(function(p){ return p.uid !== state.user.uid; })[0];
+      if (peer){
+        acts += '<p>Challenge accepted. Message each other to agree on a time and share your live invite.</p>' +
+          '<a class="btn btn-red" href="/spar?dm=' + encodeURIComponent(peer.uid) + '&amp;name=' + encodeURIComponent(peer.name || 'Opponent') + '">Set up your round</a>';
+      }
     }
 
     $('app').innerHTML =
