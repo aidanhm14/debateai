@@ -67,7 +67,7 @@ check(
   'phone sign-in stays retired from the shared chooser',
 );
 check(
-  source.includes('var noEmail = googleOnly || liveVideo;')
+  source.includes('var noEmail = googleOnly;')
     && source.includes('var providerButtons = googleBtn + appleBtn + discordBtn;')
     && source.includes('var DISCORD_SIGNIN_READY = false;')
     && source.includes("Use email below, or open the site in Safari or Chrome."),

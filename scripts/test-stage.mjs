@@ -238,9 +238,9 @@ for (const [re, label] of mustSay) ok(re.test(conversationCore), `conversation m
 const stageSrc = src('stage.mjs');
 // The provider set must MATCH the live-video door rather than narrow it:
 // AGENTS.md pins google/phone/apple in seven places, and a stage seat
-// that refused a phone account would make the site disagree with itself.
+// that refused an email account would make the site disagree with itself.
 // The stricter half of this door is the adult age band below.
-ok(/LIVE_VIDEO_PROVIDERS = new Set\(\['google\.com', 'phone', 'apple\.com'\]\)/.test(stageSrc),
+ok(/LIVE_VIDEO_PROVIDERS = new Set\(\['google\.com', 'apple\.com', 'password'\]\)/.test(stageSrc),
   'the stage door takes the same accountable providers as every other live-video door');
 ok(/if \(!LIVE_VIDEO_PROVIDERS\.has\(provider\)\)/.test(stageSrc),
   'the provider set is actually enforced on the verified token');

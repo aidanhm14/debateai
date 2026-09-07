@@ -73,7 +73,7 @@ const GUEST_TOKEN_TTL_SEC = 3 * 3600;
 // broadcast that is recorded and restreamed off the site, so the adult
 // band below is required on top. Narrowing the provider set here would
 // just make the site disagree with itself.
-const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'phone', 'apple.com']);
+const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com', 'password']);
 const HOST_ACTIONS = new Set(['queue', 'admit', 'remove', 'sit', 'open', 'end', 'reset']);
 // `next` is host-OR-floor-holder. A debater who has finished early should
 // not have to wait for the host to notice, and they can only ever advance
@@ -375,14 +375,14 @@ export default async (request) => {
 
   // ── Viewer and guest actions ───────────────────────────────────
   //
-  // Google sign-in, matching the live-video rule: the other person on
+  // Account sign-in, matching the live-video rule: the other person on
   // this stage is a real person on a public broadcast, so an
   // unaccountable counterpart is a cost paid by somebody other than the
   // person asking.
   const provider = decoded.firebase && decoded.firebase.sign_in_provider;
   if (!LIVE_VIDEO_PROVIDERS.has(provider)) {
     return jsonResponse({
-      error: 'Joining a live broadcast needs a Google, phone, or Apple account.',
+      error: 'Joining a live broadcast needs a Google, Apple, or email account.',
       code: 'need_live_account',
     }, 401, request);
   }

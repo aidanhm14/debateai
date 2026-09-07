@@ -2314,11 +2314,10 @@
     function isRealUser(u) {
       return !!(u && !u.isAnonymous);
     }
-    // The live-video door: Google, or Apple in the iOS app. Phone was a
-    // third key from 2026-09-01 to 2026-09-03 and was retired. Same set as
+    // Live video accepts Google, Apple, and email. Same set as
     // spar.html, spar-pair.mjs and the isLiveVideoAccount() rule. The provider written to the queue doc is
     // the one the account holds; rules bind it to the verified token.
-    var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com'];
+    var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com', 'password'];
     function liveVideoProvider(u) {
       if (!u || u.isAnonymous || !Array.isArray(u.providerData)) return '';
       for (var i = 0; i < u.providerData.length; i++) {
@@ -2331,8 +2330,8 @@
       return !!liveVideoProvider(u);
     }
     // 2026-08-27: the background pill follows /spar's live-video door.
-    // Otherwise an email or anonymous session could write a queue doc
-    // here even though the foreground page and server refuse the round.
+    // Otherwise an unsupported session could write a queue doc here
+    // even though the foreground page and server refuse the round.
     //
     // CORRECTION 2026-08-22: this comment used to say "this file signs
     // nearly every visitor in anonymously for the bell". It does not,
@@ -2635,6 +2634,7 @@
       var ref = myRef;
       // A new tab and the pairing server can race. The read must be in
       // the same transaction as the write, including background-owned pairs.
+      return myUser.getIdTokenResult().then(function (tokenResult) {
       return db.runTransaction(function (tx) {
         return tx.get(ref).then(function (snap) {
           var cur = snap && snap.exists ? (snap.data() || {}) : null;
@@ -2642,7 +2642,7 @@
           if (cur && cur.status === 'waiting' && stampMs(cur.joinedAt) > Date.now() - FOREIGN_FRESH_MS) return true;
           tx.set(ref, {
             uid: myUid,
-            authProvider: liveVideoProvider(myUser),
+            authProvider: tokenResult.signInProvider,
             displayName: shortNm(myUser),
             username: publicUsername(myUser),
             photoURL: (myUser && myUser.photoURL) || '',
@@ -2657,6 +2657,7 @@
           });
           return true;
         });
+      });
       }).then(function (waiting) {
             if (!available || busyElsewhere() || ref !== myRef) return;
             stopTimers();

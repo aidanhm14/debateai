@@ -4278,7 +4278,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return u.providerData.some(function(p){ return p && p.providerId === 'google.com'; });
   }
 
-  // ── The live-video door: Google, or Apple in the iOS app ────────
+  // ── The live-video door: Google, Apple, or email ───────────────
   // Phone was a third key from 2026-09-01 to 2026-09-03 (paid social
   // traffic lands in in-app browsers where Google OAuth cannot run) and
   // was retired on the founder's call: Google plus whatever else is quick,
@@ -4288,7 +4288,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // rules bind it to the verified token. Same set as spar-pair.mjs,
   // firestore.rules (isLiveVideoAccount), create-daily-room.mjs,
   // notifications.js, live-popup.js, live-round.html.
-  var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com'];
+  var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com', 'password'];
   function liveVideoProvider(u){
     if (!u || u.isAnonymous || !Array.isArray(u.providerData)) return '';
     for (var i = 0; i < u.providerData.length; i++){
@@ -4386,10 +4386,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     });
   }
 
-  // The live-video queue takes Google (or Apple in the iOS app).
-  // Email/password accounts remain real accounts everywhere else, but this
-  // surface asks for Google before putting another person on the other
-  // side of a camera.
+  // The live-video queue takes Google, Apple, or email.
+  // Anonymous sessions must sign in before meeting another person.
   function canQueue(u){
     if (isLiveVideoUser(u)) return true;
     // The one-round guest lane (2026-09-04). The server is the meter.
@@ -4455,7 +4453,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       '<div class="gate" id="sparGuestBoot">' +
         '<div class="eyebrow"><span class="pip"></span>Sparring · Live Humans</div>' +
         '<h2>Opening the video room.</h2>' +
-        '<p>Sign in with Google to join.</p>' +
+        '<p>Sign in to join.</p>' +
       '</div>';
   }
 
@@ -4695,11 +4693,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           : '<h2>Sign in to start debating.</h2>' +
             '<p>Meet a real person for a casual 1v1 on video. Your matchmaker answers are saved and come with you.</p>') +
         // In-app browsers (TikTok, Instagram, and friends) refuse Google
-        // OAuth outright, and there is no second key on this door any
-        // more, so the honest instruction is the one that works: open the
-        // site in a real browser. Copy link exists because a webview has
-        // no address bar to copy from.
-        (inApp ? '<p class="gate-inapp">This app\'s browser blocks Google sign-in. Open itsdebatable.com/spar in Safari or Chrome to join. <button type="button" class="gate-copy" id="gateCopyLink">Copy link</button></p>' : '') +
+        // OAuth outright. Email still works here; Copy link also lets a
+        // visitor move to a browser where Google can complete.
+        (inApp ? '<p class="gate-inapp">This app\'s browser blocks Google sign-in. Use email below, or open itsdebatable.com/spar in Safari or Chrome. <button type="button" class="gate-copy" id="gateCopyLink">Copy link</button></p>' : '') +
         // Ships hidden so a text-only client does not read an unhydrated
         // label. paintGateLive reveals 4 + the fresh waiting count.
         '<div class="gate-live" id="gateLive" hidden><span class="gate-live-dot" aria-hidden="true"></span><span id="gateLiveText"></span></div>' +
@@ -4713,6 +4709,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         // 2026-09-04, the founder: a second door. Apple works on web
         // again (auth-modal.js has the relay-email caveat and its fix).
         '<button class="gate-google gate-apple" id="appleInBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M16.7 12.9c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.2-2-3.9-2-1.7-.2-3.2 1-4 1-.7 0-2.1-1-3.5-.9-1.8 0-3.5 1.1-4.4 2.7-1.9 3.3-.5 8.2 1.3 10.8.9 1.3 2 2.8 3.4 2.7 1.4-.1 1.9-.9 3.6-.9s2.2.9 3.7.9c1.5 0 2.5-1.3 3.4-2.7 1-1.5 1.5-3 1.5-3.1-.1 0-3.3-1.3-3.3-4.6ZM13.9 5.3c.8-1 1.4-2.4 1.2-3.8-1.2.1-2.6.8-3.5 1.8-.8.9-1.5 2.3-1.3 3.7 1.3.1 2.7-.7 3.6-1.7Z"/></svg>Continue with Apple</button>' +
+        '<button class="gate-email" id="emailStartBtn" type="button">Continue with email</button>' +
         // Age line. Live rounds pair strangers, so the standing 13-17
         // supervision rule from the terms belongs at this door, not only
         // in a legal page nobody opens. /safety is the readable version.
@@ -4720,11 +4717,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<div id="gateError"></div>' +
         '</div>' +
       '</div>';
-    // One door and no second: Google goes straight to Google. No email or
-    // phone door is rendered, because the queue would refuse both. The
-    // anonymous lane is not a door here: a first-timer never sees this
-    // card (mintGuestSession runs before it), and a returning guest has
-    // spent the one free round.
+    // Direct provider buttons and the shared email chooser reach the same
+    // account-gated queue. The questionnaire answers stay saved locally.
     document.getElementById('signInBtn').addEventListener('click', doGoogleSignIn);
     var appleIn = document.getElementById('appleInBtn');
     if (appleIn) appleIn.addEventListener('click', function(){
@@ -4733,6 +4727,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       if (typeof window.dbAppleSignIn === 'function') { window.dbAppleSignIn(); return; }
       if (typeof window.openAuthModal === 'function') { window.openAuthModal('signin', { liveVideo: true }); return; }
       location.href = '/profile';
+    });
+    document.getElementById('emailStartBtn').addEventListener('click', function(){
+      if (typeof window.openAuthModal === 'function') { window.openAuthModal('signin', { liveVideo: true }); return; }
+      location.href = '/profile?next=' + encodeURIComponent('/spar');
     });
     var gateCopy = document.getElementById('gateCopyLink');
     if (gateCopy) gateCopy.addEventListener('click', function(){ copyGateLink(gateCopy); });
@@ -4772,7 +4770,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     try { gtag('event', 'spar_gate_inapp_click', {}); } catch(e){}
     var ge = document.getElementById('gateError');
     if (ge){
-      ge.innerHTML = '<div class="error">This app\'s browser blocks Google sign-in. Open itsdebatable.com/spar in Safari or Chrome to join. <button type="button" class="gate-copy" id="gateCopyLink2">Copy link</button></div>';
+      ge.innerHTML = '<div class="error">This app\'s browser blocks Google sign-in. Use email below, or open itsdebatable.com/spar in Safari or Chrome. <button type="button" class="gate-copy" id="gateCopyLink2">Copy link</button></div>';
       var b = document.getElementById('gateCopyLink2');
       if (b) b.addEventListener('click', function(){ copyGateLink(b); });
     }
@@ -6903,14 +6901,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       writeQueueDoc();
     }).catch(function(){ writeQueueDoc(); });
     function writeQueueDoc(){
-    ref.set({
+    return state.user.getIdTokenResult().then(function(tokenResult){
+    return ref.set({
       uid: state.user.uid,
-      // Server matcher requires this marker on BOTH queue seats. Firestore
-      // rules bind it to the caller's OWN verified provider (Google, Apple,
-      // or 'anonymous' for the one-round guest lane), so an email queue
-      // record cannot be pulled into a match and a client cannot claim a
-      // provider it lacks.
-      authProvider: state.user.isAnonymous ? 'anonymous' : liveVideoProvider(state.user),
+      // Rules bind this marker to the active token, not the first linked
+      // provider. An account may have both Google and email attached.
+      authProvider: tokenResult.signInProvider,
       displayName: shortName,
       username: publicUsername,
       photoURL: state.user.photoURL || '',
@@ -6948,6 +6944,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // The pair would sit there until the reaper swept it.
       draftOptIn: DRAFT_ENABLED_CLIENT,
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
     }).then(function(){
       try { gtag('event', 'spar_queue_join', { format: formatParam }); } catch(e){}
       // Going live: ping everyone who opted into live-round alerts (Web Push,

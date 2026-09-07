@@ -40,7 +40,7 @@ import { parseTournamentRoom } from './lib/tournament-round.mjs';
 
 // Providers that may hold a SEAT in a live video room. Keep in sync with
 // spar-pair.mjs and isLiveVideoAccount() in firestore.rules.
-const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com']);
+const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com', 'password']);
 
 const DAILY_API = 'https://api.daily.co/v1';
 
@@ -186,16 +186,16 @@ export default async (req) => {
   // above, the admission check fails closed because guessing a room name
   // must never produce a participant token.
   const admission = await tournamentAdmission(name);
-  // 2026-09-03, the founder: every PERSON entering live video, including
-  // a receive-only viewer, needs Google on web or Apple in the iOS app.
+  // Every person entering live video, including a receive-only viewer,
+  // needs a Google, Apple, or email account.
   // The stage renderer is the sole non-person exception so /air and OBS
   // can keep carrying a round without an interactive sign-in screen.
   if (role !== 'stage' && !LIVE_VIDEO_PROVIDERS.has(who.provider)) {
     return jsonResponse(403, {
       code: 'GOOGLE_SIGN_IN_REQUIRED',
       error: role === 'viewer'
-        ? 'Sign in with Google to spectate live debates.'
-        : 'Sign in with Google to enter the video room.',
+        ? 'Sign in to spectate live debates.'
+        : 'Sign in to enter the video room.',
     });
   }
   if (admission.tournament) {

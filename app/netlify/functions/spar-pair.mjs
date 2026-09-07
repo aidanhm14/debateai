@@ -327,7 +327,7 @@ function joinedAtMs(data) {
 
 // Providers that may hold a SEAT in a live video round. Keep in sync with
 // create-daily-room.mjs and isLiveVideoAccount() in firestore.rules.
-const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com']);
+const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com', 'password']);
 
 // ── The guest lane ────────────────────────────────────────────────
 //
@@ -746,7 +746,7 @@ export default async (request) => {
   // The AI-only draft above remains available because it seats no stranger.
   if (!iAmGuest && !LIVE_VIDEO_PROVIDERS.has(decoded.firebase?.sign_in_provider)) {
     return jsonResponse({
-      error: 'Sign in with Google to join a live video round.',
+      error: 'Sign in with Google, Apple, or email to join a live video round.',
       code: 'GOOGLE_SIGN_IN_REQUIRED',
     }, 403, request);
   }

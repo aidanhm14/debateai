@@ -43,6 +43,13 @@ are not consumed. Funding domains are separate for continuation signatures.
 
 ## Sign-in policy (2026-09-07)
 
+Live video accepts Google, Apple, and normal email accounts, including
+email/password and emailed sign-in links. Firebase identifies both email
+methods as `password`. This supersedes the older Google-only live-video
+rules below. Keep queue rules, pairing, room admission, background matching,
+and spectator gates aligned. Anonymous live rounds remain disabled. The
+matching questionnaire asks for sign-in after question 3.
+
 ## Casual room capture and audience calls (2026-09-06)
 
 Casual rooms display shared AI notes beside the video and keep the full

@@ -221,17 +221,20 @@ test('new and returning visitors can reach password creation and sign-in', () =>
   assert.ok(returning.query('#daForgot'), 'returning accounts have password recovery');
 });
 
-test('email-link users can switch to a password and email restrictions hold for live/admin gates', () => {
+test('email-link users can switch to a password; live video accepts email while admin stays Google-only', () => {
   const h = harness({ storage: { 'debateos-last-signin-method': 'emaillink' } });
   h.render();
   assert.equal(h.query('#daEmailForm').getAttribute('data-email-mode'), 'link');
   assert.equal(h.query('#daPassword'), null);
   h.query('#daEmailModeSwitch').dispatch('click');
   assert.ok(h.query('#daPassword'));
-  for (const opts of [{ googleOnly: true }, { liveVideo: true }]) {
-    h.render('signin', opts);
-    assert.equal(h.query('#daEmailForm'), null, 'restricted prompt cannot offer a rejected email provider');
-    assert.ok(h.query('#daG'));
+  h.render('signin', { googleOnly: true });
+  assert.equal(h.query('#daEmailForm'), null, 'admin prompt remains Google-only');
+  for (const emailMode of ['password', 'link']) {
+    h.render('signin', { liveVideo: true, emailMode });
+    assert.ok(h.query('#daEmailForm'), 'live-video prompt must offer email');
+    assert.ok(h.query('#daG') && h.query('#daApple'));
+    assert.equal(h.query('#daEmailForm').getAttribute('data-email-mode'), emailMode);
   }
 });
 

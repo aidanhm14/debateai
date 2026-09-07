@@ -520,9 +520,7 @@
     } catch (e) { return false; }
   }
 
-  /* Has this visitor a live-video account? The website uses Google. Apple
-     remains valid in the iOS app because App Store rules require it.
-     Anything else needs the centered sign-in step before the video room. */
+  /* Google, Apple, and email accounts can enter live video directly. */
   function googleUser() {
     try {
       var fb = window.firebase;
@@ -530,7 +528,7 @@
       var cu = fb.auth().currentUser;
       if (!cu || cu.isAnonymous) return false;
       var pd = cu.providerData || [];
-      for (var i = 0; i < pd.length; i++) if (pd[i] && (pd[i].providerId === 'google.com' || pd[i].providerId === 'apple.com')) return true;
+      for (var i = 0; i < pd.length; i++) if (pd[i] && (pd[i].providerId === 'google.com' || pd[i].providerId === 'apple.com' || pd[i].providerId === 'password')) return true;
     } catch (e) {}
     return false;
   }
@@ -840,7 +838,7 @@
           liveVideo: true,
           destination: item.href,
           headline: 'Sign in to spectate live debates',
-          sub: 'Continue with Google to enter the audience. Your camera and microphone stay off.'
+          sub: 'Sign in with Google, Apple, or email to enter the audience. Your camera and microphone stay off.'
         });
         return;
       }

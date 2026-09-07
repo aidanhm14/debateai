@@ -178,12 +178,8 @@
   var locked = false;
   var lockCopy = null;
   // Some product doors are provider-specific. The /admin gates are Google-
-  // only. Live video (/spar, the video room) takes Google on the web and
-  // Google or Apple in the iOS app, and nothing else (2026-09-03: phone
-  // sign-in retired, see soul.md), so its prompts open this card in
-  // liveVideo mode: no email door advertised that the queue would reject.
-  // Inside an in-app browser there is no key that turns for live video;
-  // the note says to open the site in Safari or Chrome and offers the link.
+  // only. Live video takes Google, Apple, or email. Its mode changes the
+  // invitation copy while keeping email available in in-app browsers.
   var googleOnly = false;
   var liveVideo = false;
   function el(html) { var d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; }
@@ -443,7 +439,7 @@
     // hidden, because the detector is a user-agent guess and hiding the
     // button a user was looking for is worse than showing one that warns.
     var inApp = isInAppBrowser();
-    var noEmail = googleOnly || liveVideo;
+    var noEmail = googleOnly;
     var inAppNote = inApp
       ? '<p class="da-inapp">Google sign-in does not work inside this app\'s browser. ' +
         (noEmail ? 'Open the site in Safari or Chrome to sign in with Google. ' : 'Use email below, or open the site in Safari or Chrome. ') +
@@ -462,7 +458,7 @@
       (showLivePerson
         ? 'Debate real people face to face on live video. Sign in to keep your rounds and conversations.'
         : noEmail
-        ? (googleOnly ? 'Continue with Google to access this page.' : 'Continue with Google or Apple to join live video.')
+        ? (googleOnly ? 'Continue with Google to access this page.' : 'Continue with Google, Apple, or email to join live video.')
         : 'Use Google, Apple, or your email and password. New here? Create an account below.');
     // Only fixed emphasis markup is inserted; supplied copy stays escaped.
     var sublineHtml = esc(subline);

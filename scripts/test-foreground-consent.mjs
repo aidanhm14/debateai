@@ -50,7 +50,7 @@ const queue = {
 };
 const entry = {
   console, Promise, Date, JSON, Object, Array,
-  state: { user: { uid: 'me' }, profileReady: false }, matchProfile: null,
+  state: { user: { uid: 'me', getIdTokenResult: async () => ({ signInProvider: 'password' }) }, profileReady: false }, matchProfile: null,
   activeMatchProfileRun: null, shell: { innerHTML: '' },
   firebaseDb: { collection: () => ({ doc: () => queue }) },
   firebase: { firestore: { FieldValue: { serverTimestamp: () => ({ seconds: Date.now() / 1000 }) } } },
@@ -76,6 +76,7 @@ for (const name of ['defaultMatchProfile', 'joinQueue', 'subscribeMyDoc', 'close
 entry.joinQueue(true); await settle();
 assert.equal(writes.length, 1);
 assert.equal(writes[0].status, 'waiting');
+assert.equal(writes[0].authProvider, 'password', 'Email sign-in reaches the real queue with its active provider');
 assert.equal(writes[0].matchMode, 'fast');
 assert.equal(writes[0].matchProfileReady, false);
 assert.equal('economy' in writes[0], false, 'Political answers never enter the public queue');
