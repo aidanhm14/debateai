@@ -2179,8 +2179,10 @@
   //
   // Cost guard (project is on the Firestore free tier and blew quota in
   // May): only opted-in users run anything; the own-doc listener is 1
-  // doc; the peer scan + heartbeat run on slow intervals and pause while
-  // the tab is hidden; stale docs self-reap via spar-pair's reaper.
+  // doc; the peer scan runs on a slow interval and pauses while the tab
+  // is hidden; the heartbeat keeps running hidden (one write a minute)
+  // because a hidden tab is exactly where an available person is; stale
+  // docs self-reap via spar-pair's reaper.
   function sparLive() {
     if (window.__daSparLiveLoaded) return;
     window.__daSparLiveLoaded = true;
@@ -2218,7 +2220,17 @@
       } catch (e) {}
     }
     var FMT_KEY = 'debateos-spar-format';     // preferred format (shared w/ /spar)
-    var HEARTBEAT_MS = 90 * 1000;             // re-stamp joinedAt so the 3-min reaper doesn't cull us
+    // 60s, and it runs while the tab is HIDDEN (2026-09-07). It used to
+    // skip hidden tabs as a cost guard, which meant an "Available" person
+    // who switched to another tab or app went stale at exactly 3 minutes
+    // (spar-pair's STALE_PEER_MS) and was cancelled as a ghost by the next
+    // real waiter's pair attempt, never proposed to, never alerted. That
+    // is the one situation the pill exists for. One write a minute per
+    // available person is the whole bill. 60 rather than 90 because Chrome
+    // aligns hidden-tab timers to one-minute ticks after five minutes, so a
+    // 90s interval fires at 120s; 60s fires at 60s and stays well inside
+    // the 3-minute window either way.
+    var HEARTBEAT_MS = 60 * 1000;             // re-stamp joinedAt so the 3-min reaper doesn't cull us
     var SCAN_MS = 60 * 1000;                  // look for a peer to pair with
     var STALE_MS = 3 * 60 * 1000;             // ignore peers older than this
     // 2026-08-26: 20 -> 45, matching /spar's CONSENT_DECIDE_SEC. This
@@ -2740,7 +2752,7 @@
     function startTimers() {
       stopTimers();
       hbTimer = setInterval(function () {
-        if (document.hidden || !available || !myRef) return;
+        if (!available || !myRef) return;
         if (!humanAround()) { docGone = true; return; } // stop feeding a zombie doc; reaper sweeps it
         myRef.update({ joinedAt: ts() }).catch(function () {});
       }, HEARTBEAT_MS);
@@ -2786,17 +2798,19 @@
       if (ownUnsub) { try { ownUnsub(); } catch (e) {} }
       ownUnsub = myRef.onSnapshot(function (doc) {
         if (!available || busyElsewhere()) return;
-        // Reaped (deleted) or cancelled server-side while the tab sat hidden
-        // past the reaper window: heartbeat alone can't fix the status, so
-        // re-queue. Hidden tabs defer to the visibilitychange handler (cost
-        // guard: no Firestore churn while nobody's looking).
+        // Reaped (deleted) or cancelled server-side: heartbeat alone can't
+        // fix the status, so re-queue, hidden or not (2026-09-07). Deferring
+        // hidden tabs to visibilitychange meant a cancelled "Available"
+        // person stayed off the queue for as long as they were doing
+        // something else, which is the whole time the pill matters. One
+        // write per cancel; the zombie guard in requeue() still holds.
         if (!doc.exists || (doc.data() || {}).status === 'cancelled') {
           if (overlay && !navigating) {
             closeOverlay(); consentRoom = null; awaitingPeer = false; handledRoom = null;
             sparNote('The invitation ended. Still looking.');
           }
           docGone = true;
-          if (!document.hidden) requeue();
+          requeue();
           return;
         }
         docGone = false;

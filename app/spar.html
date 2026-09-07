@@ -6989,11 +6989,57 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
   // Listen to my own queue doc — when ANOTHER user's transaction marks
   // me as matched, this fires and I navigate to the round.
+  // Own queue doc deleted out from under a live search. Rejoin at most
+  // OWN_DOC_VANISH_MAX times per window; past that, stop pretending to
+  // search and offer a manual retry, because a silent loop is what this
+  // replaces. The first snapshot after subscribeMyDoc attaches can be
+  // the deletion itself, so the guard also runs off a spar-pair
+  // response that names MY doc as the missing one.
+  var OWN_DOC_VANISH_MAX = 3;
+  var OWN_DOC_VANISH_WINDOW_MS = 2 * 60 * 1000;
+  function handleOwnDocVanished(via){
+    if (state.cancelled || state.roundNavPending || state.ownDocRejoinPending) return;
+    // A consent card or a match is driven by a doc that exists; if it is
+    // gone mid-handshake the server already unwound the pair.
+    var now = Date.now();
+    state.ownDocVanishes = (state.ownDocVanishes || []).filter(function(t){ return now - t < OWN_DOC_VANISH_WINDOW_MS; });
+    state.ownDocVanishes.push(now);
+    try { gtag('event', 'spar_queue_doc_vanished', { via: via, count: state.ownDocVanishes.length, format: formatParam }); } catch(e){}
+    console.warn('[spar] my queue doc vanished (' + via + '), rejoining');
+    teardownQueue();
+    if (state.ownDocVanishes.length > OWN_DOC_VANISH_MAX){
+      updateDiag({ last: 'queue doc keeps vanishing' });
+      surfacePairError('queue_doc_vanished');
+      return;
+    }
+    if (!humanIsAround()){ state.zombieParked = true; updateDiag({ last: 'parked (away, doc gone)' }); return; }
+    updateDiag({ last: 're-queue (doc gone)' });
+    state.ownDocRejoinPending = true;
+    setTimeout(function(){
+      state.ownDocRejoinPending = false;
+      if (!state.cancelled) joinQueue();
+    }, 400);
+  }
+
   function subscribeMyDoc(){
     if (!state.queueDocRef) return;
     if (state.queueUnsub){ try { state.queueUnsub(); } catch(e){} }
     state.queueUnsub = state.queueDocRef.onSnapshot(function(doc){
-      if (!doc.exists) return;
+      if (!doc.exists){
+        // MY doc is gone and the page has no idea. Measured 2026-09-07
+        // off a session replay: a debater sat on "Searching" for over
+        // five minutes with "1 person available" on screen, and every
+        // pair attempt came back queue_doc_missing, because this branch
+        // was a bare return. Whoever deleted the doc (another tab, a
+        // walkout handler, an admin sweep) does not matter here: a
+        // searching page with no queue doc can never be proposed to, so
+        // the only honest moves are to rejoin on a clean doc or to say
+        // that pairing is stuck. Same shape as the system-cancel branch
+        // below, with a loop guard because a doc that keeps vanishing
+        // is a fight with something that will win.
+        handleOwnDocVanished('snapshot');
+        return;
+      }
       var d = doc.data();
       if (state.pausingMatch) { state.pausedMatchDoc = d; return; }
       // Mirror my mutual-skip list (declined consent proposals) so
@@ -8061,6 +8107,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       }
       if (!r.ok || !r.body || !r.body.ok) {
         var reason = r.body && r.body.reason ? r.body.reason : 'http_' + r.status;
+        if (reason === 'queue_doc_missing' && r.body.missing === 'mine'){
+          handleOwnDocVanished('pair');
+          return;
+        }
         var soft = (reason === 'lost_race'
                  || reason === 'queue_doc_missing' || reason === 'stale_peer'
                  // peer_ineligible: a spent guest, or a peer with no
@@ -8158,8 +8208,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     else if (reason === 'network') msg = 'Network blip reaching the matchmaker. Retrying…';
     else if (/^http_5/.test(reason)) msg = 'Matchmaker hiccup (' + reason + '). Retrying…';
     else if (/^http_4/.test(reason)) msg = 'Auth issue reaching the matchmaker (' + reason + '). Try signing out + in.';
+    else if (reason === 'queue_doc_vanished') msg = 'Your place in the queue keeps getting cleared, so nobody can be offered to you. Close any other Debatable tabs, then search again.';
     else                            msg = 'Pairing error (' + reason + '). Retrying…';
-    stats.innerHTML = '<div style="padding:10px 14px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.32);border-radius:10px;color:#fbbf24;font-size:.78rem;font-weight:600">' + escHtml(msg) + '</div>';
+    stats.innerHTML = '<div style="padding:10px 14px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.32);border-radius:10px;color:#fbbf24;font-size:.78rem;font-weight:600">' + escHtml(msg)
+      + (reason === 'queue_doc_vanished' ? ' <button type="button" id="vanishRetry" style="margin-left:8px;padding:4px 10px;border-radius:8px;border:1px solid currentColor;background:transparent;color:inherit;font:inherit;cursor:pointer">Search again</button>' : '')
+      + '</div>';
+    var retry = document.getElementById('vanishRetry');
+    if (retry) retry.onclick = function(){ state.ownDocVanishes = []; if (!state.cancelled) joinQueue(); };
   }
   function clearPairError(){
     // Touched by a successful pair attempt; the matched-state UI takes

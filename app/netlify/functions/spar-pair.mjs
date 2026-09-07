@@ -1154,7 +1154,10 @@ export default async (request) => {
       }
 
       if (!mineSnap.exists || !theirsSnap.exists) {
-        return { ok: false, reason: 'queue_doc_missing' };
+        // 'mine' is the caller's own doc gone mid-search. Until 2026-09-07
+        // the client could not tell the two apart and polled on forever
+        // with no doc to be proposed to. Older bundles ignore the field.
+        return { ok: false, reason: 'queue_doc_missing', missing: mineSnap.exists ? 'peer' : 'mine' };
       }
       const mine = mineSnap.data();
       const theirs = theirsSnap.data();
