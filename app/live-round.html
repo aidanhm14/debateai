@@ -3996,6 +3996,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
              way to learn nobody was coming. Filled by paintRoundQuiet();
              hidden whenever the room is beating. -->
         <div class="round-quiet" id="roundQuiet" hidden></div>
+        <!-- The guest wall's notice to the OTHER debater (2026-09-07):
+             filled by paintGuestHold() while the opponent's uid carries a
+             guestHold stamp, hidden the moment it clears. -->
+        <div class="round-quiet guest-hold" id="guestHold" hidden></div>
       </div>
       <div id="conversationNotes" hidden><p id="conversationNotesEmpty">Say early what the key words mean to you. The judge scores you on your meaning, not the dictionary. Shared AI notes appear here as the conversation develops.</p></div>
       <div class="round-motion-bar" id="roundMotionBar">
@@ -11628,6 +11632,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       room.joined = true;
       paintTray();
       setRoomNote('');
+      armGuestWall();
       // The canvas track went in with join(), so there is nothing to
       // publish here. A camera on stage means the room still has a
       // picture worth posting to the homepage strip.
@@ -11815,7 +11820,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // accepts Apple because its store rules require that provider. The
     // stage/OBS renderer is the one exception: it is a machine surface
     // used by /air, not a person watching the site.
-    if (!prefill.stage && !isLiveVideoUser(state.user)){
+    // 2026-09-07, the founder: a first-time guest may enter ONE spar room
+    // and is asked to sign in twenty seconds into the call (armGuestWall,
+    // below the join handler). guestSeatHere() is the same test the room
+    // token endpoint runs server-side: anonymous, seated on this round
+    // doc by spar-pair, never a spectator.
+    if (!prefill.stage && !isLiveVideoUser(state.user) && !guestSeatHere(state.user)){
       state.dailyMounted = false;
       setCallStatus(isSpectator() ? 'Sign in to spectate live debates.' : 'Sign in to join the video room.', 'closed');
       showAuthGate();
@@ -22025,6 +22035,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // come down when that happens.
     state.seatLeft = d.seatLeft || null;
     if (d.seatSeen) { state.seatSeen = d.seatSeen; checkOpponentPresence(); try { checkKickoffPrompt(); } catch(e){} }
+    // The guest wall's hold map (2026-09-07). Read on every snapshot so the
+    // opponent's notice comes down the instant the guest signs in.
+    state.guestHold = d.guestHold || null;
+    try { paintGuestHold(); } catch(e){}
     // The opening-beat nudge rides the round doc like contextPicks does:
     // an additive field either participant may write, no rules change.
     state.openerNudge = d.openerNudge || null;
@@ -22870,6 +22884,84 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     for (var i = 0; i < pd.length; i++){ if (pd[i] && (pd[i].providerId === 'google.com' || pd[i].providerId === 'apple.com' || pd[i].providerId === 'password')) return true; }
     return false;
   }
+  // ── The guest wall (2026-09-07) ─────────────────────────────────
+  // The founder: "first time anonymous users can get to enter rooms with
+  // other people but then 20 seconds into the call with the other person
+  // it should require them to sign in with email - and the other user on
+  // other side gets alert". A guest is an anonymous Firebase session that
+  // spar-pair seated on this round (one metered round, GUEST_FREE_ROUNDS).
+  // Twenty seconds after the call joins, the shared chooser opens LOCKED
+  // over the call; the call itself keeps running underneath so the return
+  // is instant. The hold is stamped on the round doc (guestHold.{uid}, an
+  // additive field like contextPicks, no rules change) so the opponent's
+  // client can say why the person across from them went quiet. Signing in
+  // LINKS the anonymous uid (auth-modal.js), so the seat survives: the
+  // same uid is still proUid or conUid, and clearing the hold is the whole
+  // "loop them back". A sign-in that lands on a different uid (an account
+  // that already existed) loses the seat; that person reads as a
+  // spectator and the opponent's no-show strip takes over.
+  var GUEST_WALL_MS = 20000;
+  function guestSeatHere(u){
+    if (!u || !u.isAnonymous || prefill.stage || isSpectator()) return false;
+    return !!(state.user && (state.user.uid === state.proUid || state.user.uid === state.conUid)) && /^SparMatch-/.test(String(state.room || ''));
+  }
+  function guestHoldPatch(uid, value){
+    var ref = null;
+    try { ref = uid && state.room ? getRoundDocRef() : null; } catch(e){ ref = null; }
+    if (!ref) return Promise.resolve();
+    var upd = {}; upd['guestHold.' + uid] = value;
+    return ref.update(upd).catch(function(){});
+  }
+  function armGuestWall(){
+    if (state.guestWallArmed) return;
+    var u = state.user;
+    if (!guestSeatHere(u)) return;
+    state.guestWallArmed = true;
+    try { gtag('event', 'live_round_guest_wall_armed'); } catch(e){}
+    setTimeout(function(){
+      var now = firebaseAuth && firebaseAuth.currentUser;
+      if (!now || !now.isAnonymous) return;                 // signed in during the grace, nothing to do
+      if (!guestSeatHere(now)) return;
+      var myUid = now.uid;
+      guestHoldPatch(myUid, firebase.firestore.FieldValue.serverTimestamp());
+      try { gtag('event', 'live_round_guest_wall_shown'); } catch(e){}
+      var release = function(user){
+        // Fires once, on completion or abandonment (onDone(null)). A
+        // locked chooser cannot be abandoned, so null here means the
+        // chooser was torn down by something else; the hold is cleared
+        // either way so the opponent is never told to wait on nobody.
+        guestHoldPatch(myUid, firebase.firestore.FieldValue.delete());
+        if (user && !user.isAnonymous){
+          try { gtag('event', 'live_round_guest_wall_converted', { same_uid: user.uid === myUid }); } catch(e){}
+        }
+      };
+      if (typeof window.openAuthModal === 'function'){
+        window.openAuthModal('signup', {
+          locked: true,
+          liveVideo: true,
+          livePerson: true,
+          headline: 'Sign in to keep debating',
+          sub: 'For safety, everyone in a live round needs an account. Your opponent has been told and is waiting for you. Sign in with email, Google, or Apple and you are straight back in.',
+          onDone: release,
+        });
+      } else {
+        showAuthGate();
+        var off = firebaseAuth.onAuthStateChanged(function(user){ if (user && !user.isAnonymous){ off(); release(user); } });
+      }
+    }, GUEST_WALL_MS);
+  }
+  function paintGuestHold(){
+    var el = document.getElementById('guestHold');
+    if (!el) return;
+    var opp = noShowOpponentUid();
+    var held = !!(opp && state.guestHold && state.guestHold[opp]);
+    if (!held){ if (!el.hidden){ el.hidden = true; el.innerHTML = ''; } return; }
+    if (!el.hidden) return;
+    var who = (opp === state.proUid ? state.proName : state.conName) || 'Your opponent';
+    el.innerHTML = '<strong>' + escHtml(who) + ' was not signed in.</strong> Sorry, everyone in a live round has to be, for safety. They are signing in now and we will bring them right back to you.';
+    el.hidden = false;
+    try { gtag('event', 'live_round_guest_wall_peer_notice'); } catch(e){}
+  }
   function doGoogleSignIn(){
     if (!firebaseAuth){
       var err = $('authError'); if (err){ err.style.display = 'block'; err.textContent = 'Sign-in is loading, try again in a moment.'; }
@@ -23576,6 +23668,8 @@ body.spectator-mode .sh-motion .rmb-motion{font-size:clamp(1.05rem,1.7vw,1.35rem
 .speech-header .speech-actions{grid-column:1/-1;margin-top:2px}
 .speech-header .ready-hint{grid-column:1/-1;margin-top:0}
 .speech-header .round-quiet{grid-column:1/-1}
+.guest-hold{border-color:rgba(220,38,38,.45);background:rgba(220,38,38,.08)}
+.guest-hold strong{font-weight:800}
 .speech-header .spectator-meta{margin-top:6px}
 
 /* Ready has one decision. The full speech controls only appear after the

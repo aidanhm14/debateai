@@ -352,7 +352,13 @@ const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com', 'password']);
 // uid, which survives a storage clear, and linking it to a real account on
 // sign-in KEEPS the uid, so a guest who converts keeps their record.
 // 2026-09-06: questionnaire first, account before any new human pairing.
-const GUEST_FREE_ROUNDS = 0;
+// 2026-09-07, the founder: "first time anonymous users can get to enter
+// rooms with other people but then 20 seconds into the call ... require
+// them to sign in". One guest round is metered here again; the sign-in
+// itself is asked IN THE ROOM by live-round.html twenty seconds after the
+// call joins, and the opponent is told why. `??` so 0 in the env still
+// closes the lane rather than falling back to this default.
+const GUEST_FREE_ROUNDS = Number(process.env.GUEST_FREE_ROUNDS ?? 1);
 
 // One doc per guest uid: { anonymous, rounds, firstSeenAt, lastRoundAt }.
 // `anonymous` is written from the VERIFIED token, never from the queue doc,
@@ -1172,7 +1178,13 @@ export default async (request) => {
       // becoming the passive seat when a current user initiates the
       // transaction. A guest peer's ALLOWANCE is checked separately
       // (guestSpent, above), from the server's own record.
-      const seatOk = (p) => LIVE_VIDEO_PROVIDERS.has(p);
+      // 2026-09-07: an anonymous marker is a legal seat WHILE the guest
+      // lane is open. Without this clause the lane never paired anyone
+      // (GUEST_FREE_ROUNDS > 0 let a guest into the queue and this line
+      // then cancelled every pair they were offered), which is the
+      // "fully built, reachable by nobody" shape this log keeps finding.
+      // The allowance itself is still guestSpent(), from the server record.
+      const seatOk = (p) => LIVE_VIDEO_PROVIDERS.has(p) || (GUEST_FREE_ROUNDS > 0 && p === 'anonymous');
       if (!seatOk(mine.authProvider)) {
         return { ok: false, reason: 'queue_auth_stale' };
       }

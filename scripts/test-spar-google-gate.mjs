@@ -48,8 +48,13 @@ const livePopup = read('app/js/live-popup.js');
 const liveRound = read('app/live-round.html');
 const watch = read('app/watch.html');
 
-check(spar.includes('var GUEST_FREE_ROUNDS = 0;'), 'client must require sign-in before a live match');
-check(pair.includes('const GUEST_FREE_ROUNDS = 0;'), 'server must close guest pairing even if a stale environment override remains');
+// 2026-09-07, the founder: one guest round, then the room asks for the
+// account twenty seconds into the call. The lane is metered server-side.
+check(spar.includes('var GUEST_FREE_ROUNDS = 1;'), 'client mirrors the one-round guest lane');
+check(pair.includes('const GUEST_FREE_ROUNDS = Number(process.env.GUEST_FREE_ROUNDS ?? 1);'), 'server meters one guest round, env-overridable, 0 closes it');
+check(pair.includes("const seatOk = (p) => LIVE_VIDEO_PROVIDERS.has(p) || (GUEST_FREE_ROUNDS > 0 && p === 'anonymous');"), 'an anonymous seat marker is legal only while the guest lane is open');
+check(liveRound.includes('function armGuestWall(){') && liveRound.includes('var GUEST_WALL_MS = 20000;') && liveRound.includes("locked: true,"), 'the room asks a guest to sign in twenty seconds after the call joins, with a locked chooser');
+check(liveRound.includes('function paintGuestHold(){') && liveRound.includes('id="guestHold"'), 'the opponent is told why the guest went quiet');
 check(spar.includes("var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com', 'password'];"), 'spar must define the three-provider live-video set');
 check(spar.includes('if (isLiveVideoUser(u)) return true;') && spar.includes('return !!(u && u.isAnonymous && guestRoundsLeft() > 0);'), 'foreground queue must take a Google, Apple, or email user, or a guest with a free round left');
 check(notifications.includes("var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com', 'password'];"), 'background pill must define the same three-provider set');
@@ -58,10 +63,11 @@ check(pair.includes("const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.
 check(pair.includes('if (!iAmGuest && !LIVE_VIDEO_PROVIDERS.has(decoded.firebase?.sign_in_provider))'), 'matcher must verify the provider from the token, guests excepted into the metered lane');
 check(pair.includes("const iAmGuest = decoded.firebase?.sign_in_provider === 'anonymous';") && pair.includes('if (used >= GUEST_FREE_ROUNDS) {'), 'matcher must meter guests against the server record before seating them');
 check(pair.includes("code: 'GOOGLE_SIGN_IN_REQUIRED'"), 'matcher must return the labeled gate code clients handle');
-check(pair.includes("const seatOk = (p) => LIVE_VIDEO_PROVIDERS.has(p);") && pair.includes('if (!seatOk(mine.authProvider))'), 'matcher must reject a stale active seat marker and refuse a guest seat');
+check(pair.includes('if (!seatOk(mine.authProvider))'), 'matcher must reject a stale active seat marker (a guest seat is legal only while the lane is open, pinned above)');
 check(pair.includes('if (!seatOk(theirs.authProvider))'), 'matcher must reject an ineligible passive seat');
 check(dailyRoom.includes("const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com', 'password']);"), 'video room minter must define the three-provider set');
-check(dailyRoom.includes("if (role !== 'stage' && !LIVE_VIDEO_PROVIDERS.has(who.provider))"), 'video room minter must gate every human role on the provider set');
+check(dailyRoom.includes("if (role !== 'stage' && !guestSeat && !LIVE_VIDEO_PROVIDERS.has(who.provider))"), 'video room minter must gate every human role on the provider set, with the seated-guest exception only');
+check(dailyRoom.includes("role === 'debater' && who.provider === 'anonymous' && who.uid") && dailyRoom.includes("if (!/^SparMatch-/.test(name)) return false;") && dailyRoom.includes('return d.proUid === uid || d.conUid === uid;'), 'the seated-guest exception is a SparMatch room whose round doc seats this uid, and fails closed');
 check(dailyRoom.includes("role === 'viewer'\n        ? 'Sign in to spectate live debates.'"), 'viewer rejection must name the spectator account door');
 check(dailyRoom.includes("body.role === 'stage' ? 'stage'"), 'video room minter must recognize the non-person stage renderer');
 check(dailyRoom.includes("const receiveOnly = role === 'viewer' || role === 'stage';"), 'viewer and stage tokens must both stay receive-only');
@@ -110,7 +116,7 @@ check(
 );
 check(liveRound.includes("pd[i].providerId === 'google.com' || pd[i].providerId === 'apple.com' || pd[i].providerId === 'password'"), 'live-round seat gate must accept Google, Apple, and email accounts');
 check(liveRound.includes('liveVideo: true'), 'live-round must open the shared card in live-video mode');
-check(liveRound.includes("if (!prefill.stage && !isLiveVideoUser(state.user))"), 'live-round must gate human spectators while preserving the stage renderer');
+check(liveRound.includes("if (!prefill.stage && !isLiveVideoUser(state.user) && !guestSeatHere(state.user))") && liveRound.includes('if (!u || !u.isAnonymous || prefill.stage || isSpectator()) return false;'), 'live-round must gate human spectators while preserving the stage renderer; only a seated guest in a SparMatch room passes');
 check(liveRound.includes("if (isSpectator() && !prefill.stage && !isLiveVideoUser(user))"), 'persisted anonymous state must not gate the non-person stage renderer');
 check(liveRound.includes("role: prefill.stage ? 'stage' : (isSpectator() ? 'viewer' : 'debater')"), 'live-round must label the non-person stage request explicitly');
 check(liveRound.includes("headline: isSpectator() ? 'Sign in to spectate live debates'"), 'direct spectator links must open the dedicated sign-in prompt');

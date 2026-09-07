@@ -94,6 +94,20 @@ async function banFor(keys){
   return null;
 }
 
+// Fails CLOSED: no db, no doc, a read that times out, or a seat that is
+// not this uid all answer false, and false is the ordinary 403.
+async function guestSeated(name, uid){
+  if (!/^SparMatch-/.test(name)) return false;
+  let db;
+  try { db = getDb(); } catch (e) { return false; }
+  try {
+    const snap = await withDeadline(db.collection('live_rounds').doc(name).get(), 2000);
+    if (!snap || !snap.exists) return false;
+    const d = snap.data() || {};
+    return d.proUid === uid || d.conUid === uid;
+  } catch (e) { return false; }
+}
+
 async function tournamentAdmission(name){
   if (!parseTournamentRoom(name)) return { tournament: false, data: null };
   let db;
@@ -190,7 +204,18 @@ export default async (req) => {
   // needs a Google, Apple, or email account.
   // The stage renderer is the sole non-person exception so /air and OBS
   // can keep carrying a round without an interactive sign-in screen.
-  if (role !== 'stage' && !LIVE_VIDEO_PROVIDERS.has(who.provider)) {
+  // 2026-09-07, the founder: a first-time anonymous visitor may enter ONE
+  // spar room and is asked to sign in twenty seconds into the call (the
+  // ask and the opponent's notice live in live-round.html). The exception
+  // is as narrow as the lane: an anonymous token, the debater role, a
+  // SparMatch room, and the round doc must already seat THIS uid. Seats
+  // are written by spar-pair with the admin SDK, so a guest cannot forge
+  // one; a guest who guesses a room name gets the 403 below. Viewers stay
+  // gated: an anonymous watcher was never part of the ask.
+  const guestSeat = role === 'debater' && who.provider === 'anonymous' && who.uid
+    ? await guestSeated(name, who.uid)
+    : false;
+  if (role !== 'stage' && !guestSeat && !LIVE_VIDEO_PROVIDERS.has(who.provider)) {
     return jsonResponse(403, {
       code: 'GOOGLE_SIGN_IN_REQUIRED',
       error: role === 'viewer'
