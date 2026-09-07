@@ -6816,13 +6816,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       matchProfile = matchProfile || defaultMatchProfile();
       state.profileReady = true;
     }
-    // Age band before the first queue join, asked once ever
-    // (js/age-gate.js). The answer rides the queue doc below and
-    // spar-pair enforces the minor-with-minor rule server-side.
-    if (window.daAskAgeBand && !window.daAgeBand()){
-      window.daAskAgeBand(function(){ joinQueue(); });
-      return;
-    }
     if (!privateProfileSynced){
       state.cancelled = false;
       shell.innerHTML = '<div class="gate"><div class="eyebrow"><span class="pip"></span>Match Desk</div><h2>Setting your match.</h2><p>Saving the private preferences you chose.</p></div>';
@@ -6831,6 +6824,25 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       }).then(function(){
         if (!state.cancelled) joinQueue(true);
       });
+      return;
+    }
+    // Age band before the first queue join, asked once ever
+    // (js/age-gate.js). The answer rides the queue doc below and
+    // spar-pair enforces the minor-with-minor rule server-side.
+    //
+    // 2026-09-07 (Aidan, off a screenshot of this dialog sitting on top of
+    // the sign-in gate: "too many confusing pop ups", the question "goes
+    // post sign in"): this used to run before the Match Desk sync, so the
+    // moment Google resolved the dialog landed over a gate card that still
+    // said "Sign in to start debating". It is the LAST step before the
+    // queue write now, and it paints its own card first so the screen
+    // behind the question says what has already happened and what is
+    // next. Never asked while the gate is up: the gate returns above.
+    if (window.daAskAgeBand && !window.daAgeBand()){
+      state.cancelled = false;
+      shell.innerHTML = '<div class="gate"><div class="eyebrow"><span class="pip"></span>Debate live · Video</div><h2>You are signed in.</h2><p>One question, then we put you in the live queue.</p></div>';
+      var synced = privateProfileSynced;
+      window.daAskAgeBand(function(){ if (!state.cancelled) joinQueue(synced); });
       return;
     }
     state.cancelled = false;
