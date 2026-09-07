@@ -12,11 +12,35 @@
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse } from './lib/response.mjs';
+import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { checkLayers, callerIp } from './lib/rate-limit.mjs';
+
+// 2026-09-07 security sweep: this endpoint was keyless, unmetered, and
+// wrote game_state + gameScore_* onto ANY voice_rounds doc (creating it if
+// missing). It now needs a Firebase token (anonymous is fine: the voice
+// page mints one), validates every id, meters per uid and per IP, and
+// only ever updates a round that already exists.
+const ROUND_ID = /^[A-Za-z0-9_-]{1,120}$/;
+const SIDE = /^[a-z]{1,12}$/;
+const UID_LAYERS = [
+  { window: 60_000, max: 30, label: 'min' },
+  { window: 3_600_000, max: 300, label: 'hour' },
+];
+const IP_LAYERS = [
+  { window: 60_000, max: 120, label: 'min' },
+  { window: 3_600_000, max: 1200, label: 'hour' },
+];
 
 export default async (request) => {
   if (request.method !== 'POST') {
     return errorResponse('POST only', 405, request);
   }
+
+  const token = extractBearerToken(request);
+  if (!token) return errorResponse('Authorization required', 401, request);
+  let uid;
+  try { uid = (await verifyIdToken(token)).sub; }
+  catch { return errorResponse('Invalid token', 401, request); }
 
   let body;
   try { body = await request.json(); } catch {
@@ -27,9 +51,21 @@ export default async (request) => {
   if (!roundId || typeof speechIndex !== 'number' || !side) {
     return errorResponse('roundId, speechIndex, side required', 400, request);
   }
+  if (!ROUND_ID.test(String(roundId)) || !SIDE.test(String(side))
+      || !Number.isInteger(speechIndex) || speechIndex < 0 || speechIndex > 200) {
+    return errorResponse('Invalid roundId, side, or speechIndex', 400, request);
+  }
+
+  const ipGate = await checkLayers('gamescore', 'ip_' + callerIp(request), IP_LAYERS);
+  if (!ipGate.ok) return errorResponse('Too many requests', 429, request);
+  const uidGate = await checkLayers('gamescore', 'uid_' + uid, UID_LAYERS);
+  if (!uidGate.ok) return errorResponse('Too many requests', 429, request);
 
   try {
     const db = getDb();
+
+    const roundSnap = await db.collection('voice_rounds').doc(roundId).get();
+    if (!roundSnap.exists) return errorResponse('Round not found', 404, request);
 
     // Fetch reaction counts for this speech
     const reactionsDoc = await db.collection('voice_rounds').doc(roundId)
@@ -94,16 +130,13 @@ export default async (request) => {
     }, { merge: true });
 
     // Denormalize total score on voice_rounds doc
+    // update() only: the round was confirmed to exist above, so the old
+    // set({merge}) fallback (which minted a doc at any id) is gone.
     await db.collection('voice_rounds').doc(roundId)
-      .update({ 
+      .update({
         [`gameScore_${side}`]: (priorState.totalScore || 0) + score,
         [`gameStreak_${side}`]: streak
-      })
-      .catch(() => db.collection('voice_rounds').doc(roundId)
-        .set({ 
-          [`gameScore_${side}`]: score,
-          [`gameStreak_${side}`]: streak
-        }, { merge: true }));
+      });
 
     return jsonResponse({
       ok: true,

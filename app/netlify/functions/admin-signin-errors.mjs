@@ -9,7 +9,7 @@
 // see the dominant failure mode without dropping into the Firebase console.
 //
 // Auth: same gate as admin-analytics.mjs + admin-user-activity.mjs —
-// ADMIN_UID env OR user_profiles.{uid}.isAdmin === true.
+// ADMIN_UID env OR users/{uid}.isAdmin === true.
 
 import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
@@ -41,7 +41,7 @@ export default async (request) => {
   let isAdmin = uid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin) {
     try {
-      const profileDoc = await db.collection('user_profiles').doc(uid).get();
+      const profileDoc = await db.collection('users').doc(uid).get();
       if (profileDoc.exists && profileDoc.data().isAdmin === true) {
         isAdmin = true;
       }

@@ -109,7 +109,7 @@ export default async (request) => {
   try { db = getDb(); }
   catch (err) {
     console.error('recent-activity getDb failed:', err.message);
-    return jsonResponse(emptyPayload('getDb: ' + err.message), 200, request);
+    return jsonResponse(emptyPayload('unavailable'), 200, request);
   }
 
   const items = [];

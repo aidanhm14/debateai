@@ -27,7 +27,7 @@ export default async (request) => {
     const exemplars = await getExemplars({ motion, format, side });
     return jsonResponse({ exemplars }, 200, request);
   } catch (err) {
-    return jsonResponse({ exemplars: [], error: err.message }, 200, request);
+    return jsonResponse({ exemplars: [], error: 'unavailable' }, 200, request);
   }
 };
 

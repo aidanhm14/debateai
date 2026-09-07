@@ -84,8 +84,27 @@ service cloud.firestore {
 
     // ── user_profiles ────────────────────────────────────────────────
     // Doc ID = uid. Users can only touch their own profile.
+    //
+    // Entitlement and role keys are SERVER-ONLY (2026-09-07). The admin
+    // gate used to also accept user_profiles.isAdmin === true, and this
+    // rule let the owner write any key, so one devtools write promoted
+    // any account to every /api/admin/* route. The server now reads the
+    // flag from users/{uid} (write: false below); this guard is the
+    // second layer so the profile can never carry an entitlement claim
+    // again. No client writer touches these keys (verified by grep).
+    function profileKeysServerOnly() {
+      return !request.resource.data.keys()
+                .hasAny(['isAdmin', 'admin', 'role', 'plan', 'lifetimeUntil',
+                         'teamId', 'verified', 'banned', 'payoutAccount']);
+    }
     match /user_profiles/{uid} {
-      allow read, write: if isOwner(uid);
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid) && profileKeysServerOnly();
+      allow update: if isOwner(uid)
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                          .hasAny(['isAdmin', 'admin', 'role', 'plan', 'lifetimeUntil',
+                                   'teamId', 'verified', 'banned', 'payoutAccount']);
+      allow delete: if isOwner(uid);
     }
 
     // ── shared_cases ─────────────────────────────────────────────────
@@ -214,12 +233,23 @@ service cloud.firestore {
       // Creator edits freely; everyone else can only touch the
       // participants array (join/leave). Was `if isSignedIn()`, which
       // made every debate world-writable.
+      // Non-creators may add or remove ONLY THEMSELVES from participants
+      // (2026-09-07; previously the whole array was rewritable, so any
+      // signed-in user could evict or insert anyone). Same self-diff
+      // shape as live_rounds/topics.voters.
+      function participantsDiffIsSelf() {
+        let oldL = resource.data.get('participants', []).toSet();
+        let newL = request.resource.data.get('participants', []).toSet();
+        return newL.difference(oldL).union(oldL.difference(newL))
+                 .hasOnly([request.auth.uid]);
+      }
       allow update: if isSignedIn()
                     && (
                       (('creatorUid' in resource.data)
                         && resource.data.creatorUid == request.auth.uid)
-                      || request.resource.data.diff(resource.data)
-                           .affectedKeys().hasOnly(['participants'])
+                      || (request.resource.data.diff(resource.data)
+                            .affectedKeys().hasOnly(['participants'])
+                          && participantsDiffIsSelf())
                     );
       allow delete: if isSignedIn()
                     && resource.data.creatorUid == request.auth.uid;
@@ -684,15 +714,41 @@ service cloud.firestore {
       allow read:   if isSignedIn()
                     && (resource.data.posterUid == request.auth.uid
                         || resource.data.accepterUid == request.auth.uid);
+      // Create: poster only, and only for a challenge they actually
+      // posted (2026-09-07: without the parent check a stranger could
+      // pre-seed the companion doc of someone else's challenge).
       allow create: if isSignedIn()
-                    && request.resource.data.posterUid == request.auth.uid;
+                    && request.resource.data.posterUid == request.auth.uid
+                    && get(/databases/$(database)/documents/live_challenges/$(challengeId)).data.posterUid == request.auth.uid;
       // Update is the accept path (or poster amending their own row).
-      // Allow if the writer is the existing poster OR if the writer is
-      // setting/clearing themselves as the accepter.
+      //
+      // 2026-09-07: the old accepter clause only checked the INCOMING
+      // accepterUid, so any signed-in session could write itself into
+      // the slot of any challenge and then read posterEmail. Now an
+      // accepter may only touch the four accepter fields, only as
+      // themselves, only into an empty (or their own) slot, and only
+      // once the PUBLIC live_challenges doc already names them as the
+      // accepter (live.html chains the companion write after that
+      // update lands). Un-accept: only the current accepter may clear.
+      function accepterFieldsOnly() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['accepterUid', 'accepterEmail', 'accepterContact', 'acceptedAt']);
+      }
+      function acceptingAsSelf() {
+        return ('accepterUid' in request.resource.data)
+               && request.resource.data.accepterUid == request.auth.uid
+               && (!('accepterUid' in resource.data)
+                   || resource.data.accepterUid == request.auth.uid)
+               && get(/databases/$(database)/documents/live_challenges/$(challengeId)).data.get('accepterUid', '') == request.auth.uid;
+      }
+      function unacceptingSelf() {
+        return !('accepterUid' in request.resource.data)
+               && resource.data.accepterUid == request.auth.uid;
+      }
       allow update: if isSignedIn()
                     && (resource.data.posterUid == request.auth.uid
-                        || request.resource.data.accepterUid == request.auth.uid
-                        || resource.data.accepterUid == request.auth.uid);
+                        || (accepterFieldsOnly()
+                            && (acceptingAsSelf() || unacceptingSelf())));
       allow delete: if isSignedIn()
                     && resource.data.posterUid == request.auth.uid;
     }
@@ -742,14 +798,23 @@ service cloud.firestore {
     // Inlined ownership check (was isTeamOwner/isTeamMember helpers, but
     // isTeamMember referenced an undefined getTeamMemberByQuery and the
     // helpers added no clarity over a direct ownerUid comparison).
+    //
+    // 2026-09-07: read was `isSignedIn()`, which handed every team doc
+    // (name, stripeCustomerId, stripeSubscriptionId, plan, status) to any
+    // signed-in or anonymous session, and create let anyone mint an
+    // orphan team. No client reads or writes this collection (grep is
+    // empty; teams ride /api/teams/* with the Admin SDK), and the server
+    // writes `ownerId`, so the ownerUid branches below never matched a
+    // real doc anyway. Read is owner-only by BOTH spellings; writes are
+    // server-only. plan/status/usageThisPeriod must never be client-writable
+    // because lib/auth.mjs, lib/caller.mjs and claude.mjs trust them.
     match /teams/{teamId} {
-      allow read:   if isSignedIn();
-      allow create: if isSignedIn()
-                    && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if isSignedIn()
-                    && resource.data.ownerUid == request.auth.uid;
-      allow delete: if isSignedIn()
-                    && resource.data.ownerUid == request.auth.uid;
+      allow read:   if isSignedIn()
+                    && (resource.data.get('ownerId', '') == request.auth.uid
+                        || resource.data.get('ownerUid', '') == request.auth.uid);
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
 
       // members subcollection
       match /members/{memberId} {
@@ -793,8 +858,12 @@ service cloud.firestore {
 
     // ── team_members (top-level collection) ──────────────────────────
     // Server-managed primarily, but allow reads for team context.
+    // 2026-09-07: read was `isSignedIn()`, exposing every member row
+    // (userId, email, displayName, role) to any signed-in session. No
+    // client reads it (grep is empty; /api/teams/members serves it).
     match /team_members/{docId} {
-      allow read:  if isSignedIn();
+      allow read:  if isSignedIn()
+                   && resource.data.get('userId', '') == request.auth.uid;
       allow write: if false; // server-side only via Admin SDK
     }
 
@@ -1176,8 +1245,14 @@ service cloud.firestore {
       }
       allow read: if isSignedIn()
                     && request.auth.uid in resource.data.participants;
+      // participants is FROZEN after create (2026-09-07): a participant
+      // could previously rewrite the array to [me, stranger], handing a
+      // third party read access to the other person's message history,
+      // or drop the other person from their own thread. dm-core.js never
+      // rewrites participants, so this breaks nothing.
       allow update: if isSignedIn()
                     && request.auth.uid in resource.data.participants
+                    && request.resource.data.participants == resource.data.participants
                     && typingChangeIsOwnUid();
       // Create is open to any signed-in user (named OR guest, since
       // 2026-06-16) as long as they put THEMSELVES in the participants

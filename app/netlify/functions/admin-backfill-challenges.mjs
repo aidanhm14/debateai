@@ -14,7 +14,7 @@
 // POST /api/admin/backfill-challenges
 // body: { "dryRun": true }   // optional, default TRUE (opt in to writing)
 //
-// Auth: admin only (ADMIN_UID env var OR user_profiles.{uid}.isAdmin).
+// Auth: admin only (ADMIN_UID env var OR users/{uid}.isAdmin).
 import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
@@ -38,7 +38,7 @@ export default async (request) => {
   let isAdmin = uid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin) {
     try {
-      const p = await db.collection('user_profiles').doc(uid).get();
+      const p = await db.collection('users').doc(uid).get();
       if (p.exists && p.data().isAdmin === true) isAdmin = true;
     } catch {}
   }

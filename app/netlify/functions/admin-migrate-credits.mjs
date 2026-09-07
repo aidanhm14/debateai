@@ -32,7 +32,7 @@ export default async (request) => {
   let isAdmin = uid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin) {
     try {
-      const p = await db.collection('user_profiles').doc(uid).get();
+      const p = await db.collection('users').doc(uid).get();
       if (p.exists && p.data().isAdmin === true) isAdmin = true;
     } catch {}
   }

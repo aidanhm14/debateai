@@ -1,7 +1,7 @@
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
-import { checkLayers } from './lib/rate-limit.mjs';
+import { checkLayers, callerIp } from './lib/rate-limit.mjs';
 import { benchOfSide, heuristicScreen, analysisPrompt, parseAnalysis, combineVerdicts } from './lib/ai-use.mjs';
 
 const REASONS = new Set(['harassment', 'hate_or_threats', 'sexual_content', 'spam', 'ai_use', 'other']);
@@ -105,6 +105,19 @@ export default async (request) => {
   catch (e) { return errorResponse('Bad JSON', 400, request); }
 
   const reporterUid = decoded.sub;
+  // 2026-09-07: the only limiter here gated the AI screen, not the report
+  // write, so one caller could flood safety_reports and user_blocks (and
+  // each report counts toward video-moderate corroboration). Per-reporter
+  // cap on the write itself; anonymous uids share the IP lane.
+  const reportGate = await checkLayers('report', 'uid_' + reporterUid, [
+    { window: 3_600_000, max: 10, label: 'hour' },
+    { window: 86_400_000, max: 30, label: 'day' },
+  ]);
+  if (!reportGate.ok) return errorResponse('Too many reports from this account. Try again later.', 429, request);
+  const ipReportGate = await checkLayers('report', 'ip_' + callerIp(request), [
+    { window: 3_600_000, max: 30, label: 'hour' },
+  ]);
+  if (!ipReportGate.ok) return errorResponse('Too many reports. Try again later.', 429, request);
   const reportedUid = clean(body.reportedUid, 128);
   const reason = clean(body.reason, 40);
   const details = clean(body.details, 1000);

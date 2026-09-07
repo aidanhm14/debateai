@@ -1,7 +1,7 @@
 // Admin-only endpoint: returns the email_signups collection so the
 // admin dashboard can render a searchable/exportable subscriber list.
 // Gate pattern matches admin-analytics.mjs (ADMIN_UID env var OR
-// user_profiles.{uid}.isAdmin === true).
+// users/{uid}.isAdmin === true).
 import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
@@ -32,7 +32,7 @@ export default async (request) => {
   let isAdmin = uid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin) {
     try {
-      const profileDoc = await db.collection('user_profiles').doc(uid).get();
+      const profileDoc = await db.collection('users').doc(uid).get();
       if (profileDoc.exists && profileDoc.data().isAdmin === true) isAdmin = true;
     } catch (err) {
       console.error('admin-subscribers profile check error:', err.message);

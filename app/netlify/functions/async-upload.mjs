@@ -112,8 +112,11 @@ export default async (request) => {
   try { uid = (await verifyIdToken(token)).sub; }
   catch { return errorResponse('Authentication failed. Sign in again.', 401, request); }
 
-  const ip = request.headers.get('x-forwarded-for')
-    || request.headers.get('x-nf-client-connection-ip')
+  // Netlify's own header first: x-forwarded-for is client-settable, so
+  // reading it first let one caller mint a fresh limiter key per request
+  // (2026-09-07).
+  const ip = request.headers.get('x-nf-client-connection-ip')
+    || (request.headers.get('x-forwarded-for') || '').split(',')[0].trim()
     || 'anon';
   const rate = checkUpRate(ip);
   if (!rate.ok) return errorResponse('Too many uploads. Give it a minute.', 429, request);

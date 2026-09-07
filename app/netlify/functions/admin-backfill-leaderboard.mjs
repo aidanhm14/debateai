@@ -7,7 +7,7 @@
 // POST /api/admin/backfill-leaderboard
 // body: { "dryRun": true }   // optional, default false
 //
-// Auth: admin only (ADMIN_UID env var OR user_profiles.{uid}.isAdmin === true).
+// Auth: admin only (ADMIN_UID env var OR users/{uid}.isAdmin === true).
 import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
@@ -49,7 +49,7 @@ export default async (request) => {
   let isAdmin = uid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin) {
     try {
-      const profileDoc = await db.collection('user_profiles').doc(uid).get();
+      const profileDoc = await db.collection('users').doc(uid).get();
       if (profileDoc.exists && profileDoc.data().isAdmin === true) isAdmin = true;
     } catch (err) {
       console.error('admin-backfill-leaderboard profile check error:', err.message);

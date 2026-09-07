@@ -2,7 +2,7 @@
 //
 // Admin-only read of the private Atlas email map. The browser Atlas page
 // uses this instead of reading atlas_contacts directly from Firestore so
-// email-allowlisted admins work even before their user_profiles.isAdmin
+// email-allowlisted admins work even before their users/{uid}.isAdmin
 // flag exists.
 
 import { requireAdmin } from './lib/admin-auth.mjs';

@@ -14,6 +14,7 @@
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { checkLayers, callerIp } from './lib/rate-limit.mjs';
 import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
 import { publicHighlights } from './lib/highlights.mjs';
 
@@ -87,6 +88,13 @@ export default async (req) => {
     if (!body || body.action !== 'view' || !RECORDING_ID.test(id)){
       return errorResponse('Invalid view', 400, req);
     }
+    // 2026-09-07: keyless counter, so it is metered per IP. A view count
+    // that one script can inflate is a public number that means nothing.
+    const gate = await checkLayers('recview', 'ip_' + callerIp(req), [
+      { window: 60_000, max: 20, label: 'min' },
+      { window: 3_600_000, max: 200, label: 'hour' },
+    ]);
+    if (!gate.ok) return errorResponse('Too many requests', 429, req);
 
     const ref = db.collection('recordings').doc(id);
     const snap = await ref.get();

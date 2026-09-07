@@ -11,7 +11,7 @@
 // later. Read cost is one query returning all docs.
 //
 // Auth gate: same admin-only pattern as the rest of /admin endpoints
-// (ADMIN_UID env match, or user_profiles/{uid}.isAdmin === true).
+// (ADMIN_UID env match, or users/{uid}.isAdmin === true).
 
 import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
@@ -51,7 +51,7 @@ export default async (request) => {
   let isAdmin = uid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin) {
     try {
-      const profileDoc = await db.collection('user_profiles').doc(uid).get();
+      const profileDoc = await db.collection('users').doc(uid).get();
       if (profileDoc.exists && profileDoc.data().isAdmin === true) isAdmin = true;
     } catch (err) {
       console.error('admin-ambassadors profile check error:', err.message);

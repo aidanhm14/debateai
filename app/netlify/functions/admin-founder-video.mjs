@@ -25,7 +25,7 @@
 // No composite indexes required: createdAt range + JS-side filtering.
 // Capped at MAX_DOCS; sampled:true on overflow.
 //
-// Auth gate: same admin-uid / user_profiles.isAdmin check used across
+// Auth gate: same admin-uid / users/{uid}.isAdmin check used across
 // /api/admin/* endpoints.
 
 import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
@@ -63,7 +63,7 @@ export default async (request) => {
   let isAdmin = uid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin) {
     try {
-      const profileDoc = await db.collection('user_profiles').doc(uid).get();
+      const profileDoc = await db.collection('users').doc(uid).get();
       if (profileDoc.exists && profileDoc.data().isAdmin === true) {
         isAdmin = true;
       }

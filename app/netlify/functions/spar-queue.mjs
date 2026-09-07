@@ -43,7 +43,7 @@ export default async (request) => {
 
   let db;
   try { db = getDb(); }
-  catch (err) { return jsonResponse(payload(0, 'getDb: ' + err.message), 200, request); }
+  catch (err) { return jsonResponse(payload(0, 'unavailable'), 200, request); }
 
   try {
     // Single-field range on joinedAt → auto-indexed, no composite
@@ -67,7 +67,7 @@ export default async (request) => {
     return jsonResponse(out, 200, request);
   } catch (err) {
     console.warn('[spar-queue] query failed', err && err.message);
-    const out = payload(0, err && err.message);
+    const out = payload(0, 'unavailable');
     // Negative-cache 30s so a broken read is not re-paid per visitor.
     setCached(CACHE_KEY, out, 30_000);
     return jsonResponse(out, 200, request);

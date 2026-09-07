@@ -130,7 +130,7 @@ export default async (req, context) => {
 
   } catch (e) {
     console.error('[log-vote] error:', e.message);
-    return jsonResponse({ error: e.message }, 500, req);
+    return jsonResponse({ error: 'Vote failed' }, 500, req);
   }
 };
 

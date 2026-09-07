@@ -96,7 +96,7 @@ export default async (request) => {
 
   let db;
   try { db = getDb(); }
-  catch (err) { return jsonResponse(emptyPayload('getDb: ' + err.message), 200, request); }
+  catch (err) { return jsonResponse(emptyPayload('unavailable'), 200, request); }
 
   try {
     // Identical pool, order, names and XP to the full human standings.
@@ -116,7 +116,7 @@ export default async (request) => {
     return jsonResponse(payload, 200, request);
   } catch (err) {
     console.warn('[leaderboard-top] query failed', err && err.message);
-    const payload = emptyPayload(err && err.message);
+    const payload = emptyPayload('unavailable');
     return jsonResponse(payload, 200, request);
   }
 };

@@ -11,7 +11,7 @@
 // body: { dryRun?: boolean }   // default false; if true, reports what
 //                                would change without writing
 //
-// Auth: admin only (ADMIN_UID env OR user_profiles.{uid}.isAdmin === true).
+// Auth: admin only (ADMIN_UID env OR users/{uid}.isAdmin === true).
 //
 // Returns: {
 //   scanned, eligible, copied, stripped, alreadyClean, errors, dryRun
@@ -49,7 +49,7 @@ export default async (request) => {
   let isAdmin = uid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin){
     try {
-      const profileDoc = await db.collection('user_profiles').doc(uid).get();
+      const profileDoc = await db.collection('users').doc(uid).get();
       if (profileDoc.exists && profileDoc.data().isAdmin === true) isAdmin = true;
     } catch (err){
       console.error('admin-scrub profile check error:', err.message);

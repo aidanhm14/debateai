@@ -6362,19 +6362,24 @@ button{font-family:inherit}
   // Firestore rule. Keeps both sides' inboxes out of the public board.
   function publishAcceptance(challengeId, payload){
     if (!firebaseDb || !isNamedUser(currentUser)) return;
+    // The companion write is CHAINED after the public accept lands: the
+    // live_challenge_contacts rule (2026-09-07) only admits an accepter
+    // the public live_challenges doc already names, so firing both
+    // concurrently would race the rule on a legitimate accept.
     firebaseDb.collection('live_challenges').doc(challengeId).update({
       accepterUid: currentUser.uid,
       accepterName: payload.name || daPublicName(currentUser),
       acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    }).catch(function(e){ console.warn('[Live] publish acceptance failed', e); });
-    firebaseDb.collection('live_challenge_contacts').doc(challengeId).set({
-      challengeId: challengeId,
-      accepterUid: currentUser.uid,
-      accepterEmail: currentUser.email || '',
-      accepterContact: payload.contact || '',
-      acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true }).catch(function(e){
-      console.warn('[Live] publish contact companion (accept) failed', e && e.message);
+    }).then(function(){
+      return firebaseDb.collection('live_challenge_contacts').doc(challengeId).set({
+        challengeId: challengeId,
+        accepterUid: currentUser.uid,
+        accepterEmail: currentUser.email || '',
+        accepterContact: payload.contact || '',
+        acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }).catch(function(e){
+      console.warn('[Live] publish acceptance / contact companion failed', e && e.message);
     });
   }
 

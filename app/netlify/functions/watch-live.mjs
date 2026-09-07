@@ -144,7 +144,7 @@ export default async (request) => {
 
   let db;
   try { db = getDb(); }
-  catch (err) { return jsonResponse(payload([], 'getDb: ' + err.message), 200, request); }
+  catch (err) { return jsonResponse(payload([], 'unavailable'), 200, request); }
 
   try {
     // Single-field range on lastSeenAt → auto-indexed, no composite
@@ -187,7 +187,7 @@ export default async (request) => {
     return jsonResponse(out, 200, request);
   } catch (err) {
     console.warn('[watch-live] query failed', err && err.message);
-    const out = payload([], err && err.message);
+    const out = payload([], 'unavailable');
     // Negative-cache 30s so pollers don't re-pay the failed read.
     setCached(CACHE_KEY, out, 30_000);
     return jsonResponse(out, 200, request);

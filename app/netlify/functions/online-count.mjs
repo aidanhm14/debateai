@@ -56,7 +56,7 @@ export default async (request) => {
   let db;
   try { db = getDb(); }
   catch (err) {
-    return jsonResponse(emptyPayload('getDb: ' + err.message), 200, request);
+    return jsonResponse(emptyPayload('unavailable'), 200, request);
   }
 
   try {
@@ -88,7 +88,7 @@ export default async (request) => {
     return jsonResponse(payload, 200, request);
   } catch (err) {
     console.warn('[online-count] query failed', err && err.message);
-    const payload = emptyPayload(err && err.message);
+    const payload = emptyPayload('unavailable');
     // Negative-cache 30s so pollers don't re-pay the failed read.
     setCached(CACHE_KEY, payload, 30_000);
     return jsonResponse(payload, 200, request);

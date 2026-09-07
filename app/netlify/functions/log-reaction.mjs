@@ -5,11 +5,32 @@
 
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { jsonResponse, errorResponse } from './lib/response.mjs';
+import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
+import { checkLayers, callerIp } from './lib/rate-limit.mjs';
+
+// 2026-09-07 security sweep: was keyless and unmetered, incrementing
+// reaction counters under ANY voice_rounds id. Token required (anonymous
+// is fine), ids validated, metered per uid and IP, round must exist.
+const ROUND_ID = /^[A-Za-z0-9_-]{1,120}$/;
+const UID_LAYERS = [
+  { window: 60_000, max: 60, label: 'min' },
+  { window: 3_600_000, max: 600, label: 'hour' },
+];
+const IP_LAYERS = [
+  { window: 60_000, max: 240, label: 'min' },
+  { window: 3_600_000, max: 2400, label: 'hour' },
+];
 
 export default async (request) => {
   if (request.method !== 'POST') {
     return errorResponse('POST only', 405, request);
   }
+
+  const token = extractBearerToken(request);
+  if (!token) return errorResponse('Authorization required', 401, request);
+  let uid;
+  try { uid = (await verifyIdToken(token)).sub; }
+  catch { return errorResponse('Invalid token', 401, request); }
 
   let body;
   try { body = await request.json(); } catch {
@@ -25,9 +46,20 @@ export default async (request) => {
   if (!validReactions.includes(reactionKey)) {
     return errorResponse('Invalid reactionKey', 400, request);
   }
+  if (!ROUND_ID.test(String(roundId)) || !Number.isInteger(speechIndex) || speechIndex < 0 || speechIndex > 200) {
+    return errorResponse('Invalid roundId or speechIndex', 400, request);
+  }
+
+  const ipGate = await checkLayers('reaction', 'ip_' + callerIp(request), IP_LAYERS);
+  if (!ipGate.ok) return errorResponse('Too many requests', 429, request);
+  const uidGate = await checkLayers('reaction', 'uid_' + uid, UID_LAYERS);
+  if (!uidGate.ok) return errorResponse('Too many requests', 429, request);
 
   try {
     const db = getDb();
+
+    const roundSnap = await db.collection('voice_rounds').doc(roundId).get();
+    if (!roundSnap.exists) return errorResponse('Round not found', 404, request);
 
     // Store: voice_rounds/{id}/reactions/{speechIndex}/{reactionKey}
     const reactionRef = db.collection('voice_rounds').doc(roundId)

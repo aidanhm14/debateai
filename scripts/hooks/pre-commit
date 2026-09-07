@@ -152,6 +152,18 @@ if [ -f "$WEBPUSH_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Staged-secret guard (2026-09-07). Netlify's build-time secrets scanner is
+# disabled in netlify.toml, so this is the only automated check between a
+# pasted server key and a public repository. Matches server-secret shapes
+# only (Stripe sk_/whsec_, Anthropic, OpenAI, xAI, Resend, PEM, service
+# account JSON); Firebase web keys and other public-by-design values pass.
+SECRET_GUARD="$REPO_ROOT/scripts/check-staged-secrets.mjs"
+if [ -f "$SECRET_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/check-staged-secrets.mjs); then
+    exit 1
+  fi
+fi
+
 # Function-source guard. The publish dir contains the functions tree, so a
 # forced /netlify/* 404 is the only thing between a GET and the build-baked
 # Firestore service-account key (served live until 2026-09-07). Also refuses

@@ -101,7 +101,7 @@ export default async (request) => {
   try { db = getDb(); }
   catch (err) {
     console.error('public-join-history getDb failed:', err.message);
-    return jsonResponse(emptyPayload('getDb: ' + err.message), 200, request);
+    return jsonResponse(emptyPayload('unavailable'), 200, request);
   }
 
   // ── 1. Per-day anonymous visits ───────────────────────────────
@@ -365,7 +365,7 @@ export default async (request) => {
     return jsonResponse(payload, 200, request);
   } catch (err) {
     console.error('public-join-history failed:', err.message, err.stack);
-    return jsonResponse(emptyPayload('outer: ' + err.message), 200, request);
+    return jsonResponse(emptyPayload('unavailable'), 200, request);
   }
 };
 

@@ -34,7 +34,7 @@ async function requireAdminUid(request) {
   let isAdmin = uid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin) {
     try {
-      const doc = await db.collection('user_profiles').doc(uid).get();
+      const doc = await db.collection('users').doc(uid).get();
       if (doc.exists && doc.data().isAdmin === true) isAdmin = true;
     } catch (e) { /* fall through to the refusal */ }
   }

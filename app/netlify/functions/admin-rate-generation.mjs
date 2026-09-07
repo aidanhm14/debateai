@@ -8,7 +8,7 @@
 // admin to rate ANY generation across the corpus — that's the whole
 // point of an admin rating tool.
 //
-// Auth: ADMIN_UID env var OR user_profiles.{uid}.isAdmin === true.
+// Auth: ADMIN_UID env var OR users/{uid}.isAdmin === true.
 
 import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
@@ -37,7 +37,7 @@ export default async (request) => {
   let isAdmin = adminUid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin) {
     try {
-      const profileDoc = await db.collection('user_profiles').doc(adminUid).get();
+      const profileDoc = await db.collection('users').doc(adminUid).get();
       if (profileDoc.exists && profileDoc.data().isAdmin === true) isAdmin = true;
     } catch (err) {
       console.error('admin-rate-generation profile check error:', err.message);

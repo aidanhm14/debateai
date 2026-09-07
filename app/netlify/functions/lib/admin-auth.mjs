@@ -1,7 +1,15 @@
 // Shared admin-auth helper. Every /api/admin/* function does the same
-// "verify Firebase token → check ADMIN_UID env or user_profiles/{uid}.isAdmin
-// === true" dance. This consolidates it so a single auth gate is the
-// source of truth and the route handlers can focus on the data shape.
+// "verify Firebase token → check ADMIN_UID env, the ADMIN_EMAILS list, or
+// users/{uid}.isAdmin === true" dance. This consolidates it so a single
+// auth gate is the source of truth and the route handlers can focus on
+// the data shape.
+//
+// The flag lives on users/{uid}, NOT user_profiles/{uid}. user_profiles is
+// owner-writable in firestore.rules, so an isAdmin flag there was one
+// devtools write away from every admin route on the site (found in the
+// 2026-09-07 security sweep; nobody legitimately held it). users/{uid} is
+// server-write-only, so a second admin is granted with the Admin SDK and
+// never by the account being promoted.
 
 import { verifyIdToken, extractBearerToken, isAdminEmail } from './auth.mjs';
 import { getDb } from './firestore.mjs';
@@ -34,7 +42,7 @@ export async function requireAdmin(request) {
   let isAdmin = uid === ADMIN_UID || isAdminEmail(decoded.email);
   if (!isAdmin) {
     try {
-      const profileDoc = await db.collection('user_profiles').doc(uid).get();
+      const profileDoc = await db.collection('users').doc(uid).get();
       if (profileDoc.exists && profileDoc.data().isAdmin === true) isAdmin = true;
     } catch (err) {
       console.error('admin-auth profile check error:', err.message);
