@@ -27,7 +27,12 @@
       var date = new Date(round.date);
       if (!isNaN(date.getTime())) html += paragraph(date.toLocaleString());
     }
-    var notes = (Array.isArray(round.notes) ? round.notes : []).slice().sort(function(a,b){ return (a.idx||0) - (b.idx||0); });
+    // A segment whose notes came back empty printed a heading over nothing
+    // (seen in the 2026-09-07 export: "Against · Phat · Conversation" with
+    // no bullets). Only segments with at least one note make the page.
+    var notes = (Array.isArray(round.notes) ? round.notes : []).filter(function(note){
+      return note && Array.isArray(note.points) && note.points.some(function(point){ return point && point.note; });
+    }).sort(function(a,b){ return (a.idx||0) - (b.idx||0); });
     if (notes.length){
       html += '<h2>AI notes</h2><p>Bullet points of what each side said.</p>';
       notes.forEach(function(note){
