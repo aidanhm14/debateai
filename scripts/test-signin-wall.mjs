@@ -29,11 +29,11 @@ function page({ path = '/', storage = new Map(), user = null, native = false, sd
   };
 }
 let p = page(); p.advance(179.75); assert.equal(p.asks.length, 0); p.advance(.25);
-assert.equal(p.asks.length, 1); assert.equal(p.asks[0].locked, true);
+assert.equal(p.asks.length, 1); assert.equal(p.asks[0].locked, false);
 assert.ok(!p.asks[0].googleOnly); assert.ok(!p.asks[0].liveVideo);
-p.advance(80); assert.equal(p.asks.length, 1); console.log('PASS first page locks at three visible minutes, once, with every general sign-in option');
+p.advance(80); assert.equal(p.asks.length, 1); console.log('PASS first page asks at three visible minutes, once, dismissable, with every general sign-in option');
 p = page(); p.advance(18); p.leave(); p = page({ path: '/practice', storage: p.storage }); p.advance(161.75); assert.equal(p.asks.length, 0); p.advance(.25); assert.equal(p.asks.length, 1);
-const refresh = page({ storage: p.storage }); refresh.advance(.25); assert.equal(refresh.asks.length, 1); console.log('PASS navigation and reload preserve the budget');
+const refresh = page({ storage: p.storage }); refresh.advance(300); assert.equal(refresh.asks.length, 0); console.log('PASS navigation preserves the budget; a reload after the ask does not ask again');
 p = page(); p.advance(15); p.hidden(true); p.advance(200); p.hidden(false); p.advance(164.75); assert.equal(p.asks.length, 0); p.advance(.25); assert.equal(p.asks.length, 1); console.log('PASS background time does not count');
 p = page({ user: { isAnonymous: true } }); p.advance(180); assert.equal(p.asks.length, 1);
 p = page({ user: { isAnonymous: false } }); p.advance(300); assert.equal(p.asks.length, 0); p.auth(null); p.advance(180); assert.equal(p.asks.length, 1); console.log('PASS anonymous users are gated, signed-in users pass, sign-out rearms');
@@ -49,3 +49,10 @@ console.log('PASS a debate invitation gets an answer before the account wall ope
 p = page({ path: '/spar' }); p.nodes.set('.match-profile-flow', {}); p.advance(200); assert.equal(p.asks.length, 0);
 p.nodes.delete('.match-profile-flow'); p.advance(.25); assert.equal(p.asks.length, 1);
 console.log('PASS the first three matching questions own the account ask, even after three minutes');
+
+p = page(); p.advance(180); assert.equal(p.asks.length, 1);
+p.asks[0].onDone(null, null); p.advance(120); assert.equal(p.asks.length, 1);
+assert.equal(p.events.filter(e => e[1] === 'signin_wall_dismissed').length, 1);
+const later = page({ path: '/watch', storage: p.storage }); later.advance(300); assert.equal(later.asks.length, 0);
+later.auth({ isAnonymous: false }); later.auth(null); later.advance(180); assert.equal(later.asks.length, 1);
+console.log('PASS closing the ask keeps it closed for the session; a sign-in then sign-out rearms it');

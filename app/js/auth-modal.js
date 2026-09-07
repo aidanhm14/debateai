@@ -169,7 +169,10 @@
   var onDone = null;
   // LOCKED mode (2026-08-26). openAuthModal(mode, {locked:true}) opens the
   // same chooser as a wall rather than a dialog: no ×, Escape does nothing,
-  // a backdrop click does nothing. js/signin-wall.js is the only caller.
+  // a backdrop click does nothing. js/signin-wall.js was the only caller
+  // until 2026-09-07, when the founder unlocked it so readers can close the
+  // ask and stay on the page. No caller passes locked:true today; the mode
+  // is kept because it is one flag and a hard wall may be wanted again.
   // Locking the SHARED chooser rather than building a second card is
   // deliberate — every provider, the anonymous-account linking, the
   // in-app-browser warning and the emailed-link round trip are the ones
@@ -1482,7 +1485,8 @@
     // Firebase publishes auth before the popup promise resolves. Let the
     // normal completion consume onDone first, or it falls through to a reload.
     setTimeout(function () {
-      if (locked && window.hasDebatableAccount()) handOff('restored');
+      // Locked or not, an account restored in another tab ends the ask.
+      if (modal && modal.classList.contains('on') && window.hasDebatableAccount()) handOff('restored');
     }, 0);
   };
 

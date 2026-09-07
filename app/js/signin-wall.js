@@ -1,4 +1,10 @@
-/* Account wall, 2026-09-07. Three visible minutes across pages.
+/* Account ask, 2026-09-07. Three visible minutes across pages, then the
+   shared chooser opens ONCE per browser session and can be closed (x,
+   Escape, backdrop). It was a locked wall from 2026-08-26 to 2026-09-07;
+   the founder unlocked it so readers stay on the page for search dwell
+   instead of bouncing off a wall. Closing it is an answer: the ask never
+   returns in the same session. The Google-only rule for live video pairing
+   lives on /spar and the server, not here.
    A direct human round and a round in the site shell stay uninterrupted.
    AI starts have their own immediate account gate, including server checks. */
 (function () {
@@ -26,6 +32,8 @@
   var seconds = 0, shown = false, signedIn = false, watching = false;
   var lastTick = performance.now(), wasVisible = !document.hidden;
   try { seconds = Math.max(0, Number(sessionStorage.getItem(SPENT_KEY)) || 0); } catch (e) {}
+  // Asked and closed earlier this session: do not ask again on this page.
+  try { shown = sessionStorage.getItem(SHOWN_KEY) === '1'; } catch (e) {}
 
   function track(event, meta) { try { if (window.gtag) window.gtag('event', event, meta); } catch (e) {} }
   function named(user) { return !!(user && !user.isAnonymous); }
@@ -88,14 +96,19 @@
     track('signin_wall_shown', { path: location.pathname, seconds: Math.floor(seconds) });
     var livePerson = !/^\/(newvoice|practice|voice-debate)(?:\.html)?(?:\/|$)/.test(location.pathname);
     window.openAuthModal('signup', {
-      locked: true,
+      locked: false,
       livePerson: livePerson,
       liveVideo: /^\/spar(?:\.html)?(?:\/|$)/.test(location.pathname),
       headline: 'Sign in to keep going',
       sub: livePerson
-        ? 'Debate real people face to face on live video. For safety, sign in to continue. Your account is free.'
+        ? 'Debate real people face to face on live video. Sign in to keep your rounds and progress. Your account is free.'
         : 'Sign in with Google, Apple or email to save your rounds, scores and progress. Your account is free.',
-      onDone: function (user) { shown = false; decide(user); }
+      onDone: function (user) {
+        if (named(user)) { shown = false; decide(user); return; }
+        // Closed without an account. Keep `shown` so the ask does not reopen
+        // on the next tick, and the session key keeps it away on later pages.
+        track('signin_wall_dismissed', { path: location.pathname });
+      }
     });
   }
   function tick() {
