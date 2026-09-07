@@ -80,7 +80,7 @@
       'bottom:20px',
       'right:20px',
       'z-index:99998',
-      'font-family:Archivo,Inter,system-ui,-apple-system,sans-serif',
+      'font-family:Archivo,system-ui,-apple-system,sans-serif',
       'display:none',
     ].join(';');
     const append = () => document.body && document.body.appendChild(rootEl);

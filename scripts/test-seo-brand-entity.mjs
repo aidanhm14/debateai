@@ -107,9 +107,10 @@ check('the public signup caption uses only the named-account total',
   /' sign-ups<\/b> so far\.<\/span>'/.test(landing)
   && !/' with Google, '/.test(landing)
   && !/' with email\.<\/span>'/.test(landing));
-check('example resolutions run Instrument Serif bold, upright, black on light (2026-09-03; bold 2026-09-04)',
-  /\.fs-board h2\.fs-motion\{[^}]*font-family:'Instrument Serif'[^}]*font-weight:700[^}]*font-style:normal/.test(landing)
-  && /family=Instrument\+Serif&/.test(landing)
+check('example resolutions run the serif headline face (Source Serif 4) at a real 600, upright, black on light (2026-09-03; bold 2026-09-04; type system B 2026-09-07)',
+  /\.fs-board h2\.fs-motion\{[^}]*font-family:var\(--font-headline\) !important[^}]*font-weight:600[^}]*font-style:normal/.test(landing)
+  && /family=Source\+Serif\+4:opsz,wght@8\.\.60,200\.\.900/.test(landing)
+  && !/Instrument\+Serif|'Instrument Serif'/.test(landing)
   && /\[data-theme="light"\] \.fs-board h2\.fs-motion\{color:#0f0f12\}/.test(landing)
   && !/\.fs-motion\{[^}]*font-style:italic/.test(landing)
   && !/\.fs-motion\{[^}]*color:#(ef4444|dc2626)/.test(landing)

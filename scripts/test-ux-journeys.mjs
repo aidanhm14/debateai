@@ -312,15 +312,27 @@ check(
 // 2026-09-03, the founder: the live-right-now count is one plain red line
 // with a blinking dot directly above the example board, not a pill in the
 // CTA column.
+// 2026-09-07: a two-paragraph pitch block lived between the wrap and the
+// live line for an hour and the founder cut it ("straight bad"). Later the
+// same day he picked the serif type system off a board that showed the
+// headline and asked to keep it ("keep the find someone that disagrees with
+// you"), so ONE headline line now shares the live count's row (.fs-head).
+// That is the only copy allowed above the board: no paragraph, no pitch.
+// Checked on a bounded slice rather than a file-wide lazy regex, because
+// the nested `(?:<!--[\s\S]*?-->\s*)*` form backtracked for over an hour
+// the first time the structure changed and hung every commit on the site.
+const boardWrapAt = landing.indexOf('<div class="fs-board-wrap">');
+const boardAt = landing.indexOf('<div class="fs-board" id="fsBoard">', boardWrapAt);
+const aboveBoard = boardWrapAt >= 0 && boardAt > boardWrapAt ? landing.slice(boardWrapAt, boardAt) : '';
+const aboveBoardNoComments = aboveBoard.replace(/<!--[\s\S]*?-->/g, '');
 check(
-  // 2026-09-07: a visible pitch block lived between the wrap and the live
-  // line for an hour and the founder cut it ("straight bad"). Comments may
-  // sit there; no copy may.
-  /<div class="fs-board-wrap">\s*(?:<!--[\s\S]*?-->\s*)*<div class="fs-live-line" data-live-now-wrap>[\s\S]*?<div class="fs-board" id="fsBoard">/.test(landing)
+  aboveBoard.length > 0
+    && /^<div class="fs-board-wrap">\s*<div class="fs-head">\s*<p class="fs-head-h1"[^>]*>Find someone who disagrees with you\.<\/p>\s*<div class="fs-live-line" data-live-now-wrap>[^]*?<\/div>\s*<\/div>\s*$/.test(aboveBoardNoComments)
+    && !/<p(?![^>]*fs-head-h1)/.test(aboveBoardNoComments)
     && !landing.includes('class="fs-pitch"')
     && !landing.includes('fs-live-now--signed')
     && !landing.includes('class="fs-live-now"'),
-  'landing puts the live count above the example board as a plain red line',
+  'landing puts one serif headline and the live count above the example board, and nothing else',
 );
 // 2026-09-03, the founder's desktop sketch: the board leads, the three doors
 // sit under it (wide red Join a debate, then Watch and Debate the AI), and
@@ -331,7 +343,7 @@ check(
     && landing.includes('.fscreen-copy{display:none}')
     && /<h1 class="fs-h1--sr">[\s\S]*?<div class="fscreen-wrap">/.test(landing)
     && !landing.includes('mh-pitch'),
-  'landing desktop first screen is board, doors under it, no headline column (2026-09-07: the one-hour pitch block is gone, per the founder)',
+  'landing desktop first screen is board, doors under it, no headline column (2026-09-07: the pitch block is gone; the one-line serif headline rides the live-count row inside the board wrap)',
 );
 
 const topbar = read('app/js/topbar.js');
@@ -422,7 +434,7 @@ check(
 check(
   !watch.includes('/css/social-depth.css')
     && !watch.includes('id="uiNeuralCanvas"')
-    && watch.includes("--font-body:'DM Sans'")
+    && watch.includes("--font-body:'Archivo'")
     && watch.includes("font-family:'Source Serif 4',Georgia,serif !important"),
   'Watch keeps the restrained editorial surface without decorative depth assets',
 );

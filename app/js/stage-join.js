@@ -36,7 +36,7 @@
          mode, and whose clock is running. */
       '.dbs-lower{position:absolute;left:0;right:0;bottom:0;z-index:7;padding:34px 14px 12px;pointer-events:none;',
       'background:linear-gradient(180deg,transparent,rgba(3,4,7,.86));color:#fff;',
-      'font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;display:none}',
+      'font-family:Archivo,system-ui,-apple-system,"Segoe UI",sans-serif;display:none}',
       '.dbv.is-stage .dbs-lower{display:block}',
       // Reserve the action row VERTICALLY rather than beside the text.
       // Measured at 380px with a long motion: the two-line motion and
@@ -92,7 +92,7 @@
          player is often 300px tall inside a page. */
       '.dbs-wrap{position:fixed;inset:0;z-index:2147482900;display:none;place-items:center;padding:18px;',
       'background:rgba(4,5,9,.72);backdrop-filter:blur(6px);',
-      'font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}',
+      'font-family:Archivo,system-ui,-apple-system,"Segoe UI",sans-serif}',
       '.dbs-wrap.on{display:grid}',
       '.dbs-card{width:min(100%,520px);max-height:88vh;overflow:auto;background:#101014;color:#f4f4f2;',
       'border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.6)}',

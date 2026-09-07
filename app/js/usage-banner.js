@@ -64,7 +64,7 @@
     if (rootEl) return rootEl;
     rootEl = document.createElement('div');
     rootEl.id = 'da-usage-banner';
-    rootEl.style.fontFamily = 'Archivo,Inter,system-ui,-apple-system,sans-serif';
+    rootEl.style.fontFamily = 'Archivo,system-ui,-apple-system,sans-serif';
     ensureStyles();
     if (document.body) document.body.appendChild(rootEl);
     else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(rootEl));
@@ -100,7 +100,7 @@
       '#da-usage-banner .da-cap-actions{display:flex;align-items:center;gap:12px}',
       '#da-usage-banner .da-cap-cta{display:flex;align-items:center;justify-content:center;min-height:54px;flex:1;padding:14px 22px;border-radius:15px;background:#dc2626;color:#fff;font-size:.94rem;font-weight:900;text-align:center;text-decoration:none;box-shadow:0 12px 28px rgba(220,38,38,.26);transition:background .15s,transform .15s,box-shadow .15s}',
       '#da-usage-banner .da-cap-cta:hover{background:#b91c1c;transform:translateY(-1px);box-shadow:0 16px 32px rgba(185,28,28,.3)}',
-      '#da-usage-banner .da-cap-later{min-height:54px;padding:12px 17px;border:0;background:transparent;color:#71717a;font:700 .86rem/1 Archivo,Inter,system-ui,sans-serif;cursor:pointer}',
+      '#da-usage-banner .da-cap-later{min-height:54px;padding:12px 17px;border:0;background:transparent;color:#71717a;font:700 .86rem/1 Archivo,system-ui,sans-serif;cursor:pointer}',
       '#da-usage-banner .da-cap-later:hover{color:#27272a}',
       '#da-usage-banner .da-cap-note{margin:13px 0 0;color:#a1a1aa;font-size:.73rem;line-height:1.45;text-align:center}',
       '@keyframes daCapIn{from{opacity:0;transform:translateY(18px) scale(.975)}to{opacity:1;transform:translateY(0) scale(1)}}',
