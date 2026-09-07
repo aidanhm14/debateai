@@ -71,7 +71,7 @@
       var m = /[?&]experienceask=(\d{1,2})(?:&|$)/.exec(location.search);
       if (!m) return;
       var seconds = parseInt(m[1], 10);
-      if (seconds >= 1 && seconds <= 60) { ASK_AFTER_MS = seconds * 1000; MIN_PAGES = 1; }
+      if (seconds >= 1 && seconds <= 60) { ASK_AFTER_MS = seconds * 1000; MIN_PAGES = 1; window.__daExpAskAnyVisit = true; }
     } catch (e) {}
   })();
 
@@ -133,6 +133,29 @@
   }
 
   function answered() { return !!VALID[read(KEY)] || read(ASKED) === '1'; }
+
+  // 2026-09-07 per the founder, after watching a friend meet the card on
+  // their first visit: "that needs to be by the second time they visit the
+  // site entirely." A visit is a browser session; the count lives in
+  // localStorage and steps once per session, so the card can only ever
+  // appear to someone who came back. First visits never see it, however
+  // long they stay or how many pages they open.
+  var VISITS = 'debateos-experience-visits';
+  var VISIT_MARK = 'debateos-experience-visit-counted';
+  function visits() {
+    try { return parseInt(localStorage.getItem(VISITS), 10) || 0; } catch (e) { return 0; }
+  }
+  function countVisit() {
+    try {
+      if (sessionStorage.getItem(VISIT_MARK) === '1') return visits();
+      sessionStorage.setItem(VISIT_MARK, '1');
+      var n = visits() + 1;
+      localStorage.setItem(VISITS, String(n));
+      return n;
+    } catch (e) { return visits(); }
+  }
+  var MIN_VISITS = 2;
+  function ready() { return elapsed >= ASK_AFTER_MS && pagesSeen() >= MIN_PAGES && (window.__daExpAskAnyVisit || visits() >= MIN_VISITS); }
 
   function track(name, params) {
     try { if (window.dosTrack) window.dosTrack(name, params); } catch (e) {}
@@ -325,13 +348,14 @@
     if (document.hidden) return;
     elapsed += TICK_MS;
     setSpent(elapsed);
-    if (elapsed >= ASK_AFTER_MS && pagesSeen() >= MIN_PAGES) showWhenReady();
+    if (ready()) showWhenReady();
   }
 
   function start() {
     countPage();
+    countVisit();
     if (answered()) return;
-    if (elapsed >= ASK_AFTER_MS && pagesSeen() >= MIN_PAGES) { showWhenReady(); return; }
+    if (ready()) { showWhenReady(); return; }
     timer = setInterval(tick, TICK_MS);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });

@@ -97,9 +97,13 @@ check(
     && experienceAsk.includes('var MIN_PAGES = 2;')
     && experienceAsk.includes("sessionStorage.getItem(SPENT)")
     && experienceAsk.includes('if (document.hidden) return;')
-    && (experienceAsk.match(/elapsed >= ASK_AFTER_MS && pagesSeen\(\) >= MIN_PAGES/g) || []).length === 2
+    && (experienceAsk.match(/elapsed >= ASK_AFTER_MS && pagesSeen\(\) >= MIN_PAGES && \(window\.__daExpAskAnyVisit \|\| visits\(\) >= MIN_VISITS\)/g) || []).length === 1
+    && (experienceAsk.match(/if \(ready\(\)\)/g) || []).length === 2
+    && experienceAsk.includes('var MIN_VISITS = 2;')
+    && experienceAsk.includes("localStorage.getItem(VISITS)")
+    && /function start\(\) \{\s*countPage\(\);\s*countVisit\(\);/.test(experienceAsk)
     && !experienceAsk.includes('}, 2200);'),
-  'the experience ask waits for five cumulative visible minutes and a second page (2026-09-04: it crowded the site and read as comp-debater-only)',
+  'the experience ask waits for five cumulative visible minutes, a second page, and a SECOND VISIT (2026-09-04 crowding; 2026-09-07: never on a first visit, per the founder)',
 );
 check(
   /function plainActive\(\) \{\s*return read\(\) !== 'competitive';\s*\}/.test(audienceMode),
