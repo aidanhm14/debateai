@@ -3812,9 +3812,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     }
     var profileContinueLabel = opts.editing ? 'Save changes' : (state.named ? 'Save and continue' : 'Save and continue · SIGN IN');
     var profileSteps = matchProfileSteps(matchProfile);
-    if (opts.firstQuestionOnly) {
-      profileSteps = profileSteps.slice(0, 1);
-      profileSteps[0].nextLabel = 'Sign in and continue';
+    if (opts.beforeSignIn) {
+      profileSteps = profileSteps.slice(0, 3);
+      profileSteps[2].nextLabel = 'Sign in and continue';
     }
     function savedAnswers(answers){
       return profileFromAnswers(Object.assign({}, matchProfile || defaultMatchProfile(), answers));
@@ -3824,7 +3824,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       topSlot: matchProfileMasthead(),
       skipLabel: profileContinueLabel,
       steps: profileSteps,
-      launch: opts.firstQuestionOnly ? false : {
+      launch: opts.beforeSignIn ? false : {
         title: 'Your side of the table is set.',
         hint: 'Your answers are saved privately. We use them to find someone who sees things differently and to write a topic the two of you actually disagree on. Other people and the judge never see them.',
         cta: opts.editing ? 'Save changes' : (state.named ? 'Find my opponent' : 'Sign in and find my opponent')
@@ -3897,7 +3897,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           railSkip.click();
         });
         root.appendChild(bar);
-        if (!opts.editing && !opts.firstQuestionOnly) waitingOffer = deskWaitingOffer(root, function(){ railSkip.click(); });
+        if (!opts.editing && !opts.beforeSignIn) waitingOffer = deskWaitingOffer(root, function(){ railSkip.click(); });
         // On the launch panel the on-panel button is the action, so the
         // footer stands down rather than stacking two red buttons.
         var launchPanel = root.querySelector('.afl-panel--launch');
@@ -4079,7 +4079,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       '</div>';
     var b = document.getElementById('startMatchProfileBtn');
     if (b) b.addEventListener('click', function(){
-      startMatchProfileFlow({ firstQuestionOnly: !state.named, onDone: joinQueue, onClose: renderProfileGate });
+      startMatchProfileFlow({ beforeSignIn: !state.named, onDone: joinQueue, onClose: renderProfileGate });
     });
     var sk = document.getElementById('skipMatchProfileBtn');
     if (sk) sk.addEventListener('click', function(){
@@ -4639,14 +4639,14 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     gateLivePollTimer = setInterval(refresh, 15000);
   }
 
-  // Let a new visitor answer the image question before the account ask.
+  // Let a new visitor answer question 3 before the account ask.
   // The rest of the desk stays optional after sign-in while searching.
   function renderSignedOutEntry(){
     if (matchProfile || qs.get('dm') || qs.get('thread') || qs.get('inbox') || qs.get('invite')) {
       renderGate();
       return;
     }
-    startMatchProfileFlow({ firstQuestionOnly: true, onDone: renderGate, onClose: renderProfileGate });
+    startMatchProfileFlow({ beforeSignIn: true, onDone: renderGate, onClose: renderProfileGate });
   }
 
   // Guest with a session: queue if someone is there and a round is left,

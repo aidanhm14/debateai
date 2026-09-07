@@ -48,4 +48,4 @@ console.log('PASS a debate invitation gets an answer before the account wall ope
 
 p = page({ path: '/spar' }); p.nodes.set('.match-profile-flow', {}); p.advance(200); assert.equal(p.asks.length, 0);
 p.nodes.delete('.match-profile-flow'); p.advance(.25); assert.equal(p.asks.length, 1);
-console.log('PASS the first image question owns the account ask, even after three minutes');
+console.log('PASS the first three matching questions own the account ask, even after three minutes');
