@@ -38,7 +38,12 @@ export async function runTopicAction(db, uid, body, now = Date.now) {
     if (!stamp?.eligible || stamp.uids?.length !== 2 || !stamp.uids.includes(uid)
         || !round || ![round.proUid, round.conUid].includes(uid)
         || !stamp.uids.every(id => [round.proUid, round.conUid].includes(id))) throw new Error('Only the two seated people can choose this topic.');
-    if (!topicRoundOpen(round) || stamp.tournamentId || stamp.draftConfig?.pool || (stamp.draft && stamp.draft.phase !== 'done')) throw new Error('Choose a topic before the round starts, outside the motion draft.');
+    // Start and dismiss race across two requests. A seated person's cancel
+    // still needs to clear the talk when the clock write gets here first.
+    if (body.action !== 'cancel') {
+      if (!topicRoundOpen(round)) throw Object.assign(new Error('Choose a topic before the round starts, outside the motion draft.'), { code: 'ROUND_STARTED' });
+      if (stamp.tournamentId || stamp.draftConfig?.pool || (stamp.draft && stamp.draft.phase !== 'done')) throw new Error('Choose a topic before the round starts, outside the motion draft.');
+    }
     let talk = snap.exists ? snap.data() : null;
     if (body.action === 'open') {
       if (talk && !['done', 'cancelled'].includes(talk.phase) && now() - talk.startedAt < TOPIC_MAX_MS) {
@@ -142,6 +147,7 @@ export default async function handler(request) {
     return jsonResponse(out, 200, request);
   } catch (err) {
     // State-machine rejections are written for the two people. Provider and DB errors stay private.
+    if (err.code === 'ROUND_STARTED') return jsonResponse({ error: err.message, code: 'ROUND_STARTED' }, 409, request);
     const safe = /^(Only the two|Choose a topic|Use Change it|This topic|Please choose|That is the resolution|Enough suggestions|Only the judge|The resolution changed)/.test(err.message || '');
     return errorResponse(safe ? err.message : 'Could not update the topic discussion. Try again.', safe ? 409 : 503, request);
   }

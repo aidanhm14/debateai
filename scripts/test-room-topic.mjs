@@ -96,6 +96,12 @@ assert.equal((await changed.action('a', 'propose', { motion: PROPOSAL })).phase,
 const bad = fixture(); bad.rows.get('round_drafts/room').uids = ['a', 'outsider'];
 await assert.rejects(bad.action('a', 'open'), /Only the two/);
 
+const started = fixture(); await started.action('a', 'open');
+started.rows.get('live_rounds/room').currentTimer = { state: 'running' };
+await assert.rejects(started.action('b', 'open'), error => error.code === 'ROUND_STARTED');
+assert.equal((await started.action('a', 'cancel')).phase, 'cancelled', 'dismiss can finish after the Start clock write wins the transaction race');
+assert.equal(started.rows.get('live_rounds/room').motion, original);
+
 // The judge's brief and its one tool.
 assert.equal(TOPIC_TOOLS.length, 1); assert.equal(TOPIC_TOOLS[0].name, 'propose_motion');
 assert.ok(!/Example:/.test(TOPIC_TOOLS[0].parameters.properties.motion.description), 'no example motion in the schema: the mini model proposed it verbatim before anyone spoke');
@@ -143,3 +149,4 @@ assert.ok(page.includes('window.RoomTopic.dismiss()'), 'starting a speech sends 
 assert.ok(!/isPending\(\)\)\{ toast\(/.test(page), 'the old blocking toast is gone');
 assert.ok(page.includes('Debate something else'));
 console.log('room topic: voice judge host, private hint, proposal relay, two votes, proposal cap, cancellations, stale replies, lock checks, mint shape and conversational judge routing passed');
+await import('./test-room-topic-client.mjs');

@@ -22,16 +22,26 @@
   var nudge = { timer: null, count: 0, key: '' };
   function clearNudge() { clearTimeout(nudge.timer); nudge.timer = null; }
   function armNudge(key, delay, instructions, max) {
-    if (!voice || !isHost()) return;
+    if (!voice || voice.ending || !voice.dc || voice.dc.readyState !== 'open' || !isHost()) return;
+    if (nudge.key === key && nudge.timer !== null) return;
     if (nudge.key !== key) { nudge.count = 0; nudge.key = key; }
     clearNudge();
     if (nudge.count >= max) return;
     nudge.timer = setTimeout(function() {
-      if (!voice || !talk || !active(talk)) return;
+      nudge.timer = null;
+      if (!voice || voice.ending || !talk || !active(talk) || !ctx().canChoose) return;
       nudge.count += 1;
       say(instructions);
       armNudge(key, delay, instructions, max);
     }, delay);
+  }
+  function armTalkNudge() {
+    if (!talk || !active(talk)) return;
+    if (talk.phase === 'listening') {
+      armNudge('listen:' + talk.id, 75000, 'They have been chatting a while. In one casual line under twenty words, remind them you can suggest a topic whenever they land on a disagreement, or they can just tap Start conversation and argue the resolution on screen. Then keep listening.', 2);
+    } else if (talk.phase === 'proposed') {
+      armNudge('proposed:' + talk.id + ':' + talk.proposals, 30000, 'The suggestion is still on their screens and nobody has tapped. In one casual line under twenty words: tap Use it if you are both in, then Start conversation or Start timed speeches. Or say something else. Then keep listening.', 2);
+    }
   }
   function ctx() { return window.__lrTopicContext ? window.__lrTopicContext() : {}; }
   function active(t) { return !!t && ['listening', 'proposed'].indexOf(t.phase) >= 0 && Date.now() < t.expiresAt; }
@@ -88,6 +98,7 @@
     } catch (e) { console.warn('[room-topic] judge track publish failed', e); v.published = false; }
   }
   function handleEvent(ev) {
+    if (!voice || voice.ending || !ctx().canChoose) return;
     var msg; try { msg = JSON.parse(ev.data); } catch (_) { return; }
     if (msg.type === 'error') { console.warn('[room-topic] realtime error', msg.error); return; }
     if (msg.type !== 'response.function_call_arguments.done' || msg.name !== 'propose_motion') return;
@@ -130,6 +141,7 @@
       v.audio.style.display = 'none';
       document.body.appendChild(v.audio);
       pc.ontrack = function(ev) {
+        if (voice !== v || v.stopped || !ctx().canChoose) return;
         var stream = ev.streams && ev.streams[0];
         if (!stream) return;
         v.audio.srcObject = stream;
@@ -140,10 +152,12 @@
       v.dc = dc;
       dc.onmessage = handleEvent;
       dc.onopen = function() {
+        if (voice !== v || v.stopped || !ctx().canChoose) { teardown(v); return; }
         send({ type: 'session.update', session: { type: 'realtime', output_modalities: ['audio'],
           audio: { input: { turn_detection: { type: 'server_vad', threshold: 0.72, prefix_padding_ms: 300, silence_duration_ms: 1000, create_response: true, interrupt_response: true } },
             output: { voice: mint.voice || 'marin', speed: 1.05 } } } });
         say('Say exactly this, once, and nothing else: "' + String(mint.greeting || 'Hi, I am your judge. What do you two actually disagree on?').replace(/"/g, '') + '" Then stop and listen. Do not call any tool yet.');
+        armTalkNudge();
       };
       var offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -152,7 +166,9 @@
         headers: { Authorization: 'Bearer ' + mint.client_secret.value, 'Content-Type': 'application/sdp' },
       });
       if (!res.ok) throw Error('The judge could not connect (' + res.status + ').');
-      await pc.setRemoteDescription({ type: 'answer', sdp: await res.text() });
+      var answer = await res.text();
+      if (voice !== v || v.stopped || !ctx().canChoose) { teardown(v); return; }
+      await pc.setRemoteDescription({ type: 'answer', sdp: answer });
       if (voice !== v) { teardown(v); return; }
       ga('live_topic_voice_start', { model: mint.model || '' });
     } catch (e) {
@@ -164,6 +180,8 @@
   function teardown(v) {
     if (!v || v.stopped) return;
     v.stopped = true;
+    if (voice === v) voice = null;
+    clearTimeout(v.farewellTimer);
     clearInterval(v.poll);
     var c = ctx();
     if (v.published && c.call) { try { c.call.stopCustomTrack('judge'); } catch (_) {} }
@@ -176,10 +194,11 @@
   function stopVoice(farewell) {
     clearNudge();
     var v = voice; if (!v) return;
-    voice = null;
     if (farewell && v.dc && v.dc.readyState === 'open') {
+      if (v.ending) return;
+      v.ending = true;
       try { v.dc.send(JSON.stringify({ type: 'response.create', response: { instructions: farewell } })); } catch (_) {}
-      setTimeout(function() { teardown(v); }, 4500);
+      v.farewellTimer = setTimeout(function() { teardown(v); }, 4500);
     } else teardown(v);
   }
 
@@ -208,6 +227,7 @@
     var c = ctx(); if (c.spectator || !c.uid) return;
     var changed = !talk || talk.id !== next.id;
     talk = next;
+    if (!c.canChoose) { close(); stopVoice(); return; }
     if (!active(talk)) {
       var was = talk.phase;
       close();
@@ -219,11 +239,7 @@
     var key = JSON.stringify([talk.id, talk.phase, talk.accepts, talk.proposal, talk.proposals]);
     if (signature === key) return;
     signature = key;
-    if (talk.phase === 'listening') {
-      armNudge('listen:' + talk.id, 75000, 'They have been chatting a while. In one casual line under twenty words, remind them you can suggest a topic whenever they land on a disagreement, or they can just tap Start conversation and argue the resolution on screen. Then keep listening.', 2);
-    } else if (talk.phase === 'proposed') {
-      armNudge('proposed:' + talk.id + ':' + talk.proposals, 30000, 'The suggestion is still on their screens and nobody has tapped. In one casual line under twenty words: tap Use it if you are both in, then Start conversation or Start timed speeches. Or say something else. Then keep listening.', 2);
-    }
+    armTalkNudge();
     var s = mount(); s.replaceChildren();
     s.classList.toggle('topic-strip--proposed', talk.phase === 'proposed');
     var lead = el('div', null, 'topic-strip-lead');
@@ -255,17 +271,20 @@
   window.RoomTopic = {
     render: render,
     dismiss: dismiss,
-    isPending: function() { return opening || active(talk || window.__lrTopicSnapshot); },
+    isPending: function() { return opening || !!voice || active(talk || window.__lrTopicSnapshot); },
     open: function() {
       if (opening || !ctx().canChoose) return;
       opening = true;
       api('open').then(function(d) {
+        if (!ctx().canChoose) { if (d.talk && active(d.talk)) api('cancel').catch(function() {}); return; }
+        if (!d.talk || !active(d.talk)) return;
         if (d.voice && d.talk && d.talk.host === ctx().uid) return startVoice(d.voice);
       }).catch(function(e) { notice(e.message); }).then(function() { opening = false; });
     }
   };
   document.addEventListener('click', function(e) { if (e.target.closest('#rmbTalkBtn')) window.RoomTopic.open(); });
   setInterval(function() {
+    if (voice && !ctx().canChoose) { close(); stopVoice(); }
     if (talk && strip && (!active(talk) || !ctx().canChoose)) { api('cancel').catch(function() {}); close(); stopVoice(); }
   }, 1000);
   window.addEventListener('pagehide', function() { stopVoice(); });
