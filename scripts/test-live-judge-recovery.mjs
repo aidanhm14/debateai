@@ -144,7 +144,7 @@ ok(
   'the server judge waits for the final transcript write',
 );
 ok(
-  /allowRuntimeFallbackCall:\s*false/.test(readFileSync(new URL('../app/netlify/functions/live-judge.mjs', import.meta.url), 'utf8')),
+  /allowRuntimeFallbackCall:\s*internal/.test(readFileSync(new URL('../app/netlify/functions/live-judge.mjs', import.meta.url), 'utf8')),
   'live judging cannot overrun its request window with a second provider call',
 );
 

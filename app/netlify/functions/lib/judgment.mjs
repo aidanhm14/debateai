@@ -19,6 +19,7 @@
 // writes to, and what lib/settle.mjs reverses off.
 // ─────────────────────────────────────────────────────────────
 import { seasonFor, rubricHash } from './judge-charter.mjs';
+import RoundEvidence from '../../../js/round-evidence.js';
 
 // The rubric a judgment was decided under is no longer a constant in
 // this file. It is read from the season calendar in
@@ -166,6 +167,7 @@ export function fromRound(source, eventId, d) {
     const b = d.ballot;
     if (!b || (b.winner !== 'pro' && b.winner !== 'con')) return { ok: false, reason: 'no_verdict' };
     if (!d.proUid || !d.conUid) return { ok: false, reason: 'missing_participant' };
+    if (d.ballotUnresolved?.outcome === 'no_contest' || !RoundEvidence.assess(d).ok) return { ok: false, reason: 'no_speech' };
     const liveJudgedAt = toMs(b.at) || toMs(d.completedAt);
     // PROVENANCE, and it is the whole reason this branch exists.
     //

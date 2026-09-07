@@ -30,6 +30,7 @@
 // ─────────────────────────────────────────────────────────────
 import { applyRound, defaultRatingDoc } from './rating.mjs';
 import { markStandingsChanged } from './standings-version.mjs';
+import RoundEvidence from '../../../js/round-evidence.js';
 
 export const SOURCES = ['async', 'live'];
 
@@ -96,6 +97,9 @@ export function eligibility(source, d) {
     const consents = d.leaderboardConsent || {};
     if (consents[a] === false || consents[b] === false) {
       return { ok: false, reason: 'opted_out' };
+    }
+    if (noWinner?.outcome === 'no_contest' || !RoundEvidence.assess(d).ok) {
+      return { ok: false, reason: 'no_speech' };
     }
     return {
       ok: true,

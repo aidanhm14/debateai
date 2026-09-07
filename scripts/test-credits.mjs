@@ -150,7 +150,8 @@ const t = (name, cond, got) => {
   // consent. Consent governs the public ladder, not whether the round
   // had a winner; conflating them would strand every predictor on an
   // unconsented round.
-  const liveRound = { ballot: { winner: 'con', at: 9 }, proUid: 'p', conUid: 'c', motion: 'm' };
+  const liveRound = { ballot: { winner: 'con', at: 9 }, proUid: 'p', conUid: 'c', motion: 'm',
+    speeches: [{ side: 'pro', text: 'Public transport reduces traffic.' }, { side: 'con', text: 'Cars connect places buses cannot reach.' }] };
   const lj = fromRound('live', 'e2', liveRound);
   t('live judgment needs no consent', lj.ok);
   t('con maps to side b',             lj.value.winner === 'b');

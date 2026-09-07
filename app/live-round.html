@@ -7,6 +7,7 @@
 <script src="/js/public-identity.js"></script>
 <script defer src="/js/audience-mode.js"></script>
 <script defer src="/js/ballot-read.js"></script>
+<script src="/js/round-evidence.js"></script>
 <script defer src="/js/round-export.js"></script>
 <title>Live Round · Debatable</title>
 <script>/* Broadcast view (?stage=1): class lands pre-paint so the chrome never flashes in. */
@@ -5211,7 +5212,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     hasBallot: false,        // a ballot exists (or is being written) on the round doc
     ballotRecoveryTimer: null, // watcher-side rescue for an abandoned pending ballot
     ballotRecoveryAttempts: 0, // bounded locally; the server lease dedupes globally
-    ballotUnresolved: false, // a complete even panel split is final, never tie-broken
+    ballotUnresolved: false, // a complete panel split or no speech is final
     noShowTimer: null,       // interval that watches whether the opponent has entered
     noShowEl: null,          // the "opponent hasn't joined" prompt element
     noShowSnoozeUntil: 0,    // "keep waiting" snooze deadline
@@ -5606,7 +5607,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       : phase === 'round' ? ((state.speechIdx + 1) + '/' + total)
       : 'Done';
     if (ballotMeta) ballotMeta.textContent =
-      rawPhase === 'ballot-rendered' ? 'Ready'
+      rawPhase === 'ballot-unresolved' ? 'No winner'
+      : rawPhase === 'ballot-rendered' ? 'Ready'
       : phase === 'ballot' ? 'Judging'
       : 'Then';
 
@@ -13714,6 +13716,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     }
     return false;
   }
+  function localRoundEvidence(){
+    return { format: state.formatKey, speeches: state.log };
+  }
   function renderUnresolvedBallot(noWinner){
     clearBallotRecovery();
     if (typeof noWinner === 'string') noWinner = { resolution: noWinner };
@@ -13728,6 +13733,17 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     stopBallotWaitCue();
     var host = $('ballotLoading');
     host.classList.remove('hidden');
+    if (noWinner.outcome === 'no_contest'){
+      state.lastBallot = null;
+      host.innerHTML = '<div style="max-width:620px;margin:0 auto;text-align:center">'
+        + '<div class="verdict-headline">No winner</div>'
+        + '<p style="font-size:1rem;line-height:1.6;color:var(--text-dim)">' + escHtml(noWinner.reason) + '</p>'
+        + '<p style="font-size:.84rem;color:var(--text-dim)">No scores, wins, losses or rating changes are recorded.</p>'
+        + '<a class="btn" href="/live">Back to live debates</a></div>';
+      try { capFinish(null); } catch(e){}
+      try { endRecordingAfterReactions(); renderRecTail(); } catch(e){}
+      return;
+    }
     var proName = String(noWinner.proName || state.proName || 'Pro');
     var conName = String(noWinner.conName || state.conName || 'Con');
     var tally = noWinner.tally && typeof noWinner.tally === 'object' ? noWinner.tally : {};
@@ -13818,6 +13834,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     }).then(function(r){ return r.json(); }).then(function(res){
       if (res && res.ok && res.ballot){
         renderBallot(res.ballot);
+        return;
+      }
+      if (res && (res.code === 'no_contest' || res.code === 'no_transcript')){
+        renderUnresolvedBallot(res.noWinner || RoundEvidence.noContest(localRoundEvidence()));
         return;
       }
       if (res && res.code === 'unresolved'){
@@ -14183,6 +14203,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   }
 
   function generateDeepRfd(b){
+    if (state.ballotUnresolved || !RoundEvidence.assess(localRoundEvidence()).ok) return;
     if (state.deepRfdRequested || state.rfdDeep) return;
     // Short means short. Running the long-form second beat under a Short
     // ballot would hand the room the exact thing it asked not to get, so
@@ -14323,6 +14344,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           );
           return;
         }
+        if (res && (res.code === 'no_contest' || res.code === 'no_transcript')){
+          renderUnresolvedBallot(res.noWinner || RoundEvidence.noContest(localRoundEvidence()));
+          return;
+        }
         if (res && res.code === 'unresolved'){
           renderUnresolvedBallot(res.noWinner || { resolution: res.resolution || 'unresolved' });
           return;
@@ -14344,6 +14369,18 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         try { gtag('event', 'live_round_server_judge_fallback', { format: state.formatKey, reason: (err && err.message) || '' }); } catch(e){}
         generateBallot(attempt);
       });
+      return;
+    }
+    if (state.ballotUnresolved) return;
+    if (!RoundEvidence.assess(localRoundEvidence()).ok){
+      var noContest = RoundEvidence.noContest(localRoundEvidence());
+      renderUnresolvedBallot(noContest);
+      var noContestRef = getRoundDocRef();
+      if (noContestRef) noContestRef.update({
+        ballot: firebase.firestore.FieldValue.delete(), ballotUnresolved: noContest,
+        ballotPending: false, status: 'ballot',
+        completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }).catch(function(e){ console.warn('[Round sync] no speech result failed', e); });
       return;
     }
     if (state.isPrivate || /^(Private-|Squad-)/i.test(state.room)) {
@@ -14516,6 +14553,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // Everything else counts. The ranking is a record of rounds played,
   // and a record that only keeps the tidy ones is not a record.
   function validateLeaderboardEligibility(){
+    if (state.ballotUnresolved && state.ballotUnresolved.outcome === 'no_contest'
+        || !RoundEvidence.assess(localRoundEvidence()).ok){
+      return { ok: false, reason: 'Speech was not captured from both sides' };
+    }
     var f = FORMATS[state.formatKey];
     if (!f) return { ok: false, reason: 'Unknown format' };
     if (!state.proUid || !state.conUid){
@@ -15222,6 +15263,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // through with state.ballotRevealMode preserved so a re-render
   // doesn't yank the user back to the interstitial.
   function renderBallot(b){
+    if (!RoundEvidence.assess(localRoundEvidence()).ok){
+      renderUnresolvedBallot(RoundEvidence.noContest(localRoundEvidence()));
+      return;
+    }
     state.lastBallot = b || null;
     // Both clients pass through here (the generating debater directly,
     // the other via the Firestore sync), so this is the one choke point
@@ -21443,7 +21488,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (!m) return;
     var scene = m[1] || 'speaking';
     if (scene === '1' || scene === 'on') scene = 'speaking';
-    if (['setup','ready','readyset','speaking','waiting','spectator','ballot'].indexOf(scene) < 0) scene = 'speaking';
+    if (['setup','ready','readyset','speaking','waiting','spectator','ballot','silent'].indexOf(scene) < 0) scene = 'speaking';
     window.__lrDesign = scene;
     document.documentElement.setAttribute('data-lr-design', scene);
 
@@ -21717,6 +21762,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       // waiting + spectator: Jordan's first speech is running.
       state.log = [logEntry(0, P1, 287)];
       state.roundNotes = [NOTES_P1];
+      if (scene === 'silent'){
+        state.log = [logEntry(0, '(no transcript)', 0), logEntry(1, '(no transcript)', 0)];
+        enterBallot();
+        return;
+      }
       if (scene === 'ballot'){
         state.log = [logEntry(0, P1, 287), logEntry(1, C1, 296), logEntry(2, P2, 171), logEntry(3, 'Sam says the money follows the demand. It has not followed it in the cities that tried a ban without a plan, and a nurse cannot wait a year for a bus. Charge the driver, fund the bus, keep the door open.', 164)];
         state.roundNotes = [NOTES_P1, NOTES_C1];
@@ -22457,6 +22507,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
 
   function publishBallot(b){
     if (isSpectator()) return;
+    if (state.ballotUnresolved || !RoundEvidence.assess(localRoundEvidence()).ok) return;
     var ref = getRoundDocRef();
     if (!ref) return;
     ref.update({

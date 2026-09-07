@@ -45,6 +45,7 @@ import { applyRoundRating } from './lib/rating-apply.mjs';
 import { verifyTournamentPairing } from './lib/tournament-round.mjs';
 import { applyTournamentResult } from './lib/tournament-ledger.mjs';
 import { deriveSpeakerScores } from './lib/speaker-score.mjs';
+import RoundEvidence from '../../js/round-evidence.js';
 import {
   buildTournamentScorecard,
   speechPaceWpm,
@@ -575,6 +576,10 @@ export default async (request, context) => {
     }, 200, request);
   }
 
+  if (d.ballotUnresolved?.outcome === 'no_contest') {
+    return jsonResponse({ ok: false, already: true, code: 'no_contest', noWinner: d.ballotUnresolved, rated: false }, 200, request);
+  }
+
   // A watcher cannot start an arbitrary panel. Recovery is available only
   // after a participant has ended the round and left a durable pending mark.
   // The request still contains only `room`; transcript, format and sides are
@@ -591,10 +596,6 @@ export default async (request, context) => {
     return jsonResponse({ ok: false, code: 'format_unsupported' }, 200, request);
   }
 
-  const speeches = Array.isArray(d.speeches) ? d.speeches.filter((s) => s && !s.skipped && String(s.text || '').trim().length > 40) : [];
-  if (speeches.length < 2) return jsonResponse({ ok: false, code: 'no_transcript' }, 200, request);
-  if (!d.proUid || !d.conUid) return jsonResponse({ ok: false, code: 'missing_participant' }, 200, request);
-
   // Claim the panel in the same document the clients already watch. The
   // transaction rechecks the ballot and recovery gate against fresh state,
   // so simultaneous participants/watchers cannot fan out provider calls.
@@ -604,7 +605,7 @@ export default async (request, context) => {
   // UID taken from the participant-writable room document.
   const metered = isPrivateJudgingRound(room, d) || previousPrivate.exists;
   let privateAccounts = null;
-  if (metered) {
+  if (metered && RoundEvidence.assess(d).ok) {
     const payerUid = internal ? previousReceipt?.uids?.[0] : (isParticipant ? uid : null);
     if (!payerUid) return jsonResponse({ code: 'PRIVATE_JUDGE_REQUEST_REQUIRED', error: 'A signed-in participant must request private judging before an automatic retry can run.' }, 401, request);
     try { privateAccounts = await privateJudgeAccounts([payerUid], decoded); }
@@ -618,6 +619,9 @@ export default async (request, context) => {
     if (fresh.ballotUnresolved && fresh.serverJudgeState === 'unresolved') {
       return { kind: 'unresolved', noWinner: fresh.ballotUnresolved, round: fresh };
     }
+    if (fresh.ballotUnresolved?.outcome === 'no_contest') {
+      return { kind: 'no_contest', noWinner: fresh.ballotUnresolved };
+    }
 
     const freshParticipants = [fresh.proUid, fresh.proUid2, fresh.conUid, fresh.conUid2].filter(Boolean);
     if (!freshParticipants.includes(uid)) {
@@ -628,6 +632,16 @@ export default async (request, context) => {
 
     const leaseWait = judgeLeaseWaitMs(fresh, now);
     if (leaseWait > 0) return { kind: 'busy', retryAfterMs: leaseWait };
+    if (!RoundEvidence.assess(fresh).ok) {
+      const noWinner = RoundEvidence.noContest(fresh, now);
+      tx.update(ref, {
+        ballot: FieldValue.delete(), ballotUnresolved: noWinner,
+        ballotPending: false, status: 'ballot', serverJudgeState: 'no_contest',
+        completedAt: FieldValue.serverTimestamp(),
+      });
+      return { kind: 'no_contest', noWinner };
+    }
+    if (!fresh.proUid || !fresh.conUid) return { kind: 'missing_participant' };
     let meter = null;
     if (metered || isPrivateJudgingRound(room, fresh)) {
       if (!internal && !freshParticipants.includes(uid)) return { kind: 'forbidden' };
@@ -649,6 +663,8 @@ export default async (request, context) => {
   if (claim.kind === 'plan_retry') return jsonResponse({ code: 'PLAN_CHECK_UNAVAILABLE', error: 'Private judging access changed. Retry this round.' }, 503, request);
   if (claim.kind === 'private_blocked') return jsonResponse(claim.access, claim.access.status || 402, request);
   if (claim.kind === 'missing') return errorResponse('No such round', 404, request);
+  if (claim.kind === 'missing_participant') return jsonResponse({ ok: false, code: 'missing_participant' }, 200, request);
+  if (claim.kind === 'no_contest') return jsonResponse({ ok: false, code: 'no_contest', noWinner: claim.noWinner, rated: false }, 200, request);
   if (claim.kind === 'forbidden') return errorResponse('Not a participant', 403, request);
   if (claim.kind === 'done') return jsonResponse({ ok: true, already: true, ballot: claim.ballot }, 200, request);
   if (claim.kind === 'unresolved') {

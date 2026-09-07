@@ -21,7 +21,8 @@ const dependencies={
   readRows:async()=>{rowReads++; return [...docs].filter(([key])=>key.startsWith('user_ratings/')).map(([key,d])=>({uid:key.split('/')[1],rating:d.rating,wins:d.wins,losses:d.losses,draws:d.draws,games:d.games}));},
   readCache:async key=>clone(cache.get(key)), writeCache:async(key,value)=>cache.set(key,clone(value)), now:()=>1000,
 };
-const args={source:'live',eventId:'one',now:100,roundData:{proUid:'a',conUid:'b',ballot:{winner:'pro'}}};
+const args={source:'live',eventId:'one',now:100,roundData:{proUid:'a',conUid:'b',ballot:{winner:'pro'},
+  speeches:[{side:'pro',text:'Public transport reduces traffic.'},{side:'con',text:'Cars connect places buses cannot reach.'}]}};
 const first=await fetchStandingsSnapshot(db,dependencies);
 assert.deepEqual(first.rows,[]);
 await fetchStandingsSnapshot(db,dependencies);assert.equal(rowReads,1,'Unchanged results share the expensive snapshot');

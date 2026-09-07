@@ -816,12 +816,20 @@ The rules that are easy to break by accident:
 - **Never tie-break an even panel split.** `tallyPanel` returns
   `winner: null` and `resolution:'unresolved'` on a tie, and every
   downstream caller must leave it that way. Any tie-break rule is a
-  thumb on the scale and it is ours. **No winner is reserved for a
-  complete tied panel.** A short panel, including a 1-1 vote with one
+  thumb on the scale and it is ours. **A judged no-winner draw is reserved
+  for a complete tied panel.** A short panel, including a 1-1 vote with one
   missing judge, stays pending and retries; provider failure is not a
   result. A true no-winner voids its market, preserves both argument
   scores, and enters the ladder as a Glicko draw so both rating records
   still update without manufacturing a winner.
+  **No captured speech is a separate no-contest (2026-09-07).** Both sides
+  must have captured words before any live panel or browser fallback can
+  decide a winner. Empty, skipped and placeholder transcripts produce no
+  winner, no scores and no rating change, never a rated draw. One open
+  conversation entry can contain both sides; count its attributed words,
+  not entries or labels. `js/round-evidence.js` is shared by the browser,
+  server judge, rating eligibility and judgment ledger. Run
+  `scripts/test-no-speech-ballot.mjs` before changing this boundary.
 - **Never route an appeal to a model.** `admin-appeals.mjs` must contain
   no provider call and no `schedule` config. The test asserts both. A
   bigger model re-judging the round is the same circularity, and an

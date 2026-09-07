@@ -182,6 +182,7 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   const liveBase = {
     ballot: { winner: 'pro' }, proUid: 'p1', conUid: 'c1',
     proName: 'Pro', conName: 'Con', motion: 'THW test',
+    speeches: [{ side: 'pro', text: 'Public transport reduces traffic.' }, { side: 'con', text: 'Cars connect places buses cannot reach.' }],
     leaderboardConsent: { p1: true, c1: true },
   };
   t('live with mutual consent is eligible', eligibility('live', liveBase).ok);
