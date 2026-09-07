@@ -117,7 +117,9 @@ check('three obvious choices are on the page',
 // 1v1 only), so the third chip is a plain "Timed round" and the guard now
 // asserts the format list stays gone while the route is unchanged.
 check('timed round routes to /practice without naming formats',
-  page.includes('href="/practice?entry=competitive&amp;format=apda&amp;handoff=newvoice"') &&
+  // 2026-09-07, Aidan: 1v1 only. The chip hands off to `quick`, the typed
+  // page's default one-on-one structure; apda is hidden from every picker.
+  page.includes('href="/practice?entry=competitive&amp;format=quick&amp;handoff=newvoice"') &&
   !/APDA, BP, Asian Parliamentary, Worlds, Karl Popper, PF, LD, Policy, and Congress/.test(page));
 check('speed is settable before the round', page.includes('id="paceSeg"'));
 check('speed is settable during the round and pushed into the live session',

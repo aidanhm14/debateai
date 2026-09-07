@@ -28,25 +28,25 @@
       lay: {
         name: 'Persuasion first',
         short: 'Clear and convincing',
-        description: 'Rewards clear explanations, common-sense warrants, and persuasive delivery. Jargon gets no credit by itself.',
+        description: 'Rewards clear explanations, common-sense reasons, and persuasive delivery. Jargon gets no credit by itself.',
         prompt: 'Judge as an attentive lay or parent judge. Prioritize clear explanation, credible real-world reasoning, and persuasive comparison. Do not automatically vote on a dropped technical claim unless a debater explains why it matters. Do not reward jargon by itself.'
       },
       flow: {
         name: 'Response first',
         short: 'Tracks every answer',
-        description: 'Follows the argument-by-argument record. Extensions need warrants, and important drops matter when a debater points them out.',
+        description: 'Follows the record point by point. A point carried forward needs a reason behind it, and an unanswered point matters when the other side says so.',
         prompt: 'Keep a careful flow. Evaluate warranted extensions, direct responses, concessions, and explicit judge instruction. A drop matters when the other side extends it and explains its ballot significance.'
       },
       technical: {
         name: 'Strict reasoning',
         short: 'Checks every claim',
-        description: 'Treats the round as a technical contest. Dropped, warranted arguments are usually conceded.',
+        description: 'Treats the round as a technical contest. A supported point that goes unanswered usually counts as conceded.',
         prompt: 'Use a technical flow. Tech can outweigh your prior view of truth when an argument is minimally plausible, warranted, extended, and unanswered. Enforce the line by line, theory, framework, and explicit drops strictly. Never invent a warrant for a blip.'
       },
       communication: {
         name: 'Communication judge',
         short: 'Content and delivery',
-        description: 'Judges the case and how well it reached the room. Clarity, organization, and delivery can change a close ballot.',
+        description: 'Judges the case and how well it reached the room. Clarity, organization, and delivery can change a close decision.',
         prompt: 'Weigh argument quality and communication together. Clarity, organization, responsiveness, audience adaptation, and delivery may decide a close round, but presentation cannot rescue a case with no surviving offense.'
       }
     },
@@ -62,64 +62,64 @@
       tabula: {
         name: 'Tabula rasa',
         short: 'Debaters set the rules',
-        description: 'Starts from a blank slate. The debaters define the framework, burdens, and voters.',
-        bestFor: 'Policy, circuit LD, and rounds where both sides give clear judge instruction.',
+        description: 'Starts from a blank slate. The two people set the rules: how to judge it, what each side has to prove, and what decides it.',
+        bestFor: 'Rounds where both sides tell the judge how to decide.',
         prompt: 'Use a tabula rasa paradigm. Minimize intervention. Let the debaters establish the framework, burdens, and voting issues. Evaluate the debate they chose to have, not the debate you would prefer.'
       },
       policymaker: {
         name: 'Policymaker',
         short: 'Net benefits',
         description: 'Asks whether adopting the proposal produces better consequences than the status quo or a counterproposal.',
-        bestFor: 'Policy-style plans, disadvantages, counterplans, and implementation debates.',
+        bestFor: 'Plans, their downsides, alternatives, and how they would work in practice.',
         prompt: 'Use a policymaker paradigm. Compare the plan with the status quo and any counterplan. Resolve links, solvency, competition, and net benefits. Vote for the option with the best warranted consequence comparison.'
       },
       stock: {
         name: 'Stock issues',
-        short: 'The proposal carries each burden',
+        short: 'The proposal has to prove each part',
         description: 'Tests whether the proposing side proved a problem, a cause, a workable solution, and the required topic link.',
-        bestFor: 'Traditional Policy, classroom debate, and novice rounds.',
+        bestFor: 'Classroom debate and first rounds.',
         prompt: 'Use a stock-issues paradigm. Test topicality, significance or harms, inherency, and solvency as distinct affirmative burdens. Explain which burden was or was not met and why it controls the ballot.'
       },
       games: {
         name: 'Games player',
         short: 'Tech over truth',
-        description: 'Treats debate as a competitive game with rules created in the round. A dropped, warranted argument can decide it.',
-        bestFor: 'Fast circuit rounds with strict line-by-line debating.',
+        description: 'Treats debate as a competitive game with rules created in the round. A supported point that goes unanswered can decide it.',
+        bestFor: 'Fast rounds where every point gets answered point by point.',
         prompt: 'Use a games-player paradigm. Treat the round as a competitive technical game. Tech can outweigh truth when the claim is minimally plausible and properly warranted. Enforce concessions and in-round procedural rules while refusing unwarranted blips.'
       },
       truth: {
         name: 'Truth seeker',
         short: 'Truth over tech',
         description: 'Prefers well-supported, real-world reasoning over tricks or claims that survive only because they were missed.',
-        bestFor: 'Lay PF, traditional LD, public debates, and practice for mixed audiences.',
+        bestFor: 'Public debates and practice for mixed audiences.',
         prompt: 'Use a truth-seeking paradigm. Prefer credible evidence, sound warrants, and real-world plausibility over tricks or purely technical concessions. Still credit direct clash and explain when an unanswered point remains decisive.'
       },
       hypothesis: {
         name: 'Hypothesis tester',
         short: 'Test the whole motion',
         description: 'Treats the motion as a general claim and asks whether it holds across the most important likely cases.',
-        bestFor: 'Parliamentary motions and debates where one narrow example should not settle the whole proposition.',
+        bestFor: 'Broad questions where one narrow example should not settle the whole thing.',
         prompt: 'Use a hypothesis-testing paradigm. Treat the motion as a general proposition. Test it across the most important representative cases, not only the example or model chosen by one side. Weigh counterexamples by likelihood and importance.'
       },
       communication: {
         name: 'Communication',
         short: 'The room matters',
         description: 'Scores substance and the ability to make it understandable, organized, and persuasive.',
-        bestFor: 'Worlds, Asian Parliamentary, Congress, classroom debate, and public-facing rounds.',
+        bestFor: 'Classroom debate and rounds with a live audience.',
         prompt: 'Use a communication-centered paradigm. Evaluate substance alongside clarity, structure, responsiveness, and audience adaptation. Delivery may break a close tie, but it cannot replace warranted engagement.'
       },
       moved: {
         name: 'Did you move me',
         short: 'Persuasion, fenced',
-        description: 'Asks whether the case actually landed on a reasonable listener hearing it once. Concrete stakes and a world you can picture beat the same warrant left abstract.',
+        description: 'Asks whether the case actually landed on a reasonable listener hearing it once. Concrete stakes and a world you can picture beat the same reason left abstract.',
         bestFor: 'Practising for a real audience, and any round where you suspect you are winning on paper and losing the room.',
         prompt: 'Judge as a reasonable listener hearing the round once, live, with no transcript. Credit an argument to the extent it was built to be understood the first time: concrete stakes over abstraction, a world the listener can picture and check, and the discipline to develop the two things that matter instead of gesturing at nine. Where both sides hold the same warrant, prefer the side that made the listener actually see it and say which line did that. Score persuasion ONLY where you can name the specific argumentative move that earned it. Never score charm, confidence, volume, pace, fluency, polish, vocabulary, accent, or dialect. Persuasion never repairs a missing warrant, never rescues a side with no offense, and never overturns a won comparative: it decides only a round the flow left genuinely level, and you must say so when it does.'
       },
       teaching: {
         name: 'Teaching chair',
-        short: 'Same call, useful ballot',
-        description: 'Calls the round exactly as a standard chair would, then spends most of the ballot on what to fix and how.',
-        bestFor: 'Drilling, coaching a squad, and your first ballots in an unfamiliar format.',
+        short: 'Same call, useful notes',
+        description: 'Calls the round exactly as a standard chair would, then spends most of the decision on what to fix and how.',
+        bestFor: 'Drilling, coaching a squad, and your first decisions in a new setup.',
         prompt: 'Decide the round exactly as you would without this paradigm: the call, the points, and the standards are unchanged, and do NOT go easier on a debater who reads as less experienced, because that is unfair to their opponent. What changes is the ballot. Spend most of it on developmental feedback in plain language: name the two habits costing each speaker the most, point to the exact moment their argument stopped being followable, and give one concrete, actionable fix for each rather than general advice to weigh more. Say what you understood any jargon to mean instead of silently discounting it. Tell the winner what nearly lost it. Keep the verdict and the teaching visibly separate.'
       },
       custom: {
@@ -220,20 +220,20 @@
     // server does, because a hand-written mirror drifts.
     manners: {
       kind:  { name: 'Kind',    short: 'Same call, gentler words',
-               description: 'The same verdict and the same numbers, delivered the way a coach who wants you back next week would say it.' },
+               description: 'The same decision and the same numbers, delivered the way a coach who wants you back next week would say it.' },
       plain: { name: 'Straight', short: 'Neutral plain language',
                description: 'Direct about what happened, neither warm nor cold.' },
       blunt: { name: 'Brutal',  short: 'Says it hard',
-               description: 'Cuts straight to what failed. Same verdict, no cushioning at all.' }
+               description: 'Cuts straight to what failed. Same decision, no cushioning at all.' }
     },
 
     // `deep` is whether this length runs the long-form second beat under
     // the verdict. `words` is that ballot's target. Both mirror the server.
     details: {
       short:     { name: 'Short',     short: 'The call and the reason', deep: false, words: [110, 190],
-                   description: 'A tight ballot: what decided it, what it turned on, and the one fix. No full write-up.' },
-      medium:    { name: 'Medium',    short: 'The standard ballot', deep: true, words: [700, 1100],
-                   description: 'The usual ballot: the deciding issue, the main clashes, the drops that mattered, and fixes.' },
+                   description: 'A tight decision: what decided it, what it turned on, and the one fix. No full write-up.' },
+      medium:    { name: 'Medium',    short: 'The standard write-up', deep: true, words: [700, 1100],
+                   description: 'The usual decision: the deciding issue, the main disagreements, the unanswered points that mattered, and fixes.' },
       extensive: { name: 'Extensive', short: 'Everything, argument by argument', deep: true, words: [1400, 2200],
                    description: 'Walks every argument either side ran, with quotes, the full weighing, and per-speaker notes.' }
     }

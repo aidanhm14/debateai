@@ -4306,6 +4306,40 @@ var FORMATS = {
   }
 };
 
+// 2026-09-07, Aidan: 1v1 only. One person sits on each side here, so any
+// structure with two or more speakers per side stays in the data (saved
+// rounds, replays and old decisions still render) and leaves every picker.
+// Hide, do not delete: add a key here to retire it from the pickers.
+var MULTI_SPEAKER_FORMATS = ['APDA', 'BP', 'WSDC', 'AP', 'CP', 'KP', 'PF', 'Policy', 'Congress', 'MUN', 'Worlds', 'Asian', 'Parli'];
+var DEFAULT_FORMAT = '1v1';
+function isOneOnOneFormat(id) {return MULTI_SPEAKER_FORMATS.indexOf(String(id || '')) === -1;}
+function offeredFormats(list) {
+  return (list || []).filter(function (x) {
+    var id = Array.isArray(x) ? x[0] : x && typeof x === 'object' ? x.id : x;
+    return isOneOnOneFormat(id);
+  });
+}
+// A saved value may still name a hidden structure; keep it selectable so the
+// control never shows a blank while the page loads it.
+function offeredFormatsWith(list, current) {
+  var out = offeredFormats(list);
+  if (current && !isOneOnOneFormat(current) && out.indexOf(current) === -1) out = out.concat([current]);
+  return out;
+}
+
+// 2026-09-07, Aidan: For / Against. Display only. Side ids ('gov', 'opp',
+// 'pro', 'con'), speech codes and the prompt text keep their old words, so
+// these helpers wrap a string at the point it is rendered and nowhere else.
+function sideWord(side) {
+  var k = String(side || '').toLowerCase();
+  if (k === 'gov' || k === 'pro' || k === 'prop' || k === 'government' || k === 'proposition' || k === 'aff') return 'For';
+  if (k === 'opp' || k === 'con' || k === 'opposition' || k === 'neg') return 'Against';
+  return side;
+}
+function forAgainst(str) {
+  return String(str == null ? '' : str).replace(/\bPro\b/g, 'For').replace(/\bCon\b/g, 'Against');
+}
+
 var JUDGE_TAGS = ['STRONG WARRANT', 'DROPPED ARG', 'GOOD TURN', 'NEW IN REBUTTAL', 'ASSERTION', 'KEY CLASH'];
 
 /* ═══════════════════════════════════════════════════
@@ -4499,6 +4533,10 @@ function PolyBackground() {
 
 
 
+
+
+
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4527,12 +4565,8 @@ function createStreamThrottle(onChunk /* outputRef unused, kept for compat */) {
   var CATCHUP_CAP = 400; // beyond this, we speed up so the user isn't stuck watching the animation
   function scheduleTick() {if (rafId == null) rafId = requestAnimationFrame(tick);}function tick() {rafId = null;var behind = streamed.length - revealed;if (behind <= 0) {// Nothing new to render. If the stream is done, fire a final onChunk so
       // consumers see the exact committed text (idempotent. same string).
-      if (finished) onChunk(streamed);return;
-    }
-    // Choose how many chars to reveal this frame.
-    var step;
-    if (finished) {
-      // Stream done. drain the rest quickly but still visibly (≤~1s for 2000 chars)
+      if (finished) onChunk(streamed);return;} // Choose how many chars to reveal this frame.
+    var step;if (finished) {// Stream done. drain the rest quickly but still visibly (≤~1s for 2000 chars)
       step = Math.max(BASE_STEP * 6, Math.ceil(behind / 30));
     } else if (behind > CATCHUP_CAP) {
       // API produced a big burst. speed up so we catch up within ~1s
@@ -6247,7 +6281,7 @@ function CaseGenerator({ onSave, loadedCase, onClearLoaded, team, user, onNaviga
   var { t } = React.useContext(I18nContext);
   var [motion, setMotion] = useState('');
   var [background, setBackground] = useState('');
-  var [format, setFormat] = useState('APDA');
+  var [format, setFormat] = useState(DEFAULT_FORMAT);
   var [side, setSide] = useState('Government');
   var [depth, setDepth] = useState('competition');
   var [output, setOutput] = useState(null);
@@ -6721,13 +6755,13 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
       type: 'button',
       className: 'side-switch-btn' + (side === s.v ? ' active' : ''),
       onClick: function () {setSide(s.v);}
-    }, t(s.k, s.v));
+    }, t(s.k, sideWord(s.v)));
   })
   ),
   React.createElement('div', { style: { marginTop: 16 } },
   React.createElement('label', { className: 'field-label green' }, t('caseGen.format', 'Format')),
   React.createElement('select', { value: format, onChange: (e) => setFormat(e.target.value) },
-  DEBATE_FORMATS.map((f) => React.createElement('option', { key: f.id, value: f.id }, f.name + ' (' + f.region + ')'))
+  offeredFormatsWith(DEBATE_FORMATS.map((f) => f.id), format).map((id) => DEBATE_FORMATS.find((f) => f.id === id)).filter(Boolean).map((f) => React.createElement('option', { key: f.id, value: f.id }, f.name + ' (' + f.region + ')'))
   )
   ),
   React.createElement('div', { style: { marginTop: 20 } },
@@ -8437,7 +8471,7 @@ function MindMapView({ caseResult, motion }) {
   { type: 'impact', label: 'Impact' },
   { type: 'spike', label: 'Pre-empt' },
   { type: 'turn', label: 'Turn' },
-  { type: 'ballot', label: 'Ballot' }];
+  { type: 'ballot', label: 'Decision' }];
 
 
   return el('div', { ref: containerRef, style: { position: 'relative', width: '100%', height: 640, borderRadius: 18, overflow: 'hidden', marginTop: 16, border: '1px solid #ffffff1a', boxShadow: '0 8px 40px rgba(0,0,0,.5), inset 0 1px 0 #ffffff08' } },
@@ -8631,7 +8665,7 @@ function ArgumentMap({ mapData }) {
   el('div', { className: 'argmap-columns' },
   // Gov column
   el('div', { className: 'argmap-col' },
-  el('div', { className: 'argmap-col-header gov' }, t('argMap.government', 'Government')),
+  el('div', { className: 'argmap-col-header gov' }, t('argMap.government', 'For')),
   gov.map((a, i) => el('div', {
     key: i, className: nodeClass('gov', i), 'data-gov': i,
     onMouseEnter: () => {setHoveredNode({ type: 'gov', idx: i });setHoveredClash(null);},
@@ -8662,7 +8696,7 @@ function ArgumentMap({ mapData }) {
   ),
   // Opp column
   el('div', { className: 'argmap-col' },
-  el('div', { className: 'argmap-col-header opp' }, t('argMap.opposition', 'Opposition')),
+  el('div', { className: 'argmap-col-header opp' }, t('argMap.opposition', 'Against')),
   opp.map((a, i) => el('div', {
     key: i, className: nodeClass('opp', i), 'data-opp': i,
     onMouseEnter: () => {setHoveredNode({ type: 'opp', idx: i });setHoveredClash(null);},
@@ -8680,9 +8714,9 @@ function ArgumentMap({ mapData }) {
   ),
   // Legend
   el('div', { className: 'argmap-legend' },
-  el('span', null, el('span', { className: 'dot', style: { background: '#3b82f6', color: '#3b82f6' } }), t('argMap.government', 'Government')),
+  el('span', null, el('span', { className: 'dot', style: { background: '#3b82f6', color: '#3b82f6' } }), t('argMap.government', 'For')),
   el('span', null, el('span', { className: 'dot', style: { background: '#fbbf24', color: '#fbbf24' } }), t('argMap.clashPoints', 'Clash Points')),
-  el('span', null, el('span', { className: 'dot', style: { background: '#ef4444', color: '#ef4444' } }), t('argMap.opposition', 'Opposition')),
+  el('span', null, el('span', { className: 'dot', style: { background: '#ef4444', color: '#ef4444' } }), t('argMap.opposition', 'Against')),
   el('span', null, t('argMap.hoverTrace', 'Hover any node to trace connections'))
   )
   );
@@ -8692,7 +8726,7 @@ function RoundVision() {
   var el = React.createElement;
   var { t } = React.useContext(I18nContext);
   var [motion, setMotion] = useState('');
-  var [visionFormat, setVisionFormat] = useState('APDA');
+  var [visionFormat, setVisionFormat] = useState(DEFAULT_FORMAT);
   var [side, setSide] = useState('Government');
   var [output, setOutput] = useState(null);
   var [mapData, setMapData] = useState(null);
@@ -8788,13 +8822,13 @@ function RoundVision() {
   el('div', null,
   el('label', { className: 'field-label green' }, t('vision.yourSide', 'Your Side')),
   el('select', { value: side, onChange: (e) => setSide(e.target.value) },
-  [{ v: 'Government', k: 'caseGen.government' }, { v: 'Opposition', k: 'caseGen.opposition' }].map((s) => el('option', { key: s.v, value: s.v }, t(s.k, s.v)))
+  [{ v: 'Government', k: 'caseGen.government' }, { v: 'Opposition', k: 'caseGen.opposition' }].map((s) => el('option', { key: s.v, value: s.v }, t(s.k, sideWord(s.v))))
   )
   ),
   el('div', null,
   el('label', { className: 'field-label green' }, 'Format'),
   el('select', { value: visionFormat, onChange: (e) => setVisionFormat(e.target.value) },
-  [['APDA', 'APDA'], ['BP', 'BP'], ['WSDC', 'WSDC'], ['AP', 'AP'], ['KP', 'KP'], ['1v1', '1-on-1 (Casual)']].map(([v, l]) => el('option', { key: v, value: v }, l))
+  offeredFormats([['APDA', 'APDA'], ['BP', 'BP'], ['WSDC', 'WSDC'], ['AP', 'AP'], ['KP', 'KP'], ['1v1', '1-on-1 (Casual)']]).map(([v, l]) => el('option', { key: v, value: v }, l))
   )
   )
   ),
@@ -8885,7 +8919,7 @@ function buildRoundVision(motion, side) {
 
 function Casual() {
   var { t } = React.useContext(I18nContext);
-  var [casualFormat, setCasualFormat] = useState('APDA');
+  var [casualFormat, setCasualFormat] = useState(DEFAULT_FORMAT);
   var [topic, setTopic] = useState('');
   var [messages, setMessages] = useState([
   { role: 'assistant', text: "Tell me what they said and I'll help you craft a response: push back, find common ground, call out the flaw in their logic, or flip their point entirely." }]
@@ -9090,7 +9124,7 @@ function DebateChat() {
   };
 
   var aiSide = mySide === 'pro' ? 'con' : 'pro';
-  var sideLabel = (s) => s === 'pro' ? 'Pro' : 'Con';
+  var sideLabel = (s) => s === 'pro' ? 'For' : 'Against';
 
   // Topic pool for the "Random motion with background" button. Each entry has
   // a one-line motion and a two-line background so the AI has real context.
@@ -9406,7 +9440,7 @@ function DebateChat() {
         boxShadow: motion.trim() ? '0 6px 24px rgba(239,68,68,.35)' : 'none' }
     }, motion.trim() ? 'Start Debating →' : 'Enter a topic to start'),
     React.createElement('p', { style: { marginTop: 14, fontSize: '.72rem', color: 'var(--text-dim,#94a3b8)', lineHeight: 1.5, textAlign: 'center' } },
-    'Hit ', React.createElement('strong', { style: { color: 'var(--text,#fff)', fontWeight: 700 } }, 'End & Judge'), ' (or type "end") any time for a verdict in plain English.'
+    'Hit ', React.createElement('strong', { style: { color: 'var(--text,#fff)', fontWeight: 700 } }, 'End & Judge'), ' (or type "end") any time for the judge\u2019s decision in plain English.'
     )
     );
   }
@@ -9446,7 +9480,7 @@ function DebateChat() {
       var isStreamingVerdict = loading && i === messages.length - 1;
       return React.createElement('div', { key: i, style: { alignSelf: 'stretch', maxWidth: '100%', background: 'linear-gradient(135deg, rgba(251,191,36,.08), rgba(239,68,68,.05))', border: '1px solid rgba(251,191,36,.32)', borderRadius: 14, padding: '14px 16px', marginTop: 4 } },
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 } },
-      React.createElement('div', { style: { fontSize: '.6rem', fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', color: '#fbbf24' } }, 'Judge \u00B7 Verdict'),
+      React.createElement('div', { style: { fontSize: '.6rem', fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', color: '#fbbf24' } }, 'Judge \u00B7 Decision'),
       // Share-ballot button: opens a modal with a screenshotable card +
       // copy-image / download / share-to-X buttons. Viral loop.
       !isStreamingVerdict && m.text && m.text.trim() && React.createElement('button', {
@@ -9554,7 +9588,7 @@ function ShareBallotCard({ ballot, onClose }) {
   var [copied, setCopied] = useState('');
   var parsed = useMemo(() => parseVerdict(ballot.verdictText), [ballot.verdictText]);
   var motion = (ballot.motion || '').trim() || 'Untitled motion';
-  var side = ballot.mySide === 'pro' ? 'Pro' : 'Con';
+  var side = ballot.mySide === 'pro' ? 'For' : 'Against';
   var verdictLabel = (parsed.verdict || '').replace(/\.$/, '');
   var userWon = verdictLabel.toLowerCase().startsWith(side.toLowerCase());
   var outcomeText = verdictLabel ?
@@ -9642,7 +9676,7 @@ function ShareBallotCard({ ballot, onClose }) {
   return el('div', { className: 'auth-overlay', onClick: (e) => {if (e.target === e.currentTarget) onClose();}, style: { alignItems: 'flex-start', overflowY: 'auto', padding: '40px 20px' } },
   el('div', { style: { maxWidth: 560, width: '100%', background: '#1a1a20', border: '1px solid rgba(255,255,255,.1)', borderRadius: 18, padding: 24, position: 'relative' } },
   el('button', { onClick: onClose, style: { position: 'absolute', top: 12, right: 14, background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '1.2rem', fontFamily: 'inherit' } }, '\u2715'),
-  el('div', { style: { fontSize: '.66rem', fontWeight: 800, letterSpacing: '.18em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 14 } }, 'Share your ballot'),
+  el('div', { style: { fontSize: '.66rem', fontWeight: 800, letterSpacing: '.18em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 14 } }, 'Share the decision'),
 
   // The card itself (captured to PNG)
   el('div', { ref: cardRef, style: {
@@ -9661,7 +9695,7 @@ function ShareBallotCard({ ballot, onClose }) {
   el('div', { style: { position: 'absolute', top: -40, right: -40, width: 160, height: 160, background: 'radial-gradient(circle, rgba(239,68,68,.25) 0%, rgba(239,68,68,0) 70%)', pointerEvents: 'none' } }),
 
   el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, position: 'relative', zIndex: 1 } },
-  el('div', { style: { fontSize: '.58rem', fontWeight: 800, letterSpacing: '.22em', textTransform: 'uppercase', color: '#ef4444' } }, 'Judge \u00B7 Ballot'),
+  el('div', { style: { fontSize: '.58rem', fontWeight: 800, letterSpacing: '.22em', textTransform: 'uppercase', color: '#ef4444' } }, 'Judge \u00B7 Decision'),
   el('div', { style: { fontSize: '.58rem', fontWeight: 700, letterSpacing: '.16em', textTransform: 'uppercase', color: '#64748b' } }, 'itsdebatable.com')
   ),
   el('div', { style: { fontSize: '.6rem', fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 8 } }, 'Motion'),
@@ -10057,11 +10091,11 @@ RULES:
   // Strategic insights row
   (vennData.govUse || vennData.oppUse || vennData.synergy) && React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 } },
   vennData.govUse && React.createElement('div', { style: { padding: '10px 12px', background: '#22c55e08', border: '1px solid #22c55e25', borderRadius: 8 } },
-  React.createElement('div', { style: { fontSize: '.68rem', fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4 } }, 'Gov Strategy'),
+  React.createElement('div', { style: { fontSize: '.68rem', fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4 } }, 'For strategy'),
   React.createElement('div', { style: { fontSize: '.8rem', color: '#cbd5e1', lineHeight: 1.4 } }, vennData.govUse)
   ),
   vennData.oppUse && React.createElement('div', { style: { padding: '10px 12px', background: '#f59e0b1f', border: '1px solid #f59e0b55', borderRadius: 8 } },
-  React.createElement('div', { style: { fontSize: '.68rem', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4 } }, 'Opp Strategy'),
+  React.createElement('div', { style: { fontSize: '.68rem', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 4 } }, 'Against strategy'),
   React.createElement('div', { style: { fontSize: '.8rem', color: '#cbd5e1', lineHeight: 1.4 } }, vennData.oppUse)
   )
   ),
@@ -10199,7 +10233,7 @@ ${concept ? `<h4>Applied to: "${escHtml(concept)}"</h4>
 function CaseFeedback() {
   var el = React.createElement;
   var { t } = React.useContext(I18nContext);
-  var [fbFormat, setFbFormat] = useState('APDA');
+  var [fbFormat, setFbFormat] = useState(DEFAULT_FORMAT);
   var [caseText, setCaseText] = useState('');
   var [analyzed, setAnalyzed] = useState(false);
   var [loading, setLoading] = useState(false);
@@ -10514,7 +10548,7 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
     el('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 } },
     el('label', { className: 'field-label', style: { fontSize: '1.05rem', margin: 0 } }, t('feedback.pasteCase', 'Paste Your Case')),
     el('select', { value: fbFormat, onChange: (e) => setFbFormat(e.target.value), style: { marginLeft: 'auto', minWidth: 100 } },
-    [['APDA', 'APDA'], ['BP', 'BP'], ['WSDC', 'WSDC'], ['AP', 'AP'], ['KP', 'KP'], ['1v1', '1-on-1 (Casual)']].map(([v, l]) => el('option', { key: v, value: v }, l))
+    offeredFormats([['APDA', 'APDA'], ['BP', 'BP'], ['WSDC', 'WSDC'], ['AP', 'AP'], ['KP', 'KP'], ['1v1', '1-on-1 (Casual)']]).map(([v, l]) => el('option', { key: v, value: v }, l))
     )
     ),
     el('textarea', {
@@ -10713,7 +10747,7 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
   // === Strategic Tab ===
   sidebarTab === 'strategic' && el('div', { className: 'fb-strategic' },
   overview && overview.vulnerability ? el(React.Fragment, null,
-  el('div', { style: { fontSize: '.78rem', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 10 } }, t('feedback.oppWinStrategy', "If I'm Opp, Here's How I Win")),
+  el('div', { style: { fontSize: '.78rem', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 10 } }, t('feedback.oppWinStrategy', "If I'm Against, Here's How I Win")),
   el('div', { className: 'fb-vuln-box' }, overview.vulnerability),
   // Strategic comments filtered
   el('div', { style: { fontSize: '.78rem', fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '.5px', marginTop: 20, marginBottom: 10 } }, t('feedback.strategicObservations', 'Strategic Observations')),
@@ -10786,7 +10820,7 @@ function JudgeAnalyzer({ team, user, onNavigateTab }) {
   el('div', { style: { textAlign: 'center', padding: '40px 30px', maxWidth: 420 } },
   el('div', { style: { fontSize: '2rem', marginBottom: 12 } }, '\uD83D\uDD12'),
   el('div', { style: { fontWeight: 800, fontSize: '1.25rem', color: '#f1f5f9', marginBottom: 8 } }, 'Judge Analyzer'),
-  el('div', { style: { color: '#94a3b8', fontSize: '.88rem', lineHeight: 1.6, marginBottom: 20 } }, 'Paste ballots, RFDs, or a Tabroom paradigm and get a strategic profile of any judge, likes, dislikes, speaker-point drivers, and how to win their ballot. ' + (window.__DB_NATIVE ? 'Not available in the app yet.' : 'Available on Individual and Team plans.')),
+  el('div', { style: { color: '#94a3b8', fontSize: '.88rem', lineHeight: 1.6, marginBottom: 20 } }, 'Paste a judge\u2019s past decisions or their judging notes and get a profile of that judge: what they reward, what they dislike, what moves their scores, and how to win their decision. ' + (window.__DB_NATIVE ? 'Not available in the app yet.' : 'Available on Individual and Team plans.')),
   // Apple 3.1.1: no upgrade CTA or price copy inside the native app.
   !window.__DB_NATIVE && el('div', { style: { display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' } },
   el('button', { className: 'btn btn-primary', onClick: goUpgrade, style: { padding: '10px 24px', fontSize: '.88rem' } }, 'Upgrade to use this'),
@@ -10797,15 +10831,15 @@ function JudgeAnalyzer({ team, user, onNavigateTab }) {
   el('div', { className: 'tab-hero' },
   el('div', { className: 'tab-hero-eyebrow' }, 'Competitive · Judge'),
   el('h2', { className: 'tab-hero-title' }, 'Judge Analyzer'),
-  el('p', { className: 'tab-hero-lede' }, 'Paste a judge’s ballots, RFDs, or Tabroom paradigm. AI extracts their preferences so you know exactly how to debate in front of them.')
+  el('p', { className: 'tab-hero-lede' }, 'Paste a judge\u2019s past decisions or their judging notes. AI extracts their preferences so you know exactly how to debate in front of them.')
   ),
   el('label', { className: 'field-label' }, 'Judge Name (optional)'),
   el('input', { value: judgeName, onChange: (e) => setJudgeName(e.target.value), placeholder: 'e.g., Sarah Chen', style: { width: '100%', maxWidth: 400, padding: 10, borderRadius: 8, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.1)', color: '#e2e8f0', fontSize: '.88rem', marginBottom: 14 } }),
-  el('label', { className: 'field-label' }, 'Ballots / RFDs / Paradigm'),
-  el('textarea', { value: ballots, onChange: (e) => setBallots(e.target.value), placeholder: 'Paste ballot text, RFDs, or their Tabroom paradigm. Multiple ballots = better analysis. Include speaker points if available.', style: { width: '100%', minHeight: 200, padding: 14, borderRadius: 12, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.1)', color: '#e2e8f0', fontSize: '.9rem', fontFamily: 'inherit', lineHeight: 1.6, resize: 'vertical' } }),
+  el('label', { className: 'field-label' }, 'Past decisions or judging notes'),
+  el('textarea', { value: ballots, onChange: (e) => setBallots(e.target.value), placeholder: 'Paste the judge\u2019s written decisions or their judging notes. More decisions means a better read. Include scores if you have them.', style: { width: '100%', minHeight: 200, padding: 14, borderRadius: 12, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.1)', color: '#e2e8f0', fontSize: '.9rem', fontFamily: 'inherit', lineHeight: 1.6, resize: 'vertical' } }),
   el('div', { style: { marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' } },
   el('button', { onClick: run, disabled: loading || !ballots.trim(), className: 'btn btn-orange', style: { padding: '12px 24px', fontSize: '.9rem' } }, loading ? 'Analyzing…' : 'Analyze Judge →'),
-  el('span', { style: { fontSize: '.75rem', color: '#64748b' } }, 'Tip: include at least 2-3 ballots for reliable patterns.')
+  el('span', { style: { fontSize: '.75rem', color: '#64748b' } }, 'Tip: include at least 2 or 3 decisions for reliable patterns.')
   ),
   err && el('div', { style: { marginTop: 16, padding: 12, background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.3)', borderRadius: 10, color: '#fca5a5', fontSize: '.85rem' } }, err),
   analysis && el('div', { style: { marginTop: 20, padding: '20px 24px', background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 14, whiteSpace: 'pre-wrap', color: '#e2e8f0', fontSize: '.92rem', lineHeight: 1.7 } }, analysis)
@@ -10868,8 +10902,8 @@ function BallotOCR() {
   };
 
   return el('div', null,
-  el('h3', { style: { margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text,#fff)' } }, 'Ballot OCR'),
-  el('p', { style: { color: 'var(--text-dim,#94a3b8)', fontSize: '.85rem', marginTop: 6, marginBottom: 16 } }, 'Snap a photo or upload a file of your ballot. AI extracts the RFD, speaker points, and specific feedback so nothing gets lost.'),
+  el('h3', { style: { margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text,#fff)' } }, 'Scan a decision'),
+  el('p', { style: { color: 'var(--text-dim,#94a3b8)', fontSize: '.85rem', marginTop: 6, marginBottom: 16 } }, 'Snap a photo or upload a file of a written decision. AI pulls out why they voted the way they did, the scores, and the specific feedback so nothing gets lost.'),
   el('div', { style: { border: '2px dashed var(--border,rgba(255,255,255,.15))', borderRadius: 14, padding: '32px 24px', textAlign: 'center', background: 'var(--bg-card,rgba(255,255,255,.02))' } },
   // Two inputs: one forces the phone camera (capture="environment"), the
   // other is a plain file picker so desktop and mobile users can upload an
@@ -10884,7 +10918,7 @@ function BallotOCR() {
   image && image.mime && image.mime.startsWith('image/') && el('img', { src: 'data:' + image.mime + ';base64,' + image.b64, style: { marginTop: 16, maxHeight: 240, maxWidth: '100%', borderRadius: 8, border: '1px solid var(--border,rgba(255,255,255,.1))' } })
   ),
   el('div', { style: { marginTop: 14, display: 'flex', gap: 12 } },
-  el('button', { onClick: run, disabled: loading || !image, className: 'btn btn-orange', style: { padding: '12px 24px', fontSize: '.9rem' } }, loading ? 'Reading ballot…' : 'Extract Feedback →')
+  el('button', { onClick: run, disabled: loading || !image, className: 'btn btn-orange', style: { padding: '12px 24px', fontSize: '.9rem' } }, loading ? 'Reading the decision…' : 'Extract Feedback →')
   ),
   err && el('div', { style: { marginTop: 16, padding: 12, background: 'rgba(239,68,68,.1)', border: '1px solid rgba(239,68,68,.3)', borderRadius: 10, color: '#fca5a5', fontSize: '.85rem' } }, err),
   extracted && el('div', { style: { marginTop: 20, padding: '20px 24px', background: 'rgba(255,255,255,.02)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 14, whiteSpace: 'pre-wrap', color: '#e2e8f0', fontSize: '.92rem', lineHeight: 1.7 } }, extracted)
@@ -10894,7 +10928,7 @@ function BallotOCR() {
 function Judge({ user, team, onNavigateTab }) {
   var { t } = React.useContext(I18nContext);
   var [judgeMode, setJudgeMode] = useState('flow'); // flow | pool
-  var [format, setFormat] = useState('APDA');
+  var [format, setFormat] = useState(DEFAULT_FORMAT);
   var [judgeType, setJudgeType] = useState('tabula_rasa');
   var [notes, setNotes] = useState({});
   var [tags, setTags] = useState({});
@@ -11091,7 +11125,7 @@ Think through the strategic implications. Be specific, reference debate theory, 
   return React.createElement('div', { className: 'panel' },
   // Mode toggle: Flow Notes / Judge Pool / Analyzer / Ballot OCR
   React.createElement('div', { style: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' } },
-  [['flow', 'Flow Notes'], ['pool', 'Judge Pool'], ['analyzer', 'Judge Analyzer'], ['ballot', 'Ballot OCR']].map(([m, label]) => React.createElement('button', {
+  [['flow', 'Flow Notes'], ['pool', 'Judge Pool'], ['analyzer', 'Judge Analyzer'], ['ballot', 'Scan a decision']].map(([m, label]) => React.createElement('button', {
     key: m, onClick: () => setJudgeMode(m),
     style: { padding: '8px 20px', borderRadius: 8, border: judgeMode === m ? '1.5px solid #ef444450' : '1.5px solid #ffffff18', background: judgeMode === m ? '#ef444412' : 'transparent', color: judgeMode === m ? '#f87171' : '#a8b8c8', cursor: 'pointer', fontSize: '.78rem', fontWeight: 600, fontFamily: 'inherit' }
   }, label))
@@ -11113,7 +11147,7 @@ Think through the strategic implications. Be specific, reference debate theory, 
   judgeMode === 'flow' && React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' } },
   React.createElement('label', { style: { fontSize: '.8rem', fontWeight: 600, color: '#a8b8c8', letterSpacing: '.5px', textTransform: 'uppercase' } }, 'Format:'),
   React.createElement('select', { value: format, onChange: (e) => {setFormat(e.target.value);setNotes({});setTags({});setFeedback({});} },
-  Object.entries(FORMATS).map(([k, v]) => React.createElement('option', { key: k, value: k }, v.label))
+  Object.entries(FORMATS).filter(([k]) => isOneOnOneFormat(k)).map(([k, v]) => React.createElement('option', { key: k, value: k }, v.label))
   ),
   React.createElement('label', { style: { fontSize: '.8rem', fontWeight: 600, color: '#a8b8c8', letterSpacing: '.5px', textTransform: 'uppercase', marginLeft: 8 } }, 'Judge Type:'),
   React.createElement('select', { value: judgeType, onChange: (e) => setJudgeType(e.target.value) },
@@ -11129,7 +11163,7 @@ Think through the strategic implications. Be specific, reference debate theory, 
   React.createElement('div', { className: 'speech-header' },
   React.createElement('div', { style: { display: 'flex', alignItems: 'center' } },
   React.createElement('span', { className: 'speech-badge' }, speech.code),
-  React.createElement('span', { className: 'speech-title' }, speech.title),
+  React.createElement('span', { className: 'speech-title' }, forAgainst(speech.title)),
   React.createElement('span', { className: 'speech-time' }, '· ' + speech.time)
   ),
   React.createElement('button', {
@@ -11179,7 +11213,7 @@ Think through the strategic implications. Be specific, reference debate theory, 
   !allFilled && React.createElement('p', { style: { color: '#64748b', fontSize: '.82rem', textAlign: 'center', marginTop: 8 } },
   t('judge.fillNotes', 'Fill in notes for all 6 speeches to unlock round evaluation')
   ),
-  roundEvalLoading && reProgress && React.createElement(LoadingBar, { label: reProgress.phase === 'thinking' ? 'Analyzing round...' : 'Writing RFD...', percent: reProgress.percent, phase: reProgress.phase }),
+  roundEvalLoading && reProgress && React.createElement(LoadingBar, { label: reProgress.phase === 'thinking' ? 'Analyzing round...' : 'Writing the decision...', percent: reProgress.percent, phase: reProgress.phase }),
   roundEval && React.createElement('div', {
     className: 'output',
     style: { marginTop: 16, padding: 18, background: '#363638', borderRadius: 10, border: '1px solid #ffffff08', fontSize: '.9rem', lineHeight: 1.5 },
@@ -11199,7 +11233,7 @@ function JudgePool({ user }) {
   var [name, setName] = useState('');
   var [experience, setExperience] = useState('intermediate'); // novice, intermediate, experienced, expert
   var [style, setStyle] = useState('tabula_rasa'); // technical, tabula_rasa, lay, parent
-  var [formats, setFormats] = useState(['APDA']);
+  var [formats, setFormats] = useState([DEFAULT_FORMAT]);
   var [availability, setAvailability] = useState('weekends'); // weekdays, weekends, both, flexible
   var [bio, setBio] = useState('');
   var [submitting, setSubmitting] = useState(false);
@@ -11278,7 +11312,7 @@ function JudgePool({ user }) {
     ),
     el('label', { className: 'field-label' }, 'Formats You Judge'),
     el('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 } },
-    ['APDA', 'BP', 'WSDC', '1v1', 'Open'].map((f) => el('button', { key: f, onClick: () => toggleFormat(f), style: pill(formats.includes(f)) }, f))
+    offeredFormats(['APDA', 'BP', 'WSDC', '1v1', 'Open']).map((f) => el('button', { key: f, onClick: () => toggleFormat(f), style: pill(formats.includes(f)) }, f))
     ),
     el('label', { className: 'field-label' }, 'Availability'),
     el('div', { style: { display: 'flex', gap: 6, marginBottom: 16 } },
@@ -11522,8 +11556,8 @@ function Practice() {
 
   };
 
-  var [practiceFormat, setPracticeFormat] = useState('APDA');
-  var [speechType, setSpeechType] = useState('PMC');
+  var [practiceFormat, setPracticeFormat] = useState(DEFAULT_FORMAT);
+  var [speechType, setSpeechType] = useState(FORMAT_SPEECHES[DEFAULT_FORMAT][0].code);
   var [motion, setMotion] = useState('');
   var [userSpeech, setUserSpeech] = useState('');
   var [feedback, setFeedback] = useState('');
@@ -11532,7 +11566,7 @@ function Practice() {
   var [mode, setMode] = useState('write'); // 'write' or 'review'
   var [spProgress, setSpProgress] = useState(null);
 
-  var SPEECHES = FORMAT_SPEECHES[practiceFormat] || FORMAT_SPEECHES.APDA;
+  var SPEECHES = FORMAT_SPEECHES[practiceFormat] || FORMAT_SPEECHES[DEFAULT_FORMAT];
   var selectedSpeech = SPEECHES.find((s) => s.code === speechType) || SPEECHES[0];
 
   var submitForReview = async () => {
@@ -11621,8 +11655,8 @@ Write like a coach who genuinely wants this debater to get better. Be tough but 
   // Format selector
   el('div', { style: { marginBottom: 20 } },
   el('label', { className: 'field-label green' }, t('caseGen.format', 'Format')),
-  el('select', { value: practiceFormat, onChange: (e) => {setPracticeFormat(e.target.value);setSpeechType((FORMAT_SPEECHES[e.target.value] || FORMAT_SPEECHES.APDA)[0].code);} },
-  DEBATE_FORMATS.map((f) => el('option', { key: f.id, value: f.id }, f.name + ' (' + f.region + ')'))
+  el('select', { value: practiceFormat, onChange: (e) => {setPracticeFormat(e.target.value);setSpeechType((FORMAT_SPEECHES[e.target.value] || FORMAT_SPEECHES[DEFAULT_FORMAT])[0].code);} },
+  offeredFormats(DEBATE_FORMATS).map((f) => el('option', { key: f.id, value: f.id }, f.name + ' (' + f.region + ')'))
   ),
   practiceFormat === 'APDA' && el('div', { style: { fontSize: '.72rem', color: '#94a3b8', marginTop: 6, fontStyle: 'italic', lineHeight: 1.5 } },
   t('practice.whyApda', 'We default to APDA because its structured speech order and impromptu format train the core skills that transfer to all debate formats. You can switch formats above.')
@@ -11639,10 +11673,10 @@ Write like a coach who genuinely wants this debater to get better. Be tough but 
     className: 'practice-card' + (speechType === s.code ? ' active' : '')
   },
   el('div', { className: 'pc-code' }, s.code),
-  el('div', { className: 'pc-title' }, s.title),
+  el('div', { className: 'pc-title' }, forAgainst(s.title)),
   el('div', { className: 'pc-meta' },
   el('span', null, s.time),
-  el('span', { className: 'pc-side ' + s.side }, s.side === 'gov' ? 'GOV' : 'OPP')
+  el('span', { className: 'pc-side ' + s.side }, s.side === 'gov' ? 'FOR' : 'AGAINST')
   )
   )
   )
@@ -11660,7 +11694,7 @@ Write like a coach who genuinely wants this debater to get better. Be tough but 
 
   // Speech input
   el('label', { className: 'field-label green' }, t('practice.yourSpeech', 'Your') + ' ' + selectedSpeech.code + ' ' + t('practice.speech', 'Speech')),
-  el('div', { style: { fontSize: '.82rem', color: '#7a8da4', marginBottom: 10, lineHeight: 1.5 } }, selectedSpeech.desc),
+  el('div', { style: { fontSize: '.82rem', color: '#7a8da4', marginBottom: 10, lineHeight: 1.5 } }, forAgainst(selectedSpeech.desc)),
   el('div', { className: 'practice-textarea-wrap' },
   el('textarea', {
     className: 'practice-textarea',
@@ -12317,7 +12351,7 @@ function Newbies() {
   el('div', { key: s.key, id: 'newbie-' + s.key, className: 'newbie-section' },
   el('div', { className: 'newbie-section-header' + (expanded[s.key] ? ' open' : ''), onClick: () => toggle(s.key), role: 'button', 'aria-expanded': !!expanded[s.key], tabIndex: 0 },
   el('span', { className: 'newbie-section-icon' }, s.icon),
-  el('h3', null, s.title),
+  el('h3', null, forAgainst(s.title)),
   el('span', { className: 'arrow' + (expanded[s.key] ? ' open' : '') }, '\u25BC')
   ),
   expanded[s.key] && el('div', { className: 'newbie-section-body' }, s.render())
@@ -12802,7 +12836,7 @@ function SignUpNudgeModal({ onSignIn, onDismiss }) {
   "As a guest, nothing is saved. Signed in, your cases and rounds stay with you, and the AI remembers how you argue."
   ),
   el('ul', { style: { listStyle: 'none', padding: 0, margin: '0 0 18px' } },
-  bullet('Your cases, ballots, and rounds follow you across devices.'),
+  bullet('Your cases, decisions, and rounds follow you across devices.'),
   bullet('The AI learns how you like to argue and adjusts to it.'),
   bullet('Leaderboard scores count under your name, not a disposable browser.'),
   bullet('Future rounds start from your actual level instead of a blank slate.')
@@ -12839,7 +12873,7 @@ function StyleProfileModal({ onClose }) {
     type: 'multi',
     title: 'Formats you care about',
     body: 'Choose every format you want the AI to recognize when it gives advice or writes arguments.',
-    options: ['APDA', 'BP', 'WSDC', 'PF', 'LD', 'Policy', 'Casual'].map((fmt) => [fmt, fmt]),
+    options: offeredFormats(['APDA', 'BP', 'WSDC', 'PF', 'LD', 'Policy', 'Casual']).map((fmt) => [fmt, fmt]),
     compact: true
   },
   {
@@ -13006,7 +13040,7 @@ function StyleProfileModal({ onClose }) {
   ),
   el('div', { className: 'style-question-head' },
   el('p', { className: 'style-question-kicker' }, 'Step ' + (step + 1) + ' of ' + STYLE_STEPS.length),
-  el('h2', null, current.title),
+  el('h2', null, forAgainst(current.title)),
   el('p', null, current.body)
   ),
   renderCurrentStep(),
@@ -13147,7 +13181,7 @@ function RoundSimulator() {
   var { t } = React.useContext(I18nContext);
   var [motion, setMotion] = useState('');
   var [side, setSide] = useState('gov');
-  var [simFormat, setSimFormat] = useState('APDA');
+  var [simFormat, setSimFormat] = useState(DEFAULT_FORMAT);
   var [roundStarted, setRoundStarted] = useState(false);
   var [currentSpeech, setCurrentSpeech] = useState(0);
   var [speeches, setSpeeches] = useState([]);
@@ -13502,18 +13536,18 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
       className: 'btn ' + (side === 'gov' ? 'btn-primary' : 'btn-secondary'),
       onClick: () => setSide('gov'),
       style: { flex: 1 }
-    }, t('caseGen.government', 'Government')),
+    }, t('caseGen.government', 'For')),
     el('button', {
       className: 'btn ' + (side === 'opp' ? 'btn-primary' : 'btn-secondary'),
       onClick: () => setSide('opp'),
       style: { flex: 1 }
-    }, t('caseGen.opposition', 'Opposition'))
+    }, t('caseGen.opposition', 'Against'))
     )
     ),
     el('div', null,
     el('label', { className: 'field-label green' }, t('caseGen.format', 'Format')),
     el('select', { value: simFormat, onChange: (e) => setSimFormat(e.target.value), style: { marginTop: 8, width: '100%' } },
-    [['APDA', 'APDA'], ['BP', 'BP'], ['WSDC', 'WSDC'], ['AP', 'AP'], ['KP', 'KP'], ['1v1', '1-on-1 (Casual)']].map(([v, l]) => el('option', { key: v, value: v }, l))
+    offeredFormats([['APDA', 'APDA'], ['BP', 'BP'], ['WSDC', 'WSDC'], ['AP', 'AP'], ['KP', 'KP'], ['1v1', '1-on-1 (Casual)']]).map(([v, l]) => el('option', { key: v, value: v }, l))
     )
     )
     ),
@@ -13620,7 +13654,7 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
   isMyTurn ? t('roundSim.yourTurn', 'Your Turn:') + ' ' + currentSpeechData.code : t('roundSim.aiSpeaking', 'AI is speaking:') + ' ' + currentSpeechData.code
   ),
   el('div', { style: { fontSize: '.82rem', color: '#94a3b8', marginTop: 2 } },
-  currentSpeechData.title + ' (' + currentSpeechData.time + ')'
+  forAgainst(currentSpeechData.title) + ' (' + currentSpeechData.time + ')'
   )
   ),
   isMyTurn && el('div', { style: { display: 'flex', gap: 8 } },
@@ -13769,7 +13803,7 @@ function DebateTheBot() {
   var { t } = React.useContext(I18nContext);
   var [motion, setMotion] = useState('');
   var [side, setSide] = useState('gov');
-  var [botFormat, setBotFormat] = useState('APDA');
+  var [botFormat, setBotFormat] = useState(DEFAULT_FORMAT);
   var [started, setStarted] = useState(false);
   var [exchanges, setExchanges] = useState([]); // [{role:'player'|'bot', text:'...'}]
   var [inputText, setInputText] = useState('');
@@ -14041,17 +14075,17 @@ Use markdown formatting: ## for main section headers, ### for sub-sections, numb
     el('button', {
       className: 'btn ' + (side === 'gov' ? 'btn-primary' : 'btn-secondary'),
       onClick: () => setSide('gov'), style: { flex: 1, padding: '10px 8px', fontSize: '.88rem', minWidth: 0 }
-    }, t('debateBot.gov', 'Gov')),
+    }, t('debateBot.gov', 'For')),
     el('button', {
       className: 'btn ' + (side === 'opp' ? 'btn-primary' : 'btn-secondary'),
       onClick: () => setSide('opp'), style: { flex: 1, padding: '10px 8px', fontSize: '.88rem', minWidth: 0 }
-    }, t('debateBot.opp', 'Opp'))
+    }, t('debateBot.opp', 'Against'))
     )
     ),
     el('div', { style: { minWidth: 0 } },
     el('label', { className: 'field-label green' }, t('caseGen.format', 'Format')),
     el('select', { value: botFormat, onChange: (e) => setBotFormat(e.target.value), style: { marginTop: 8, width: '100%' } },
-    ['APDA', 'BP', 'WSDC', 'AP', 'KP'].map((f) => el('option', { key: f, value: f }, f))
+    offeredFormats(['APDA', 'BP', 'WSDC', 'AP', 'KP', '1v1']).map((f) => el('option', { key: f, value: f }, f === '1v1' ? '1-on-1 (Casual)' : f))
     )
     )
     ),
@@ -15342,7 +15376,7 @@ function SharedCases({ user, team }) {
   el('span', { style: { fontSize: '.66rem', padding: '2px 8px', borderRadius: 999, letterSpacing: '.06em', textTransform: 'uppercase', fontWeight: 700, background: c.visibility === 'public' ? '#22c55e18' : '#3b82f615', color: c.visibility === 'public' ? '#4ade80' : '#60a5fa', border: '1px solid ' + (c.visibility === 'public' ? '#22c55e40' : '#3b82f635') } },
   c.visibility === 'public' ? '\uD83C\uDF10 Public' : '\uD83D\uDD12 Team'
   ),
-  c.side && el('span', { style: { fontSize: '.7rem', padding: '2px 8px', borderRadius: 4, background: c.side.toLowerCase() === 'gov' ? '#22c55e15' : '#ef444415', color: c.side.toLowerCase() === 'gov' ? '#4ade80' : '#f87171', fontWeight: 600 } }, c.side),
+  c.side && el('span', { style: { fontSize: '.7rem', padding: '2px 8px', borderRadius: 4, background: c.side.toLowerCase() === 'gov' ? '#22c55e15' : '#ef444415', color: c.side.toLowerCase() === 'gov' ? '#4ade80' : '#f87171', fontWeight: 600 } }, sideWord(c.side)),
   el('button', { onClick: () => importCase(c), style: { fontSize: '.75rem', padding: '2px 10px', background: '#3b82f615', border: '1px solid #3b82f630', borderRadius: 4, color: '#60a5fa', cursor: 'pointer', fontWeight: 600 } }, t('sharedCases.import', 'Import'))
   )
   ),
@@ -15426,7 +15460,7 @@ function SharedCases({ user, team }) {
     style: { padding: '10px 12px', background: '#ffffff05', border: '1px solid #ffffff15', borderRadius: 8, color: '#e4e8f0', fontSize: '.92rem', font: 'inherit' }
   },
   el('option', { value: '' }, 'None'),
-  ['APDA', 'BP', 'Worlds', 'Asian', 'LD', 'PF', 'Policy', 'Congress', 'MUN', 'Quick'].map((f) => el('option', { key: f, value: f }, f))
+  offeredFormatsWith(['APDA', 'BP', 'Worlds', 'Asian', 'LD', 'PF', 'Policy', 'Congress', 'MUN', 'Quick'], editDraft.format).map((f) => el('option', { key: f, value: f }, f))
   )
   )
   ),
@@ -15697,10 +15731,10 @@ function WhyAPDA() {
 
   // Section 2: Supported Debate Formats
   el('div', { style: { borderTop: '1px solid #ffffff1a', marginTop: 20, paddingTop: 20 } },
-  el('h3', null, 'Supported Debate Formats'),
-  el('p', null, 'Debatable supports multiple competitive debate formats used around the world. Select your format in the Case Generator to get cases structured for your circuit. We currently default to APDA (American Parliamentary Debate Association) because its 2v2 structure and impromptu case-writing make it the ideal format for AI-assisted prep, but every tool works across formats.'),
+  el('h3', null, 'Round structures'),
+  el('p', null, 'Every round here is one person on each side. Pick the structure in the Case Generator and the case comes back shaped for it.'),
   el('div', { className: 'apda-grid', style: { gridTemplateColumns: '1fr 1fr 1fr' } },
-  DEBATE_FORMATS.map((f) => {
+  offeredFormats(DEBATE_FORMATS).map((f) => {
     var fKey = f.id.toLowerCase().replace(/ /g, '_');
     return el('div', { key: f.id, className: 'apda-card' },
     el('div', { className: 'ac-label' }, t('formats.' + fKey, f.name)),
@@ -15887,7 +15921,7 @@ function parseTime(t) {
 function RoundTimer() {
   var el = React.createElement;
   var isMobile = useIsMobile();
-  var [format, setFormat] = useState('APDA');
+  var [format, setFormat] = useState(DEFAULT_FORMAT);
   var [speechIdx, setSpeechIdx] = useState(0);
   var [timeLeft, setTimeLeft] = useState(0);
   var [running, setRunning] = useState(false);
@@ -15901,7 +15935,7 @@ function RoundTimer() {
   var [flowData, setFlowData] = useState({});
   var flowKey = useRef('debateos_flow_' + Date.now());
 
-  var speeches = GLOBAL_FORMAT_SPEECHES[format] || GLOBAL_FORMAT_SPEECHES.APDA;
+  var speeches = GLOBAL_FORMAT_SPEECHES[format] || GLOBAL_FORMAT_SPEECHES[DEFAULT_FORMAT];
   var currentSpeech = speeches[speechIdx];
   var totalTime = currentSpeech ? parseTime(currentSpeech.time) : 0;
 
@@ -15972,7 +16006,7 @@ function RoundTimer() {
   ),
   el('label', { className: 'field-label' }, 'Format'),
   el('select', { value: format, onChange: (e) => {setFormat(e.target.value);setSpeechIdx(0);}, style: { marginBottom: 24, width: '100%' } },
-  Object.keys(GLOBAL_FORMAT_SPEECHES).map((f) => el('option', { key: f, value: f }, f))
+  offeredFormatsWith(Object.keys(GLOBAL_FORMAT_SPEECHES), format).map((f) => el('option', { key: f, value: f }, f === '1v1' ? '1-on-1 (Casual)' : f))
   ),
   el('div', { style: { marginBottom: 24 } },
   el('div', { style: { fontSize: '.82rem', color: '#94a3b8', marginBottom: 12, fontWeight: 600 } }, 'Speech Order'),
@@ -15982,7 +16016,7 @@ function RoundTimer() {
     } },
   el('div', { style: { width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.7rem', fontWeight: 700, background: s.side === 'gov' ? '#3b82f615' : '#ef444415', color: s.side === 'gov' ? '#60a5fa' : '#f87171', border: '1px solid ' + (s.side === 'gov' ? '#3b82f630' : '#ef444430') } }, i + 1),
   el('div', { style: { flex: 1 } },
-  el('div', { style: { fontSize: '.88rem', fontWeight: 700, color: '#e4e8f0' } }, s.code + '. ' + s.title)
+  el('div', { style: { fontSize: '.88rem', fontWeight: 700, color: '#e4e8f0' } }, s.code + '. ' + forAgainst(s.title))
   ),
   el('div', { style: { fontSize: '.82rem', color: '#94a3b8', fontWeight: 600 } }, s.time)
   ))
@@ -16007,8 +16041,8 @@ function RoundTimer() {
 
   // Current speech info
   el('div', { style: { textAlign: 'center', marginBottom: 16 } },
-  el('div', { style: { fontSize: '.78rem', color: currentSpeech.side === 'gov' ? '#60a5fa' : '#f87171', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' } }, currentSpeech.side === 'gov' ? 'Government' : 'Opposition'),
-  el('div', { style: { fontSize: '1.2rem', fontWeight: 800, color: '#e4e8f0', marginTop: 4 } }, currentSpeech.code + '. ' + currentSpeech.title),
+  el('div', { style: { fontSize: '.78rem', color: currentSpeech.side === 'gov' ? '#60a5fa' : '#f87171', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' } }, sideWord(currentSpeech.side)),
+  el('div', { style: { fontSize: '1.2rem', fontWeight: 800, color: '#e4e8f0', marginTop: 4 } }, currentSpeech.code + '. ' + forAgainst(currentSpeech.title)),
   currentSpeech.desc && el('div', { style: { fontSize: '.82rem', color: '#94a3b8', marginTop: 4, maxWidth: 500, margin: '4px auto 0' } }, currentSpeech.desc)
   ),
 
@@ -16072,7 +16106,7 @@ function PrepRoom({ onNavigateTab }) {
   var [phase, setPhase] = useState('setup'); // setup | active | done
   var [motion, setMotion] = useState('');
   var [side, setSide] = useState('gov');
-  var [format, setFormat] = useState('APDA');
+  var [format, setFormat] = useState(DEFAULT_FORMAT);
   var [countdown, setCountdown] = useState(900); // 15 minutes
   var [running, setRunning] = useState(false);
   var [research, setResearch] = useState('');
@@ -16173,7 +16207,7 @@ function PrepRoom({ onNavigateTab }) {
   var timerColor = countdown <= 120 ? '#ef4444' : countdown <= 300 ? '#f59e0b' : '#22c55e';
 
   var getTemplate = () => {
-    var speeches = GLOBAL_FORMAT_SPEECHES[format] || GLOBAL_FORMAT_SPEECHES.APDA;
+    var speeches = GLOBAL_FORMAT_SPEECHES[format] || GLOBAL_FORMAT_SPEECHES[DEFAULT_FORMAT];
     var firstGov = speeches.find((s) => s.side === 'gov');
     if (side === 'gov') return 'FRAMEWORK:\n\n\nARGUMENT 1:\nClaim: \nWarrant: \nImpact: \n\nARGUMENT 2:\nClaim: \nWarrant: \nImpact: \n\nPRE-EMPTS:\n- \n- ';
     return 'OFF-CASE:\nArgument 1: \nArgument 2: \n\nON-CASE RESPONSES:\n- Gov Arg 1: \n- Gov Arg 2: \n\nWEIGHING:\n';
@@ -16191,14 +16225,14 @@ function PrepRoom({ onNavigateTab }) {
   el('div', null,
   el('label', { className: 'field-label green' }, 'Your Side'),
   el('div', { style: { display: 'flex', gap: 10, marginTop: 8 } },
-  el('button', { className: 'btn ' + (side === 'gov' ? 'btn-primary' : 'btn-secondary'), onClick: () => setSide('gov'), style: { flex: 1 } }, 'Gov'),
-  el('button', { className: 'btn ' + (side === 'opp' ? 'btn-primary' : 'btn-secondary'), onClick: () => setSide('opp'), style: { flex: 1 } }, 'Opp')
+  el('button', { className: 'btn ' + (side === 'gov' ? 'btn-primary' : 'btn-secondary'), onClick: () => setSide('gov'), style: { flex: 1 } }, 'For'),
+  el('button', { className: 'btn ' + (side === 'opp' ? 'btn-primary' : 'btn-secondary'), onClick: () => setSide('opp'), style: { flex: 1 } }, 'Against')
   )
   ),
   el('div', null,
   el('label', { className: 'field-label green' }, 'Format'),
   el('select', { value: format, onChange: (e) => setFormat(e.target.value), style: { marginTop: 8, width: '100%' } },
-  Object.keys(GLOBAL_FORMAT_SPEECHES).map((f) => el('option', { key: f, value: f }, f))
+  offeredFormatsWith(Object.keys(GLOBAL_FORMAT_SPEECHES), format).map((f) => el('option', { key: f, value: f }, f === '1v1' ? '1-on-1 (Casual)' : f))
   )
   )
   ),
@@ -16222,7 +16256,7 @@ function PrepRoom({ onNavigateTab }) {
   ),
   // Motion display
   el('div', { style: { padding: '10px 16px', background: '#ffffff06', borderRadius: 10, marginBottom: 20, fontSize: '.92rem', color: '#e4e8f0' } },
-  el('span', { style: { color: '#94a3b8', fontSize: '.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px' } }, (side === 'gov' ? 'GOV' : 'OPP') + '. '),
+  el('span', { style: { color: '#94a3b8', fontSize: '.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px' } }, (side === 'gov' ? 'FOR' : 'AGAINST') + '. '),
   motion
   ),
 
@@ -16449,7 +16483,7 @@ function LiveDebates({ user, team, onNavigateTab }) {
   var [loading, setLoading] = useState(true);
   // Create form state
   var [motion, setMotion] = useState('');
-  var [format, setFormat] = useState('APDA');
+  var [format, setFormat] = useState(DEFAULT_FORMAT);
   var [debateDate, setDebateDate] = useState('');
   var [debateTime, setDebateTime] = useState('');
   var [debateTimezone, setDebateTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York');
@@ -16651,7 +16685,7 @@ function LiveDebates({ user, team, onNavigateTab }) {
     el('div', null,
     el('label', { className: 'field-label' }, 'Format'),
     el('select', { value: format, onChange: (e) => setFormat(e.target.value) },
-    ['APDA', 'BP', 'WSDC', '1v1', 'Open'].map((f) => el('option', { key: f, value: f }, f))
+    offeredFormats(['APDA', 'BP', 'WSDC', '1v1', 'Open']).map((f) => el('option', { key: f, value: f }, f))
     )
     ),
     el('div', null,
@@ -16727,7 +16761,7 @@ function LiveDebates({ user, team, onNavigateTab }) {
   el('div', { style: { flex: 1, minWidth: 0 } },
   el('div', { style: { fontSize: '.62rem', fontWeight: 800, letterSpacing: '.16em', textTransform: 'uppercase', color: '#ef4444', marginBottom: 2 } }, 'New · Public live board'),
   el('div', { style: { fontSize: '.86rem', fontWeight: 700, color: 'var(--text-primary,#f1f5f9)', marginBottom: 2 } }, 'Debate humans online with AI judges'),
-  el('div', { style: { fontSize: '.74rem', color: 'var(--text-muted,#94a3b8)', lineHeight: 1.45 } }, 'Cross-user board, embedded Daily.co video, AI ballot synced to both speakers. Open the public flow.')
+  el('div', { style: { fontSize: '.74rem', color: 'var(--text-muted,#94a3b8)', lineHeight: 1.45 } }, 'Cross-user board, embedded Daily.co video, AI decision synced to both speakers. Open the public flow.')
   ),
   el('span', { style: { color: '#ef4444', fontWeight: 900, fontSize: '1.1rem', flexShrink: 0 } }, '→')
   ),
@@ -16785,7 +16819,10 @@ var TABS_PRIMARY = [
 { id: 'battle', label: 'Debatable', i18n: 'nav.battle', href: '/practice' },
 { id: 'phil', label: 'Philosophy', i18n: 'nav.philosophy' },
 { id: 'casual', label: 'Casual', i18n: 'nav.casual' },
-{ id: 'newbies', label: 'Guide', i18n: 'nav.guide' }];
+// 2026-09-07, Aidan: 1v1 only. The Guide teaches a two-per-side structure,
+// so it is hidden from the nav and the mobile menu. The component and the
+// #newbies hash still render for anyone holding a link.
+{ id: 'newbies', label: 'Guide', i18n: 'nav.guide', hidden: true }];
 
 // Competitive-only features in the dropdown: the tools that assume the user has
 // an actual tournament coming up or a prep routine (motions archive, chat,
@@ -18132,7 +18169,7 @@ function App() {
       }, t(tb.i18n, tb.label));
     };
     return React.createElement('nav', { className: 'nav', role: 'tablist' },
-    ...TABS_PRIMARY.map(renderTab),
+    ...TABS_PRIMARY.filter((tb) => !tb.hidden).map(renderTab),
     React.createElement('div', { key: '_lbl_competitive', className: 'nav-section-label' }, t('nav.section.competitive', 'Competitive')),
     ...TABS_COMPETITIVE.map(renderTab),
     React.createElement('div', { key: '_lbl_other', className: 'nav-section-label' }, t('nav.section.other', 'Other')),
@@ -18152,7 +18189,7 @@ function App() {
   // Topics, Debate Chat, Vocab Quiz, and Mapper existed on desktop but
   // were unreachable on mobile. Sourcing from the canonical arrays means
   // the two can never diverge again.
-  [{ title: 'Core', items: TABS_PRIMARY },
+  [{ title: 'Core', items: TABS_PRIMARY.filter((tb) => !tb.hidden) },
   { title: 'Competitive', items: TABS_COMPETITIVE },
   { title: 'More', items: TABS_OTHER }].
   map((group) =>

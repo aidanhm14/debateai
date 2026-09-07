@@ -1821,7 +1821,9 @@
         var sameDay = nd.toDateString() === new Date().toDateString();
         var whenTxt = (sameDay ? 'Today' : nd.toLocaleDateString(undefined, { weekday: 'short' })) +
           ' ' + nd.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-        var fmtNames = { open: 'Just argue', quick: 'Timed speeches', apda: 'APDA', bp: 'BP', worlds: 'Worlds', asian: 'Asian Parli', ld: 'LD', pf: 'Public Forum', policy: 'Policy', congress: 'Congress' };
+        // 2026-09-07, Aidan: 1v1 only. Keys stay so an old scheduled round still
+        // resolves; the multi-speaker names render as a plain timed round.
+        var fmtNames = { open: 'Just argue', quick: 'Timed speeches', apda: 'Timed round', bp: 'Timed round', worlds: 'Timed round', asian: 'Timed round', ld: 'LD', pf: 'Timed round', policy: 'Timed round', congress: 'Timed round' };
         var schedSub = escHtml(whenTxt) + ' · ' + (fmtNames[nextRound.format] || 'General') +
           (nextRound.rsvpCount > 0 ? ' · ' + nextRound.rsvpCount + ' in' : '');
         html += '<div class="ui-bell-list">' +

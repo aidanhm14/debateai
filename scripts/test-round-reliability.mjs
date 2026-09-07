@@ -38,8 +38,9 @@ check('preflight runs before session minting', startAt > -1 && preflightAt > sta
 
 check('setup exposes mic and connection test', file.includes('Test mic & connection'));
 check('live transcript shows autosave state', file.includes('Autosaved in this tab'));
-check('verdict progress uses an accessible progressbar', file.includes("role: 'progressbar'") && file.includes('Progress toward the verdict'));
-check('APDA progress names the verdict boundary', file.includes('Verdict after PMR'));
+// 2026-09-07, Aidan: one word per concept. Reader-facing "verdict" is "decision".
+check('verdict progress uses an accessible progressbar', file.includes("role: 'progressbar'") && file.includes('Progress toward the decision'));
+check('APDA progress names the verdict boundary', file.includes('Decision after the last speech'));
 check('free-form progress explains stronger ballot threshold', file.includes('Six turns gives the judge more to work with.'));
 
 console.log(`\n${passed} passed, ${failed} failed`);

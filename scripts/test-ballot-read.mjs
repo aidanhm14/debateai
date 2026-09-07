@@ -168,9 +168,12 @@ for (const f of ['app/live-round.html', 'app/judge.html']) {
 }
 
 // ── 5. picking Full can never land on an empty pane ────────────────
-ok(/long-form ballot did not come back/.test(read('app/live-round.html')),
+// 2026-09-07, Aidan: reader-facing "ballot" is "decision" on /live-round,
+// so the fallback copy there reads "long-form decision".
+ok(/long-form decision did not come back/.test(read('app/live-round.html')),
   'live-round falls back to the RFD when the full ballot fails');
-ok(/long-form ballot did not come back/.test(read('app/judge.html')),
+// 2026-09-07, Aidan: decision. The /judge status line now says "long-form decision".
+ok(/long-form decision did not come back/.test(read('app/judge.html')),
   'judge falls back to the RFD when the full ballot fails');
 ok(/deepBallot \|\| deepBallotLoading \? 'ballot' : null/.test(read('app/practice.html')),
   'practice keeps the RFD visible at full when no long-form ballot exists');

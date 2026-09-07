@@ -16,9 +16,11 @@ function check(label, ok) {
 
 for (const [name, src] of [['typed ballot', practice], ['voice ballot', voiceRfd], ['quick voice recap', newvoice]]) {
   check(name + ' has Rematch', src.includes('Rematch'));
-  check(name + ' has New motion', src.includes('New motion'));
-  check(name + ' has Practice weakest score', src.includes('Practice weakest score'));
-  check(name + ' has Share verdict', src.includes('Share verdict'));
+  // 2026-09-07, Aidan: plain words on the loop buttons (topic, not motion).
+  check(name + ' has New topic', src.includes('New topic'));
+  check(name + ' has Drill your weakest area', src.includes('Drill your weakest area'));
+  // 2026-09-07, Aidan: one word per concept. The judge's output is "the decision".
+  check(name + ' has Share decision', src.includes('Share decision'));
 }
 
 check('typed rematch keeps the current motion', practice.includes("kind === 'rematch' && motion"));

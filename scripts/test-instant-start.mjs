@@ -27,10 +27,17 @@ function check(label, ok) {
 check('global AI pill is off the rail', !/label: 'Debate an AI'/.test(topbar));
 check('Explore menu routes the one public AI door to the /newvoice setup screen', topbar.includes("href: '/newvoice?handoff=topbar-ai'") && topbar.includes("label: 'Debate the AI'") && !topbar.includes('autostart=1'));
 check('default practice starts in casual 1v1', practice.includes("if (!COMPETITIVE_ENTRY) return 'quick';") && !practice.includes("localStorage.getItem('debateos-round-format')"));
+// 2026-09-07, Aidan: 1v1 only. The competitive entry still exists but its
+// picker offers only one-on-one structures; the parliamentary and US-circuit
+// groups (2v2 / 3v3 / 4-team formats) are gone from every picker.
 check('competitive practice is an explicit scoped entry',
   practice.includes("get('entry') === 'competitive'") &&
-  practice.includes("{ cap: 'Parliamentary', keys: ['apda', 'bp', 'asian', 'worlds', 'popper'] }") &&
-  practice.includes("{ cap: 'US circuit', keys: ['pf', 'ld', 'policy', 'congress'] }"));
+  practice.includes("{ cap: 'One-on-one', keys: ['quick', 'ld'] }") &&
+  !practice.includes("{ cap: 'Parliamentary', keys: ['apda', 'bp', 'asian', 'worlds', 'popper'] }") &&
+  !practice.includes("{ cap: 'US circuit', keys: ['pf', 'ld', 'policy', 'congress'] }"));
+check('competitive practice falls through to the default one-on-one structure',
+  practice.includes("if (picked && isOneOnOne(picked) && picked !== 'quick') return picked;") &&
+  practice.includes("g.keys.filter(isOneOnOne)."));
 check('practice seeds the saved side', practice.includes("localStorage.getItem('debateos-round-side')"));
 check('practice seeds the saved voice', practice.includes("localStorage.getItem('debateos-round-voice')"));
 check('practice launch requires an explicit now flag', practice.includes("qs.get('now') === '1'"));
@@ -68,7 +75,9 @@ check('conversation path reaches the realtime prompt',
   realtimeSession.includes("body.debateStyle === 'conversation'") &&
   realtimeSession.includes('CONVERSATION MODE:'));
 check('competitive voice path opens formats instead of realtime minting',
-  newvoice.includes('/practice?entry=competitive&amp;format=apda&amp;handoff=newvoice'));
+  // 2026-09-07, Aidan: 1v1 only. The chip hands off to the typed page's
+  // default one-on-one structure (`quick`); apda is hidden from every picker.
+  newvoice.includes('/practice?entry=competitive&amp;format=quick&amp;handoff=newvoice'));
 check('newvoice auto-starts only when the door handed a motion',
   newvoice.includes("const autoStart = entryQuery.get('autostart') === '1'") &&
   newvoice.includes('if (autoStart && handedMotion && !previewMode) {') &&

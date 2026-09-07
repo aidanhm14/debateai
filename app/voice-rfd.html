@@ -601,7 +601,7 @@ body{
 <main id="root" class="wrap">
   <div class="loading" id="loadingBlock">
     <div class="intro-orb" aria-hidden="true"></div>
-    <div class="loading-text">Tallying the ballot…</div>
+    <div class="loading-text">Writing the decision…</div>
   </div>
 </main>
 
@@ -969,7 +969,7 @@ body{
         + '<a href="' + runBackHref + '" class="cta-btn primary"' + tagClick('rematch') + '>Rematch</a>'
         + '<a href="' + newMotionHref + '" class="cta-btn ghost"' + tagClick('new') + '>New topic</a>'
         + '<a href="' + weakestHref + '" class="cta-btn ghost"' + tagClick('drill') + ' title="' + escHtml(weakestLabel + ': ' + weakestText) + '">Drill your weakest area</a>'
-        + '<button class="cta-btn ghost" id="shareBallot" type="button">Share verdict</button>'
+        + '<button class="cta-btn ghost" id="shareBallot" type="button">Share decision</button>'
       + '</div>';
 
     // Cert award banner — only when voice-debate.html attached a
@@ -1316,10 +1316,10 @@ body{
           var b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_');
           url = window.location.origin + '/voice-rfd?p=' + b64;
         }
-        var shareText = (winnerLabel || 'Debatable verdict') + (payload.motion ? ' on "' + payload.motion + '".' : '.') + ' ' + (sections.decision || '');
+        var shareText = (winnerLabel || 'Debatable decision') + (payload.motion ? ' on "' + payload.motion + '".' : '.') + ' ' + (sections.decision || '');
         if (navigator.share) {
           try {
-            await navigator.share({ title: 'My Debatable verdict', text: shareText, url: url });
+            await navigator.share({ title: 'My Debatable decision', text: shareText, url: url });
             shareBtn.textContent = 'Shared';
           } catch(e) {
             if (e && e.name === 'AbortError') return;
@@ -1330,7 +1330,7 @@ body{
           await navigator.clipboard.writeText(url);
           shareBtn.textContent = 'Link copied';
         }
-        setTimeout(function(){ shareBtn.textContent = 'Share verdict'; }, 1800);
+        setTimeout(function(){ shareBtn.textContent = 'Share decision'; }, 1800);
         try { gtag('event', 'voice_rfd_share', { kind: payload.id ? 'id' : 'payload' }); } catch(e){}
       } catch(e){ shareBtn.textContent = 'Couldn\'t share'; }
     });
@@ -1581,7 +1581,7 @@ body{
       var isPlaying = rfdAudio.currentTime > 0 && !rfdAudio.paused;
       if (isPlaying) {
         rfdAudio.pause();
-        readRfdBtn.textContent = '🔊 Read ballot';
+        readRfdBtn.textContent = '🔊 Read the decision';
         return;
       }
 
@@ -1608,7 +1608,7 @@ body{
         var spokenText = payload.rfd;
         if (spokenParts && (spokenParts.decision || spokenParts.best)) {
           spokenText = [
-            spokenParts.speakerPoints ? 'Speaker points: ' + spokenParts.speakerPoints + '.' : '',
+            spokenParts.speakerPoints ? 'Score: ' + spokenParts.speakerPoints + '.' : '',
             spokenParts.decision ? 'Decision. ' + spokenParts.decision : '',
             spokenParts.best ? 'Best moment. ' + spokenParts.best : '',
             spokenParts.costliest ? 'Costliest moment. ' + spokenParts.costliest : '',
@@ -1640,10 +1640,10 @@ body{
           readRfdBtn.textContent = '⏸ Pause';
         };
         rfdAudio.onpause = function() {
-          readRfdBtn.textContent = '🔊 Read ballot';
+          readRfdBtn.textContent = '🔊 Read the decision';
         };
         rfdAudio.onended = function() {
-          readRfdBtn.textContent = '🔊 Read ballot';
+          readRfdBtn.textContent = '🔊 Read the decision';
         };
 
         rfdAudio.play();
@@ -1654,7 +1654,7 @@ body{
         }
       } catch (e) {
         console.error('[voice-rfd] TTS error:', e);
-        readRfdBtn.textContent = '🔊 Read ballot';
+        readRfdBtn.textContent = '🔊 Read the decision';
         alert('Could not synthesize audio. Try again.');
       } finally {
         readRfdBtn.disabled = false;

@@ -66,9 +66,9 @@
   var DEFAULT = 'summary';
 
   var COPY = {
-    summary: { label: 'Summary', hint: 'The call and the clash it turned on' },
-    ballot:  { label: 'Ballot',  hint: 'The judge’s reason for decision' },
-    full:    { label: 'Full',    hint: 'Every argument, the drops, and how it flips' }
+    summary: { label: 'Summary', hint: 'Who won and the point it turned on' },
+    ballot:  { label: 'Decision', hint: 'The judge’s reasons' },
+    full:    { label: 'Full',    hint: 'Every argument, what went unanswered, and how the loser flips it' }
   };
 
   var current = null;

@@ -6,7 +6,7 @@
 <script src="/js/native-bridge.js"></script>
 <script src="/js/auth-modal.js"></script>
 <title>Your dashboard · Debatable</title>
-<meta name="description" content="Your Debatable dashboard. Level, streak, achievements, and recent rounds, judged on the same AI ballot the leaderboard uses." />
+<meta name="description" content="Your Debatable dashboard. Level, streak, achievements, and recent rounds, judged by the same AI judge the leaderboard uses." />
 <meta name="robots" content="noindex,follow">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -1553,7 +1553,7 @@ function computeAchievements(s){
     A('on_fire',        'On Fire',        'Three-day practice streak.',                  s.streak,   3,    'common'),
     A('inferno',        'Inferno',        'Seven-day practice streak.',                  s.streak,   7,    'rare'),
     A('high_scorer',    'High Scorer',    'Score 28.5 or higher in any round.',          s.best,     28.5, 'rare'),
-    A('perfect_speech', 'Perfect Speech', 'A 30.0 ballot from the AI judge.',            s.best,     30,   'legendary'),
+    A('perfect_speech', 'Perfect Speech', 'A 30.0 score from the AI judge.',            s.best,     30,   'legendary'),
     A('underdog',       'Underdog',       'Beat the AI once.',                           s.wins,     1,    'common'),
     A('closer_ach',     'Closer',         'Beat the AI five times.',                     s.wins,     5,    'rare'),
     A('live_wire',      'Live Wire',      'Run a human-vs-human live round.',            s.live,     1,    'common'),
@@ -1630,7 +1630,7 @@ function renderDailyQuest(rows){
       sub:'Score 27.5 or higher on any round today.',
       reward:50,
       done:(today) => today.some(r => typeof r.score === 'number' && r.score >= 27.5),
-      cta:{ label:'Go for the ballot', href:'/practice' },
+      cta:{ label:'Go for the decision', href:'/practice' },
     },
     {
       id:'run_it_back',
@@ -1817,7 +1817,7 @@ function renderSideBreakdown(s){
     return `
       <section class="side-card">
         <div class="label">Side split</div>
-        <div style="font-size:.78rem;color:var(--text-dim);padding:18px 0">Pick Gov or Opp on your next voice round and the split appears here.</div>
+        <div style="font-size:.78rem;color:var(--text-dim);padding:18px 0">Pick For or Against on your next voice round and the split appears here.</div>
       </section>
     `;
   }
@@ -1951,14 +1951,14 @@ function renderSettings(user, profileData){
           <div class="key">Sound effects</div>
           <div>
             <label class="set-toggle"><input id="setSfx" type="checkbox" ${muted?'':'checked'}/><span class="set-track"></span></label>
-            <div class="hint">Sign-in chime, ballot reveal, streak transitions. Honored across the site.</div>
+            <div class="hint">Sign-in chime, decision reveal, streak transitions. Honored across the site.</div>
           </div>
         </div>
         <div class="set-row">
           <div class="key">Store my round transcripts</div>
           <div>
             <label class="set-toggle"><input id="setCapture" type="checkbox" ${captureOn?'checked':''}/><span class="set-track"></span></label>
-            <div class="hint">Keeps the text of your spoken rounds so your ballot can be reopened later and your progress can be measured. Private to your account; nobody else can read it. Turn it off and rounds still run and still get a ballot, they just are not stored, cannot be reopened, and do not count toward your progress. <a href="/privacy#transcripts" style="color:var(--accent);text-decoration:underline">What exactly gets stored.</a></div>
+            <div class="hint">Keeps the text of your spoken rounds so your decision can be reopened later and your progress can be measured. Private to your account; nobody else can read it. Turn it off and rounds still run and still get a ballot, they just are not stored, cannot be reopened, and do not count toward your progress. <a href="/privacy#transcripts" style="color:var(--accent);text-decoration:underline">What exactly gets stored.</a></div>
           </div>
         </div>
         <div class="set-row">
@@ -2603,14 +2603,14 @@ function renderNativeEmpty(user, profileData){
       <details class="native-drawer native-unlocks">
         <summary><span>What one round unlocks<small>Your result and progress</small></span></summary>
         <ul>
-          <li>A written ballot with the winner, speaker points, and feedback.</li>
+          <li>A written decision with the winner, scores, and feedback.</li>
           <li>XP, level progress, and round history.</li>
           <li>Personal stats and badges as your record grows.</li>
         </ul>
       </details>
 
       <details class="native-drawer native-saved">
-        <summary><span>Saved rounds<small>Ballots and transcripts you kept</small></span></summary>
+        <summary><span>Saved rounds<small>Decisions and transcripts you kept</small></span></summary>
         <div id="savedRoundsSlot" class="recent">
           <div class="r-row"><div class="r-motion" style="grid-column:1/-1;color:var(--text-dim)">Loading saved rounds…</div></div>
         </div>
@@ -2883,7 +2883,7 @@ function renderDashboard(user, rows, profileData, progress){
          collection (written by voice-debate.html on RFD generation).
          Unlike "Recent rounds" above (leaderboard stats), every row here
          opens the full saved ballot + transcript at /voice-rfd?id=. -->
-    <div class="section"><h2>Your voice rounds</h2><div class="right">Saved ballots &amp; transcripts</div></div>
+    <div class="section"><h2>Your voice rounds</h2><div class="right">Saved decisions &amp; transcripts</div></div>
     <div id="voiceRoundsSlot" class="recent">
       <div class="r-row"><div class="r-motion" style="grid-column:1/-1;color:var(--text-dim)">Loading your saved rounds…</div></div>
     </div>
@@ -2895,9 +2895,9 @@ function renderDashboard(user, rows, profileData, progress){
     ${savedRoundsSectionHtml()}
 
     <div class="cta-strip">
-      <a href="/practice"><span class="cl">Typed</span><span class="ct">Beat the AI</span><span class="cs">Full round, AI judge, ballot at the end.</span></a>
+      <a href="/practice"><span class="cl">Typed</span><span class="ct">Beat the AI</span><span class="cs">Full round, AI judge, decision at the end.</span></a>
       <a href="/voice-debate"><span class="cl">Voice</span><span class="ct">Talk it out</span><span class="cs">Live speech, interruptions, a real timer.</span></a>
-      <a href="/live"><span class="cl">Human vs human</span><span class="ct">Go live</span><span class="cs">Real opponents, same AI ballot.</span></a>
+      <a href="/live"><span class="cl">Human vs human</span><span class="ct">Go live</span><span class="cs">Real opponents, same AI judge.</span></a>
       <a href="/spar?inbox=1"><span class="cl">Messages</span><span class="ct">Your inbox</span><span class="cs">DMs with debaters you've matched or invited.</span></a>
     </div>
 
@@ -2942,7 +2942,7 @@ async function hydrateVoiceRounds(user){
       snap = await db.collection('voice_rounds').where('uid','==',user.uid).limit(30).get();
     }
     if (snap.empty){
-      slot.innerHTML = `<div class="r-row"><div class="r-motion" style="grid-column:1/-1;color:var(--text-dim)">No saved rounds yet. Finish a <a href="/voice-debate">voice round</a> and its ballot and transcript will land here.</div></div>`;
+      slot.innerHTML = `<div class="r-row"><div class="r-motion" style="grid-column:1/-1;color:var(--text-dim)">No saved rounds yet. Finish a <a href="/voice-debate">voice round</a> and its decision and transcript will land here.</div></div>`;
       return;
     }
     const docs = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
@@ -3060,8 +3060,8 @@ function savedRoundSide(d){
     return d.userSide === 'for' ? 'For' : 'Against';
   }
   const bench = savedRoundBench(d);
-  if (bench === 'pro') return 'Pro';
-  if (bench === 'con') return 'Con';
+  if (bench === 'pro') return 'For';
+  if (bench === 'con') return 'Against';
   return '';
 }
 
@@ -3142,10 +3142,10 @@ function savedRoundRow(d, i){
   }).join('');
 
   let body = '';
-  if (verdict) body += `<div class="sr-block"><h4>Verdict</h4><p class="sr-rfd">${verdict}</p></div>`;
-  if (rfd) body += `<div class="sr-block"><h4>Reason for decision</h4><p class="sr-rfd">${escapeHtml(rfd)}</p></div>`;
+  if (verdict) body += `<div class="sr-block"><h4>Decision</h4><p class="sr-rfd">${verdict}</p></div>`;
+  if (rfd) body += `<div class="sr-block"><h4>Why they won</h4><p class="sr-rfd">${escapeHtml(rfd)}</p></div>`;
   if (speechHtml) body += `<div class="sr-block"><h4>Transcript</h4>${speechHtml}</div>`;
-  if (!body) body = `<div class="sr-block"><p class="sr-rfd">This round was saved before a ballot was written, so there is no decision to show.</p></div>`;
+  if (!body) body = `<div class="sr-block"><p class="sr-rfd">This round was saved before a decision was written, so there is nothing to show yet.</p></div>`;
 
   return `<details class="sr-item"${i === 0 ? ' open' : ''}>`
     + `<summary class="r-row">`
@@ -3161,14 +3161,14 @@ function savedRoundRow(d, i){
 function savedRoundsEmptyHtml(){
   return `<div class="sr-empty">
       <strong>You have not saved a round yet.</strong>
-      <p>Finish a round and hit Save. The motion, the ballot, and the full transcript land here so you can read back what you actually said.</p>
+      <p>Finish a round and hit Save. The question, the decision, and the full transcript land here so you can read back what you actually said.</p>
       <a class="sr-cta" href="/newvoice?handoff=profile">Start a voice round</a>
       <a class="sr-cta ghost" href="/live">Debate a human</a>
     </div>`;
 }
 
 function savedRoundsSectionHtml(){
-  return `<div class="section"><h2>Saved rounds</h2><div class="right">Ballots &amp; transcripts you kept</div></div>
+  return `<div class="section"><h2>Saved rounds</h2><div class="right">Decisions &amp; transcripts you kept</div></div>
     <div id="savedRoundsSlot" class="recent">
       <div class="r-row"><div class="r-motion" style="grid-column:1/-1;color:var(--text-dim)">Loading your saved rounds…</div></div>
     </div>`;
