@@ -2316,6 +2316,8 @@ input[type=text]:focus,select:focus,textarea:focus{
   font-size:.58rem;color:#9292a2;font-variant-numeric:tabular-nums;
   white-space:nowrap;letter-spacing:.04em;
 }
+.opp-hint{margin-top:6px;font-size:.66rem;color:#8b8b99;letter-spacing:.02em}
+@media(hover:none){.opp-hint{display:none}}
 .opp-toggle{
   margin-top:6px;padding:9px 12px;font-size:.74rem;
   border:1px solid rgba(255,255,255,.08);border-radius:8px;
@@ -4481,6 +4483,44 @@ function App() {
   // was a fresh /api/tts fetch on every tap, which read as laggy and
   // turned picking a voice into a wait. Picking is now instant; users
   // hear the persona for real in the round.
+  //
+  // 2026-09-07, the founder: "allow user to test out voices when they
+  // hover over it." Back, without the reason it left: the sample is a
+  // STATIC file per persona (/audio/personas/<key>.mp3, ~25KB, one line
+  // in that persona's register, synthesised once with the same OpenAI
+  // voice the live round negotiates), so a hover costs one cached GET
+  // and nothing is generated per user. Plays after a short hover so a
+  // pointer crossing the row does not fire nine clips; stops on leave;
+  // never plays over a live session. Keyboard focus previews too.
+  var previewAudioRef = useRef(null);
+  var previewTimerRef = useRef(null);
+  // A hover is not a user gesture, so a browser that has not been clicked
+  // yet refuses play() (NotAllowedError). The hint then says to tap, and
+  // the tap that picks the opponent also plays the clip.
+  var [previewNeedsTap, setPreviewNeedsTap] = useState(false);
+  var stopPersonaPreview = useCallback(() => {
+    if (previewTimerRef.current) {clearTimeout(previewTimerRef.current);previewTimerRef.current = null;}
+    var a = previewAudioRef.current;
+    if (a) {try {a.pause();a.currentTime = 0;} catch (e) {}}
+  }, []);
+  var previewPersona = useCallback((key, immediate) => {
+    if (status !== 'idle') return;
+    stopPersonaPreview();
+    var fire = () => {
+      previewTimerRef.current = null;
+      var a = previewAudioRef.current;
+      if (!a) {a = new Audio();a.preload = 'none';previewAudioRef.current = a;}
+      a.src = '/audio/personas/' + encodeURIComponent(key) + '.mp3';
+      a.volume = 0.9;
+      var p = a.play();
+      if (p && p.then) p.then(() => setPreviewNeedsTap(false), (err) => {
+        if (err && err.name === 'NotAllowedError') setPreviewNeedsTap(true);
+      });
+      try {gtag('event', 'voice_persona_preview', { persona: key, via: immediate ? 'tap' : 'hover' });} catch (e) {}
+    };
+    if (immediate) fire();else previewTimerRef.current = setTimeout(fire, 220);
+  }, [status, stopPersonaPreview]);
+  useEffect(() => {if (status !== 'idle') stopPersonaPreview();}, [status, stopPersonaPreview]);
 
   // Smartness slider — 1 = solo gpt-realtime (fastest start), 5 = full
   // council (Claude + Gemini + Grok + GPT-5 consult before first speech).
@@ -8897,10 +8937,17 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
       type: 'button',
       className: 'opp',
       'aria-pressed': personaKey === p.key,
-      title: p.bio + ' · ' + p.style,
+      title: p.bio + ' · ' + p.style + ' · Hover to hear the voice',
+      onMouseEnter: () => previewPersona(p.key),
+      onMouseLeave: stopPersonaPreview,
+      onFocus: () => previewPersona(p.key),
+      onBlur: stopPersonaPreview,
       onClick: () => {
         setPersonaKey(p.key);
         rememberPersona(p.key);
+        // The pick is a real gesture: play the clip if the hover could not.
+        var a = previewAudioRef.current;
+        if (previewNeedsTap || !a || a.paused) previewPersona(p.key, true);
       }
     },
     window.DBAvatar ?
@@ -8916,6 +8963,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
     );
   })
   ),
+  el('div', { className: 'opp-hint', 'aria-hidden': 'true' }, previewNeedsTap ? 'Tap an opponent to hear their voice.' : 'Hover an opponent to hear their voice.'),
   PERSONALITIES.length > 3 && el('button', {
     type: 'button',
     className: 'opp-toggle',

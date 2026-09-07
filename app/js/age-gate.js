@@ -120,4 +120,107 @@
     var first = wrap.querySelector('button');
     if (first) first.focus();
   };
+
+  // ── Sessions, and the quiet ask ─────────────────────────────────────
+  // 2026-09-07, the founder off a screen recording: "after a few website
+  // sessions ask how old the user is, not at first." The modal above is
+  // still the fallback the live queue needs (spar-pair refuses to pair
+  // two people until both have a recorded band, so a first-session visitor
+  // who walks straight into the queue is asked there and then). What
+  // changes is that a returning visitor is asked BEFORE they reach that
+  // door, from the corner, on their third session or later, so the queue
+  // never has to interrupt them. Sessions are counted once per browser
+  // session (sessionStorage mark, localStorage total), the same way the
+  // experience ask counts visits.
+  var SESSIONS = 'da-session-count';
+  var SESSION_MARK = 'da-session-counted';
+  var SNOOZE = 'da-age-ask-snooze';
+  var ASK_AFTER_SESSIONS = 3;
+  function sessionCount() {
+    var n = 0;
+    try { n = parseInt(localStorage.getItem(SESSIONS), 10) || 0; } catch (e) {}
+    try {
+      if (sessionStorage.getItem(SESSION_MARK) !== '1') {
+        sessionStorage.setItem(SESSION_MARK, '1');
+        n += 1;
+        localStorage.setItem(SESSIONS, String(n));
+      }
+    } catch (e) {}
+    return n;
+  }
+  window.daSessionCount = sessionCount;
+  window.daAgeAskDue = function () {
+    if (window.daAgeBand()) return false;
+    var snoozed = 0;
+    try { snoozed = parseInt(localStorage.getItem(SNOOZE), 10) || 0; } catch (e) {}
+    if (snoozed && Date.now() < snoozed) return false;
+    return sessionCount() >= ASK_AFTER_SESSIONS;
+  };
+
+  // The corner card. Not a modal: nothing is blocked, the page stays
+  // usable, and "Later" snoozes it for a week. Signed-in named accounts
+  // only, because the answer is recorded on the account; a guest who
+  // answers here would answer again after signing in anyway.
+  window.daMaybeAskAgeBand = function () {
+    if (!window.daAgeAskDue()) return false;
+    if (document.getElementById('daAgeGate') || document.getElementById('daAgeAsk')) return false;
+    var u = null;
+    try { u = window.firebase && window.firebase.auth && window.firebase.auth().currentUser; } catch (e) {}
+    if (!u || u.isAnonymous) return false;
+    var card = document.createElement('div');
+    card.id = 'daAgeAsk';
+    card.setAttribute('role', 'region');
+    card.setAttribute('aria-label', 'How old are you?');
+    card.style.cssText = 'position:fixed;left:16px;bottom:16px;z-index:99980;max-width:340px;width:calc(100% - 32px);background:#16161b;color:#f2f2f6;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:16px 16px 14px;box-shadow:0 18px 48px rgba(0,0,0,.45);font-family:Archivo,-apple-system,system-ui,sans-serif;';
+    card.innerHTML =
+      '<div style="font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#ef4444;margin-bottom:6px;">One question, once</div>' +
+      '<div style="font-size:1rem;font-weight:700;line-height:1.3;margin-bottom:6px;">How old are you?</div>' +
+      '<p style="margin:0 0 12px;font-size:.82rem;line-height:1.5;color:#b9b9c6;">Live rounds pair you with a real person on camera. People aged 13 to 17 are only matched with each other. Answering now means the queue never has to ask.</p>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+        '<button type="button" data-band="adult" style="flex:1 1 auto;padding:10px 12px;border:0;border-radius:9px;background:#dc2626;color:#fff;font-size:.86rem;font-weight:700;cursor:pointer;font-family:inherit;">18 or older</button>' +
+        '<button type="button" data-band="minor" style="flex:1 1 auto;padding:10px 12px;border:1px solid rgba(255,255,255,.22);border-radius:9px;background:transparent;color:#f2f2f6;font-size:.86rem;font-weight:600;cursor:pointer;font-family:inherit;">13 to 17</button>' +
+        '<button type="button" data-later="1" style="flex:0 0 auto;padding:10px 10px;border:0;border-radius:9px;background:transparent;color:#8b8b99;font-size:.8rem;font-weight:600;cursor:pointer;font-family:inherit;">Later</button>' +
+      '</div>';
+    function done() { if (card.parentNode) card.parentNode.removeChild(card); }
+    card.querySelectorAll('button[data-band]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var band = btn.getAttribute('data-band');
+        try { localStorage.setItem(KEY, band); } catch (e) {}
+        try { gtag('event', 'age_band_set', { band: band, surface: 'quiet_ask' }); } catch (e) {}
+        done();
+        window.daRecordAgeBand(band, function () {});
+      });
+    });
+    card.querySelector('button[data-later]').addEventListener('click', function () {
+      try { localStorage.setItem(SNOOZE, String(Date.now() + 7 * 86400000)); } catch (e) {}
+      try { gtag('event', 'age_ask_later'); } catch (e) {}
+      done();
+    });
+    document.body.appendChild(card);
+    try { gtag('event', 'age_ask_shown', { sessions: sessionCount() }); } catch (e) {}
+    return true;
+  };
+
+  // Loaded by topbar.js with data-proactive: count this session and, if
+  // the ask is due, wait for a real signed-in user and a little visible
+  // time before asking. Round surfaces never get it (a question over a
+  // live speech is worse than never asking).
+  (function () {
+    var me = document.currentScript;
+    if (!me || !me.hasAttribute('data-proactive')) { sessionCount(); return; }
+    if (/^\/(live-round|live|casual-room|stage|studio|room-judge|spar|partners|debate-chat|voice-debate|newvoice|practice|admin)(?:\.html)?(?:\/|$)/.test(location.pathname)) { sessionCount(); return; }
+    if (!window.daAgeAskDue()) return;
+    var tries = 0;
+    var t = setInterval(function () {
+      tries += 1;
+      if (document.hidden) return;
+      if (tries > 40) { clearInterval(t); return; }
+      var u = null;
+      try { u = window.firebase && window.firebase.auth && window.firebase.auth().currentUser; } catch (e) {}
+      if (!u || u.isAnonymous) return;
+      if (tries < 8) return; // ~8 visible seconds before the card appears
+      clearInterval(t);
+      window.daMaybeAskAgeBand();
+    }, 1000);
+  })();
 })();

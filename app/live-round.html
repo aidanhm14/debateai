@@ -3887,6 +3887,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
               <span class="rmb-lock-note" id="rmbLockNote" hidden>Topic locked once the round starts</span>
             </span>
             <div class="rmb-motion" id="rmbMotion">&#8212;</div>
+            <!-- 2026-09-07: the "What This House means" link rides the
+                 resolution it explains. renderHouseGloss() fills this and
+                 #rmbHouse; #rmbHouse is hidden by CSS whenever this one
+                 has content, so the link paints once. -->
+            <div class="rmb-house rmb-house--header" id="shHouse" hidden></div>
             <!-- Pending resolution change (moved here 2026-09-06, the
                  founder: "the change proposed should go right next to
                  the resolution"). Hidden until one side proposes one;
@@ -3975,7 +3980,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
                current round is abandoned (the opponent sees a forfeit
                banner), and the user re-queues. Confirm dialog to
                prevent accidental clicks. Hidden for non-spar rounds. -->
-          <button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:#fbbf24;border-color:rgba(245,158,11,.32)">Next →</button>
+          <!-- 2026-09-07, the founder: "make the unavailable button more calm". This is
+               the spar Forfeit + Next control: it sits in the transport row all
+               round long, and in amber it read as a live, urgent action beside
+               End. It is the quiet exit now, dim text and a hairline border. -->
+          <button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:var(--text-dim);border-color:var(--border,rgba(128,128,128,.28));background:transparent;font-weight:600">Next →</button>
         </div>
         <div class="ready-hint" id="readyHint">Starts the timer and mic.</div>
         <div class="rn-entry"><button type="button" class="rn-export" id="openRoundNotes" aria-controls="roundNotes">AI notes</button></div>
@@ -6550,11 +6559,15 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (state.contextFrame) body += ' Agreed setting: ' + escHtml(String(state.contextFrame)) + '.';
     // 2026-09-06, the founder: no description on the page. The label
     // alone shows; the answer is a hover box (focus/tap on touch).
-    return '<span class="rh-wrap"><span class="rh-lab" tabindex="0" role="button" aria-describedby="rhTip">What This House means</span><span class="rh-body" id="rhTip" role="tooltip">' + body + '</span></span>';
+    // 2026-09-07, the founder: "just build a hyperlink". The label is a
+    // real link now, to the plain-English explainer on /how-it-works,
+    // opened in a new tab so the room is never left. The hover box stays
+    // as the fast answer for anyone who does not want to leave.
+    return '<span class="rh-wrap"><a class="rh-lab" href="/how-it-works#this-house" target="_blank" rel="noopener" aria-describedby="rhTip">What This House means</a><span class="rh-body" id="rhTip" role="tooltip">' + body + '</span></span>';
   }
   function renderHouseGloss(){
     var html = houseGlossHtml(state.motion);
-    ['rmbHouse', 'setupHouse'].forEach(function(id){
+    ['shHouse', 'rmbHouse', 'setupHouse'].forEach(function(id){
       var el = $(id);
       if (!el) return;
       if (!html){ el.hidden = true; el.innerHTML = ''; return; }
@@ -23204,6 +23217,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   box-shadow:0 12px 32px rgba(0,0,0,.45);opacity:0;visibility:hidden;transform:translateY(-4px);
   transition:opacity .12s,transform .12s,visibility .12s;pointer-events:none}
 .rmb-house .rh-wrap:hover .rh-body,.rmb-house .rh-wrap:focus-within .rh-body{opacity:1;visibility:visible;transform:none}
+.rmb-house .rh-lab{text-decoration:underline;text-decoration-color:var(--border,rgba(128,128,128,.4));text-underline-offset:3px;cursor:pointer}
+.rmb-house--header{margin-top:6px}
+/* One copy of the link: the header mount wins whenever it has content. */
+.sh-motion:has(#shHouse:not([hidden])) ~ * #rmbHouse,
+body:has(#shHouse:not([hidden])) #rmbHouse{display:none}
+body.round-running #shHouse{display:none !important}
 /* The bar clips its overflow for the glow strip; lift the clip only while
    the hover box is open so it can extend past the bar's bottom edge. */
 .round-motion-bar:has(.rh-wrap:hover),.round-motion-bar:has(.rh-wrap:focus-within){overflow:visible}

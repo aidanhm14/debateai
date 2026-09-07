@@ -169,6 +169,20 @@
     document.head.appendChild(s);
   })();
 
+  // The age question, asked from the corner on a returning visitor's third
+  // session rather than at the live-queue door (2026-09-07, the founder:
+  // "after a few website sessions ask how old the user is, not at first").
+  // age-gate.js counts sessions itself and self-excludes round surfaces;
+  // the queue keeps its own required ask for anyone who arrives unasked.
+  (function ensureAgeGateLoaded(){
+    if (document.querySelector('script[src*="/js/age-gate.js"]')) return;
+    var s = document.createElement('script');
+    s.src = '/js/age-gate.js';
+    s.defer = true;
+    s.setAttribute('data-proactive', '1');
+    document.head.appendChild(s);
+  })();
+
   // Decorative CSS animation costs a compositor layer and a repaint every
   // frame, forever, whether or not anyone is looking at it — a backgrounded
   // tab keeps paying, because rAF throttles and CSS keyframes do not.

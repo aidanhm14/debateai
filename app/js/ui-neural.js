@@ -96,11 +96,16 @@
     // Dark carries the same small contrast lift the light arm got: the
     // sharper render alone does not compensate for red-on-near-black,
     // where the edges were sitting a couple of levels off the backdrop.
-    EDGE_COLOR='rgba('+rgb+','+(lightWeb?.34:(isLight?.07:.22))+')';
-    NODE_COLOR='rgba('+rgb+','+(lightWeb?.68:(isLight?.2:.46))+')';
+    // 2026-09-07, the founder off a screen recording: "background
+    // distracting, less intensity, lower the contrast." Edges and nodes
+    // on both arms drop to roughly 60% of the 2026-08-25 lift, and the
+    // pulse on the web arm comes off brand red at .7 to a quieter .4:
+    // the geometry stays readable, it stops competing with the page.
+    EDGE_COLOR='rgba('+rgb+','+(lightWeb?.2:(isLight?.05:.14))+')';
+    NODE_COLOR='rgba('+rgb+','+(lightWeb?.42:(isLight?.14:.3))+')';
     // Pulses stay brand red on the light arm: the ink carries the
     // structure, the red carries the life.
-    PULSE_COLOR=lightWeb?'rgba(200,60,60,.7)':'rgba('+rgb+','+(isLight?.3:.55)+')';
+    PULSE_COLOR=lightWeb?'rgba(200,60,60,.4)':'rgba('+rgb+','+(isLight?.2:.36)+')';
     CDIST=isLight?CONNECT_DIST_LIGHT:CONNECT_DIST_DARK;
     CDIST_SQ=CDIST*CDIST;
     lineW=lightWeb?.5:(isLight?.4:.5);
