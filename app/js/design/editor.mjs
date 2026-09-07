@@ -21,7 +21,7 @@ async function api(body){
 function markDirty(){state.dirty=true;keepRecovery();status('Saving private draft…');clearTimeout(saveTimer);if(!state.blocked)saveTimer=setTimeout(()=>save(),1400);renderCount();}
 function checkpoint(){state.undo.push(clone(state.design));if(state.undo.length>60)state.undo.shift();state.redo=[];}
 function mutate(fn){checkpoint();fn();apply();markDirty();renderInspectorValues();}
-function apply(){runtime?.update(state.design,state.page);rect();renderCount();renderPages();}
+function apply(fast=false){runtime?.update(state.design,state.page);rect();if(!fast){renderCount();renderPages();}}
 function renderCount(){$('count').textContent=changeCount(state.design);$('undo').disabled=!state.undo.length;$('redo').disabled=!state.redo.length;$('review').disabled=!state.ready;}
 async function save(checkpoint=false){
   if(!state.ready||state.blocked)return false;
@@ -177,7 +177,7 @@ function renderInspector(){
   const textNodes=[...el.childNodes].map((node,index)=>({node,index})).filter(x=>x.node.nodeType===3&&x.node.nodeValue.trim());
   if(textNodes.length&&!state.pseudo){
     const d=document.createElement('details');d.className='property-section';d.open=true;d.innerHTML='<summary>Text</summary><div class="fields"></div><p class="help">Text changes apply to every screen size. Inline links and formatting stay intact.</p>';
-    for(const {node,index} of textNodes){const label=document.createElement('label');label.className='wide';label.textContent=textNodes.length>1?'Text segment '+(index+1):'Content';const ta=document.createElement('textarea');ta.value=node.nodeValue;ta.dataset.textIndex=index;ta.addEventListener('focus',()=>{ta._checkpoint=false;});ta.addEventListener('input',()=>{
+    for(const {node,index} of textNodes){const label=document.createElement('label');label.className='wide';label.textContent=textNodes.length>1?'Text segment '+(index+1):'Content';const ta=document.createElement('textarea');ta.value=node.nodeValue;ta.maxLength=12000;ta.dataset.textIndex=index;ta.addEventListener('focus',()=>{ta._checkpoint=false;});ta.addEventListener('input',()=>{
       if(!ta._checkpoint){checkpoint();ta._checkpoint=true;}const c=currentChange(true);const old=c.text.find(x=>x.index===index);const before=old?.before??node.nodeValue;c.text=c.text.filter(x=>x.index!==index);if(ta.value!==before)c.text.push({index,before,after:ta.value});apply();markDirty();
     });label.append(ta);d.querySelector('.fields').append(label);}holder.append(d);
   }
@@ -242,6 +242,10 @@ function startGesture(e,handle){
   e.currentTarget.addEventListener('pointermove',moveGesture);e.currentTarget.addEventListener('pointerup',endGesture,{once:true});e.currentTarget.addEventListener('pointercancel',cancelGesture,{once:true});
 }
 function moveGesture(e){
+  if(!gesture)return;gesture.next={clientX:e.clientX,clientY:e.clientY};
+  if(gesture.frame)return;gesture.frame=requestAnimationFrame(()=>{if(!gesture)return;gesture.frame=null;applyGesture(gesture.next);});
+}
+function applyGesture(e){
   if(!gesture)return;const g=gesture;let dx=(e.clientX-g.startX)/state.scale,dy=(e.clientY-g.startY)/state.scale;if(!g.moved&&Math.hypot(dx,dy)<2)return;g.moved=true;
   const styles={};if(g.handle==='move')styles.translate=`${Math.round(g.tx+dx)}px ${Math.round(g.ty+dy)}px`;
   else{
@@ -252,11 +256,11 @@ function moveGesture(e){
     if(g.vector){const sx=Math.max(.01,(g.width+dw)/g.width),sy=g.lock?sx:Math.max(.01,(g.height+dh)/g.height);for(const k of Object.keys(styles))delete styles[k];styles.scale=`${g.sx*sx} ${g.sy*sy}`;styles['transform-box']='fill-box';styles['transform-origin']='center';}
     if(g.handle.includes('w')||g.handle.includes('n'))styles.translate=`${Math.round(g.tx+(g.handle.includes('w')?dx:0))}px ${Math.round(g.ty+(g.handle.includes('n')?dy:0))}px`;
   }
-  try{setStyles(styles);apply();renderInspectorValues();}catch(e){toast(e.message);cancelGesture(e);}
+  try{setStyles(styles);apply(true);renderInspectorValues();}catch(e){toast(e.message);cancelGesture(e);}
 }
 function finishGestureListeners(e){e.currentTarget?.removeEventListener('pointermove',moveGesture);e.currentTarget?.removeEventListener('pointerup',endGesture);e.currentTarget?.removeEventListener('pointercancel',cancelGesture);}
-function endGesture(e){finishGestureListeners(e);if(gesture?.moved){state.undo.push(gesture.before);if(state.undo.length>60)state.undo.shift();state.redo=[];markDirty();}gesture=null;}
-function cancelGesture(e){finishGestureListeners(e);if(gesture){state.design=gesture.before;apply();renderInspectorValues();}gesture=null;}
+function endGesture(e){finishGestureListeners(e);if(gesture?.frame){cancelAnimationFrame(gesture.frame);applyGesture(e);}if(gesture?.moved){state.undo.push(gesture.before);if(state.undo.length>60)state.undo.shift();state.redo=[];markDirty();renderPages();}gesture=null;}
+function cancelGesture(e){finishGestureListeners(e);if(gesture){if(gesture.frame)cancelAnimationFrame(gesture.frame);state.design=gesture.before;apply();renderInspectorValues();}gesture=null;}
 $('selection').querySelectorAll('[data-handle]').forEach(b=>b.addEventListener('pointerdown',e=>startGesture(e,b.dataset.handle)));
 $('move-handle').addEventListener('pointerdown',e=>startGesture(e,'move'));
 $('undo').onclick=()=>undo();$('redo').onclick=()=>undo(true);$('save').onclick=()=>save(true);
