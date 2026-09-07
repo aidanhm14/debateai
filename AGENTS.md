@@ -142,6 +142,22 @@ state machine, the validator and the mint shape offline; the voice loop
 itself was verified in a browser against the live model and is not in the
 hook.
 
+**Patient topic listening (2026-09-07).** Both the mint and client set
+`create_response:false`; VAD commits after one second of silence, then
+the client requires four more quiet seconds before requesting a reply.
+Any new speech resets that wait and clears judge playback. Greetings,
+reminders and tool follow-ups use the same floor check. Follow-ups wait
+for `response.done`, any buffered playback, and the proposal request;
+responses from an old session cannot speak into a new one. Keep the full
+server brief on per-response instructions, which replace session defaults.
+The brief follows the whole exchange, corrections and both perspectives,
+and welcomes values, comparisons, relationships, culture and playful
+questions without forcing a policy. It has no ninety-second proposal
+deadline or mandatory backchannel. Acceptance and Stop disconnect at once,
+without a spoken farewell. Reminder timing above is an opportunity only;
+skip it while anyone is speaking. `scripts/test-room-topic-client.mjs`
+covers timing and asynchronous races and is imported by test-room-topic.
+
 ## First screen: stranger board for everyone (A/B called 2026-07-22)
 
 The 2026-07-22 `ticker` vs `current` first-screen A/B was **called by

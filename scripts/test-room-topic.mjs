@@ -115,7 +115,7 @@ assert.equal(validateProposedMotion('Too short.', '').ok, false);
 assert.equal(validateProposedMotion('Banning cars downtown helps pedestrians but hurts small shops.', '').reason, 'hedged_output');
 assert.ok(buildTopicJudgeInstructions({ names: ['A', 'B'], from: '', context: null, attempt: 1 }).includes('Take ONE side'));
 
-// The mint: GA client_secrets shape, tools attached, mini first, no beta path.
+// The mint disables automatic replies before the first audio can arrive.
 {
   const calls = [];
   const fakeFetch = async (url, init) => { calls.push({ url, body: JSON.parse(init.body) }); return { ok: true, json: async () => ({ value: 'ek_test', expires_at: 1 }) }; };
@@ -123,10 +123,14 @@ assert.ok(buildTopicJudgeInstructions({ names: ['A', 'B'], from: '', context: nu
   const mint = await mintTopicVoice('brief', fakeFetch);
   assert.equal(mint.client_secret.value, 'ek_test');
   assert.equal(mint.greeting, TOPIC_GREETING);
+  assert.equal(mint.instructions, 'brief', 'per-response instructions must preserve the full session brief');
   assert.equal(calls[0].url, 'https://api.openai.com/v1/realtime/client_secrets');
   assert.equal(calls[0].body.session.tools[0].name, 'propose_motion');
   assert.equal(calls[0].body.session.instructions, 'brief');
   assert.match(calls[0].body.session.model, /^gpt-realtime/);
+  assert.equal(calls[0].body.session.audio.input.turn_detection.create_response, false);
+  assert.equal(calls[0].body.session.audio.input.turn_detection.interrupt_response, true);
+  assert.equal(calls[0].body.session.audio.input.turn_detection.threshold, 0.5);
   const failing = async () => ({ ok: false, status: 401, text: async () => 'nope' });
   await assert.rejects(mintTopicVoice('brief', failing), /REALTIME_MINT_FAILED/);
 }

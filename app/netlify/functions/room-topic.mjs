@@ -83,7 +83,11 @@ export async function mintTopicVoice(instructions, fetchImpl = fetch) {
     const session = {
       type: 'realtime', model, instructions,
       tools: TOPIC_TOOLS, tool_choice: 'auto',
-      audio: { output: { voice: TOPIC_VOICE, speed: 1.05 } },
+      audio: {
+        input: { turn_detection: { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 500,
+          silence_duration_ms: 1000, create_response: false, interrupt_response: true } },
+        output: { voice: TOPIC_VOICE, speed: 1.05 },
+      },
     };
     if (supportsReasoning(model)) session.reasoning = { effort: 'low' };
     const r = await fetchImpl('https://api.openai.com/v1/realtime/client_secrets', {
@@ -95,7 +99,7 @@ export async function mintTopicVoice(instructions, fetchImpl = fetch) {
       const data = await r.json();
       const secret = data.client_secret || (data.value ? { value: data.value, expires_at: data.expires_at } : null);
       if (!secret) throw new Error('Mint succeeded but client_secret missing.');
-      return { client_secret: secret, model, voice: TOPIC_VOICE, greeting: TOPIC_GREETING, sdpUrl: 'https://api.openai.com/v1/realtime/calls' };
+      return { client_secret: secret, model, voice: TOPIC_VOICE, instructions, greeting: TOPIC_GREETING, sdpUrl: 'https://api.openai.com/v1/realtime/calls' };
     }
     lastErr = await r.text().catch(() => '');
     console.error('[room-topic] mint failed', model, r.status, lastErr.slice(0, 300));
