@@ -93,9 +93,11 @@ cache.clear();
 assert.deepEqual((await (await call()).json()).messages, [], 'An all-filtered feed is empty, never padded');
 hooks.deregister(); globalThis.fetch = originalFetch; delete globalThis.__chatPreviewTest;
 
-// Exercise the shipped renderer through a populated poll followed by an
-// empty poll. Previously an empty response left old messages on screen.
+// Exercise the shipped renderer through loading, failure, populated and
+// empty polls. The whole panel stays blank until real messages render.
 const landing = readFileSync('app/landing.html', 'utf8');
+assert.match(landing, /\.fs-chats:not\(\.is-live\)\{visibility:hidden\}/, 'The panel and its controls are invisible before messages render, without changing the grid');
+assert.doesNotMatch(landing, /fs-chats-rooms|fs-chats-skel|__fsChatsRooms/, 'No fallback card or skeleton can return');
 const renderer = landing.slice(landing.indexOf('  /* fsChats:'), landing.indexOf("    var canvas = document.getElementById('heroGlobeCanvas');"));
 const code = renderer.slice(renderer.indexOf('(function(){'), renderer.lastIndexOf('  (function(){'));
 function element() {
@@ -105,23 +107,32 @@ function element() {
     classList: { add: x => classes.add(x), remove: x => classes.delete(x), contains: x => classes.has(x) } };
 }
 const panel = element(), list = element();
-list.innerHTML = '<div>Room links</div>';
-let scheduled, nextPayload = payload;
+let scheduled, nextPayload = new Error('Network unavailable');
 const storage = new Map([['da-fs-chats', JSON.stringify({ at: Date.now(), messages: [{ text: 'Nobody is here!' }] })]]);
 const context = { console, Date, setInterval: fn => { scheduled = fn; },
   sessionStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
   document: { hidden: false, getElementById: id => id === 'fsChats' ? panel : list,
     createDocumentFragment: element, createElement: element },
-  fetch: async () => ({ ok: true, json: async () => nextPayload }),
+  fetch: async () => {
+    if (nextPayload instanceof Error) throw nextPayload;
+    return { ok: true, json: async () => nextPayload };
+  },
 };
-context.window = { fetch: context.fetch, __fsChatsRooms: '<div>Room links</div>', matchMedia: () => ({ matches: true }) };
+context.window = { fetch: context.fetch, matchMedia: () => ({ matches: true }) };
 vm.createContext(context);
 const kickoff = landing.indexOf('/* Parse-time, before the panel');
 vm.runInContext(landing.slice(landing.indexOf('(function(){', kickoff), landing.indexOf('</script>', kickoff)), context);
 assert.equal(context.window.__fsChatsCache, undefined, 'Old browser cache never becomes first paint');
+assert.equal(list.innerHTML, '', 'The parse-time loader inserts no placeholder');
 vm.runInContext(code, context);
+assert.equal(panel.classList.contains('is-live'), false, 'An unresolved first request stays blank');
 await new Promise(resolve => setImmediate(resolve));
-assert.equal(panel.classList.contains('is-live'), true);
+assert.equal(panel.classList.contains('is-live'), false, 'A failed first request stays blank');
+assert.equal(list.innerHTML, '');
+nextPayload = payload;
+scheduled();
+await new Promise(resolve => setImmediate(resolve));
+assert.equal(panel.classList.contains('is-live'), true, 'Real messages reveal the chat');
 nextPayload = { messages: [], error: 'temporarily unavailable' };
 scheduled();
 await new Promise(resolve => setImmediate(resolve));
@@ -130,7 +141,7 @@ nextPayload = { messages: [], curated: true };
 scheduled();
 await new Promise(resolve => setImmediate(resolve));
 assert.equal(panel.classList.contains('is-live'), false);
-assert.equal(list.innerHTML, '<div>Room links</div>');
+assert.equal(list.innerHTML, '', 'A successful empty response clears the panel without restoring links');
 assert.deepEqual(JSON.parse(storage.get('da-fs-chats-v2')).messages, []);
 assert.doesNotMatch(landing, /getItem\('da-fs-chats'\)|setItem\('da-fs-chats'/);
-console.log('Chat preview: selection, ordinary disagreement, complete-message checks, source privacy, cache migration and empty-feed clearing passed.');
+console.log('Chat preview: selection, ordinary disagreement, complete-message checks, source privacy, cache migration and blank loading/failure/empty states passed.');

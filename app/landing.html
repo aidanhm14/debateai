@@ -8476,12 +8476,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      squeezing the proof. The column is part of the AUTHORED grid at
      this width (not toggled by the fetch), the lbr-ready lesson: a
      layout that appears seconds after load is a jolt on the one thing
-     above the fold. So the panel always renders its header, the real
-     room list and the /community door; the message feed fills in when
-     /api/live-chats answers, and on a failed fetch the panel is still
-     an honest link card that claims no activity. The green dot is
-     liveness signalling and appears ONLY once real messages land. */
+     above the fold. Keep that space reserved, but reveal the whole
+     panel only after real messages render. Loading, empty and failed
+     first requests stay blank, including the header and buttons
+     (2026-09-07, Aidan: "chat or blank when not loaded"). */
   .fs-chats{display:none}
+  .fs-chats:not(.is-live){visibility:hidden}
   @media(min-width:1360px){
     /* 2026-09-03, the founder: "widen the display thing and put the comment
        section a bit more right". Wider board column, wider gap to the chats. */
@@ -8553,31 +8553,6 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-chats-text{margin:0;font-size:.78rem;line-height:1.4;color:rgba(245,239,231,.72);
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   [data-theme="light"] .fs-chats-text{color:rgba(26,26,31,.66)}
-  /* Static fallback: the real rooms, named, with no activity claim.
-     What a JS-off visitor (or a failed fetch) sees instead of a feed. */
-  .fs-chats-rooms{display:flex;flex-wrap:wrap;gap:6px;padding:2px 2px 4px}
-  .fs-chats-rooms a{font-size:.7rem;font-weight:700;text-decoration:none;padding:4px 10px;
-    border-radius:999px;color:rgba(245,239,231,.72);border:1px solid rgba(245,239,231,.18)}
-  .fs-chats-rooms a:hover{color:#fff;border-color:rgba(239,68,68,.6)}
-  [data-theme="light"] .fs-chats-rooms a{color:rgba(26,26,31,.66);border-color:rgba(26,26,31,.16)}
-  [data-theme="light"] .fs-chats-rooms a:hover{color:#1a1a1f;border-color:rgba(220,38,38,.55)}
-  .fs-chats.is-live .fs-chats-rooms{display:none}
-  /* Loading state (2026-09-04, the founder, off a screenshot of the
-     chip card sitting over 400px of empty panel: "things load in
-     before the actual thing"). While /api/live-chats is in flight the
-     list shows message-shaped skeleton rows, the same height and
-     rhythm as the real rows, so the swap to real messages is in place
-     rather than chips-then-feed. The chips remain the JS-off and
-     failed-fetch state; they never show while a fetch is pending. On
-     a return visit the last payload renders from sessionStorage at
-     parse time, so the real thing is usually first paint. */
-  .fs-chats-skel{display:flex;flex-direction:column;gap:4px;padding:0 2px}
-  .fs-chats-skel i{display:block;height:44px;border-radius:10px;
-    background:linear-gradient(90deg,rgba(245,239,231,.05) 0%,rgba(245,239,231,.1) 45%,rgba(245,239,231,.05) 90%);
-    background-size:220% 100%;animation:fsChatsSkel 1.3s ease-in-out infinite}
-  [data-theme="light"] .fs-chats-skel i{background-image:linear-gradient(90deg,rgba(26,26,31,.04) 0%,rgba(26,26,31,.09) 45%,rgba(26,26,31,.04) 90%)}
-  @keyframes fsChatsSkel{0%{background-position:120% 0}100%{background-position:-120% 0}}
-  @media(prefers-reduced-motion:reduce){.fs-chats-skel i{animation:none}}
   .fs-chats-cta{margin-top:11px;flex:none;text-align:center;font-size:.78rem;font-weight:800;text-decoration:none;
     color:#fff;background:#dc2626;border-radius:10px;padding:9px 12px;
     transition:background .15s ease}
@@ -9310,8 +9285,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          loudest room fill the feed. REAL MESSAGES ONLY (2026-08-31,
          founder: "get rid of the bots on the open group chat"): the
          2026-08-29 scripted-persona layer stays retired, and a quiet
-         site shows the honest room-chip card with the dot dark. Old
-         rows from quiet rooms render with their real ages, which is
+         site leaves the panel blank (2026-09-07). Old rows from
+         quiet rooms render with their real ages, which is
          the "past times" density he asked for, not padding. Hidden
          under 1360px, where there is no third column to hold it. -->
     <aside class="fs-chats" id="fsChats" aria-label="Community chat highlights">
@@ -9328,38 +9303,24 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <span>Discord</span>
         </a>
       </div>
-      <div class="fs-chats-list" id="fsChatsList">
-        <div class="fs-chats-rooms">
-          <a href="/community#tournament" data-cta="first-screen-chats-room">#tournament</a>
-          <a href="/community" data-cta="first-screen-chats-room">The Commons</a>
-          <a href="/community" data-cta="first-screen-chats-room">#general</a>
-          <a href="/community" data-cta="first-screen-chats-room">#find-a-round</a>
-          <a href="/community" data-cta="first-screen-chats-room">#help</a>
-        </div>
-      </div>
+      <div class="fs-chats-list" id="fsChatsList"></div>
       <a class="fs-chats-cta" href="/community" data-community-join data-cta="first-screen-chats-join">Join the conversation</a>
     </aside>
     <script>
     /* Parse-time, before the panel's first paint: start the feed request
        now (the renderer near the end of the file consumes it), read the
-       last payload back from sessionStorage, and if there is nothing to
-       paint yet swap the room chips for skeleton rows. The chips return
-       only if the fetch fails or returns nothing. */
+       last payload back from sessionStorage. The panel stays invisible
+       until the renderer has real messages to show. */
     (function(){
       var mq = window.matchMedia && window.matchMedia('(min-width:1360px)');
       if (!mq || !mq.matches || !window.fetch) return;
       var list = document.getElementById('fsChatsList');
       if (!list) return;
-      window.__fsChatsRooms = list.innerHTML;
       try { window.__fsChatsReq = fetch('/api/live-chats'); } catch (e) {}
       try {
         var c = JSON.parse(sessionStorage.getItem('da-fs-chats-v2') || 'null');
         if (c && c.messages && c.messages.length && (Date.now() - (c.at || 0)) < 15 * 60 * 1000) window.__fsChatsCache = c.messages;
       } catch (e) {}
-      if (window.__fsChatsCache) return;
-      var sk = '';
-      for (var i = 0; i < 9; i++) sk += '<i></i>';
-      list.innerHTML = '<div class="fs-chats-skel" aria-hidden="true">' + sk + '</div>';
     })();
     </script>
   </div>
@@ -19896,8 +19857,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      REAL ONLY (2026-08-31, founder: "get rid of the bots on the open
      group chat"). The 2026-08-29 ambient scripted-persona layer is
      RETIRED on his newer explicit instruction; do not restore it.
-     With no real messages the panel keeps its static room-chip card
-     and the green dot stays dark, which is the honest quiet state.
+     With no real messages the entire panel stays blank, including
+     its header and buttons. There is no loading or failure card.
      All text lands via textContent, never innerHTML. The panel is
      display:none under 1360px, so nothing fetches until that layout
      is actually on screen. */
@@ -19960,7 +19921,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       var msgs = realRows.filter(function(m){ return m && m.text; });
       if (!msgs.length){
         panel.classList.remove('is-live');
-        if (window.__fsChatsRooms) list.innerHTML = window.__fsChatsRooms;
+        list.innerHTML = '';
         return;
       }
       var wasLive = panel.classList.contains('is-live');
@@ -20014,14 +19975,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       else list.scrollTop = Math.min(previousTop, Math.max(0, list.scrollHeight - list.clientHeight));
     }
 
-    // The chips are the honest no-feed state. They come back only when
-    // the FIRST fetch fails or answers empty with nothing cached; a later
-    // poll failing leaves the messages already on screen alone.
-    function restoreRooms(){
-      if (panel.classList.contains('is-live')) return;
-      if (window.__fsChatsRooms) list.innerHTML = window.__fsChatsRooms;
-    }
-
+    // A failed refresh preserves real messages already on screen;
+    // a failed first load stays blank.
     function poll(){
       // The parse-time script beside the markup starts the first request
       // so it is in flight before this renderer is even parsed.
@@ -20034,9 +19989,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             try { sessionStorage.setItem('da-fs-chats-v2', JSON.stringify({ at: Date.now(), messages: d.messages.slice(0, MAX_ROWS) })); } catch(e){}
           }
           renderAll();
-          if (!realRows.length) restoreRooms();
         })
-        .catch(restoreRooms);
+        .catch(renderAll);
     }
 
     function start(){
