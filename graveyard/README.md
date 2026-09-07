@@ -31,6 +31,8 @@ the newer layout adjusted around it.
 
 ## Index
 
+- [2026-09-07 — FAQ layout](2026-09-07-faq-layout.md): the podium illustration and pill accordion, replaced with grouped questions and a text introduction.
+
 - [2026-08-24 — landing format chooser](2026-08-24-landing-format-chooser.md) —
   the "Choose a format of debate" label, explainer and 10 format chips above
   the walkthrough video on `/landing`.
