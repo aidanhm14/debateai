@@ -46,3 +46,5 @@ the newer layout adjusted around it.
 - [Live popup photographic fallback](2026-09-06-live-popup-photo-fallback.md): replaced with current room snapshots and labeled animated illustrations.
 
 - [2026-09-06 — betting surfaces](2026-09-06-betting.md): paused market page, navigation, live-room controls, and landing promotions.
+
+- [2026-09-06 — background edge shapes](2026-09-06-background-edge-shapes.md): replaced the static rose perimeter with the original moving web spread across the viewport.

@@ -1,5 +1,5 @@
 /* Neural constellation background — shared across all pages.
-   Only animates in dark / crimson themes. Looks for #uiNeuralCanvas.
+   Animates in dark / crimson and opted-in light themes. Looks for #uiNeuralCanvas.
    Perf rewrite 2026-04-22: edges and nodes batched into single Path2D
    + single stroke/fill calls each. Old version did one stroke per edge
    and one fill per node — on Chrome that meant N + M state mutations
@@ -10,7 +10,6 @@
   var c=document.getElementById('uiNeuralCanvas');
   if(!c) return;
   var ctx=c.getContext('2d');
-  var depth=document.createElement('canvas'),depthCtx=depth.getContext('2d');
   var nodes=[],edges=[],pulses=[];
   // Render at full Retina (DPR=2) for the wide, high-resolution look.
   // Chrome-specific density cuts were rolled back — the founder's read is
@@ -33,7 +32,7 @@
   var isMobile=window.matchMedia&&window.matchMedia('(max-width: 768px)').matches;
   var reduced=false;
   try{reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){}
-  var NODE_COUNT = isMobile ? 16 : 32;
+  var NODE_COUNT = 0;
   var CONNECT_DIST_DARK = 150;
   var CONNECT_DIST_LIGHT = 180;
   var MIN_SPEED=.04;
@@ -98,8 +97,8 @@
     // Dark carries the same small contrast lift the light arm got: the
     // sharper render alone does not compensate for red-on-near-black,
     // where the edges were sitting a couple of levels off the backdrop.
-    EDGE_COLOR='rgba('+rgb+','+(lightWeb?.12:(isLight?.07:.22))+')';
-    NODE_COLOR='rgba('+rgb+','+(lightWeb?.3:(isLight?.2:.46))+')';
+    EDGE_COLOR='rgba('+rgb+','+(lightWeb?.34:(isLight?.07:.22))+')';
+    NODE_COLOR='rgba('+rgb+','+(lightWeb?.68:(isLight?.2:.46))+')';
     // Pulses stay brand red on the light arm: the ink carries the
     // structure, the red carries the life.
     PULSE_COLOR=lightWeb?'rgba(200,60,60,.7)':'rgba('+rgb+','+(isLight?.3:.55)+')';
@@ -110,103 +109,75 @@
     // nothing, so the web arm keeps them at full size rather than the
     // light theme's .9 shrink.
     nodeRMul=(isLight&&!lightWeb)?.9:1;
-    paintDepth(isLight);
     // The constellation stays off on light surfaces that do not explicitly
     // opt in. Stop the frame loop instead of painting a transparent canvas.
     if(!themeActive){
       if(rafId){cancelAnimationFrame(rafId);rafId=0}
       ctx.clearRect(0,0,W,H);
-    }else if(reduced){
-      ctx.clearRect(0,0,W,H);ctx.drawImage(depth,0,0,W,H);
+    }else if(reduced&&themeInitialized){
+      tick(0,true);
     }else if(running&&themeInitialized){
       start();
     }
   }
 
-  // Approved rose edge treatment. Cache the geometry once per size/theme:
-  // it stays in the exposed margins instead of drifting behind the cards.
-  function paintDepth(light){
-    depth.width=c.width;depth.height=c.height;
-    depthCtx.setTransform(dpr,0,0,dpr,0,0);
-    var ink=light?'169,92,100':'239,105,123';
-    [[0,H*.3,W*.38],[W,H*.73,W*.36]].forEach(function(p){
-      var glow=depthCtx.createRadialGradient(p[0],p[1],0,p[0],p[1],p[2]);
-      glow.addColorStop(0,'rgba('+(light?'222,164,166':'163,40,70')+','+(light?.19:.14)+')');
-      glow.addColorStop(1,'rgba('+ink+',0)');
-      depthCtx.fillStyle=glow;depthCtx.fillRect(0,0,W,H);
-    });
-    var sx=W/1440,sy=H/1000;
-    var paths=[[[0,65],[78,112],[153,45],[203,158],[105,238],[17,198],[0,315]],[[78,112],[105,238],[44,364],[166,442],[214,320],[105,238]],[[0,506],[85,566],[171,520],[205,670],[125,750],[30,668],[0,796]],[[85,566],[30,668],[125,750],[68,885],[170,974],[0,934]]];
-    depthCtx.beginPath();
-    [false,true].forEach(function(right){
-      paths.forEach(function(points){points.forEach(function(p,i){
-        var x=(right?1440-p[0]:p[0])*sx,y=p[1]*sy;
-        if(i)depthCtx.lineTo(x,y);else depthCtx.moveTo(x,y);
-      });});
-    });
-    depthCtx.strokeStyle='rgba('+ink+','+(light?.34:.38)+')';
-    depthCtx.lineWidth=isMobile?.85:1.3;depthCtx.stroke();
-    depthCtx.beginPath();
-    [[32,475,80],[1438,850,110]].forEach(function(p){
-      depthCtx.moveTo((p[0]+p[2])*sx,p[1]*sy);
-      depthCtx.ellipse(p[0]*sx,p[1]*sy,p[2]*sx,p[2]*sy,0,0,TWO_PI);
-    });
-    depthCtx.stroke();depthCtx.beginPath();
-    [false,true].forEach(function(right){
-      [[78,112],[153,45],[105,238],[44,364],[166,442],[85,566],[30,668],[125,750],[68,885]].forEach(function(p){
-        var x=(right?1440-p[0]:p[0])*sx,y=p[1]*sy,r=isMobile?1.8:3.5;
-        depthCtx.moveTo(x+r,y);depthCtx.arc(x,y,r,0,TWO_PI);
-      });
-    });
-    depthCtx.fillStyle='rgba('+(light?'171,61,74':'250,137,151')+',.52)';depthCtx.fill();
+  // Best-of-random placement fills empty areas without a visible grid.
+  // Keep this same density on wide screens instead of stretching 32 points.
+  function addNode(){
+    var x=0,y=0,best=-1;
+    for(var attempt=0;attempt<12;attempt++){
+      var px=12+Math.random()*(W-24),py=12+Math.random()*(H-24),nearest=Infinity;
+      for(var j=0;j<nodes.length;j++){
+        var dx=px-nodes[j].x,dy=py-nodes[j].y;
+        nearest=Math.min(nearest,dx*dx+dy*dy);
+      }
+      if(nearest>best){best=nearest;x=px;y=py}
+    }
+    var angle=Math.random()*TWO_PI,speed=MIN_SPEED+Math.random()*.08;
+    nodes.push({x:x,y:y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,r:Math.random()*1.5+1});
   }
-
   function resize(){
+    var oldW=W,oldH=H;
     W=window.innerWidth;H=window.innerHeight;
+    isMobile=W<=768;
+    NODE_COUNT=Math.max(16,Math.min(isMobile?24:72,Math.round(W*H/26000)));
     c.width=(W*dpr)|0;c.height=(H*dpr)|0;
     c.style.width=W+'px';c.style.height=H+'px';
     ctx.setTransform(dpr,0,0,dpr,0,0);
-  }
-  function init(){
-    resize();refreshTheme();nodes=[];
-    for(var i=0;i<NODE_COUNT;i++){
-      var angle=Math.random()*TWO_PI;
-      var speed=MIN_SPEED+Math.random()*.08;
-      nodes.push({
-        x:Math.random()*W,y:Math.random()*H,
-        vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,
-        r:Math.random()*1.5+1
-      });
+    if(oldW&&oldH){
+      for(var i=0;i<nodes.length;i++){nodes[i].x*=W/oldW;nodes[i].y*=H/oldH}
     }
+    nodes.length=Math.min(nodes.length,NODE_COUNT);
+    while(nodes.length<NODE_COUNT)addNode();
+    pulses.length=0;
   }
+  function init(){resize();refreshTheme()}
   function addPulse(fi,ti){pulses.push({from:fi,to:ti,t:0,speed:.006+Math.random()*.008})}
 
-  function tick(ts){
+  function tick(ts,still){
     if(!running||!themeActive){rafId=0;return}
     // Frame cap — skip the paint if we're firing at 144Hz but only
     // need 60Hz. The rAF re-fire still happens; we just bail out
     // before the expensive O(N²) edge pass.
     var now = ts || performance.now();
-    if (now - lastDrawAt < FRAME_MIN_MS) {
+    if (!still && now - lastDrawAt < FRAME_MIN_MS) {
       rafId = requestAnimationFrame(tick);
       return;
     }
     // Skip paint entirely when canvas is offscreen — rAF keeps the
     // loop alive so we resume the moment it scrolls back into view.
-    if (!inView) {
+    if (!inView && !still) {
       lastDrawAt = now;
       rafId = requestAnimationFrame(tick);
       return;
     }
     lastDrawAt = now;
     ctx.clearRect(0,0,W,H);
-    ctx.drawImage(depth,0,0,W,H);
 
     // Pass 1: physics + collect edge endpoints. Squared-dist gate skips
     // most sqrts; only the close-pair repulsion needs the actual distance.
     edges.length=0;
-    var cxW=W/2,cyH=H/2;
-    var i,j,n,nj,dx,dy,d2,d,dcx,dcy,dc2,spd2,spd;
+    var i,j,n,nj,dx,dy,d2,d,spd2,spd;
     var edgePathPairs=[];
     for(i=0;i<nodes.length;i++){
       n=nodes[i];
@@ -217,22 +188,17 @@
         if(d2<CDIST_SQ&&d2>1){
           edgePathPairs.push(n.x,n.y,nj.x,nj.y);
           edges.push(i,j);
-          if(d2<3600){
+          if(!still&&d2<12100){
             d=Math.sqrt(d2);
-            var force=.003*(60-d)/60;
+            var force=.002*(110-d)/110;
             var nx=dx/d*force,ny=dy/d*force;
             n.vx-=nx;n.vy-=ny;
             nj.vx+=nx;nj.vy+=ny;
           }
         }
       }
-      dcx=cxW-n.x;dcy=cyH-n.y;
-      dc2=dcx*dcx+dcy*dcy;
-      var minR=Math.min(W,H)*.4;
-      if(dc2>minR*minR){
-        var dc=Math.sqrt(dc2);
-        n.vx+=dcx/dc*.0005;n.vy+=dcy/dc*.0005;
-      }
+      if(still)continue;
+      // No pull toward the center: the field should keep covering the margins.
       spd2=n.vx*n.vx+n.vy*n.vy;
       if(spd2<MIN_SPEED*MIN_SPEED&&spd2>0){
         spd=Math.sqrt(spd2);
@@ -243,8 +209,8 @@
       }
       n.x+=n.vx;n.y+=n.vy;
       var m=20;
-      if(n.x<-m)n.x=W+m;else if(n.x>W+m)n.x=-m;
-      if(n.y<-m)n.y=H+m;else if(n.y>H+m)n.y=-m;
+      if(n.x<m){n.x=m;n.vx=Math.abs(n.vx)}else if(n.x>W-m){n.x=W-m;n.vx=-Math.abs(n.vx)}
+      if(n.y<m){n.y=m;n.vy=Math.abs(n.vy)}else if(n.y>H-m){n.y=H-m;n.vy=-Math.abs(n.vy)}
     }
 
     // Edges: ONE path, ONE stroke.
@@ -285,11 +251,11 @@
     }
     ctx.globalAlpha=1;
 
-    if(Math.random()<.04&&edges.length>0){
+    if(!still&&Math.random()<.04&&edges.length>0){
       var idx=((Math.random()*(edges.length/2))|0)*2;
       addPulse(edges[idx],edges[idx+1]);
     }
-    rafId=requestAnimationFrame(tick);
+    if(!still)rafId=requestAnimationFrame(tick);
   }
   function start(){if(!reduced&&themeActive&&!rafId&&running){rafId=requestAnimationFrame(tick)}}
   function stop(){running=false;if(rafId){cancelAnimationFrame(rafId);rafId=0}}
@@ -316,5 +282,5 @@
     new MutationObserver(refreshTheme).observe(document.body,{attributes:true,attributeFilter:['class']});
     new MutationObserver(refreshTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme','data-lightweb']});
   }
-  if(!reduced)tick();
+  tick(0,reduced);
 })();
