@@ -200,7 +200,7 @@
     var root = document.createElement('div');
     root.id = 'corpusNudgeRoot';
     root.innerHTML = '<style>'
-      + '#corpusNudgeRoot{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.64);font-family:Archivo,-apple-system,sans-serif}'
+      + '#corpusNudgeRoot{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.64);font-family:Archivo,Inter,-apple-system,sans-serif}'
       + '#corpusNudgeCard{box-sizing:border-box;max-width:520px;width:100%;max-height:calc(100dvh - 32px);overflow:auto;background:var(--bg,#faf9f6);color:var(--text,#222);border:1px solid var(--border,#777);border-radius:18px;padding:28px;box-shadow:0 24px 80px #0005;font-size:15px;line-height:1.5}'
       + '#corpusNudgeCard h2{font-size:26px;line-height:1.15;margin:6px 0 16px;letter-spacing:-.025em}'
       + '#corpusNudgeCard p{margin:0 0 12px}#corpusNudgeCard a{color:inherit;text-decoration:underline}'

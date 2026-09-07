@@ -30,7 +30,7 @@
     var style = document.createElement('style');
     style.id = 'da-motion-widget-styles';
     style.textContent =
-      '.da-motion-widget{font-family:Archivo,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:680px;color:#171717}' +
+      '.da-motion-widget{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:680px;color:#171717}' +
       '.da-motion-widget *{box-sizing:border-box}' +
       '.da-motion-widget__card{border:1px solid #dedbd4;border-radius:16px;background:#fff;padding:24px;box-shadow:0 10px 30px rgba(23,23,23,.08)}' +
       '.da-motion-widget__label{margin:0 0 10px;color:#a11a18;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}' +

@@ -70,7 +70,7 @@
       'position:sticky', 'top:0', 'z-index:2147482000',
       'display:flex', 'align-items:center', 'gap:8px',
       'padding:8px 14px',
-      'font:600 13px/1 Archivo,Georgia,serif',
+      'font:600 13px/1 DM Sans,Archivo,Georgia,serif',
       'color:#fff', 'background:#b91c1c',
       'box-shadow:0 1px 0 rgba(0,0,0,.10)'
     ].join(';');

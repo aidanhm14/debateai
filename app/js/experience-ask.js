@@ -219,7 +219,7 @@
         'background:#ffffff;color:#1a1a1f;',
         'border:1px solid rgba(0,0,0,.13);',
         'box-shadow:0 18px 48px -20px rgba(0,0,0,.32);',
-        'font-family:Archivo,"Archivo",system-ui,sans-serif;',
+        'font-family:Archivo,"DM Sans",system-ui,sans-serif;',
         'animation:daExpIn .22s ease-out}',
       ':root:not([data-theme="light"]) #daExpAsk{background:#15151a;color:#f5efe7;',
         'border-color:rgba(255,255,255,.16);box-shadow:0 18px 48px -18px rgba(0,0,0,.55)}',

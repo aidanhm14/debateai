@@ -22,7 +22,7 @@
     var css = document.createElement('style');
     css.id = 'db-broadcast-viewer-css';
     css.textContent = [
-      '.dbv{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:#030407;color:#fff;font-family:Archivo,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;isolation:isolate}',
+      '.dbv{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:#030407;color:#fff;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;isolation:isolate}',
       '.dbv *{box-sizing:border-box}',
       '.dbv-media,.dbv-cams,.dbv-screen,.dbv-embed,.dbv-demo,.dbv-wait{position:absolute;inset:0;width:100%;height:100%}',
       '.dbv-cams{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;background:#000}',

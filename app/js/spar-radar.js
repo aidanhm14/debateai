@@ -343,7 +343,7 @@
 
     function paintNodes(tSec) {
       ctx.save();
-      ctx.font = '500 9px Archivo, system-ui, sans-serif';
+      ctx.font = '500 9px Inter, system-ui, sans-serif';
       ctx.textBaseline = 'middle';
       for (var i = 0; i < nodes.length; i++) {
         var n = nodes[i];
