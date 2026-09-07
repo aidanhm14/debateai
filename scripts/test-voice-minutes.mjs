@@ -8,10 +8,13 @@ const ok = (c, m) => { if (c) pass++; else failures.push(m); };
 const MIN = 60000; const T = Date.UTC(2026, 8, 3, 12, 0, 0);
 
 // budgets
-ok(budgetFor({ named: false }).minutes === ANON_VOICE_MINUTES && budgetFor({}).kind === 'lifetime', 'anonymous gets the small lifetime taste');
+ok(ANON_VOICE_MINUTES === 0 && budgetFor({ named: false }).minutes === 0 && budgetFor({}).kind === 'lifetime', 'anonymous gets NO minted budget; its voice is the 45-second preview');
+ok(evaluate({}, budgetFor({ named: false }), Date.UTC(2026, 8, 7)).allowed === false, 'a fresh anonymous uid is refused by the gate itself, not only by the minters');
+ok(budgetFor({ named: false, hasPlan: true }).kind === 'month', 'hasPlan is decided by the minter from a named account; the model does not second-guess it');
 ok(budgetFor({ named: true }).minutes === FREE_VOICE_MINUTES, 'named gets the free lifetime taste');
 ok(budgetFor({ named: true, hasPlan: true }).kind === 'month' && budgetFor({ hasPlan: true }).minutes === PLAN_VOICE_MINUTES_MONTH, 'a plan gets a MONTHLY budget, not unlimited');
-ok(ANON_VOICE_MINUTES < FREE_VOICE_MINUTES && FREE_VOICE_MINUTES < PLAN_VOICE_MINUTES_MONTH, 'budgets are ordered anon < named < plan');
+ok(ANON_VOICE_MINUTES < FREE_VOICE_MINUTES && FREE_VOICE_MINUTES < PLAN_VOICE_MINUTES_MONTH, 'budgets are ordered anon (0) < named < plan');
+ok(FREE_VOICE_MINUTES >= SESSION_RESERVE_MIN * 2, 'a named free account gets more than one short round before the paywall');
 ok(SESSION_RESERVE_MIN === 8, 'a session reserves at most the 8 minute client cap');
 
 // legacy rounds are not forgiven

@@ -8,7 +8,7 @@
 //   never handles meeting or stream audio.
 
 import { checkAppCheck } from './lib/appcheck.mjs';
-import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
+import { verifyIdToken, extractBearerToken, isOwnerEmail, isNamedAccount } from './lib/auth.mjs';
 import { getDb, FieldValue, getUserTeam } from './lib/firestore.mjs';
 import {
   voiceGate, openVoiceSession, FREE_VOICE_NAMED,
@@ -221,14 +221,29 @@ export default async (request) => {
     }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 
-  let uid, email;
+  let uid, email, decoded;
   try {
-    const decoded = await verifyIdToken(token);
+    decoded = await verifyIdToken(token);
     uid = decoded.sub;
     email = decoded.email || '';
   } catch (err) {
     return new Response(JSON.stringify({
       error: 'AUTH_FAILED: Sign-in token is invalid or expired. Refresh the page and try again.',
+    }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
+  }
+  // A NAMED account only, same as realtime-session and coach-session
+  // (2026-09-07). This minter used to accept any verified token and then
+  // read the gate with named:true, so an anonymous uid (live-round.html
+  // mints one for every visitor) was handed the full 20-minute free budget,
+  // and anonymous uids are free and unlimited to mint. Signed-in users get
+  // the free allowance before a plan; a guest's only voice is the bounded
+  // preview on /newvoice.
+  if (!isNamedAccount(decoded)) {
+    return new Response(JSON.stringify({
+      error: 'SIGN_IN_REQUIRED: Sign in with Google to add the AI judge to a room.',
+      code: 'SIGN_IN_REQUIRED',
+      requireAuth: true,
+      signIn: true,
     }), { status: 401, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 

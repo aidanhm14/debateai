@@ -2236,10 +2236,11 @@ input[type=text]:focus,select:focus,textarea:focus{
   font-size:.72rem;color:#7a7a8a;text-align:center;line-height:1.45;
 }
 
-/* Voice usage gate. Replaces the Start button when an anon user has
-   used their 1 free trial (state='sign-in') or a free signed-in user
-   has used their 3 lifetime sessions (state='upgrade'). Card-style
-   so it reads as a deliberate gate, not a generic warning. */
+/* Voice usage gate. Replaces the Start button for a signed-out visitor
+   (state='sign-in': a full round needs a free account; the guest taste
+   is the short preview on /newvoice) or a free signed-in user who has
+   used their free minutes (state='upgrade'). Card-style so it reads as
+   a deliberate gate, not a generic warning. */
 .voice-gate{
   display:flex;flex-direction:column;align-items:center;gap:10px;
   padding:18px 20px;
@@ -4651,7 +4652,7 @@ function App() {
   // Round LENGTH is unchanged — APDA's standard speech times apply.
   // (Earlier copy on the site claimed "30s round"; that was never what
   // this bridge did — only the setup friction is stripped.) The voice
-  // usage gate still applies (anon gets 1 free voice session).
+  // usage gate still applies (a full round needs a signed-in account).
   useEffect(() => {
     var isDemo = false;
     var isExt = false;
@@ -4766,10 +4767,14 @@ function App() {
   }, [micPerm]);
 
   // ── Voice usage gate ─────────────────────────────────────────────
-  // Tiered access:
-  //   • Anon visitors: 1 free voice round
-  //   • Signed-in free: 2 lifetime voice rounds
-  //   • Voice ($12/mo), Individual, Team, BYOK, Lifetime: no cap here
+  // Tiered access (2026-09-07, the founder: signed-in users get the free
+  // allowance before a plan; signed-out visitors get only the first few
+  // moments):
+  //   • Signed-out visitors: NO round here. The guest taste is the bounded
+  //     45-second preview on /newvoice; the server refuses an anonymous
+  //     mint with 401 SIGN_IN_REQUIRED before reading any budget.
+  //   • Signed-in free: FREE_VOICE_MINUTES lifetime (20 by default)
+  //   • Voice ($12/mo), Individual, Team, BYOK, Lifetime: a monthly budget
   //
   // THE CLIENT GATE IS UX-ONLY. Real enforcement is realtime-session.mjs,
   // which meters against voice_usage/{uid} — a collection no client can
@@ -4787,7 +4792,7 @@ function App() {
   // over-promises, and the server response is what actually decides.
   // MINUTES since 2026-09-03 (lib/voice-minutes.mjs). Same env defaults
   // as the server; UX-only, the server is authoritative.
-  var ANON_VOICE_LIMIT = 8;
+  var ANON_VOICE_LIMIT = 0;
   var FREE_VOICE_LIMIT = 20;
   var ANON_USAGE_KEY = 'da-voice-anon-used';
   // Owner allowlist — bypasses the voice cap on the client so the gate
@@ -6420,7 +6425,7 @@ function App() {
             if (typeof gtag === 'function') gtag('event', 'voice_anon_gate', { used: body.used || 0 });
             if (typeof window.openAuthModal === 'function') window.openAuthModal('signup');
           } catch (e) {}
-          var eSign = new Error(body.error || 'That was your free voice round. Sign in to keep going.');
+          var eSign = new Error(body.error || 'Voice rounds need a free account. Sign in to start one.');
           eSign.kind = 'sign-in';
           throw eSign;
         }
@@ -9062,10 +9067,10 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   // each successful start.
   el('div', { className: 'summary-cta' },
   voiceGate.state === 'sign-in' ? el('div', { className: 'voice-gate' },
-  el('div', { className: 'vg-eyebrow' }, 'Sample rounds used'),
-  el('div', { className: 'vg-h' }, 'Sign in to keep going.'),
+  el('div', { className: 'vg-eyebrow' }, 'Voice rounds need an account'),
+  el('div', { className: 'vg-h' }, 'Sign in to start a voice round.'),
   el('p', { className: 'vg-body' },
-  "Signed out, every round starts from zero. Signed in, your voice rounds save to your account and the AI learns how you argue. Your account is used only to sign you in."
+  "A free account comes with " + FREE_VOICE_LIMIT + " minutes of live voice before a plan is needed. Signed in, your voice rounds save to your account and the AI learns how you argue. Your account is used only to sign you in."
   ),
   el('button', {
     type: 'button', className: 'cta vg-cta',
@@ -9085,17 +9090,18 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
       node.dataset.mounted = '1';
     }
   }),
-  el('a', { href: '/practice', className: 'vg-fallback', style: { opacity: .55, fontSize: '.74rem', marginTop: 10 } }, 'Or use typed practice instead →')
+  el('a', { href: '/newvoice', className: 'vg-fallback', style: { opacity: .55, fontSize: '.74rem', marginTop: 10 } }, 'Just want a taste? Try the short voice preview →'),
+  el('a', { href: '/practice', className: 'vg-fallback', style: { opacity: .55, fontSize: '.74rem', marginTop: 6 } }, 'Or use typed practice instead →')
   ) :
   voiceGate.state === 'upgrade' ? el('div', { className: 'voice-gate' },
-  el('div', { className: 'vg-eyebrow' }, 'Free voice rounds used'),
+  el('div', { className: 'vg-eyebrow' }, 'Free voice minutes used'),
   el('div', { className: 'vg-h' }, 'Keep going with Voice'),
   // The copy used to promise 8 free rounds against a server cap of 2,
   // and linked bare /pricing, whose hero sells Individual, the one plan
   // that does NOT lift this cap. Real numbers, and the plan that fixes
   // the thing that just stopped.
   el('p', { className: 'vg-body' },
-  'Your ' + (voiceGate.limit || 2) + ' free voice rounds are used. Voice is $12 a month for live rounds with no lifetime cap; it costs real money to run, which is why the free tier is small. Typed practice stays open either way.'
+  'Your ' + (voiceGate.limit || FREE_VOICE_LIMIT) + ' free voice minutes are used. Voice is $12 a month for two hours of live rounds a month; it costs real money to run, which is why the free tier is small. Typed practice stays open either way.'
   ),
   el('a', {
     href: '/pricing#plans', className: 'cta vg-cta'

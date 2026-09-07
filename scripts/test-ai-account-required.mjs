@@ -34,6 +34,7 @@ function request(bearer, body = {}) {
 const { default: claude } = await import('../app/netlify/functions/claude.mjs');
 const { default: realtime } = await import('../app/netlify/functions/realtime-session.mjs');
 const { default: coach } = await import('../app/netlify/functions/coach-session.mjs');
+const { default: roomJudge } = await import('../app/netlify/functions/room-judge-session.mjs');
 const { requirePaidPlan } = await import('../app/netlify/functions/lib/auth.mjs');
 for (const [name, handler] of [['Claude', claude], ['Realtime', realtime]]) {
   for (const [kind, bearer] of [['tokenless', null], ['anonymous', token('anonymous')], ['missing provider', token(null)], ['invalid token', 'invalid']]) {
@@ -45,6 +46,12 @@ for (const [name, handler] of [['Claude', claude], ['Realtime', realtime]]) {
 }
 const anon = token('anonymous');
 assert.equal((await coach(request(anon))).status, 401);
+// room-judge used to accept any verified token and hand an anonymous uid the
+// named 20-minute budget (2026-09-07). Every voice minter refuses a guest.
+const rj = await roomJudge(request(anon, { motion: 'This house would ban homework' }));
+assert.equal(rj.status, 401, 'room-judge rejects anonymous');
+assert.equal((await rj.json()).code, 'SIGN_IN_REQUIRED');
+assert.equal((await roomJudge(request(null, {}))).status, 401, 'room-judge rejects tokenless');
 assert.equal((await requirePaidPlan(request(anon), 'GPT')).code, 'SIGN_IN_REQUIRED');
 const owner = token('google.com', 'aidandavidhollinger@gmail.com');
 assert.equal((await requirePaidPlan(request(owner), 'GPT')).ok, true);

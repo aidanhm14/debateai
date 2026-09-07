@@ -24,8 +24,15 @@ form; the independent server hangup is 50 seconds. Preview context stays
 in tab memory for the sign-in handoff, never in saved transcripts or scores.
 The server creates that call and queues
 its hangup before returning SDP; guests never receive reusable mint keys.
-All normal AI mints remain named-account gated. This page owns its account
-ask so the general browsing wall does not cover the preview setup.
+All normal AI mints remain named-account gated: `realtime-session`,
+`coach-session` and `room-judge-session` each return 401
+`SIGN_IN_REQUIRED` to an anonymous uid before reading any budget, and
+`ANON_VOICE_MINUTES` in `lib/voice-minutes.mjs` is a plain 0 (2026-09-07).
+The distinction to hold: a signed-in free account gets `FREE_VOICE_MINUTES`
+(20) of live voice before Voice, Individual, Team, BYOK or Lifetime is
+required; a signed-out visitor gets only the preview, never a minted round.
+Do not reintroduce a guest voice allowance on any minter. This page owns its
+account ask so the general browsing wall does not cover the preview setup.
 Paid plans include OpenAI BYOK for live voice, alongside existing Anthropic
 BYOK for typed Claude. The founder explicitly approved entering an OpenAI
 key and forwarding it only to OpenAI for voice sessions. Voice keys remain

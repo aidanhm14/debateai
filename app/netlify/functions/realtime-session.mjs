@@ -41,10 +41,12 @@ import {
 import { planBypassesVoiceCap } from './lib/plans.mjs';
 import { realtimeFunding, fundingSecret, byokVoiceUsage } from './lib/realtime-funding.mjs';
 
-// Voice usage cap for free signed-in users. Pro/Team/Lifetime plans
-// and owner-allowlisted emails (see lib/auth.mjs) bypass. Anon users
-// are gated client-side (3 lifetime via localStorage) + by the existing
-// 6/hour/IP rate limit at the bottom of this function.
+// Voice usage cap for free signed-in users. Paid plans (Voice, Individual,
+// Team, BYOK, Lifetime) get a monthly budget; owner-allowlisted emails (see
+// lib/auth.mjs) bypass. ANONYMOUS CALLERS ARE REFUSED BEFORE ANY OF THIS
+// (2026-09-05, re-affirmed 2026-09-07): a guest's only voice is the
+// bounded 45-second preview minted by voice-preview.mjs, never a session
+// from here. The free allowance below is for named accounts only.
 // 2026-06-27: cut 8 → 2. Voice (OpenAI Realtime) is ~80% of per-user
 // variable cost; the free tier is a taste, not a habit, and Voice is now
 // the strongest paid hook. Must match the client const in
@@ -1015,12 +1017,15 @@ export default async (request, context) => {
   }
 
   // ── Voice usage gate (signed-in lifetime cap) ─────────────────────
-  // Anon callers fall through (client gates them at 1 + the IP rate
-  // limit above stops abuse). Signed-in free callers get a lifetime
-  // cap; paid plans (individual / lifetime / team / byok) bypass. We
-  // compute the verdict here so we can reject before paying the OpenAI
-  // mint cost. The actual increment happens AFTER the mint succeeds —
-  // failed mints don't burn the user's quota.
+  // Only a NAMED account reaches this point on a fresh round (the
+  // isNamedAccount check above returns 401 SIGN_IN_REQUIRED for anyone
+  // else, before any Firestore read or mint). Signed-in free callers get
+  // the FREE_VOICE_MINUTES lifetime taste; paid plans (voice / individual
+  // / lifetime / team / byok) get PLAN_VOICE_MINUTES_MONTH. We compute the
+  // verdict here so we can reject before paying the OpenAI mint cost. The
+  // actual increment happens AFTER the mint succeeds; failed mints don't
+  // burn the user's quota. The anonymous branches that remain below are
+  // a second lock (ANON_VOICE_MINUTES is 0), not a path a guest reaches.
   // signedInUid + earlyDecoded were resolved above (before rate limiting);
   // reuse them rather than verifying the same token a second time.
   // A caller with NO token cannot be metered at all, so the gate below

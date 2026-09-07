@@ -9,9 +9,9 @@
 // outright, which on the single most expensive thing we run meant a
 // $10-a-year Individual subscriber could run unlimited Realtime audio.
 //
-// THE MODEL. Every identity has a budget in minutes. A free identity
-// gets a lifetime taste (anonymous smaller than named, because an
-// anonymous uid is free to mint). A paid plan gets a MONTHLY budget that
+// THE MODEL. Every identity has a budget in minutes. A free NAMED
+// account gets a lifetime taste; an anonymous uid gets none, because it
+// is free to mint and its taste is the preview. A paid plan gets a MONTHLY budget that
 // resets on the first of the month, not unlimited. A mint RESERVES up to
 // eight minutes of the budget (the client's own hard cap) and charges
 // one minute at once. The session is then SETTLED BY SERVER TIME: the
@@ -33,8 +33,17 @@ const env = (k, d) => {
   return Number.isFinite(n) && n >= 0 ? n : d;
 };
 
-// All env-tunable without a deploy, same posture as GUEST_FREE_ROUNDS.
-export const ANON_VOICE_MINUTES = env('ANON_VOICE_MINUTES', 8);      // one short round
+// An anonymous identity has NO minted budget (2026-09-07, the founder:
+// signed-in users get the free allowance before a plan, "NOT signed in
+// users get only those first few moments"). A guest's only voice is the
+// bounded 45-second preview in lib/voice-preview.mjs, which never hands
+// out a mint key. Every minter (realtime-session, coach-session,
+// room-judge-session) refuses an anonymous uid before this budget is
+// read, so this is the second lock, not the first: it is a plain 0 rather
+// than an env knob because an env value above 0 would describe an
+// allowance no endpoint serves.
+export const ANON_VOICE_MINUTES = 0;
+// Named free and paid budgets stay env-tunable without a deploy.
 export const FREE_VOICE_MINUTES = env('FREE_VOICE_MINUTES', 20);     // a real taste
 export const PLAN_VOICE_MINUTES_MONTH = env('PLAN_VOICE_MINUTES_MONTH', 120);
 // The most a single session can reserve. Matches the /newvoice hard cap.
