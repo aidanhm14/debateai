@@ -204,7 +204,17 @@ const SIGNED_IN_BETA_DAILY_MAX = Number(process.env.SIGNED_IN_BETA_DAILY_MAX || 
 // on them, and the judge, live rounds, /learn, /judge and the voice door
 // are untouched. TYPED_ROUND_PAID=0 in the env reopens it with no deploy.
 const TYPED_ROUND_PAID = (process.env.TYPED_ROUND_PAID || '1') !== '0';
-const TYPED_ROUND_FEATURES = new Set(['debate-ai', 'debate-ai-background-gen', 'debate-ai-motion-triage']);
+const TYPED_ROUND_FEATURES = new Set([
+  // /practice, the typed casual round
+  'debate-ai', 'debate-ai-background-gen', 'debate-ai-motion-triage',
+  // /app (index.html), the older typed trainer: case, rebuttal, judge,
+  // simulator, competition depth, the rest of its generators. Same rule
+  // (2026-09-07, same day): these are the six-brain typed surfaces and
+  // nothing else on the site sends these tags.
+  'case', 'rebuttal', 'judge', 'judge_analyzer', 'philosophy', 'simulator',
+  'competition', 'vision', 'tone', 'sneaky', 'resolution', 'practice',
+  'feedback', 'debateChat', 'casual', 'bot', 'adaptive', 'ballot_ocr',
+]);
 const TYPED_ROUND_PLANS = new Set(['individual', 'team', 'lifetime', 'byok', 'voice']);
 const signedInBetaHistory = new Map(); // uid -> array of request timestamps
 

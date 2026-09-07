@@ -163,6 +163,7 @@ speech engine are visible. **The typed round on /practice is PAID as of
 2026-09-07:** a named account with no plan gets the plan card on the page and
 402 `PAYMENT_REQUIRED` from `/api/claude` on the `debate-ai*` request tags
 (`TYPED_ROUND_FEATURES` in claude.mjs; `TYPED_ROUND_PAID=0` reopens it).
+/app (index.html) is gated the same way on its own tags.
 /newvoice is the one free way to debate the AI. Do not expose
 those formats on `/spar`, `/live-round`, the default `/practice` entry,
 navigation, marketing, metadata, or public guides. `/partners` and the
