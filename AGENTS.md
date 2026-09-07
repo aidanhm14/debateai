@@ -10,8 +10,13 @@
 
 
 **Voice preview and both BYOK providers (2026-09-06, explicit founder approval):**
-`/newvoice` offers signed-out visitors one approximately ten-second voice
-preview, then requires an account. The server creates that call and queues
+`/newvoice` offers signed-out visitors “Test it out,” then asks them to
+“Keep talking” after two meaningful user turns have received fully played
+AI replies (Aidan, 2026-09-07). No duration promise or countdown. The client
+allows at least 12 seconds and stops by 45 seconds if an exchange does not
+form; the independent server hangup is 50 seconds. Preview context stays
+in tab memory for the sign-in handoff, never in saved transcripts or scores.
+The server creates that call and queues
 its hangup before returning SDP; guests never receive reusable mint keys.
 All normal AI mints remain named-account gated. This page owns its account
 ask so the general browsing wall does not cover the preview setup.
@@ -72,7 +77,8 @@ does not interrupt this first question. Remaining matching questions are optiona
 after sign-in while searching. Existing named accounts are already identified.
 New human matches require Google or Apple sign-in before entering the queue. The Match Desk is optional: first-time visitors search with neutral, first-available preferences after sign-in. Saved preferences still apply, and the waiting screen offers an optional editor. An arriving match saves local answers and closes that editor so the ready check is visible. Both people still confirm before the room opens. Existing live rooms stay uninterrupted, including the site-shell player.
 A required inline account gate does not get a second dialog over it. Legal text
-stays readable. AI debates require a named account before Start and server-side
+stays readable. Apart from the bounded `/newvoice` test described above,
+AI debates require a named account before Start and server-side
 before a fresh generation or voice mint. Signed Realtime continuations can finish
 an already admitted round. Native provider choices are unchanged. This supersedes
 older anonymous-AI and disabled-wall language below; see soul.md section 4.

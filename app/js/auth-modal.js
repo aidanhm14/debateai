@@ -1511,8 +1511,8 @@
         track('ai_signin_required', { path: location.pathname, source: opts.source || 'ai_start' });
         openAuthModal('signup', {
           googleOnly: !window.__DB_NATIVE,
-          headline: 'Sign in to debate the AI',
-          sub: 'Save your rounds, scores and progress with a free account.',
+          headline: opts.headline || 'Sign in to debate the AI',
+          sub: opts.sub || 'Save your rounds, scores and progress with a free account.',
           onDone: function (u) {
             if (u && !u.isAnonymous) track('ai_signin_converted', { path: location.pathname, source: opts.source || 'ai_start' });
             done(u && !u.isAnonymous ? u : null);

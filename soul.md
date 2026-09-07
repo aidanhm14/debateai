@@ -36,8 +36,14 @@ for approved casual-call guests only.
 
 
 **Voice preview and both BYOK providers (2026-09-06, explicit founder approval):**
-`/newvoice` offers signed-out visitors one approximately ten-second voice
-preview, then requires an account. The server creates that call and queues
+`/newvoice` offers signed-out visitors “Test it out,” then asks them to
+“Keep talking” after two meaningful user turns have received fully played
+AI replies (Aidan, 2026-09-07). No duration promise or countdown. The client
+allows at least 12 seconds and stops by 45 seconds if an exchange does not
+form; the independent server hangup is 50 seconds. Preview context stays
+in tab memory for the sign-in handoff, never in saved transcripts or scores.
+This bounded sample is the exception to the ordinary AI account gate in §4.
+The server creates that call and queues
 its hangup before returning SDP; guests never receive reusable mint keys.
 All normal AI mints remain named-account gated. This page owns its account
 ask so the general browsing wall does not cover the preview setup.
