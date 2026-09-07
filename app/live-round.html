@@ -3075,6 +3075,8 @@ body.spectator-mode .rec-tail{display:none}
 
 /* Ballot */
 .ballot-loading{padding:48px 22px;text-align:center;color:var(--text-dim)}
+.ballot-critique{margin:0 22px 22px;padding:12px 14px;border:1px solid rgba(128,128,128,.28);border-radius:10px;font-size:.84rem;line-height:1.5;color:var(--text-dim)}
+.ballot-critique a{color:var(--accent);font-weight:600}
 .ballot-wait-cue{min-height:1.15em;margin-top:14px;font-size:.78rem;line-height:1.15;
   color:var(--text-dim);opacity:0;transition:opacity .45s ease}
 .ballot-wait-cue.is-on{opacity:1}
@@ -4290,6 +4292,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         <div id="ballotWaitCue" class="ballot-wait-cue" aria-live="polite"></div>
       </div>
       <div id="ballotResult" class="hidden"></div>
+      <!-- 2026-09-07, per the founder: the ask for critiques lands right
+           after the judged round, linked to the critique form on
+           /judge-integrity with this room's id. Revealed with the ballot
+           itself in showBallot, never with the interstitial. -->
+      <div id="ballotCritique" class="ballot-critique hidden">Think the judge got this one wrong? <a id="ballotCritiqueLink" href="/judge-integrity?from=live#critiques" target="_blank" rel="noopener" onclick="try{gtag('event','judge_critique_click',{from:'live'})}catch(e){}">Try to break the judge, and what breaks gets published &rarr;</a></div>
     </div>
   </div>
 
@@ -15851,6 +15858,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     $('ballotLoading').classList.add('hidden');
     var result = $('ballotResult');
     result.classList.remove('hidden');
+    try {
+      var crit = $('ballotCritique'), critA = $('ballotCritiqueLink');
+      if (critA) critA.href = '/judge-integrity?from=live' + (state.room ? '&round=' + encodeURIComponent(state.room) : '') + '#critiques';
+      if (crit) crit.classList.remove('hidden');
+    } catch(e){}
     if (staged) result.classList.add('ballot-staged');
     else result.classList.remove('ballot-staged');
     // Fire-and-forget TTS request. Starts in parallel with the staged
