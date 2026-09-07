@@ -106,7 +106,7 @@ test('interruption lets the person finish instead of opening sign-in over their 
   await expect(page.locator('#testAuth')).toBeVisible();
 });
 
-test('the topic-free opening asks for an idea and the paused phone surface fits', async ({ page }) => {
+test('the topic-free opening asks for an idea and the paused phone surface fits', async ({ page }, testInfo) => {
   await page.setViewportSize({width:390,height:844});
   const errors = await boot(page);
   await page.evaluate(() => { currentMotion='';requestOpeningTurn(); });
@@ -117,6 +117,6 @@ test('the topic-free opening asks for an idea and the paused phone surface fits'
   await expect(page.locator('#capYouText')).toHaveText('Your microphone is off.');
   expect(await page.locator('#previewContinueBtn').evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
   expect(await page.locator('#previewContinue').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
-  await page.screenshot({path:'/private/tmp/debatable-preview-paused-phone.png'});
+  await page.screenshot({path:testInfo.outputPath('preview-paused-phone.png')});
   expect(errors).toEqual([]);
 });
