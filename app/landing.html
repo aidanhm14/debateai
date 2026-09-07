@@ -259,7 +259,7 @@
           "name": "Do I need an account?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. Live video requires Google sign-in before you enter the queue. Signing in keeps your profile and results together. The AI voice page offers a short preview before asking you to create an account."
+            "text": "Yes. A live round with a real person needs a Google sign-in first. Signing in keeps your profile and results together. The AI voice page offers a short preview before asking you to create an account."
           }
         },
         {
@@ -8855,7 +8855,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <div class="mh-row">
       <a class="mh-card" href="/newvoice?handoff=landing-mobile-ai" data-cta="mhome-ai">
         <span class="mh-card-top"><span class="mh-card-label">Debate the AI</span><span class="mh-card-arrow" aria-hidden="true">&rarr;</span></span>
-        <span class="mh-card-sub">Voice round. Starts now, no queue.</span>
+        <span class="mh-card-sub">Voice round. Starts right away.</span>
       </a>
       <a class="mh-card" href="/watch" data-cta="mhome-watch">
         <span class="mh-card-top"><span class="mh-card-label">Watch</span><span class="mh-card-arrow" aria-hidden="true">&rarr;</span></span>
@@ -9217,7 +9217,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            watchlist band uses. No verdict, no points, no viewer read,
            because none of those exist for a round that has not happened. -->
       <div class="fs-chal" id="fsChal">
-        <p class="fs-chal-line" id="fsChalLine">Nobody has taken the other seat yet. Climb the ladder and it can be yours.</p>
+        <p class="fs-chal-line" id="fsChalLine">Nobody has taken the other seat yet. Win rounds and it could be you.</p>
         <div class="fs-chal-row">
           <a class="fs-chal-cta" href="/spar" data-cta="first-screen-challenge-start">Start a round</a>
           <a class="fs-chal-alt" id="fsChalAlt" href="#creator-sweepstakes" data-cta="first-screen-challenge-how">How the seat gets filled</a>
@@ -9405,7 +9405,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   <!-- Absolutely positioned under the rail so showing it cannot change
        the rail's height; the rail is centred on the viewport, so a height
        change would move every tile. -->
-  <p class="lbr-foot" aria-hidden="true">Stand-in pictures where a debater has not set one.</p>
+  <p class="lbr-foot" aria-hidden="true">Stand-in pictures where someone has not set one.</p>
 </aside>
 <style>
   /* One place for the three numbers that decide the shape: the face, how
@@ -10447,71 +10447,35 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <button type="button" class="aud-choose-btn" data-exp="competitive" data-cta="audience-competitive">I compete</button>
         <button type="button" class="aud-choose-btn" data-exp="new" data-cta="audience-new">I'm new to this</button>
       </div>
-      <div class="aud-step" data-step="intent" hidden>
-        <span class="aud-choose-q">Want the basics first, or jump into an argument?</span>
-        <button type="button" class="aud-choose-btn" data-intent="learn" data-cta="audience-learn">Show me how it works</button>
-        <button type="button" class="aud-choose-btn" data-intent="argue" data-cta="audience-argue">Start a casual 1v1</button>
-      </div>
-      <div class="aud-step" data-step="done" hidden>
-        <span class="aud-choose-q" id="audDoneMsg"></span>
-        <a class="aud-choose-btn" id="audDoneLink" href="/learn"></a>
-      </div>
     </div>
     <script>
       (function(){
         var KEY='debateos-experience';
-        var IKEY='debateos-intent';
         var el=document.getElementById('audChoose');
         if(!el) return;
-        // "New to debate" answers how much vocabulary to use. It does not
-        // answer whether the person wants to be taught any, and the two
-        // want opposite things from a word like "warrant". So a
-        // non-competitor gets one follow-up: learn it, or just argue.
-        // A competitor is never asked; they already answered it.
-        var DONE={
-          learn:['We will teach the terms as they come up.','Start with the basics','/learn'],
-          argue:['We will keep the jargon out of it.','Find someone to argue','/spar']
-        };
+        // One question, then the row is gone. The "basics or argue"
+        // follow-up came off 2026-09-07 (founder: "get rid of this");
+        // onboarding.js still sets debateos-intent for anyone who
+        // answers it there.
         function step(name){
           var rows=el.querySelectorAll('.aud-step');
           for(var i=0;i<rows.length;i++)rows[i].hidden=rows[i].getAttribute('data-step')!==name;
           el.hidden=false;
         }
         function get(k){try{return localStorage.getItem(k)||''}catch(e){return ''}}
-        var cur=get(KEY), intent=get(IKEY);
-        if(cur==='competitive') return;
-        // Someone who answered the first question before the follow-up
-        // existed still gets asked it, rather than being stuck plain
-        // forever with no way to say which kind of plain they wanted.
-        if(cur){ if(intent) return; step('intent'); }
-        else step('exp');
+        if(get(KEY)) return;
+        step('exp');
         el.addEventListener('click',function(e){
-          var btn=e.target.closest&&e.target.closest('[data-exp],[data-intent]');
+          var btn=e.target.closest&&e.target.closest('[data-exp]');
           if(!btn) return;
           var v=btn.getAttribute('data-exp');
-          if(v){
-            if(window.DebatableAudience&&window.DebatableAudience.set){window.DebatableAudience.set(v);}
-            else{
-              try{localStorage.setItem(KEY,v)}catch(err){}
-              document.documentElement.setAttribute('data-debate-experience',v);
-            }
-            if(window.dosTrack)dosTrack('audience_choice',{value:v,surface:'landing_tour_row'});
-            if(v==='competitive')el.hidden=true;
-            else step('intent');
-            return;
-          }
-          v=btn.getAttribute('data-intent');
-          if(!DONE[v]) return;
-          if(window.DebatableAudience&&window.DebatableAudience.setIntent){window.DebatableAudience.setIntent(v);}
+          if(window.DebatableAudience&&window.DebatableAudience.set){window.DebatableAudience.set(v);}
           else{
-            try{localStorage.setItem(IKEY,v)}catch(err){}
-            document.documentElement.setAttribute('data-debate-intent',v);
+            try{localStorage.setItem(KEY,v)}catch(err){}
+            document.documentElement.setAttribute('data-debate-experience',v);
           }
-          if(window.dosTrack)dosTrack('audience_intent',{value:v,surface:'landing_tour_row'});
-          var d=DONE[v], msg=document.getElementById('audDoneMsg'), link=document.getElementById('audDoneLink');
-          if(msg)msg.textContent=d[0];
-          if(link){link.textContent=d[1];link.setAttribute('href',d[2]);link.setAttribute('data-cta','audience-next-'+v);}
-          step('done');
+          if(window.dosTrack)dosTrack('audience_choice',{value:v,surface:'landing_tour_row'});
+          el.hidden=true;
         });
       })();
     </script>
@@ -10941,11 +10905,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             <div>
               <p class="hiw-step-k"><span class="hiw-step-num">1</span><span class="hiw-step-of">Match</span></p>
               <h3 class="hiw-card-title">Match with a real person.</h3>
-              <p class="hiw-card-body">One tap queues you against a stranger on the other side. The motion posts, you both prep on the clock, and if the queue's empty an AI takes the seat.</p>
+              <p class="hiw-card-body">One tap pairs you with a stranger who takes the other side. The topic appears, you both get a few timed minutes to think, and if nobody is waiting an AI takes the seat.</p>
               <ul class="hiw-mech" aria-label="Round mechanics">
                 <li><b>Round type</b><span>Casual 1v1, every time</span></li>
-                <li><b>Prep</b><span>Timed, both sides at once</span></li>
-                <li><b>Turns</b><span>Build your case, answer theirs</span></li>
+                <li><b>Thinking time</b><span>A few timed minutes, both sides at once</span></li>
+                <li><b>Turns</b><span>Make your points, answer theirs</span></li>
                 <li><b>One person per side</b><span>AI can fill the other seat</span></li>
               </ul>
               <a class="hiw-go" href="/spar" data-cta="hiw-step1-match">Match me with a stranger</a>
@@ -10972,10 +10936,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             <div>
               <p class="hiw-step-k"><span class="hiw-step-num">2</span><span class="hiw-step-of">Verdict</span></p>
               <h3 class="hiw-card-title" data-plain="The AI judge explains who won.">The AI judge decides who won.</h3>
-              <p class="hiw-card-body">The round ends, the AI judge delivers its decision in seconds: <b>winner, scores out of 100, and the reasons</b>, citing what was actually said. The rubric's public, so every call is checkable.</p>
+              <p class="hiw-card-body">The round ends, the AI judge delivers its decision in seconds: <b>winner, scores out of 100, and the reasons</b>, citing what was actually said. The scoring rules are public, so you can check every call.</p>
               <ul class="hiw-mech" aria-label="Decision contents">
                 <li><b>Decided on</b><span data-plain="The arguments made, never the topic">The flow, never the topic</span></li>
-                <li><b>Rubric</b><span>Published and versioned</span></li>
+                <li><b>Scoring rules</b><span>Published before the round</span></li>
                 <li><b>Turnaround</b><span>Seconds after the last speech</span></li>
               </ul>
               <a class="hiw-go" href="#live-proof" data-cta="hiw-step2-verdict" data-plain="See real judge feedback">See a real decision</a>
@@ -10986,7 +10950,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             </div>
             <div class="hiw-viz">
               <div class="hiw-panel">
-                <div class="hiw-panel-head"><span>Decision · Round 1</span><span>AI judge · published rubric</span></div>
+                <div class="hiw-panel-head"><span>Decision · Round 1</span><span>AI judge · published rules</span></div>
                 <div class="hiw-panel-body">
                   <div class="hiw-verdict"><span class="hiw-verdict-win"><i>Pro wins</i></span><span class="hiw-verdict-pts">88 &ndash; 62 points</span></div>
                   <div class="hiw-axis"><div class="hiw-axis-top"><span>The argument</span><b>42 / 50</b></div><div class="hiw-bar"><i style="width:84%"></i></div></div>
@@ -10994,7 +10958,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
                   <div class="hiw-axis"><div class="hiw-axis-top"><span>Structure and clarity</span><b>15 / 15</b></div><div class="hiw-bar"><i style="width:100%"></i></div></div>
                   <div class="hiw-rfd">
                     <p class="hiw-rfd-k">Reason for decision</p>
-                    <p>The round turns on the clash between Pro's structural-harm framing and Con's network-value defense. Pro establishes three harms and weighs them by probability before magnitude; Con's strongest turn goes unanswered until the final speech, which is too late to&hellip;</p>
+                    <p>The round turns on whether the harm Pro describes outweighs the benefit Con defends. Pro names three concrete harms and shows why each is likely, not just serious; Con's best point goes unanswered until the final speech, which is too late to&hellip;</p>
                   </div>
                 </div>
               </div>
@@ -11033,11 +10997,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
             <div>
               <p class="hiw-step-k"><span class="hiw-step-num">4</span><span class="hiw-step-of">The show</span></p>
               <h3 class="hiw-card-title">Climb the board. Get considered for a creator debate.</h3>
-              <p class="hiw-card-body">The leaderboard is the qualifier. Strong finishes can put you in the challenger pool for a <b>streamer or creator</b> matchup. When the topic and availability line up, a selected player takes the seat.</p>
+              <p class="hiw-card-body">The leaderboard is the qualifier. Strong finishes can put you in the challenger pool for a <b>streamer or creator</b> matchup. When the topic and availability line up, someone from the board takes the seat.</p>
               <ul class="hiw-mech" aria-label="Show mechanics">
                 <li><b>Qualify</b><span>Rise to the top of the board</span></li>
                 <li><b>Select</b><span>Rank, topic, and availability</span></li>
-                <li><b>Live result</b><span>Judge decision + crowd swing</span></li>
+                <li><b>Live result</b><span>Judge decision + how the room moved</span></li>
               </ul>
               <a class="hiw-go" href="#creator-sweepstakes" data-cta="hiw-step4-show">See creator matchups</a>
             </div>
@@ -11079,7 +11043,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
                 <div class="hiw-panel-head"><span>Creator challenge</span><span>From leaderboard to live</span></div>
                 <div class="hiw-panel-body">
                   <div class="hiw-pool-row"><span>Leaderboard success</span><b>Puts you in consideration</b></div>
-                  <div class="hiw-pool-row"><span>Format fit</span><b>Your debate style matches</b></div>
+                  <div class="hiw-pool-row"><span>Style fit</span><b>The way you argue suits the show</b></div>
                   <div class="hiw-pool-row"><span>Availability</span><b>Both sides can make the live slot</b></div>
                   <div class="hiw-pool-row total"><span>Invitation</span><b>Selected challengers get the seat</b></div>
                   <div class="hiw-pool-row"><span>Broadcast</span><b>Creator channel + live judging</b></div>
@@ -12352,7 +12316,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         if (el.fsOpenFig) el.fsOpenFig.innerHTML = seatFigure(r.seat);
         el.fsNameA.textContent = r.a.nm; el.fsSideA.textContent = 'Invited';
         el.fsNameB.textContent = r.b.nm; el.fsSideB.textContent = 'Yours';
-        if (el.fsChalLine) el.fsChalLine.textContent = 'Nobody has taken the other seat yet. Climb the ladder and it can be yours.';
+        if (el.fsChalLine) el.fsChalLine.textContent = 'Nobody has taken the other seat yet. Win rounds and it could be you.';
         if (el.fsChalAlt){
           el.fsChalAlt.textContent = 'How the seat gets filled'; el.fsChalAlt.href = '#creator-sweepstakes';
           el.fsChalAlt.setAttribute('data-cta', 'first-screen-challenge-how');
@@ -14015,7 +13979,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              side-by-side as "Sign in. 50 free rounds a month. Sign in.
              10 free rounds. No card." on mobile. Removed the stale 50/mo
              span. Single CTA reads "Sign in. 10 free rounds. No card." -->
-        <span>Sign in. <span class="hfc-em">10 free rounds.</span> No card.</span>
+        <span>Sign in. <span class="hfc-em">10 free rounds</span> to start.</span>
         <svg class="hfc-arrow" viewBox="0 0 14 14" width="12" height="12" aria-hidden="true">
           <path d="M2 7 L11 7 M7 3 L11 7 L7 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
@@ -14916,11 +14880,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              The asset on disk IS the original; do not re-swap it on
              the strength of a stale recut note. -->
 
-        <img src="/landing-shot-live.jpg" alt="Two debaters on a Debatable Live Round video call" loading="lazy" decoding="async" onerror="this.style.display='none'">
+        <img src="/landing-shot-live.jpg" alt="Two people on a Debatable live round video call" loading="lazy" decoding="async" onerror="this.style.display='none'">
         <div class="lpv-mock" aria-hidden="true">
           <div class="lpv-topbar">
             <span class="lpv-brand">Debatable <span>· Live Round</span></span>
-            <span class="lpv-ballotin">Ballot in <span class="d1"></span><span class="d2"></span><span class="d3"></span></span>
+            <span class="lpv-ballotin">Decision in <span class="d1"></span><span class="d2"></span><span class="d3"></span></span>
           </div>
           <div class="lpv-pip">
             <div class="lpv-pip-avatar">AH</div>
@@ -14947,26 +14911,26 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <div class="lpb-body">
           <div class="lpb-winner">
             <div class="lpb-winner-name">Pro wins</div>
-            <div class="lpb-winner-sub">THBT social media has done more harm than good</div>
+            <div class="lpb-winner-sub">Social media has done more harm than good</div>
           </div>
           <div class="lpb-scores">
             <div class="lpb-score">
               <div class="lpb-score-name">Pro · You</div>
               <div class="lpb-score-num">88</div>
-              <div class="lpb-score-lbl">Speaker points</div>
+              <div class="lpb-score-lbl">Score out of 100</div>
             </div>
             <div class="lpb-score lpb-score--loss">
               <div class="lpb-score-name">Con · Guest</div>
               <div class="lpb-score-num">62</div>
-              <div class="lpb-score-lbl">Speaker points</div>
+              <div class="lpb-score-lbl">Score out of 100</div>
             </div>
           </div>
           <div class="lpb-rfd-h" data-audience-competitive="Reason for Decision" data-audience-plain="Why the judge decided this way">Reason for Decision</div>
           <div class="lpb-rfd">
-            <p>The round turns on the clash between Pro's structural-harm framing and Con's network-value defense. Pro establishes three harms: measurable declines in adolescent mental health (NIH longitudinal data), algorithmic amplification of misinformation during election cycles, and the erosion of local community institutions as attention moves to platform feeds.</p>
+            <p>The round turns on the contest between Pro's structural-harm framing and Con's network-value defense. Pro establishes three harms: measurable declines in adolescent mental health (NIH longitudinal data), algorithmic amplification of misinformation during election cycles, and the erosion of local community institutions as attention moves to platform feeds.</p>
             <p>Con responds with the network case: crisis coordination in Ukraine, Iran, and Hong Kong; cross-border reach for diaspora and minority communities; small-business marketing access that traditional media never offered to anyone without a budget.</p>
             <p>The judge weighs on three axes: reach, persistence, and counterfactual access. On reach, both sides land hits. On persistence, Pro wins clearly. Once attention infrastructure is captured, it doesn't return to local institutions. On counterfactual access, Con makes the strongest move of the round: the benefits have no real substitute (no print equivalent for a Tehran protestor), while many of the harms have substitutes (regulation, design changes, age-gating).</p>
-            <p>Pro wins because the mitigations Con leans on don't exist yet and the harms compound while we wait. The verdict is narrow. Pro's framing of 'structural' was largely conceded by Con, which is the only reason this isn't closer on the flow.</p>
+            <p>Pro wins because the mitigations Con leans on don't exist yet and the harms compound while we wait. The verdict is narrow. Pro's framing of 'structural' was largely conceded by Con, which is the only reason this isn't closer.</p>
           </div>
         </div>
       </div>
@@ -14989,8 +14953,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <p>Claude, GPT, and Gemini each judge the round separately. Two agreeing carries the round. An even split records no winner at all, because any rule for breaking a tie would be our rule.</p>
         </article>
         <article class="lp-trust-card">
-          <h3>The rubric is published before you speak.</h3>
-          <p>Every decision stamps a fingerprint of the exact criteria it was made under, so nobody gets judged by a rubric that was edited after the round.</p>
+          <h3>The scoring rules are published before you speak.</h3>
+          <p>Every decision stamps a fingerprint of the exact criteria it was made under, so nobody gets judged by rules that were edited after the round.</p>
         </article>
         <article class="lp-trust-card">
           <h3>A person hears the appeal.</h3>
@@ -14998,7 +14962,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         </article>
         <article class="lp-trust-card">
           <h3>We earn the same whoever wins.</h3>
-          <p>No rake, no cut, no house position. Nothing about what we make moves with a verdict, and the test suite blocks any commit that adds one.</p>
+          <p>No fee, no cut, no stake in the result. Nothing about what we make moves with a verdict, and the test suite blocks any commit that adds one.</p>
         </article>
       </div>
       <!-- 2026-08-22: the critique invitation, advertised rather than
@@ -15013,10 +14977,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <p class="lp-trust-foot">
         <span class="lp-trust-foot-links">
           <a href="/judge-integrity">Read the full criteria</a>
-          <a href="/api/judge/charter">Fetch the charter yourself</a>
+          <a href="/api/judge/charter">See the raw charter</a>
           <button type="button" class="lp-trust-foot-link" data-guide-open data-cta="trust-guide">Watch the walkthrough · 3 min</button>
         </span>
-        <span class="lp-trust-foot-note">The criteria and charter are open and need no key. Hash the charter and you can confirm the criteria that judged a round are the criteria on the page.</span>
+        <span class="lp-trust-foot-note">The criteria and charter are public and need no account. You can check for yourself that the criteria that judged a round are the ones on this page.</span>
       </p>
     </div>
 
@@ -17122,7 +17086,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         <p class="whyx-lede">The AI judge explains who won and why. Then the room votes, before and after the verdict. Over many rounds that shows which arguments actually move people. <b>Platform feedback, not a public poll.</b> See where rounds happen in <a class="whyx-inline" href="/atlas" data-cta="whyx-atlas">the Debate Atlas</a>.</p>
         <!-- 2026-08-22: honesty line. The site experiments in the open and the
              copy should say so rather than pretend the surface is settled. -->
-        <p class="whyx-lede"><b>A lot of this site is experimental, on purpose.</b> Live rounds with strangers, an AI judge with a published rubric, rankings built from spoken argument: nobody has settled how any of this should work yet, so we build in the open and change things most days. If a corner looks unfinished, it probably shipped this week.</p>
+        <p class="whyx-lede"><b>A lot of this site is experimental, on purpose.</b> Live rounds with strangers, an AI judge with published scoring rules, rankings built from spoken argument: nobody has settled how any of this should work yet, so we build in the open and change things most days. If a corner looks unfinished, it probably shipped this week.</p>
         <!-- 2026-07-22: CTA pair removed per the founder. The section argues the
              philosophy; the hero above already carries both actions. -->
       </div>
@@ -18632,7 +18596,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      no carousel/photos/stars. Quotes are faithful pull-quotes of the real
      testimonials on /reviews (do not fabricate). Themed via shared tokens. -->
 
-<section id="reviews" class="sec" aria-label="What debaters say">
+<section id="reviews" class="sec" aria-label="What people say">
   <style>
     #reviews.sec{padding-top:clamp(46px,4vw,62px) !important}
     [data-theme="light"] #reviews{
@@ -20743,7 +20707,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     .founder-line{margin:0;font-size:.92rem;letter-spacing:.01em;color:var(--text-dim)}
     .founder-line b{font-weight:800;color:var(--text)}
   </style>
-  <p class="founder-line">The judge works from a <a href="/judge-integrity">published rubric</a>, and either debater can appeal to a human.</p>
+  <p class="founder-line">The judge works from <a href="/judge-integrity">published scoring rules</a>, and either side can appeal to a person.</p>
 </section>
 
 <section id="faq" class="sec" aria-labelledby="faq-title">
@@ -20868,7 +20832,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         </details>
         <details class="faq-stack-row">
           <summary class="faq-stack-q"><span class="faq-number" aria-hidden="true">03</span><span>Do I need an account?</span><span class="faq-toggle" aria-hidden="true"></span></summary>
-          <div class="faq-stack-a"><p>Yes. Live video requires Google sign-in before you enter the queue. Signing in keeps your profile and results together.</p><p>The AI voice page offers a short preview before asking you to create an account.</p></div>
+          <div class="faq-stack-a"><p>Yes. A live round with a real person needs a Google sign-in first. Signing in keeps your profile and results together.</p><p>The AI voice page offers a short preview before asking you to create an account.</p></div>
         </details>
         <details class="faq-stack-row">
           <summary class="faq-stack-q"><span class="faq-number" aria-hidden="true">04</span><span>What does it cost?</span><span class="faq-toggle" aria-hidden="true"></span></summary>
@@ -21525,7 +21489,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <a href="/spar">Debate a stranger</a>
       <a href="/debate-online">Debate online</a>
       <a href="/political-debate">Political debate</a>
-      <a href="/newvoice?handoff=landing-footer">Argue an AI</a>
+      <a href="/newvoice?handoff=landing-footer">Debate an AI</a>
       <a href="/watch">Watch rounds</a>
       <a href="/leaderboard">Leaderboard</a>
       <a href="/judge">Judge a round</a>
@@ -21641,7 +21605,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <a href="/reviews" style="color:var(--text-dim)">Reviews</a>
     <a href="/community" style="color:var(--text-dim)">Community</a>
     <a href="/online-debate-camp" style="color:var(--text-dim)">Debate camp</a>
-    <a href="/spar" style="color:var(--text-dim)">Spar</a>
+    <a href="/spar" style="color:var(--text-dim)">Debate live</a>
     <a href="/newvoice" style="color:var(--text-dim)">Voice round</a>
     <a href="/leaderboard" style="color:var(--text-dim)">Leaderboard</a>
     <a href="/early" style="color:var(--text-dim)">Early access</a>
@@ -21697,7 +21661,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <a href="/counter" style="color:var(--text-dim)">Counter extension</a>
     <a href="/oral-exam-prep" style="color:var(--text-dim)">Oral exam prep</a>
     <a href="/coaches" style="color:var(--text-dim)">For coaches</a>
-    <a href="/today" style="color:var(--text-dim)">Today's motion</a>
+    <a href="/today" style="color:var(--text-dim)">Today's topic</a>
     <a href="/champions" style="color:var(--text-dim)">Champions</a>
     <a href="/programs" style="color:var(--text-dim)">Programs</a>
     <a href="/learn/fundamentals" style="color:var(--text-dim)">Fundamentals</a>

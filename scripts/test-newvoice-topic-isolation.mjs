@@ -112,10 +112,13 @@ check('the clash prompt says the client reads the claim, not the model',
   realtime.includes('The client opens the round by reading the claim word for word'));
 check('the old opener wording is gone from the prompt', !/by reading the topic and asking/.test(realtime));
 check('three obvious choices are on the page',
-  page.includes('<b>Casual back-and-forth</b>') && page.includes('<b>Conversation</b>') && page.includes('<b>Competitive practice</b>'));
-check('competitive practice names every format and routes to /practice',
+  page.includes('<b>Casual back-and-forth</b>') && page.includes('<b>Conversation</b>') && page.includes('<b>Timed round</b>'));
+// 2026-09-07: competitive formats are retired from public copy (casual
+// 1v1 only), so the third chip is a plain "Timed round" and the guard now
+// asserts the format list stays gone while the route is unchanged.
+check('timed round routes to /practice without naming formats',
   page.includes('href="/practice?entry=competitive&amp;format=apda&amp;handoff=newvoice"') &&
-  /APDA, BP, Asian Parliamentary, Worlds, Karl Popper, PF, LD, Policy, and Congress/.test(page));
+  !/APDA, BP, Asian Parliamentary, Worlds, Karl Popper, PF, LD, Policy, and Congress/.test(page));
 check('speed is settable before the round', page.includes('id="paceSeg"'));
 check('speed is settable during the round and pushed into the live session',
   page.includes("$('paceBtn').addEventListener('click'") &&

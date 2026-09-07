@@ -780,11 +780,11 @@
   // in LINKS / MORE_GROUPS; the mobile sheet stays label-only.
   var MENU_META = {
     '/home':           { desc: 'What is happening right now', icon: '<path d="M4.4 10.6L12 4.4l7.6 6.2M6.2 9.2v9.2a1.4 1.4 0 0 0 1.4 1.4h8.8a1.4 1.4 0 0 0 1.4-1.4V9.2M9.8 19.8v-5.4h4.4v5.4"/>' },
-    '/spar':           { desc: 'Random matchmaking, right now', icon: '<circle cx="12" cy="12" r="2.1"/><path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.4 5.4a9.3 9.3 0 0 0 0 13.2M18.6 5.4a9.3 9.3 0 0 1 0 13.2"/>' },
+    '/spar':           { desc: 'Get paired with a real person right now', icon: '<circle cx="12" cy="12" r="2.1"/><path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.4 5.4a9.3 9.3 0 0 0 0 13.2M18.6 5.4a9.3 9.3 0 0 1 0 13.2"/>' },
     '/debate-online':  { desc: 'Live, AI, and scheduled rounds', icon: '<circle cx="12" cy="12" r="8.4"/><path d="M7.8 9.3h8.4M7.8 12h5.8M7.8 14.7h4.2"/>' },
     '/how-it-works':   { desc: 'Your first round, explained', icon: '<circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2.1 4.7-4.7 2.1 2.1-4.7z"/>' },
-    '/learn':          { desc: 'Clear claims, rebuttals, and weighing', icon: '<path d="M12 6.6C10.4 5.1 8.2 4.6 5.6 4.6c-.9 0-1.6.6-1.6 1.4v10.3c0 .9.7 1.5 1.6 1.5 2.6 0 4.8.5 6.4 2 1.6-1.5 3.8-2 6.4-2 .9 0 1.6-.6 1.6-1.5V6c0-.8-.7-1.4-1.6-1.4-2.6 0-4.8.5-6.4 2zM12 6.6v13.2"/>' },
-    '/prep':           { desc: 'Turn a motion into a case', icon: '<path d="M6 4.8h9.2l2.8 2.8v11.6H6zM15.2 4.8v3h2.8M9 11h6M9 14.2h6M9 17.4h3.8"/>' },
+    '/learn':          { desc: 'Make a point, answer one, show why yours matters', icon: '<path d="M12 6.6C10.4 5.1 8.2 4.6 5.6 4.6c-.9 0-1.6.6-1.6 1.4v10.3c0 .9.7 1.5 1.6 1.5 2.6 0 4.8.5 6.4 2 1.6-1.5 3.8-2 6.4-2 .9 0 1.6-.6 1.6-1.5V6c0-.8-.7-1.4-1.6-1.4-2.6 0-4.8.5-6.4 2zM12 6.6v13.2"/>' },
+    '/prep':           { desc: 'Get your side ready before a round', icon: '<path d="M6 4.8h9.2l2.8 2.8v11.6H6zM15.2 4.8v3h2.8M9 11h6M9 14.2h6M9 17.4h3.8"/>' },
     '/judge':          { desc: 'Record together or upload a transcript', icon: '<rect x="6" y="4.6" width="12" height="15.8" rx="2.2"/><path d="M9.5 4.6a2.5 2.5 0 0 1 5 0M9.3 13.4l2 2 3.6-3.9"/>' },
     '/live':           { desc: 'Put a live round on the calendar', icon: '<rect x="4" y="6" width="16" height="14" rx="2.2"/><path d="M4 10.6h16M8.5 3.8v3.6M15.5 3.8v3.6"/>' },
     '/credentials':    { desc: 'Proof of your record', plain: 'A shareable record of your rounds', icon: '<circle cx="12" cy="9.4" r="4.8"/><path d="M9.1 13.4L7.6 20l4.4-2.3L16.4 20l-1.5-6.6"/>' },
@@ -797,7 +797,7 @@
     // on the bar: "Judge" is the paste-a-round tool, "Judging" is how the
     // verdict gets made, and they sit in the same column.
     '/get-paid-to-debate': { desc: 'Prizes, points, and payouts', icon: '<circle cx="12" cy="12" r="8.4"/><path d="M14.4 9.3a2.7 2.7 0 0 0-2.4-1.2c-1.5 0-2.4.8-2.4 1.9 0 2.6 5 1.3 5 3.9 0 1.1-1 1.9-2.6 1.9a2.8 2.8 0 0 1-2.5-1.3M12 6.4v1.7M12 15.8v1.8"/>' },
-    '/judge-integrity':    { desc: 'The rubric, appeals, open to critiques', icon: '<path d="M12 4.6v14.8M7.4 19.4h9.2M5 8.2h14M5 8.2l-2.2 5a2.6 2.6 0 0 0 4.4 0zM19 8.2l-2.2 5a2.6 2.6 0 0 0 4.4 0zM12 4.6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8z"/>' },
+    '/judge-integrity':    { desc: 'How the judge decides, and how to appeal', icon: '<path d="M12 4.6v14.8M7.4 19.4h9.2M5 8.2h14M5 8.2l-2.2 5a2.6 2.6 0 0 0 4.4 0zM19 8.2l-2.2 5a2.6 2.6 0 0 0 4.4 0zM12 4.6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8z"/>' },
     '/rounds':         { desc: 'Record now, they answer later', icon: '<path d="M16.5 4L20 7.5 16.5 11M20 7.5H7.8M7.5 20L4 16.5 7.5 13M4 16.5h12.2"/>' },
     '/spectate':       { desc: 'Watch rounds as they happen', icon: '<path d="M3.6 12S6.9 5.9 12 5.9 20.4 12 20.4 12 17.1 18.1 12 18.1 3.6 12 3.6 12z"/><circle cx="12" cy="12" r="2.7"/>' },
     '/watch':          { desc: 'Streams, replays, and clips', icon: '<rect x="4" y="5.4" width="16" height="11.6" rx="2.2"/><path d="M10.4 8.8l4.4 2.8-4.4 2.8zM8.2 20.4h7.6"/>' },
@@ -820,7 +820,7 @@
     '/chat':           { desc: 'The public room and your DMs', icon: '<path d="M20.2 11.4a7.8 7.8 0 0 1-8.2 7.5 8.7 8.7 0 0 1-3.5-.7L4 19.6l1.4-4a7.3 7.3 0 0 1-1.6-4.2A7.8 7.8 0 0 1 12 3.9a7.8 7.8 0 0 1 8.2 7.5z"/>' },
     '/masterclass':    { desc: 'Eight weeks, one round a week', icon: '<path d="M3.4 8.4L12 4.6l8.6 3.8L12 12.2z"/><path d="M6.8 10v4.6c0 1.6 2.3 2.8 5.2 2.8s5.2-1.2 5.2-2.8V10M20.6 8.4v5"/>' },
     '/practice':       { desc: 'Full rounds against the clock', icon: '<circle cx="12" cy="13.4" r="6.9"/><path d="M12 9.6v3.9l2.7 1.6M9.6 3.6h4.8M12 3.6v3"/>' },
-    '/newvoice':       { desc: 'Talk out loud, interrupt, and get a verdict', icon: '<rect x="9" y="3.6" width="6" height="10.8" rx="3"/><path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0M12 17.9v2.5M9.2 20.4h5.6"/>' },
+    '/newvoice':       { desc: 'Talk out loud, cut in, and hear who won', icon: '<rect x="9" y="3.6" width="6" height="10.8" rx="3"/><path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0M12 17.9v2.5M9.2 20.4h5.6"/>' },
     '/flow':           { desc: 'Speech to flow, clash, and answers', plain: 'Turns a speech into clear notes', icon: '<path d="M5 5.2h14M5 10.1h14M5 15h9M5 19.9h6"/><circle cx="18" cy="15.3" r="2.5"/>' },
     '/voice-debate':   { desc: 'Talk out loud, it argues back, you get a verdict', icon: '<rect x="9" y="3.6" width="6" height="10.8" rx="3"/><path d="M5.6 11.5a6.4 6.4 0 0 0 12.8 0M12 17.9v2.5M9.2 20.4h5.6"/>' },
     '/coaches':        { desc: 'Find a human coach', icon: '<circle cx="10" cy="8" r="3.4"/><path d="M4.1 19.4c.7-3.3 2.9-5 5.9-5 1.4 0 2.7.4 3.7 1.1M15.4 17.4l1.9 1.9 3.3-3.6"/>' },
@@ -999,15 +999,15 @@
       spot.innerHTML =
         '<span class="ui-topbar-more-spot-eyebrow"><span class="ui-topbar-more-live-dot" aria-hidden="true"></span>Live</span>' +
         '<span class="ui-topbar-more-spot-title">Debate someone now</span>' +
-        '<span class="ui-topbar-more-spot-sub">Get matched, argue it out, and get a verdict.</span>' +
+        '<span class="ui-topbar-more-spot-sub">Get paired, argue it out, and hear who won.</span>' +
         '<span class="ui-topbar-more-spot-proof">' +
           '<img src="/img/round/faces/face02.jpg" alt="" loading="lazy" decoding="async">' +
           '<img src="/img/round/faces/face07.jpg" alt="" loading="lazy" decoding="async">' +
           '<img src="/img/round/faces/face10.jpg" alt="" loading="lazy" decoding="async">' +
           '<img src="/img/round/faces/face01.jpg" alt="" loading="lazy" decoding="async">' +
-          '<span>Real people first. AI if the queue is quiet.</span>' +
+          '<span>Real people first. An AI steps in if nobody is waiting.</span>' +
         '</span>' +
-        '<span class="ui-topbar-more-spot-cta">Go LIVE' +
+        '<span class="ui-topbar-more-spot-cta">Debate live' +
           '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' +
         '</span>';
       spot.addEventListener('click', function(){ navTrack('nav_more_click', { to: '/spar', via: 'spotlight' }); });

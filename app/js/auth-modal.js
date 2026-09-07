@@ -1312,7 +1312,7 @@
     c.innerHTML =
       '<button class="da-x" aria-label="Close">\u00d7</button>' +
       '<h2>Finish signing in</h2>' +
-      '<p class="da-sub">Confirm the email this link was sent to. Restating it is what stops a forwarded link signing in whoever finds it.</p>' +
+      '<p class="da-sub">Type the email this link was sent to. That is what stops a forwarded link from signing in whoever finds it.</p>' +
       '<form class="da-form" id="daLinkForm" novalidate>' +
         '<label class="da-label" for="daLinkEmail">Email</label>' +
         '<input class="da-input" id="daLinkEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" />' +

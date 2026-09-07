@@ -207,7 +207,7 @@ for (const path of [
   'app/omegle-alternative.html',
 ]) {
   const source = read(path);
-  check(/live video requires Google sign-in/i.test(source), `${path} must describe the Google-only live door`);
+  check(/(live video requires|live round with a real person needs a) Google sign-in/i.test(source), `${path} must describe the Google-only live door`);
 }
 
 // face63/65 added 2026-08-31: second consented batch (Ray, Yael) cropped

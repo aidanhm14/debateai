@@ -78,7 +78,7 @@
   function reason(err) {
     var code = (err && err.code) || '';
     if (code === 'resource-exhausted') {
-      return 'The daily data budget is used up. Sending still works; reading returns after midnight Pacific.';
+      return 'Messaging hit its daily limit. You can still send; new messages show again after midnight Pacific.';
     }
     if (code === 'permission-denied') return 'You do not have access to this thread.';
     if (TRANSIENT[code] || code === 'unavailable') return 'Connection lost. Reconnecting…';
@@ -509,7 +509,7 @@
   function sendReason(err) {
     var code = (err && err.code) || '';
     if (code === 'resource-exhausted') {
-      return 'Did not send: the daily data budget is used up. Try after midnight Pacific.';
+      return 'Did not send: messaging hit its daily limit. Try after midnight Pacific.';
     }
     if (code === 'permission-denied') return 'Did not send: you cannot post in this thread.';
     return 'Message did not send' + (code ? ' (' + code + ')' : '') + '. Tap it to retry.';

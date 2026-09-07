@@ -164,8 +164,8 @@
   // account: work that persists, an AI that learns them, saved practice,
   // DMs that reach them. Honest, no invented urgency.
   var REMIND_MSGS = [
-    '<strong>Why sign in?</strong> Your rounds, ballots, and streaks save to your account and follow you on any device. You are not training GPT or Claude. You are training Debatable.',
-    '<strong>Keep what you build.</strong> Without an account your work vanishes when this tab closes. With one: saved history, a style profile Debatable learns from, DMs from sparring partners, a real leaderboard rank.'
+    '<strong>Why sign in?</strong> Your rounds, results, and scores save to your account and follow you on any device.',
+    '<strong>Keep what you build.</strong> Without an account, your rounds are gone when this tab closes. With one: saved rounds, messages from people you have debated, and a place on the leaderboard.'
   ];
 
   // Per-path config. First match wins. Generic fallback at the end.
@@ -198,7 +198,7 @@
       delay: 3,
       variant: 'prominent',
       inviteOptIn: true,
-      msg: '<strong>Sign in and your rounds count.</strong> XP, round recordings, a place on the leaderboard, and every ballot saved.' },
+      msg: '<strong>Sign in and your rounds count.</strong> Every result saved, your recordings kept, and a place on the leaderboard.' },
     // /practice owns the account moment. Let a guest finish the sample
     // round, then offer to claim the ballot that now exists. A timer-based
     // prompt during prep competes with the round before the value is real.
@@ -211,13 +211,13 @@
     // enough rounds to feel it.
     { match: /^\/(voice-debate|newvoice|coach)/,
       delay: 60,
-      msg: '<strong>Signed out, the score is worth nothing.</strong> Sign in and every judged voice round banks XP, moves your level, and puts your best score on the leaderboard.' },
+      msg: '<strong>Signed out, your score is not saved.</strong> Sign in and every judged voice round counts toward your level and puts your best score on the leaderboard.' },
     { match: /^\/learn/,
       delay: 30,
-      msg: "Sign in and I'll track which fundamentals you've drilled, so the AI knows what to push you on." },
+      msg: "Sign in and we keep track of which basics you have practiced, so the AI knows what to work on with you." },
     { match: /^\/today/,
       delay: 25,
-      msg: "Sign in to bookmark today's motion. Tomorrow's lands in your inbox-less feed, not your email." },
+      msg: "Sign in to save today's topic. Tomorrow's shows up in your feed, not your email." },
     { match: /^\/leaderboard/,
       delay: 25,
       msg: '<strong>Every name here earned it in a judged round.</strong> Sign in, debate the AI out loud, and your best score takes a place on this board.' },
@@ -226,11 +226,11 @@
     // over that inline account path.
     { match: /^\/debate-online(?:\.html)?(?:[/?#]|$)/,
       inlineAuth: true,
-      msg: '<strong>Join the debate pool with Google.</strong> Enter the human queue, keep every ballot, and use AI fallback when the queue is quiet.' },
+      msg: '<strong>Debate a real person with Google.</strong> Sign in to join the line, keep every result, and get an AI opponent when nobody is waiting.' },
     { match: /^\/spar|\/live|\/community|\/rounds/,
       delay: 20,
       variant: 'community',
-      msg: '<strong>You\'re early.</strong> Sign in to save your rounds and ballots, and help shape where this goes.' },
+      msg: '<strong>You\'re early.</strong> Sign in to save your rounds and results, and help shape where this goes.' },
     { match: /^\/pricing/,
       delay: 25,
       msg: "Free and paid plans are live. Sign in to keep your rounds and manage your plan." },
@@ -241,7 +241,7 @@
       msg: '<strong>Watching is better signed in.</strong> Take a reserved viewer seat in live rounds, save clips of the moment a round turned, and step into a round yourself when you are ready.' },
     { match: /.*/,
       delay: 25,
-      msg: 'Sign in and your rounds start counting. XP, round recordings, a leaderboard place, and ballots that follow you on any device.' },
+      msg: 'Sign in and your rounds start counting. Results, recordings, and a place on the leaderboard, on any device.' },
   ];
 
   function getConfig(){
@@ -688,7 +688,7 @@
     // promises.
     try {
       if (attempt === 0 && localStorage.getItem(LAST_METHOD_KEY)) {
-        msg = '<strong>Welcome back.</strong> Sign in again and your rounds, ballots, and rank pick up where they left off.';
+        msg = '<strong>Welcome back.</strong> Sign in again and your rounds, results, and rank pick up where they left off.';
       }
     } catch (e) {}
     // One account chooser at a time: the native One Tap chip is retracted so

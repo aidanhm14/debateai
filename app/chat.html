@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <script src="/js/native-bridge.js"></script>
 <title>Chat · The Commons and your DMs · Debatable</title>
-<meta name="description" content="One room for everyone and private threads for the rounds you are setting up. Talk to other debaters, propose a time, send a case, keep the conversation in one place." />
+<meta name="description" content="One room for everyone and private threads for the rounds you are setting up. Talk to other people, propose a time, send a case, keep the conversation in one place." />
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -20,11 +20,11 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://itsdebatable.com/chat">
 <meta property="og:title" content="Chat · The Commons and your DMs · Debatable">
-<meta property="og:description" content="One public room plus private threads with other debaters. Propose a time, trade cases, set up the round.">
+<meta property="og:description" content="One public room plus private threads with other people. Propose a time, trade cases, set up the round.">
 <meta property="og:image" content="https://itsdebatable.com/og-image.png?v=floor1">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Chat · The Commons and your DMs · Debatable">
-<meta name="twitter:description" content="One public room plus private threads with other debaters.">
+<meta name="twitter:description" content="One public room plus private threads with other people.">
 <meta name="twitter:image" content="https://itsdebatable.com/og-image.png?v=floor1">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
@@ -469,7 +469,7 @@ em,i{font-style:normal}
       <div class="cx-composer-foot">
         <span class="cx-identity">
           posting as <b id="cxHandle">…</b>
-          <button class="cx-reroll" id="cxReroll" type="button">re-roll</button>
+          <button class="cx-reroll" id="cxReroll" type="button">new name</button>
         </span>
         <span class="cx-count" id="cxCount"></span>
       </div>
@@ -670,12 +670,12 @@ em,i{font-style:normal}
   function renderThreadList(){
     var host = $('cxThreads');
     if (!state.user){
-      host.innerHTML = '<div class="cx-empty-note">Sign in to keep private threads with other debaters. The room above works either way.</div>';
+      host.innerHTML = '<div class="cx-empty-note">Sign in to keep private threads with other people. The room above works either way.</div>';
       $('cxDmCount').textContent = '';
       return;
     }
     if (!state.threads.length){
-      host.innerHTML = '<div class="cx-empty-note">No threads yet. Start one from the button below, or from a debater you match with on Spar.</div>';
+      host.innerHTML = '<div class="cx-empty-note">No threads yet. Start one from the button below, or message someone after a live round.</div>';
       $('cxDmCount').textContent = '';
       return;
     }
@@ -742,7 +742,7 @@ em,i{font-style:normal}
         // A missing composite index or a blown read quota must not look
         // like an empty inbox — that reads as "my messages are gone".
         var msg = (err && err.code === 'resource-exhausted')
-          ? 'Threads are rate-limited right now (daily data budget). They return after midnight Pacific.'
+          ? 'Messages are paused for today. They come back after midnight Pacific.'
           : 'Could not load your threads right now. Try again in a minute.';
         $('cxThreads').innerHTML = '<div class="cx-empty-note">' + msg + '</div>';
       });
@@ -842,10 +842,10 @@ em,i{font-style:normal}
     if (!msgs.length){
       var note;
       if (v && v.status === 'loading') note = 'Loading…';
-      else if (v && v.status === 'quota') note = 'Messages are rate-limited right now (daily data budget). Sending still works; reading returns after midnight Pacific.';
+      else if (v && v.status === 'quota') note = 'Messages are paused for today. You can still send; new messages show again after midnight Pacific.';
       else if (v && v.status === 'error') note = 'Could not load this thread right now. Reconnecting…';
       else note = a.isGroup
-        ? 'No messages yet. Kick it off: propose a time or a practice motion.'
+        ? 'No messages yet. Say hi, or suggest a time and a topic.'
         : 'No messages yet. Say hi and set up a round.';
       host.innerHTML = '<div class="cx-thread-empty">' + note + '</div>';
       return;
@@ -1022,7 +1022,7 @@ em,i{font-style:normal}
     state.active = null;
     paintSidebarSelection();
     $('cxHeadName').textContent = 'Start a new DM';
-    $('cxHeadSub').textContent = 'Debaters who posted that they are open to a round.';
+    $('cxHeadSub').textContent = 'People who said they are open to a round.';
     $('cxHeadAct').innerHTML = '<a class="cx-chip" href="/spar">Post your own</a>';
     showSurface('none');
     $('cxThreadScroll').innerHTML = '<div class="cx-thread-empty">Loading…</div>';
@@ -1042,7 +1042,7 @@ em,i{font-style:normal}
         });
         if (!rows.length){
           $('cxThreadScroll').innerHTML = '<div class="cx-thread-empty">'
-            + 'Nobody has posted an open invite in the last day. Post one on Spar and other debaters can message you here.'
+            + 'Nobody has posted an open invite in the last day. Post one on Spar and other people can message you here.'
             + '</div>';
           return;
         }
@@ -1082,14 +1082,14 @@ em,i{font-style:normal}
     if (existing){ openThread(id, existing.data); return; }
     var pInfo = {};
     pInfo[me] = { name: shortName(state.user), photo: state.user.photoURL || '' };
-    pInfo[peerUid] = { name: peerName || 'Debater', photo: peerPhoto || '' };
+    pInfo[peerUid] = { name: peerName || 'Someone', photo: peerPhoto || '' };
     openThread(id, { participants: [me, peerUid], participantInfo: pInfo });
   }
 
   function renderGate(title, body){
     state.conv = 'gate';
     $('cxHeadName').textContent = 'Direct messages';
-    $('cxHeadSub').textContent = 'Private threads with other debaters.';
+    $('cxHeadSub').textContent = 'Private threads with other people.';
     $('cxHeadAct').innerHTML = '';
     showSurface('none');
     $('cxThreadScroll').innerHTML = '<div class="cx-gate">'

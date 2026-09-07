@@ -723,7 +723,7 @@
   function peerInfo(data, myUid) {
     var uid = peerOf(data, myUid);
     var info = (data && data.participantInfo && data.participantInfo[uid]) || {};
-    return { uid: uid, name: info.name || 'Debater', photo: info.photo || '' };
+    return { uid: uid, name: info.name || 'Someone', photo: info.photo || '' };
   }
   // Unified display for a thread row (1:1 or group). Groups show the
   // group name + a deep link by thread id; 1:1 shows the peer.
@@ -1293,7 +1293,7 @@
       daFlashTitle(who + ' is live');
       try {
         if (daCanOsNotify()) {
-          var ln = new Notification(who + more + ' is looking to spar', { body: 'Tap to find your match.', icon: '/favicon.svg', tag: 'da-live-now' });
+          var ln = new Notification(who + more + ' is looking for a round', { body: 'Tap to meet them.', icon: '/favicon.svg', tag: 'da-live-now' });
           ln.onclick = function () { window.focus(); try { location.href = '/spar'; } catch (_) {} ln.close(); };
         }
       } catch (_) {}
@@ -1651,7 +1651,7 @@
       return '<a class="' + cls + '" href="' + escHtml(a.href || '/live') + '">' +
         '<span class="ui-bell-av ui-bell-av--blank" style="color:var(--dab-accent)">' + iconSvg + '</span>' +
         '<span class="ui-bell-row__main">' +
-          '<span class="ui-bell-row__name">' + escHtml(a.name || 'A debater') + (isNew ? '<span class="ui-bell-dot"></span>' : '') + '</span>' +
+          '<span class="ui-bell-row__name">' + escHtml(a.name || 'Someone') + (isNew ? '<span class="ui-bell-dot"></span>' : '') + '</span>' +
           '<span class="ui-bell-row__preview">' + preview + '</span>' +
         '</span>' +
         '<span class="ui-bell-row__time">' + escHtml(when) + '</span>' +
@@ -1793,7 +1793,7 @@
               '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 17.5 21 11l-2.5-2.5L12 15"/><path d="M9.5 6.5 3 13l2.5 2.5L12 9"/><path d="m21 3-5 1-1 5M3 21l5-1 1-5"/></svg>' +
             '</span>' +
             '<span class="ui-bell-row__main">' +
-              '<span class="ui-bell-row__name">' + liveNow.count + (liveNow.count === 1 ? ' debater looking to spar' : ' debaters looking to spar') + '</span>' +
+              '<span class="ui-bell-row__name">' + liveNow.count + (liveNow.count === 1 ? ' person looking for a round' : ' people looking for a round') + '</span>' +
               '<span class="ui-bell-row__preview">' + sub + '</span>' +
             '</span>' +
             '<span class="ui-bell-row__time" style="color:#22c55e">spar →</span>' +
@@ -1849,7 +1849,7 @@
       if (!hasRows) {
         html += '<div class="ui-bell-empty">Quiet right now.<br>' +
                 '<a href="/challenges" style="color:var(--dab-accent);text-decoration:none;font-weight:700">Post a claim</a>' +
-                ' or <a href="/spar" style="color:var(--dab-accent);text-decoration:none;font-weight:700">join the waitlist</a> to start one.</div>';
+                ' or <a href="/spar" style="color:var(--dab-accent);text-decoration:none;font-weight:700">find someone to argue with</a>.</div>';
       }
       return html;
     }
@@ -1928,7 +1928,7 @@
             : '<a class="ui-bell-foot" href="/messages">Open all messages</a>');
       }
       return '<div class="ui-bell-head ui-bell-head--mid">Messages</div>' + messageAlertRowHtml() + (showEmpty
-        ? '<div class="ui-bell-empty">No messages yet.<br>Open a profile or the live board to start one.</div><a class="ui-bell-foot" href="/messages">Open messages</a>'
+        ? '<div class="ui-bell-empty">No messages yet.<br>Message someone from their profile, or after a live round.</div><a class="ui-bell-foot" href="/messages">Open messages</a>'
         : '');
     }
 
@@ -2416,7 +2416,7 @@
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'da-spar-pill';
-      b.setAttribute('aria-label', 'Background sparring');
+      b.setAttribute('aria-label', 'Available for a live round while you browse');
       b.style.display = 'none';
       b.innerHTML = '<span class="da-spar-pill__dot" aria-hidden="true"></span><span class="da-spar-pill__lab">Spar live</span><span class="da-spar-pill__off" aria-hidden="true">×</span>';
       b.addEventListener('click', function (e) {
@@ -2578,7 +2578,7 @@
         // the queue doc stays live so an active peer can still pair you and the
         // OS ping fires. Close the tab and the doc is reaped = unmatchable.
         if (suppressAvailableNoteOnce) suppressAvailableNoteOnce = false;
-        else sparNote('Matchable. Keep this tab open and we will ping you when a human opponent is ready.');
+        else sparNote('You are available. Keep this tab open and we will let you know when someone is ready to debate.');
       }
       else goOffline();
     }
@@ -2955,7 +2955,7 @@
       daFlashTitle('Match found!'); // cross-platform (incl. iOS) tab-title ping
       try {
         if (daCanOsNotify()) {
-          var nn = new Notification('Match found', { body: 'vs ' + (d.matchedWithName || 'a debater') + '. Tap to accept.', icon: '/favicon.svg', tag: 'da-spar-match' });
+          var nn = new Notification('Match found', { body: 'vs ' + (d.matchedWithName || 'someone') + '. Tap to accept.', icon: '/favicon.svg', tag: 'da-spar-match' });
           nn.onclick = function () { window.focus(); accept(d); nn.close(); };
         }
       } catch (e) {}
@@ -3321,7 +3321,7 @@
       consentRoom = null;
       awaitingPeer = false;
       try { if (window.gtag) gtag('event', 'spar_bg_decline', { auto: !!auto }); } catch (e) {}
-      if (!auto) sparNote('Match declined. Choose Unavailable on a request, or turn off Available, to pause matching.');
+      if (!auto) sparNote('Declined. Turn off Available up top if you want a break from requests.');
       // In the ready-check phase the pass goes through the consent API,
       // which reverts BOTH docs to 'waiting' with a mutual skip so the
       // pair isn't re-proposed immediately. spar-unmatch is for a match

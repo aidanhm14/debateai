@@ -10,8 +10,8 @@
      finding it through a link. Same posture robots.txt already takes on
      /live-round. -->
 <meta name="robots" content="noindex, follow" />
-<title>Judge RFD · Debatable</title>
-<meta name="description" content="The judge's verdict on your voice round: speaker points, best moment, costliest moment, two fixes for next round." />
+<title>The judge's decision · Debatable</title>
+<meta name="description" content="The judge's decision on your voice round: your score, best moment, costliest moment, and two fixes for next time." />
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="canonical" href="https://itsdebatable.com/voice-rfd">
@@ -19,8 +19,8 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://itsdebatable.com/voice-rfd">
   <meta property="og:image" content="https://itsdebatable.com/og-image.png?v=floor1">
-<meta property="og:title" content="Judge RFD · Debatable">
-<meta property="og:description" content="The judge's verdict on your voice round.">
+<meta property="og:title" content="The judge's decision · Debatable">
+<meta property="og:description" content="The judge's decision on your voice round.">
 <meta name="twitter:card" content="summary_large_image">
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
@@ -800,8 +800,8 @@ body{
     if (!payload || !payload.rfd){
       root.innerHTML =
         '<div class="empty">'
-          + '<h2>No ballot to show yet</h2>'
-          + '<p>Run a voice round at /voice-debate and click <strong>Generate Judge RFD</strong>; the judge\'s verdict will land here.</p>'
+          + '<h2>No decision to show yet</h2>'
+          + '<p>Finish a voice round and press <strong>Get the judge\'s decision</strong>. It shows up here.</p>'
           + '<div style="margin-top:18px"><a href="/voice-debate" class="cta-btn primary">Start a voice round →</a></div>'
         + '</div>';
       return;
@@ -815,8 +815,8 @@ body{
       if (viva.study && viva.study.length) sections.fixes = viva.study;
     }
     var winner = detectWinner(sections.decision);
-    var winnerLabel = winner === 'user' ? 'You take the round' :
-                      winner === 'ai'   ? 'The AI takes the round' :
+    var winnerLabel = winner === 'user' ? 'You won this round' :
+                      winner === 'ai'   ? 'The AI won this round' :
                                           'The judge calls it close';
     var winnerClass = winner === 'user' ? 'user' : '';
     var stats = payload.stats || {};
@@ -889,19 +889,19 @@ body{
         + '</div></section>';
     } else {
       html =
-      '<div class="eyebrow">Ballot · Reason for decision</div>'
+      '<div class="eyebrow">The judge\'s decision</div>'
       + '<section class="verdict"><div class="verdict-inner">'
         + '<div class="verdict-row">' + rowParts.map(function(p, i){
             return (i > 0 ? '<span class="dot"></span>' : '') + '<span>' + p + '</span>';
           }).join('') + '</div>'
         + avatarHtml
         + '<h1 class="verdict-headline">' + (winner ? '<span class="winner ' + winnerClass + '">' + escHtml(winnerLabel) + '.</span>' : escHtml(winnerLabel) + '.') + '</h1>'
-        + (payload.motion ? '<p class="verdict-sub">On the motion: <em style="font-style:normal;color:var(--text)">' + escHtml(payload.motion) + '</em></p>' : '')
+        + (payload.motion ? '<p class="verdict-sub">Topic: <em style="font-style:normal;color:var(--text)">' + escHtml(payload.motion) + '</em></p>' : '')
         + '<div class="verdict-stats">'
-          + '<div class="verdict-stat"><div class="verdict-stat-label">Speaker points</div><div class="verdict-stat-value" id="spValue"' + (sp ? ' data-target="' + sp + '"' : '') + '>' + (sp || '—') + (sp ? '<span class="unit">/ ' + (spIs100 ? '100' : '30') + '</span>' : '') + '</div></div>'
+          + '<div class="verdict-stat"><div class="verdict-stat-label">Your score</div><div class="verdict-stat-value" id="spValue"' + (sp ? ' data-target="' + sp + '"' : '') + '>' + (sp || '—') + (sp ? '<span class="unit">/ ' + (spIs100 ? '100' : '30') + '</span>' : '') + '</div></div>'
           + '<div class="verdict-stat"><div class="verdict-stat-label">Round time</div><div class="verdict-stat-value">' + fmtDuration(stats.duration) + '</div></div>'
           + '<div class="verdict-stat"><div class="verdict-stat-label">Your turns</div><div class="verdict-stat-value">' + (stats.yourTurns != null ? stats.yourTurns : '—') + '</div></div>'
-          + '<div class="verdict-stat"><div class="verdict-stat-label">Talk-time</div><div class="verdict-stat-value">' + (talkYou != null ? talkYou + '%<span class="unit">/ ' + talkAI + '% AI</span>' : '—') + '</div></div>'
+          + '<div class="verdict-stat"><div class="verdict-stat-label">Talk time</div><div class="verdict-stat-value">' + (talkYou != null ? talkYou + '%<span class="unit">/ ' + talkAI + '% AI</span>' : '—') + '</div></div>'
         + '</div>'
       + '</div></section>';
     }
@@ -955,10 +955,10 @@ body{
     // is tagged with the outcome (the after-loss D30 read needs it).
     var outcome = winner === 'user' ? 'win' : (winner ? 'loss' : null);
     var ctaText = outcome === 'loss'
-      ? '<strong>Run it back.</strong> Same motion, and you know exactly what cost you. Take the round this time, or drill the score that slipped.'
+      ? '<strong>Run it back.</strong> Same topic, and you know exactly what cost you. Win it this time, or drill the part that slipped.'
       : outcome === 'win'
-        ? '<strong>You took it.</strong> Keep the loadout and go again, or defend the win against a new motion.'
-        : '<strong>Your next round.</strong> Keep the loadout, change the motion, or drill the score that cost you.';
+        ? '<strong>You won.</strong> Keep the same setup and go again, or try a new topic.'
+        : '<strong>Your next round.</strong> Keep the same setup, change the topic, or drill the part that cost you.';
     var tagClick = function(action){
       return ' onclick="try{if(window.gtag)gtag(\'event\',\'after_round_next\',{action:\'' + action + '\',outcome:\'' + (outcome || 'none') + '\',surface:\'voice\'})}catch(e){}"';
     };
@@ -967,8 +967,8 @@ body{
       '<div class="cta-row">'
         + '<div class="cta-text">' + ctaText + '</div>'
         + '<a href="' + runBackHref + '" class="cta-btn primary"' + tagClick('rematch') + '>Rematch</a>'
-        + '<a href="' + newMotionHref + '" class="cta-btn ghost"' + tagClick('new') + '>New motion</a>'
-        + '<a href="' + weakestHref + '" class="cta-btn ghost"' + tagClick('drill') + ' title="' + escHtml(weakestLabel + ': ' + weakestText) + '">Practice weakest score</a>'
+        + '<a href="' + newMotionHref + '" class="cta-btn ghost"' + tagClick('new') + '>New topic</a>'
+        + '<a href="' + weakestHref + '" class="cta-btn ghost"' + tagClick('drill') + ' title="' + escHtml(weakestLabel + ': ' + weakestText) + '">Drill your weakest area</a>'
         + '<button class="cta-btn ghost" id="shareBallot" type="button">Share verdict</button>'
       + '</div>';
 
@@ -1026,7 +1026,7 @@ body{
     // its <audio> has to stay reachable while it plays.
     html += '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:22px 0 4px">'
       + '<div id="ballotReadHost" style="flex:1 1 220px;min-width:0"></div>'
-      + '<button type="button" class="read-rfd-btn" id="readRfdBtn" style="padding:8px 14px;background:var(--accent,#ef4444);color:#fff;border:none;border-radius:6px;font-size:.9rem;cursor:pointer;font-weight:600;white-space:nowrap">🔊 Read ballot</button>'
+      + '<button type="button" class="read-rfd-btn" id="readRfdBtn" style="padding:8px 14px;background:var(--accent,#ef4444);color:#fff;border:none;border-radius:6px;font-size:.9rem;cursor:pointer;font-weight:600;white-space:nowrap">Read it aloud</button>'
       + '</div>'
       + '<audio id="rfdAudio" style="width:100%;margin:0 0 8px;display:none"></audio>';
 
@@ -1045,7 +1045,7 @@ body{
 
     if (!isViva && sections.ballot) html +=
       '<section class="section section--ballot" data-read-tier="full">'
-        + '<div class="section-head"><div class="icon">⚖</div><h2>The ballot</h2><div class="sub">Full reason for decision</div></div>'
+        + '<div class="section-head"><div class="icon">⚖</div><h2>Why it went that way</h2><div class="sub">The judge\'s full reasoning</div></div>'
         + '<div class="section-body" style="white-space:pre-wrap">' + escHtml(sections.ballot) + '</div>'
       + '</section>';
 
@@ -1063,13 +1063,13 @@ body{
 
     if (sections.fixes && sections.fixes.length) html +=
       '<section class="section section--fixes" data-read-min="ballot">'
-        + '<div class="section-head"><div class="icon">↗</div><h2>' + (isViva ? 'Two things to study' : 'Two fixes for next round') + '</h2><div class="sub">' + (isViva ? 'Before the real viva' : 'Actionable') + '</div></div>'
+        + '<div class="section-head"><div class="icon">↗</div><h2>' + (isViva ? 'Two things to study' : 'Two fixes for next round') + '</h2><div class="sub">' + (isViva ? 'Before the real viva' : 'Do these next time') + '</div></div>'
         + '<ol class="fixes-list">' + sections.fixes.map(function(f){ return '<li>' + escHtml(f) + '</li>'; }).join('') + '</ol>'
       + '</section>';
 
     html +=
       '<section class="section section--full" data-read-tier="full">'
-        + '<div class="section-head"><div class="icon">§</div><h2>Full ballot</h2><div class="sub">Verbatim</div></div>'
+        + '<div class="section-head"><div class="icon">§</div><h2>Full write-up</h2><div class="sub">Word for word</div></div>'
         + '<div class="section-body">' + escHtml(payload.rfd) + '</div>'
       + '</section>';
 
@@ -1142,10 +1142,10 @@ body{
         + '<div style="flex:1;min-width:220px;font-size:.92rem;color:var(--text-dim);line-height:1.55">'
           + '<strong style="color:var(--text);font-weight:800">'
           + (sp ? 'You scored ' + escHtml(String(sp)) + '. Nobody can see it.' : 'This round is not on your record.')
-          + '</strong> Signed out, the round leaves with the tab. Sign in and every judged voice round banks XP, moves your level, and puts your best score on the leaderboard next to real debaters. Free, one tap.'
+          + '</strong> Signed out, the round leaves with the tab. Sign in and every judged voice round counts toward your level and puts your best score on the leaderboard next to real people. Free, one tap.'
         + '</div>'
         + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
-          + '<button class="cta-btn primary" id="saveSignIn" type="button" style="white-space:nowrap">Sign in and rank</button>'
+          + '<button class="cta-btn primary" id="saveSignIn" type="button" style="white-space:nowrap">Sign in to keep your score</button>'
           + '<a class="cta-btn ghost" href="/leaderboard" style="white-space:nowrap" onclick="try{if(window.gtag)gtag(\'event\',\'voice_rfd_board_peek\')}catch(e){}">See the board</a>'
           + '<button class="cta-btn ghost" id="saveDismiss" type="button">Maybe later</button>'
         + '</div>'
@@ -1162,7 +1162,7 @@ body{
       '<section class="xp-hook" id="xpCard" style="margin:20px 0;padding:18px 20px;border-radius:14px;border:1px solid var(--border-strong,rgba(255,255,255,.18));background:var(--surface,rgba(255,255,255,.03));flex-wrap:wrap;align-items:center;gap:14px;justify-content:space-between;display:none">'
         + '<div style="flex:1;min-width:220px;font-size:.92rem;color:var(--text-dim);line-height:1.55">'
           + '<strong style="color:var(--text);font-weight:800">' + escHtml(String(sp)) + ' XP banked.</strong> '
-          + 'It is on your record and it counts toward your level. Your best voice score sets your place on the solo board.'
+          + 'It is on your record and it counts toward your level. Your best voice score sets your place on the solo leaderboard.'
         + '</div>'
         + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
           + '<a class="cta-btn primary" href="/leaderboard#solo" style="white-space:nowrap" onclick="try{if(window.gtag)gtag(\'event\',\'voice_rfd_rank_click\')}catch(e){}">See where that puts you &rarr;</a>'
@@ -1175,8 +1175,8 @@ body{
     // the waitlist as the honest fallback for a thin live queue + AI backup.
     html +=
       '<section class="spar-prompt" style="margin:20px 0;padding:18px 20px;border-radius:14px;border:1px solid var(--accent);background:linear-gradient(135deg,rgba(239,68,68,.10),rgba(239,68,68,.03));display:flex;flex-wrap:wrap;align-items:center;gap:14px;justify-content:space-between">'
-        + '<div style="flex:1;min-width:220px;font-size:.92rem;color:var(--text-dim);line-height:1.55"><strong style="color:var(--text);font-weight:800">Now argue a human.</strong> You\'re warmed up. Match into a live round on a fresh motion, or post to the waitlist and get DMed when a debater is around. AI backup if nobody pairs.</div>'
-        + '<a href="/spar" class="cta-btn primary" style="white-space:nowrap" onclick="try{if(window.gtag)gtag(\'event\',\'spar_cta_click\',{from:\'voice_rfd\'})}catch(e){}">Find a human &rarr;</a>'
+        + '<div style="flex:1;min-width:220px;font-size:.92rem;color:var(--text-dim);line-height:1.55"><strong style="color:var(--text);font-weight:800">Now argue with a real person.</strong> You\'re warmed up. Get matched into a live round on a new topic, or join the waitlist and get a message when someone is around.</div>'
+        + '<a href="/spar" class="cta-btn primary" style="white-space:nowrap" onclick="try{if(window.gtag)gtag(\'event\',\'spar_cta_click\',{from:\'voice_rfd\'})}catch(e){}">Find someone to argue with &rarr;</a>'
       + '</section>';
 
     // Human paths stay secondary to the immediate four-choice loop above.
@@ -1191,11 +1191,11 @@ body{
       // unary plus on a string, so the row rendered a literal "NaN"
       // ahead of "Take it to a human:" on every ballot.
       '<div class="next-step-row">'
-        + '<span class="next-step-label">Take it to a human:</span>'
-        + '<a href="' + liveHref + '" class="next-step-link">Schedule this motion live →</a>'
-        + '<a href="/spar" class="next-step-link">Spar now →</a>'
+        + '<span class="next-step-label">Take it to a real person:</span>'
+        + '<a href="' + liveHref + '" class="next-step-link">Schedule this topic live →</a>'
+        + '<a href="/spar" class="next-step-link">Find a live round now →</a>'
       + '</div>'
-      + '<div class="foot">All ballots are written by Claude Haiku per Debatable\'s tournament-grade RFD pipeline. <a href="/voice-debate">Run another round</a> · <a href="/live">Live rounds</a> · <a href="/leaderboard">Leaderboard</a></div>';
+      + '<div class="foot">The decision is written by the AI judge. <a href="/voice-debate">Run another round</a> · <a href="/live">Live rounds</a> · <a href="/leaderboard">Leaderboard</a></div>';
 
     root.innerHTML = html;
 

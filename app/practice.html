@@ -2655,11 +2655,11 @@ function renderPrepRoomPanel(layout, panelSide, opts) {
 var JUDGE_MANNERS = [
 { key: 'kind', label: 'Kind', desc: 'Same call, gentler words' },
 { key: 'plain', label: 'Straight', desc: 'Neutral chair' },
-{ key: 'blunt', label: 'Brutal', desc: 'Says it hard' }];
+{ key: 'blunt', label: 'Blunt', desc: 'No softening' }];
 
 var JUDGE_DETAILS = [
 { key: 'short', label: 'Short', desc: 'The call and the reason' },
-{ key: 'medium', label: 'Medium', desc: 'The standard ballot' },
+{ key: 'medium', label: 'Medium', desc: 'The standard write-up' },
 { key: 'extensive', label: 'Extensive', desc: 'Argument by argument' }];
 
 
@@ -3824,8 +3824,8 @@ function hasCredit() {
 }
 function quotaError() {
   var err = new Error(isSignedIn() ?
-  window.__DB_NATIVE ? 'Free quota used for now.' : 'Free quota used. Upgrade to keep going.' :
-  'Guest preview used. Sign in to keep your rounds and style profile.');
+  window.__DB_NATIVE ? 'Your free rounds are used for now.' : 'Your free rounds are used. Upgrade to keep going.' :
+  'That was your free round. Sign in to keep going.');
   err.code = isSignedIn() ? 'QUOTA_PRO' : 'QUOTA_SIGNIN';
   if (typeof window !== 'undefined') {
     try {window.dispatchEvent(new CustomEvent('debateos-quota-hit', { detail: { code: err.code } }));} catch (e) {}
@@ -6912,7 +6912,7 @@ function App() {
         var msg = 'Triage failed.';
         try {var j = JSON.parse(txt);msg = j && (j.error || j.message) || msg;} catch {}
         if (r.status === 401) msg = 'Sign in to use motion triage.';
-        if (r.status === 429) msg = window.__DB_NATIVE ? 'Hit your usage cap. Give it a few minutes.' : 'Hit your usage cap. Upgrade to keep going.';
+        if (r.status === 429) msg = window.__DB_NATIVE ? 'You hit your usage limit. Give it a few minutes.' : 'You hit your usage limit. Upgrade to keep going.';
         setTriageError(msg);
         return;
       }
@@ -10042,13 +10042,13 @@ Rules:
     onClick: (e) => e.stopPropagation(),
     style: { maxWidth: 480, width: '100%', padding: '28px 28px 24px', background: 'var(--c-surface)', border: '1px solid rgba(239,68,68,.35)', borderRadius: 18, boxShadow: '0 20px 80px rgba(0,0,0,.6)', textAlign: 'center' }
   },
-  el('div', { style: { fontSize: '.6rem', fontWeight: 800, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--danger-text,#fca5a5)', marginBottom: 10 } }, quotaCTA === 'signin' ? 'Free quota used' : 'Round limit reached'),
+  el('div', { style: { fontSize: '.6rem', fontWeight: 800, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--danger-text,#fca5a5)', marginBottom: 10 } }, quotaCTA === 'signin' ? 'Free rounds used' : 'Round limit reached'),
   el('div', { style: { fontSize: '1.3rem', fontWeight: 800, color: 'var(--c-bright)', lineHeight: 1.25, marginBottom: 8 } },
-  quotaCTA === 'signin' ? "The AI is recognizing your patterns. Sign in to keep them." : 'You reached the round limit'
+  quotaCTA === 'signin' ? "The AI is starting to learn how you argue. Sign in to keep that." : 'You reached the round limit'
   ),
   el('div', { style: { fontSize: '.86rem', color: 'var(--c-text)', lineHeight: 1.5, marginBottom: 20 } },
   quotaCTA === 'signin' ?
-  "Anonymous, every session starts the AI from zero. Signed in, the AI keeps your rounds, ballots, and style profile. Nothing trains GPT or Claude. Used only to log you in. I never email you." :
+  "Signed out, every session starts the AI from zero. Signed in, it keeps your rounds, the judge's decisions, and how you argue. Nothing trains GPT or Claude. Your account is used only to sign you in." :
   // Apple 3.1.1: inside the native app the cap copy carries no pointer
   // to the web pricing page.
   window.__DB_NATIVE ?
@@ -10560,7 +10560,7 @@ Rules:
   // How I think as a debater
   el('div', { className: 'dash-card', style: { marginTop: 18, padding: '18px 20px', background: 'var(--c-surface)', border: '1px solid var(--c-border2)', borderRadius: 14, textAlign: 'left' } },
   el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 } },
-  el('div', { style: { fontSize: '.7rem', fontWeight: 800, color: 'var(--c-bright)', letterSpacing: '.14em', textTransform: 'uppercase' } }, 'How I think as a debater'),
+  el('div', { style: { fontSize: '.7rem', fontWeight: 800, color: 'var(--c-bright)', letterSpacing: '.14em', textTransform: 'uppercase' } }, 'How I argue'),
   el('button', { className: 'cta-ghost', style: { margin: 0, padding: '4px 12px', fontSize: '.7rem' }, disabled: patternsLoading, onClick: genPatterns }, patternsLoading ? 'Analyzing…' : patterns ? 'Refresh' : 'Analyze')
   ),
   historyRounds.length < 3 ?
@@ -11007,11 +11007,11 @@ Rules:
     };
     var hasMotd = !!(debateOfWeek && debateOfWeek.motion);
     var topicOptions = [];
-    if (hasMotd) topicOptions.push({ value: 'motd', label: 'Resolution of the day', sub: debateOfWeek.motion, summaryLabel: 'Resolution of the day' });
+    if (hasMotd) topicOptions.push({ value: 'motd', label: 'Topic of the day', sub: debateOfWeek.motion, summaryLabel: 'Topic of the day' });
     SIMPLE_TOPIC_CATS.forEach((cat) => {
       topicOptions.push({ value: 'cat:' + cat.label, label: cat.icon + ' ' + cat.label, sub: 'For example: ' + cat.motions[0], summaryLabel: cat.label });
     });
-    topicOptions.push({ value: 'random', label: '🎲 Surprise me', sub: 'A random motion, revealed when the round opens.', summaryLabel: 'Random motion' });
+    topicOptions.push({ value: 'random', label: '🎲 Surprise me', sub: 'A random topic, revealed when the round opens.', summaryLabel: 'Random topic' });
     topicOptions.push({ value: 'custom', label: '✏️ My own topic', sub: 'Anything you want to argue. You type it on the last screen.', summaryLabel: 'My own topic' });
     var judgeDefault = simpleJudgeCards.some((j) => j.key === judgeParadigm) ? judgeParadigm : 'hs_coach';
     try {window.gtag && gtag('event', 'practice_setup_flow_open');} catch (e) {}
@@ -11032,7 +11032,7 @@ Rules:
           var wrap = document.createElement('div');
           wrap.style.cssText = 'margin:0 0 6px;text-align:left;';
           var lab = document.createElement('label');
-          lab.textContent = 'Your motion';
+          lab.textContent = 'Your topic';
           lab.setAttribute('for', 'aflCustomMotion');
           lab.style.cssText = 'display:block;font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;opacity:.65;margin-bottom:6px;';
           var ta = document.createElement('textarea');
@@ -11059,7 +11059,7 @@ Rules:
   var simpleSetupTree = el('div', { style: { maxWidth: 720, width: '100%', margin: '0 auto' } },
   el('div', { style: { textAlign: 'center', marginTop: 6, marginBottom: 22 } },
   el('h2', { style: { fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-.02em', color: 'var(--c-bright)', lineHeight: 1.2, margin: 0 } }, 'Start a casual 1v1 against the AI.'),
-  el('p', { style: { fontSize: '.95rem', color: 'var(--c-text)', lineHeight: 1.5, margin: '8px auto 0', maxWidth: 600 } }, 'Take a side and argue a casual one-on-one round on the clock. Your opponent pushes back, and the AI judge returns a score out of 100 with a written verdict.')
+  el('p', { style: { fontSize: '.95rem', color: 'var(--c-text)', lineHeight: 1.5, margin: '8px auto 0', maxWidth: 600 } }, 'Take a side and argue one-on-one on the clock. The AI pushes back, then the judge scores you out of 100 and explains who won and why.')
   ),
   el('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
   el('button', { className: 'cta', style: { marginTop: 0, padding: '13px 30px', fontSize: '.92rem', display: 'inline-flex', alignItems: 'center', gap: 8 }, onClick: quickStart },
@@ -11122,7 +11122,7 @@ Rules:
   debateOfWeek.background && el('div', { style: { fontSize: '.72rem', color: 'var(--c-dim)', lineHeight: 1.5, marginTop: 6 } }, debateOfWeek.background)
   ),
   el('span', { className: 'voice-input-host', style: { position: 'relative', display: 'block', width: '100%' } },
-  el('textarea', { className: 'float-input', rows: 2, placeholder: 'Type a motion or topic…  e.g. "Social media does more harm than good."', value: motion, onChange: (e) => setMotion(e.target.value), style: { maxWidth: '100%', width: '100%' } })
+  el('textarea', { className: 'float-input', rows: 2, placeholder: 'Type a topic…  e.g. "Social media does more harm than good."', value: motion, onChange: (e) => setMotion(e.target.value), style: { maxWidth: '100%', width: '100%' } })
   ),
   el('div', { style: { fontSize: '.66rem', fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--c-muted)', margin: '12px 0 8px' } }, 'Or start from a theme'),
   el('div', { style: { display: 'flex', gap: 7, flexWrap: 'wrap' } },
@@ -11171,7 +11171,7 @@ Rules:
     return el('div', { style: { marginBottom: 18 } },
     simpleStepHead(3, 'Review & start'),
     el('div', { style: { padding: '4px 16px 12px', borderRadius: 16, background: 'var(--c-surface)', border: '1px solid var(--c-border2)' } },
-    reviewRow('Topic', motion.trim() ? motion.trim() : 'Random / Resolution of the Day'),
+    reviewRow('Topic', motion.trim() ? motion.trim() : 'Random / Topic of the day'),
     el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 14, padding: '8px 0', borderTop: '1px solid var(--c-border3)' } },
     el('span', { style: { fontSize: '.66rem', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--c-muted)', flexShrink: 0 } }, 'Language'),
     el('button', { onClick: () => {setSimpleLangQuery('');setSimpleModal('language');}, style: { background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', fontSize: '.86rem', fontWeight: 600, color: 'var(--c-bright)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 } }, (LANGUAGES[aiLanguage] || LANGUAGES.en).nativeName + ' · change')
@@ -12013,7 +12013,7 @@ Rules:
     'Add your own context, country, actor, constraints, time period. Or click Generate background.' :
     isCounterExt ?
     'Paste your thesis above, then add any context here.' :
-    'Pick a motion first, then add context.',
+    'Pick a topic first, then add context.',
     value: background,
     onChange: (e) => {setBackground(e.target.value);},
     style: { minHeight: 54, fontSize: '.86rem', marginTop: 4 }
@@ -12299,7 +12299,7 @@ Rules:
   )
   )
   ),
-  isPro() && el('div', { style: { fontSize: '.72rem', color: 'rgba(239,68,68,.6)', fontWeight: 600, marginTop: 4 } }, 'Pro. using faster, smarter models'),
+  isPro() && el('div', { style: { fontSize: '.72rem', color: 'rgba(239,68,68,.6)', fontWeight: 600, marginTop: 4 } }, 'Pro: faster, smarter models'),
   // The upgrade link is gated here for Apple 3.1.1.
   !isPro() && el('div', { style: { fontSize: '.72rem', color: 'var(--c-dim)', marginTop: 4 } }, 'Free tier: Claude only', !window.__DB_NATIVE && el(React.Fragment, null, ' · ', el('a', { href: '/pricing#plans', style: { color: 'rgba(239,68,68,.5)', textDecoration: 'underline' } }, 'Upgrade for all 6 brains'))),
 
@@ -12596,7 +12596,7 @@ Rules:
     if (oneLeft) {
       var softMsg = isSignedIn() ?
       window.__DB_NATIVE ? 'Last free round.' : 'Last free round. Plans start at $10 a year.' :
-      'Last sample round. The AI has started recognizing your patterns. Sign in to keep them.';
+      'Last free round. The AI has started to learn how you argue. Sign in to keep that.';
       var softCta = isSignedIn() ?
       el('a', { href: '/pricing', style: { display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '8px 18px', background: '#ef4444', color: '#fff', borderRadius: 999, fontSize: '.78rem', fontWeight: 800, textDecoration: 'none', letterSpacing: '.04em' } }, 'See plans →') :
       el('button', { onClick: () => {try {signIn();} catch (e) {}}, style: { display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '8px 18px', background: '#fff', color: '#1f1f1f', border: 'none', borderRadius: 999, fontSize: '.78rem', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '.04em' } }, 'Create account →');
@@ -12609,8 +12609,8 @@ Rules:
     return el('div', { style: { textAlign: 'center', marginTop: 10, fontSize: '.72rem', color: color, letterSpacing: '.02em' } },
     atLimit ?
     isSignedIn() ?
-    el(React.Fragment, null, 'Free quota used · ', el('a', { href: '/pricing', style: { color: 'var(--danger-text,#fca5a5)', fontWeight: 700, textDecoration: 'underline' } }, 'See plans')) :
-    el(React.Fragment, null, 'Sample rounds used · ', el('button', { onClick: () => {try {signIn();} catch (e) {}}, style: { background: 'none', border: 'none', color: 'var(--danger-text,#fca5a5)', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit', padding: 0 } }, 'Sign in to keep your patterns')) :
+    el(React.Fragment, null, 'Free rounds used · ', el('a', { href: '/pricing', style: { color: 'var(--danger-text,#fca5a5)', fontWeight: 700, textDecoration: 'underline' } }, 'See plans')) :
+    el(React.Fragment, null, 'Free rounds used · ', el('button', { onClick: () => {try {signIn();} catch (e) {}}, style: { background: 'none', border: 'none', color: 'var(--danger-text,#fca5a5)', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit', padding: 0 } }, 'Sign in to keep going')) :
 
     isSignedIn() ?
     left + ' rounds left' :
@@ -12946,10 +12946,10 @@ Rules:
     isUser ? rec.micAvailable ? rec.micStatus || 'Speak now. Your voice is being transcribed.' : rec.micError :
     aiLoading === 'voice' ? tts.streamStatus || 'Preparing HD voice...' :
     aiLoading ? 'Writing argument via ' + (BRAINS[brain] || BRAINS.claude).name + (isPro() ? ' Pro' : '') + ' ... ' + aiPct + '%' :
-    aiError ? 'AI couldn\'t respond. Advancing in a moment...' :
+    aiError ? 'The AI couldn\'t respond. Moving on in a moment...' :
     tts.paused ? 'Paused' :
     !isUser && timer.left <= 0 && !tts.speaking ? 'Wrapping up...' :
-    'LIVE. Timer running'
+    'Live. Clock running'
     ),
     // The orb. `interrupted` adds a 1.2s red-flash class so the
     // visual confirms the cut-off, without it, hitting Interrupt
@@ -13000,7 +13000,7 @@ Rules:
     // error; this surface tells the user why instead of leaving them
     // wondering whether to refresh.
     !isUser && aiError && el('div', { style: { padding: '10px 14px', background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.28)', borderRadius: 10, maxWidth: 460, margin: '0 auto 12px', fontSize: '.78rem', color: 'var(--danger-text,#fca5a5)', textAlign: 'center', lineHeight: 1.45 } },
-    el('strong', { style: { display: 'block', fontSize: '.66rem', fontWeight: 800, letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 4 } }, 'AI couldn\'t respond'),
+    el('strong', { style: { display: 'block', fontSize: '.66rem', fontWeight: 800, letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 4 } }, 'The AI couldn\'t respond'),
     aiError
     ),
 
@@ -13389,7 +13389,7 @@ Rules:
     'Judged by ' + (BRAINS[judgeBrain] && BRAINS[judgeBrain].name || 'AI')
     ),
     el('div', { style: { fontSize: '1.5rem', fontWeight: 900, color: b.winner === 'user' ? '#22c55e' : '#ef4444', marginBottom: 10, letterSpacing: '-.01em' } },
-    b.winner === 'user' ? 'You Win' : 'Opponent Wins'
+    b.winner === 'user' ? 'You won' : 'The AI won'
     ),
     el('p', { style: { fontSize: '.86rem', color: 'var(--c-text4)', lineHeight: 1.6, maxWidth: 560, margin: '0 auto' } }, b.decision)
     ),
@@ -13403,9 +13403,9 @@ Rules:
     el('span', { className: 'ballot-read-lab' }, 'Read'),
     el('span', { className: 'ballot-read-seg' },
     [
-    { id: 'summary', label: 'Summary', hint: 'The call and the clash it turned on' },
-    { id: 'ballot', label: 'Ballot', hint: 'The judge\'s reason for decision and your feedback' },
-    { id: 'full', label: 'Full', hint: 'Every argument, the drops, and how it flips' }].
+    { id: 'summary', label: 'Summary', hint: 'Who won and the exchange it turned on' },
+    { id: 'ballot', label: 'Ballot', hint: 'Why the judge called it that way, and your feedback' },
+    { id: 'full', label: 'Full', hint: 'Every argument, what went unanswered, and how it could have gone the other way' }].
     map((o) => el('button', {
       key: o.id, type: 'button', className: 'ballot-read-btn', title: o.hint,
       'aria-pressed': ballotRead === o.id ? 'true' : 'false',
@@ -13495,9 +13495,9 @@ Rules:
     // sync above can now deliver that promise immediately after sign-in.
     !user && el('div', { style: { display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', marginBottom: 20, borderRadius: 14, background: 'linear-gradient(135deg,rgba(34,197,94,.06),rgba(59,130,246,.04))', border: '1px solid rgba(34,197,94,.22)', flexWrap: 'wrap' } },
     el('div', { style: { flex: 1, minWidth: 200 } },
-    el('div', { style: { fontSize: '.62rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22c55e', marginBottom: 4 } }, 'Claim your ballot'),
-    el('div', { style: { fontSize: '.86rem', fontWeight: 700, color: 'var(--c-text)', lineHeight: 1.4 } }, 'This round is saved only on this device. Create an account to add the ballot to your record, keep it across devices, and count it toward your style profile.'),
-    el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', marginTop: 4, lineHeight: 1.45 } }, 'After sign-in, this exact ballot opens in your saved rounds. Private unless you choose to publish it.')
+    el('div', { style: { fontSize: '.62rem', fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22c55e', marginBottom: 4 } }, 'Keep this round'),
+    el('div', { style: { fontSize: '.86rem', fontWeight: 700, color: 'var(--c-text)', lineHeight: 1.4 } }, 'This round is saved only on this device. Create an account to keep it across devices and count it toward how the AI learns you argue.'),
+    el('div', { style: { fontSize: '.7rem', color: 'var(--c-muted)', marginTop: 4, lineHeight: 1.45 } }, 'After sign-in, this exact decision opens in your saved rounds. Private unless you choose to publish it.')
     ),
     el('button', {
       onClick: () => {
@@ -13515,10 +13515,10 @@ Rules:
         boxShadow: '0 4px 14px rgba(0,0,0,.25)',
         whiteSpace: 'nowrap', flexShrink: 0
       },
-      title: 'Create an account and claim this round'
+      title: 'Create an account and keep this round'
     },
     el('span', { dangerouslySetInnerHTML: { __html: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.3 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C41.9 35 44 29.8 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' } }),
-    'Claim this round'
+    'Keep this round'
     )
     ),
     // Rate this round. Sits directly under the verdict and the points,
@@ -13529,7 +13529,7 @@ Rules:
       style: { padding: '14px 18px', marginBottom: 20, borderRadius: 14, background: 'var(--c-surface)', border: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }
     },
     el('div', { style: { fontSize: '.8rem', fontWeight: 700, color: roundRating ? 'var(--c-muted)' : 'var(--c-text)' } },
-    roundRating ? 'Rated ' + roundRating + '/5. This trains the format.' : 'Was this a good round?'),
+    roundRating ? 'Rated ' + roundRating + '/5. Thanks, this helps future rounds.' : 'Was this a good round?'),
     el('div', { style: { display: 'flex', gap: 4 } },
     [1, 2, 3, 4, 5].map((n) => el('button', {
       key: n,

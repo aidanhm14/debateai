@@ -52,11 +52,15 @@ check('no timer invokes fallback', !/setTimeout\s*\(\s*renderFallback/.test(spar
 
 check('practice voice CTA opens the live room immediately',
   practice.includes("q.set('autostart', '1')") && practice.includes("return '/newvoice?' + q.toString()") && !practice.includes("return '/voice-debate?' + q.toString()"));
+// 2026-09-07: the third path is a plain "Timed round" chip; competitive
+// formats are retired from public copy (casual 1v1 only), so the guard
+// asserts the format list stays gone rather than present.
 check('direct newvoice names three real debate paths',
   newvoice.includes('Casual back-and-forth') &&
   newvoice.includes('<b>Conversation</b>') &&
-  newvoice.includes('<b>Competitive practice</b>') &&
-  newvoice.includes('For competitive debaters.') &&
+  newvoice.includes('<b>Timed round</b>') &&
+  !newvoice.includes('For competitive debaters.') &&
+  !newvoice.includes('Karl Popper') &&
   !newvoice.includes('3 types of debate out loud.'));
 check('conversation path reaches the realtime prompt',
   newvoice.includes("debateStyle = btn.dataset.path === 'conversation'") &&

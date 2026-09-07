@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Debatable · Argue with real people, live</title>
-<meta name="description" content="Debatable is a live arena for spoken argument. Match with a stranger, argue on a clock, get a written ballot, climb the ladder. Rounds publish as replays and clips.">
+<meta name="description" content="Argue with real people, live. Match with a stranger, argue on a clock, and get a written decision from the judge on who won and why. Rounds publish as replays and clips.">
 <!-- Favicon -->
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -19,13 +19,13 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://itsdebatable.com/app">
 <meta property="og:title" content="Debatable · Argue with real people, live">
-<meta property="og:description" content="A live arena for spoken argument. Match with a stranger, argue on a clock, get a written ballot, climb the ladder.">
+<meta property="og:description" content="Argue with real people, live. Match with a stranger, argue on a clock, and get a written decision from the judge on who won and why.">
 <meta property="og:image" content="https://itsdebatable.com/og-app.png?v=deb1">
 <meta property="og:site_name" content="Debatable">
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Debatable · Argue with real people, live">
-<meta name="twitter:description" content="A live arena for spoken argument. Match with a stranger, argue on a clock, get a written ballot, climb the ladder.">
+<meta name="twitter:description" content="Argue with real people, live. Match with a stranger, argue on a clock, and get a written decision from the judge on who won and why.">
 <meta name="twitter:image" content="https://itsdebatable.com/og-app.png?v=deb1">
 <!-- Canonical -->
 <link rel="canonical" href="https://itsdebatable.com/app">
@@ -3359,7 +3359,7 @@ function brainPaywallLine(brainName) {
   if (CHECKOUT_BETA_NO_CHARGE !== false) {
     return brainName + ' runs on a paid plan. Claude is the brain the free tier includes, so rounds stay on Claude until you upgrade.';
   }
-  return 'Upgrade to unlock ' + brainName + '. Individual is $10/year and unlocks all six brains.';
+  return 'Upgrade to use ' + brainName + '. Individual is $10/year and includes all six brains.';
 }
 
 // Pro trial tracking. 5 free tries per feature
@@ -4495,6 +4495,10 @@ function PolyBackground() {
 
 
 
+
+
+
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4521,13 +4525,9 @@ function createStreamThrottle(onChunk /* outputRef unused, kept for compat */) {
   var revealed = 0; // chars the user has seen
   var rafId = null;var finished = false;var BASE_STEP = 3; // chars per frame when in-sync (≈180 chars/sec. real typing feel)
   var CATCHUP_CAP = 400; // beyond this, we speed up so the user isn't stuck watching the animation
-  function scheduleTick() {if (rafId == null) rafId = requestAnimationFrame(tick);}function tick() {rafId = null;
-    var behind = streamed.length - revealed;
-    if (behind <= 0) {
-      // Nothing new to render. If the stream is done, fire a final onChunk so
+  function scheduleTick() {if (rafId == null) rafId = requestAnimationFrame(tick);}function tick() {rafId = null;var behind = streamed.length - revealed;if (behind <= 0) {// Nothing new to render. If the stream is done, fire a final onChunk so
       // consumers see the exact committed text (idempotent. same string).
-      if (finished) onChunk(streamed);
-      return;
+      if (finished) onChunk(streamed);return;
     }
     // Choose how many chars to reveal this frame.
     var step;
@@ -5985,9 +5985,9 @@ function logFeedback(type, data) {
    ═══════════════════════════════════════════════════ */
 
 var DEPTH_CONFIGS = {
-  quick: { label: 'Quick', words: '~600', time: '3 min', desc: 'Skeleton outline with key claims', maxTokens: 4000 },
-  standard: { label: 'Standard', words: '~1200', time: '5 min', desc: 'Solid case with warrants', maxTokens: 8000 },
-  competition: { label: 'Competition', words: '~1800+', time: '7-8 min', desc: 'Full case with deep warrants, A2 blocks, MG overview', maxTokens: 16000 }
+  quick: { label: 'Quick', words: '~600', time: '3 min', desc: 'Outline with the main claims', maxTokens: 4000 },
+  standard: { label: 'Standard', words: '~1200', time: '5 min', desc: 'Full case with reasons for each claim', maxTokens: 8000 },
+  competition: { label: 'Competition', words: '~1800+', time: '7-8 min', desc: 'Long case with detailed reasoning and prepared replies', maxTokens: 16000 }
 };
 // Format-specific competition depth overrides (words + time match constructive speech)
 var FORMAT_DEPTH_OVERRIDES = {
@@ -6501,7 +6501,7 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
     // Paywall: Opp Attack is a pro feature. Free users get 1 trial taste.
     var oaCheck = canUseProFeature(team, user, 'opp_attack');
     if (!oaCheck.allowed) {
-      setOppAttack(window.__DB_NATIVE ? 'Error: You\u2019ve used your free trial of Opp Attack for now.' : 'Error: Opp Attack is a paid feature. upgrade at /pricing to keep using it. You\u2019ve used your free trial.');
+      setOppAttack(window.__DB_NATIVE ? 'Error: Your free try of Opp Attack is used for now.' : 'Error: Your free try of Opp Attack is used. It is a paid feature; upgrade at /pricing to keep using it.');
       return;
     }
     if (!isPro(team, user)) useProTrial('opp_attack');
@@ -6778,11 +6778,11 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
   ),
   React.createElement('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
   [
-  { id: 'default', label: 'Competition', desc: 'Technical, warrant-heavy' },
+  { id: 'default', label: 'Competition', desc: 'Technical, reason by reason' },
   { id: 'conversational', label: 'Conversational', desc: 'Clear, natural language' },
-  { id: 'persuasive', label: 'Persuasive', desc: 'Rhetorical power' },
+  { id: 'persuasive', label: 'Persuasive', desc: 'Built to persuade' },
   { id: 'accessible', label: 'Accessible', desc: 'Easy to follow' },
-  { id: 'aggressive', label: 'Aggressive', desc: 'Hard-hitting, sharp' }].
+  { id: 'aggressive', label: 'Aggressive', desc: 'Sharp and direct' }].
   map(function (tone) {
     var isActive = caseTone === tone.id;
     var isLocked = tone.id !== 'default' && !isPro(team, user);
@@ -6924,10 +6924,10 @@ Be specific and concrete. Name the exact words, phrases, and strategic moves. Th
         color: '#fbbf24', fontWeight: 800, fontSize: '.82rem', letterSpacing: '.5px', textTransform: 'uppercase',
         zIndex: 2
       },
-      'aria-label': 'Upgrade to unlock Generate Opposition'
+      'aria-label': 'Upgrade to use Generate Opposition'
     },
     React.createElement('span', { style: { fontSize: '1rem' } }, '\uD83D\uDD12'),
-    React.createElement('span', null, 'Pro, Upgrade to Unlock')
+    React.createElement('span', null, 'Paid feature. Upgrade to use it')
     )
     );
   }()
@@ -9377,7 +9377,7 @@ function DebateChat() {
       value: background,
       onChange: (e) => setBackground(e.target.value),
       onFocus: onFocus, onBlur: onBlur,
-      placeholder: 'Any context that shapes the debate. assumptions, setting, scope. Leave blank or use Random motion above.',
+      placeholder: 'Anything that shapes the debate: where it is set, what is assumed, how broad it is. Leave blank, or use Random motion above.',
       rows: 3,
       style: fieldStyle
     }),
@@ -9431,7 +9431,7 @@ function DebateChat() {
     var hasExchange = messages.some((m) => m.role === 'user') && messages.some((m) => m.role === 'assistant' && m.text && m.text.trim());
     var hasVerdict = messages.some((m) => m.role === 'verdict');
     var enabled = hasExchange && !hasVerdict && !loading;
-    return React.createElement('button', { type: 'button', onClick: endRound, disabled: !enabled, title: hasVerdict ? 'Verdict already in. New Round to start fresh' : 'End the round and get a judge verdict', style: { background: enabled ? 'rgba(251,191,36,.12)' : 'transparent', border: '1px solid ' + (enabled ? 'rgba(251,191,36,.42)' : 'var(--border,rgba(255,255,255,.15))'), borderRadius: 8, color: enabled ? '#fbbf24' : 'var(--text-dim,#94a3b8)', padding: '6px 12px', fontSize: '.7rem', fontWeight: 600, letterSpacing: '.04em', cursor: enabled ? 'pointer' : 'not-allowed', opacity: enabled ? 1 : .55, fontFamily: 'inherit', transition: '.15s' } }, 'End & Judge');
+    return React.createElement('button', { type: 'button', onClick: endRound, disabled: !enabled, title: hasVerdict ? 'The judge already decided this round. Press New Round to start another.' : 'End the round and get the judge\u2019s decision', style: { background: enabled ? 'rgba(251,191,36,.12)' : 'transparent', border: '1px solid ' + (enabled ? 'rgba(251,191,36,.42)' : 'var(--border,rgba(255,255,255,.15))'), borderRadius: 8, color: enabled ? '#fbbf24' : 'var(--text-dim,#94a3b8)', padding: '6px 12px', fontSize: '.7rem', fontWeight: 600, letterSpacing: '.04em', cursor: enabled ? 'pointer' : 'not-allowed', opacity: enabled ? 1 : .55, fontFamily: 'inherit', transition: '.15s' } }, 'End & Judge');
   })(),
   React.createElement('button', { type: 'button', onClick: reset, style: { background: 'transparent', border: '1px solid var(--border,rgba(255,255,255,.15))', borderRadius: 8, color: 'var(--text-dim,#94a3b8)', padding: '6px 12px', fontSize: '.7rem', fontWeight: 600, letterSpacing: '.04em', cursor: 'pointer', fontFamily: 'inherit' } }, 'New Round')
   )
@@ -10789,7 +10789,7 @@ function JudgeAnalyzer({ team, user, onNavigateTab }) {
   el('div', { style: { color: '#94a3b8', fontSize: '.88rem', lineHeight: 1.6, marginBottom: 20 } }, 'Paste ballots, RFDs, or a Tabroom paradigm and get a strategic profile of any judge, likes, dislikes, speaker-point drivers, and how to win their ballot. ' + (window.__DB_NATIVE ? 'Not available in the app yet.' : 'Available on Individual and Team plans.')),
   // Apple 3.1.1: no upgrade CTA or price copy inside the native app.
   !window.__DB_NATIVE && el('div', { style: { display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' } },
-  el('button', { className: 'btn btn-primary', onClick: goUpgrade, style: { padding: '10px 24px', fontSize: '.88rem' } }, 'Upgrade to Unlock'),
+  el('button', { className: 'btn btn-primary', onClick: goUpgrade, style: { padding: '10px 24px', fontSize: '.88rem' } }, 'Upgrade to use this'),
   el('div', { style: { color: '#64748b', fontSize: '.78rem', alignSelf: 'center' } }, 'Starting at $10/year')
   )
   )
@@ -12588,8 +12588,8 @@ function ErrorToast({ message, onDismiss }) {
   if (!message) return null;
   var title = 'Something went wrong';
   var detail = message;
-  if (message.includes('Rate limited')) {title = 'Slow down';} else
-  if (message.includes('Authentication')) {title = 'Auth error';} else
+  if (message.includes('Rate limited')) {title = 'Too many requests';} else
+  if (message.includes('Authentication')) {title = 'Sign-in problem';} else
   if (message.includes('temporarily down')) {title = 'Service unavailable';} else
   if (message.includes('offline')) {title = 'No connection';} else
   if (message.includes('Failed to fetch')) {title = 'Connection failed';detail = 'Could not reach the AI service. Check your internet connection and try again.';}
@@ -12692,7 +12692,7 @@ function AuthModal({ onSignIn, onClose }) {
   return React.createElement('div', { className: 'auth-overlay', onClick: (e) => {if (e.target === e.currentTarget && onClose) onClose();} },
   React.createElement('div', { className: 'auth-modal', role: 'dialog', 'aria-modal': true },
   React.createElement('h2', null, 'Welcome to Debatable'),
-  React.createElement('p', null, "From here on, the AI starts learning how you argue. Style profile, ballot history, and saved cases follow your account."),
+  React.createElement('p', null, "Sign in and the AI starts learning how you argue. Your saved cases, past rounds, and judge feedback stay with your account."),
   React.createElement('button', { className: 'auth-google-btn', onClick: onSignIn },
   'Sign in or create an account'
   ),
@@ -12783,7 +12783,7 @@ function SignInGate({ label, onSignIn }) {
   React.createElement('path', { d: 'M8 11V7a4 4 0 0 1 8 0v4' })
   ),
   React.createElement('h3', { style: { margin: '0 0 8px', fontSize: '1.2rem', fontWeight: 700 } }, 'Sign in to use ' + label),
-  React.createElement('p', { style: { margin: '0 0 22px', color: 'var(--c-dim, #6b7280)', fontSize: '.92rem', lineHeight: 1.55 } }, label + ' keeps your rounds, ballots, and progress on your Google account.'),
+  React.createElement('p', { style: { margin: '0 0 22px', color: 'var(--c-dim, #6b7280)', fontSize: '.92rem', lineHeight: 1.55 } }, label + ' keeps your rounds, judge feedback, and progress on your Google account.'),
   React.createElement('button', { onClick: onSignIn, style: { background: '#ef4444', color: '#fff', border: 'none', padding: '11px 22px', borderRadius: 999, fontWeight: 700, fontSize: '.9rem', cursor: 'pointer' } }, 'Continue with Google')
   );
 }
@@ -12797,13 +12797,13 @@ function SignUpNudgeModal({ onSignIn, onDismiss }) {
   return el('div', { className: 'auth-overlay' },
   el('div', { className: 'auth-modal', role: 'dialog', 'aria-modal': true, style: { maxWidth: 480 } },
   el('div', { style: { fontSize: '.68rem', fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--accent,#ef4444)', marginBottom: 8 } }, 'Save your progress'),
-  el('h2', { style: { marginBottom: 6 } }, "That first preview is local. Sign in before the next one."),
+  el('h2', { style: { marginBottom: 6 } }, "Your first round only lives in this browser. Sign in to keep the next one."),
   el('p', { style: { color: 'var(--text-dim,#94a3b8)', fontSize: '.88rem', lineHeight: 1.55, marginBottom: 16 } },
-  "Guest mode is a quick taste. Signed in, Debatable keeps the work you are building and the AI stops treating you like a stranger."
+  "As a guest, nothing is saved. Signed in, your cases and rounds stay with you, and the AI remembers how you argue."
   ),
   el('ul', { style: { listStyle: 'none', padding: 0, margin: '0 0 18px' } },
   bullet('Your cases, ballots, and rounds follow you across devices.'),
-  bullet('Your style profile learns your voice, jargon level, and weighing preferences.'),
+  bullet('The AI learns how you like to argue and adjusts to it.'),
   bullet('Leaderboard scores count under your name, not a disposable browser.'),
   bullet('Future rounds start from your actual level instead of a blank slate.')
   ),
@@ -12811,7 +12811,7 @@ function SignUpNudgeModal({ onSignIn, onDismiss }) {
   'Create an account'
   ),
   el('p', { style: { fontSize: '.7rem', color: 'var(--text-dim,#94a3b8)', textAlign: 'center', marginBottom: 10, lineHeight: 1.5 } }, "Continue with Google. The same button works for new and returning accounts, with no password to remember."),
-  el('button', { className: 'auth-skip', onClick: onDismiss, style: { opacity: .48, fontSize: '.72rem', width: '100%' } }, 'Keep previewing locally')
+  el('button', { className: 'auth-skip', onClick: onDismiss, style: { opacity: .48, fontSize: '.72rem', width: '100%' } }, 'Not now')
   )
   );
 }
@@ -14699,7 +14699,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   editingTeam ?
   el('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
   el('input', { value: editName, onChange: (e) => setEditName(e.target.value), placeholder: 'Team name', style: { padding: '6px 12px', background: '#38383e', border: '1px solid #ffffff15', borderRadius: 6, color: '#e2e8f0', fontSize: '1.1rem', fontWeight: 700, outline: 'none' } }),
-  el('textarea', { value: editContext, onChange: (e) => setEditContext(e.target.value), placeholder: 'Team context (e.g. "UChicago APDA team, focused on policy and philosophy cases, strong at framework debate")', rows: 2, style: { padding: '6px 12px', background: '#38383e', border: '1px solid #ffffff15', borderRadius: 6, color: '#cbd5e1', fontSize: '.82rem', outline: 'none', resize: 'vertical' } }),
+  el('textarea', { value: editContext, onChange: (e) => setEditContext(e.target.value), placeholder: 'Team context (e.g. "College club, mostly policy and philosophy topics, strong on definitions")', rows: 2, style: { padding: '6px 12px', background: '#38383e', border: '1px solid #ffffff15', borderRadius: 6, color: '#cbd5e1', fontSize: '.82rem', outline: 'none', resize: 'vertical' } }),
   // Public directory opt-in. Default off. Uses theme CSS vars so it
   // reads correctly in both dark and light modes (the hardcoded
   // #38383e was black-on-white in day theme).
@@ -14796,7 +14796,7 @@ function TeamDashboard({ user, team, teamLoading, onTeamCreated, userApiKey, set
   el('div', { style: { color: '#fbbf24', fontSize: '.78rem', fontWeight: 700, marginBottom: 4 } }, 'BYOK is one-provider only'),
   el('div', { style: { color: '#94a3b8', fontSize: '.74rem', lineHeight: 1.55 } },
   'Your key unlocks ', el('strong', { style: { color: '#fbbf24' } }, 'unlimited Claude'), ' requests. ',
-  el('strong', null, 'GPT, Gemini, Grok, DeepSeek, and Open Lab still count against your plan\u2019s request cap'), '. once you cross to another brain you\u2019ll see "you ran out of requests." ' + (window.__DB_NATIVE ? 'Stay on Claude as your main engine.' : 'Stay on Claude as your main engine, or upgrade to Individual ($10/year) for all 6 brains.')
+  el('strong', null, 'GPT, Gemini, Grok, DeepSeek, and Open Lab still count against your plan\u2019s request cap'), '. Switch to another brain and you can hit that cap. ' + (window.__DB_NATIVE ? 'Stay on Claude as your main engine.' : 'Stay on Claude as your main engine, or upgrade to Individual ($10/year) for all 6 brains.')
   )
   )
   ),
@@ -15747,11 +15747,11 @@ function UsageBanner({ team }) {
   if (team.usageLimit) {
     var remaining = (team.usageLimit || 0) - (team.usageThisPeriod || 0);
     if (remaining <= 0) {
-      parts.push(el('div', { key: 'usage-warn', style: { fontSize: '.75rem', color: '#ef4444', textAlign: 'center', padding: '4px 0', fontWeight: 600 } }, 'No generations remaining this period. Upgrade or wait for reset. Revisions are still free.'));
+      parts.push(el('div', { key: 'usage-warn', style: { fontSize: '.75rem', color: '#ef4444', textAlign: 'center', padding: '4px 0', fontWeight: 600 } }, 'No new cases left this period. Upgrade, or wait for the reset. Editing existing cases is still free.'));
     } else if (remaining <= 5) {
-      parts.push(el('div', { key: 'usage-warn', style: { fontSize: '.75rem', color: '#ef4444', textAlign: 'center', padding: '4px 0', fontWeight: 600 } }, remaining + ' case generation' + (remaining !== 1 ? 's' : '') + ' remaining. Revisions are unlimited.'));
+      parts.push(el('div', { key: 'usage-warn', style: { fontSize: '.75rem', color: '#ef4444', textAlign: 'center', padding: '4px 0', fontWeight: 600 } }, remaining + ' new case' + (remaining !== 1 ? 's' : '') + ' left this period. Editing existing cases does not count.'));
     } else if (remaining <= 15) {
-      parts.push(el('div', { key: 'usage-warn', style: { fontSize: '.75rem', color: '#f59e0b', textAlign: 'center', padding: '4px 0' } }, remaining + ' case generations remaining. Revisions are unlimited.'));
+      parts.push(el('div', { key: 'usage-warn', style: { fontSize: '.75rem', color: '#f59e0b', textAlign: 'center', padding: '4px 0' } }, remaining + ' new cases left this period. Editing existing cases does not count.'));
     }
   }
 
@@ -15811,22 +15811,22 @@ function AdBanner({ team, user, onNavigate }) {
     var remaining = getAnonLimit() - used;
     if (remaining <= 0) {
       return el('div', { style: { maxWidth: 900, width: '94%', margin: '8px auto 0', padding: '10px 18px', background: 'linear-gradient(135deg,#ef444418,#ef44440a)', border: '1px solid #ef444440', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, boxShadow: '0 2px 16px #ef444415' } },
-      el('span', { style: { color: '#fca5a5', fontSize: '.82rem', flex: 1, fontWeight: 500 } }, "Sample rounds used. The AI has started recognizing your patterns. Sign in to keep them."),
+      el('span', { style: { color: '#fca5a5', fontSize: '.82rem', flex: 1, fontWeight: 500 } }, "Your free round is used. Sign in to keep going and keep what you built."),
       el('button', { onClick: () => {if (onNavigate) onNavigate('team');}, style: { padding: '6px 18px', background: 'linear-gradient(135deg,#ef4444,#ef4444cc)', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '.78rem', whiteSpace: 'nowrap', fontFamily: 'inherit' } }, 'Create account')
       );
     }
     if (remaining <= 3) {
       return el('div', { style: { maxWidth: 900, width: '94%', margin: '8px auto 0', padding: '10px 18px', background: 'linear-gradient(135deg,#f59e0b10,#f59e0b06)', border: '1px solid rgba(245,158,11,.1)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, backdropFilter: 'blur(12px)' } },
-      el('span', { style: { color: '#fcd34d', fontSize: '.82rem', flex: 1, fontWeight: 500 } }, remaining + ' sample round' + (remaining !== 1 ? 's' : '') + ' before sign-in.'),
+      el('span', { style: { color: '#fcd34d', fontSize: '.82rem', flex: 1, fontWeight: 500 } }, remaining + ' free round' + (remaining !== 1 ? 's' : '') + ' left before sign-in.'),
       el('button', { onClick: () => setDismissed(true), style: { background: 'none', border: 'none', color: '#8890a0', cursor: 'pointer', fontSize: '.85rem', padding: '2px 6px' } }, '\u2715')
       );
     }
   }
 
   var ads = [
-  { text: 'Powered by 6 AI models (Claude + GPT + Gemini + Grok + DeepSeek + Open Lab). pick the one that fits the round', cta: 'Upgrade', color: '#3b82f6', action: 'upgrade' },
-  { text: 'HD voice + 6 AI brains. the only debate tool built on multiple models', cta: 'Go Pro', color: '#8b5cf6', action: 'upgrade' },
-  { text: 'Join debaters using Debatable to win rounds', cta: 'Share', color: '#f59e0b', action: 'share' }];
+  { text: 'Six AI opponents on a paid plan: Claude, GPT, Gemini, Grok, DeepSeek, and Open Lab. Pick the one that fits the round.', cta: 'Upgrade', color: '#3b82f6', action: 'upgrade' },
+  { text: 'HD voice and all six AI brains, on a paid plan.', cta: 'Upgrade', color: '#8b5cf6', action: 'upgrade' },
+  { text: 'Know someone who likes to argue? Send them a link.', cta: 'Share', color: '#f59e0b', action: 'share' }];
 
   // Apple 3.1.1: drop the upgrade promos inside the native app.
   if (window.__DB_NATIVE) ads = ads.filter(function (a) {return a.action !== 'upgrade';});
@@ -16694,10 +16694,10 @@ function LiveDebates({ user, team, onNavigateTab }) {
   el('div', { style: { textAlign: 'center', padding: '40px 30px', maxWidth: 400 } },
   el('div', { style: { marginBottom: 12 }, dangerouslySetInnerHTML: { __html: '<svg width="56" height="56" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="32" r="30" stroke="#ffffff12" stroke-width="1.5"/><rect x="26" y="14" width="12" height="24" rx="6" stroke="#ef4444" stroke-width="1.5" fill="#ef444410"/><line x1="32" y1="38" x2="32" y2="46" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/><path d="M22 30c0 5.5 4.5 10 10 10s10-4.5 10-10" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" fill="none" opacity=".5"/><line x1="26" y1="46" x2="38" y2="46" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/></svg>' } }),
   el('div', { style: { fontWeight: 800, fontSize: '1.3rem', color: 'var(--text-primary,#f1f5f9)', marginBottom: 8 } }, 'Live Debates'),
-  el('div', { style: { color: 'var(--text-muted,#94a3b8)', fontSize: '.9rem', lineHeight: 1.6, marginBottom: 20 } }, 'Schedule debates, join video calls, and compete live with debaters around the world. ' + (window.__DB_NATIVE ? 'Not available in the app yet.' : 'Available on Individual and Team plans.')),
+  el('div', { style: { color: 'var(--text-muted,#94a3b8)', fontSize: '.9rem', lineHeight: 1.6, marginBottom: 20 } }, 'Schedule debates, join video calls, and compete live with people around the world. ' + (window.__DB_NATIVE ? 'Not available in the app yet.' : 'Available on Individual and Team plans.')),
   // Apple 3.1.1: no upgrade CTA or price copy inside the native app.
   !window.__DB_NATIVE && el('div', { style: { display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' } },
-  el('button', { className: 'btn btn-primary', onClick: () => {if (onNavigateTab) onNavigateTab('team');}, style: { padding: '10px 24px', fontSize: '.88rem' } }, 'Upgrade to Unlock'),
+  el('button', { className: 'btn btn-primary', onClick: () => {if (onNavigateTab) onNavigateTab('team');}, style: { padding: '10px 24px', fontSize: '.88rem' } }, 'Upgrade to use this'),
   el('div', { style: { color: 'var(--text-muted,#64748b)', fontSize: '.78rem', alignSelf: 'center' } }, 'Starting at $10/year')
   )
   )
@@ -18087,7 +18087,7 @@ function App() {
   ),
   React.createElement('button', { className: 'topbar-signout', onClick: signOut }, 'Sign Out')
   ) :
-  React.createElement('button', { className: 'topbar-signin', onClick: () => requestAuth('signin'), title: 'Sign in or create an account to keep your rounds, ballots, and style profile.', style: { background: '#ef4444', color: '#fff', padding: '6px 13px', borderRadius: 999, fontWeight: 700, fontSize: '.72rem', letterSpacing: '.04em', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 7 } },
+  React.createElement('button', { className: 'topbar-signin', onClick: () => requestAuth('signin'), title: 'Sign in or create an account to keep your rounds, judge feedback, and style profile.', style: { background: '#ef4444', color: '#fff', padding: '6px 13px', borderRadius: 999, fontWeight: 700, fontSize: '.72rem', letterSpacing: '.04em', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 7 } },
   React.createElement('span', null, 'Sign in')
   )
   )
@@ -18279,10 +18279,10 @@ function App() {
   React.createElement('div', { style: { fontSize: '3rem', marginBottom: 16 } }, '\uD83C\uDF89'),
   React.createElement('h2', { style: { fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary,#f1f5f9)', marginBottom: 8, letterSpacing: '-.3px' } }, 'You’re in.'),
   React.createElement('p', { style: { color: 'var(--text-secondary,#94a3b8)', fontSize: '.95rem', lineHeight: 1.7, marginBottom: 24 } },
-  'Your upgrade is active. All six AI brains, HD voice, style customization, live debates, the works. Revisions never count against your quota. Go win some rounds.'
+  'Your upgrade is active: all six AI brains, HD voice, style settings, and live rounds. Edits never count against your quota.'
   ),
   React.createElement('div', { style: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' } },
-  React.createElement('button', { className: 'btn btn-primary', onClick: () => {setBillingSuccess(false);navigateTab('case');}, style: { padding: '12px 28px', fontSize: '.92rem' } }, 'Start Building Cases'),
+  React.createElement('button', { className: 'btn btn-primary', onClick: () => {setBillingSuccess(false);navigateTab('case');}, style: { padding: '12px 28px', fontSize: '.92rem' } }, 'Build a case'),
   React.createElement('button', { className: 'btn', onClick: () => setBillingSuccess(false), style: { padding: '12px 20px', fontSize: '.88rem', color: 'var(--text-muted,#94a3b8)' } }, 'Explore')
   )
   )

@@ -54,7 +54,7 @@
 <meta property="og:image" content="https://itsdebatable.com/og-voice.png?v=cards6">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Voice round · Debate it out loud · Debatable">
-<meta name="twitter:description" content="Talk to a debater. Interrupt them. Get the judge's verdict. Real-time voice debate.">
+<meta name="twitter:description" content="Argue with an AI out loud. Interrupt it. Get the judge's decision and a score out of 100.">
 <meta name="twitter:image" content="https://itsdebatable.com/og-voice.png?v=cards6">
 <!-- Google Analytics 4 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
@@ -6244,7 +6244,7 @@ function App() {
     cleanup();
     setStatus('connecting');
     statusRef.current = 'connecting';
-    setConnectStep('Minting session…');
+    setConnectStep('Setting up your session…');
     // Assign the ballot lens while the connection is built. Resumed
     // rounds keep their lens; fresh rounds draw a new one. Do not reveal
     // it in a separate modal: that duplicated the three judge types used
@@ -6303,7 +6303,7 @@ function App() {
       // the connection but the AI's first speech is dramatically
       // sharper. Show the user what's happening while they wait.
       if (smartness > 1) {
-        setConnectStep('Convening AI council (' + smartness + ' brains)…');
+        setConnectStep('Bringing in ' + smartness + ' AI brains…');
       }
       // Attach a Firebase ID token so the server can meter this round.
       //
@@ -6431,7 +6431,7 @@ function App() {
           // be higher than the server's), so the user never loops on a
           // Start button that always 402s with no path forward.
           setVoiceGate((g) => ({ ...g, state: 'upgrade', loading: false }));
-          var e = new Error(body.error || 'Free voice rounds exhausted. Keep going with a plan.');
+          var e = new Error(body.error || 'Your free voice rounds are used. Keep going with a plan.');
           e.kind = 'upgrade';
           throw e;
         }
@@ -6511,7 +6511,7 @@ function App() {
             isDisconnectedRef.current = true;
             disconnectTimeRef.current = Date.now();
             queuedTurnsWhileDisconnectedRef.current = [];
-            addSystem('Connection interrupted. Waiting up to 8 seconds for WebRTC to reconnect…');
+            addSystem('Connection interrupted. Waiting up to 8 seconds for the call to reconnect…');
             if (typeof gtag === 'function') {
               gtag('event', 'voice_network_disconnect', {
                 session_id: lastVoiceRoundIdRef.current || ''
@@ -6937,7 +6937,7 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
         } catch (e) {console.warn('[dc] initial pacing send failed:', e);}
       };
 
-      setConnectStep('Negotiating with OpenAI…');
+      setConnectStep('Connecting the call…');
 
       // 3. SDP offer/answer
       var offer = await pc.createOffer();
@@ -8120,7 +8120,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
       }
     } catch (e) {
       setHandingOff(false); // drop the overlay so the error is visible
-      setRfd('Could not generate RFD: ' + e.message);
+      setRfd('Could not get the judge\'s decision: ' + e.message);
       try {window.SFX && SFX.error && SFX.error();} catch (sfxErr) {}
     } finally {
       setRfdLoading(false);
@@ -8274,7 +8274,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
     'Listening';
     var buildMini = function (inPip) {
       return el('div', { className: 'live-mini' + (inPip ? ' live-mini--pip' : '') },
-      el('div', { className: 'live-mini__judge', title: 'An AI judge is tracking the round and writes the ballot at the end.' },
+      el('div', { className: 'live-mini__judge', title: 'An AI judge is tracking the round and writes the decision at the end.' },
       el('span', { className: 'lmj' }, '⚖'),
       el('span', null, 'Judge tracking'),
       el('span', { className: 'lmj-dot' })
@@ -8380,15 +8380,15 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
     'aria-label': 'How to use the voice round'
   },
   el('ol', { className: 'instructions-list' },
-  el('li', null, el('strong', null, 'Pick a motion'), '. Type your own, click a category, or leave blank and the AI asks you on the mic.'),
-  el('li', null, el('strong', null, 'Pick a side'), '. Prop defends the motion, Opp tears it down.'),
+  el('li', null, el('strong', null, 'Pick a topic'), '. Type your own, click a category, or leave blank and the AI asks you on the mic.'),
+  el('li', null, el('strong', null, 'Pick a side'), '. Pro argues the statement is right, Con argues it is wrong.'),
   el('li', null, el('strong', null, 'Hit Start'), '. Your browser asks for mic permission, then the round begins.'),
-  el('li', null, el('strong', null, 'Talk over the AI'), ' to interrupt mid-speech; server-side VAD picks you up under ~300 ms. Take POIs the same way.'),
+  el('li', null, el('strong', null, 'Talk over the AI'), ' to interrupt it mid-sentence. It hears you within about a third of a second.'),
   el('li', null, el('strong', null, 'Tap the mic'), ' to listen; the AI keeps building its argument until you unmute.'),
-  el('li', null, el('strong', null, 'Time runs out → RFD'), '. The AI hands you a judge ballot, then you can rate the round.')
+  el('li', null, el('strong', null, 'Time runs out'), '. The judge writes up who won and why, then you can rate the round.')
   ),
   el('div', { className: 'instructions-meta' },
-  el('span', { className: 'instructions-pip' }), ' Live · 30-min cap · 6 sessions/hour · ~300 ms latency · WebRTC via OpenAI Realtime'
+  el('span', { className: 'instructions-pip' }), ' Live · 30-minute cap · runs on OpenAI Realtime'
   )
   )
   )),
@@ -8473,8 +8473,8 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
     var activeMission = VOICE_MISSIONS.find((mission) =>
     mission.mode === mode && mission.personaKey === personaKey && mission.smartness === smartness
     ) || {
-      key: 'custom', code: 'CX', title: 'Custom loadout', kicker: 'Fine-tuned',
-      desc: 'Your own combination of drill, opponent and council depth.',
+      key: 'custom', code: 'CX', title: 'Custom setup', kicker: 'Fine-tuned',
+      desc: 'Your own mix of round type, opponent, and AI depth.',
       statA: MODES.find((m) => m.key === mode)?.title || 'Custom',
       statB: 'Ready', power: Math.min(100, 24 + smartness * 14)
     };
@@ -8581,7 +8581,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
     ),
     el('div', { className: 'selection-guide__note' },
     micPerm === 'denied' ? 'Microphone access is blocked. Open Round options to run the mic check.' :
-    motion.trim() ? 'Motion: ' + motion : 'A motion is picked when you start. Open Round options to choose your own.'
+    motion.trim() ? 'Topic: ' + motion : 'A topic is picked when you start. Open Round options to choose your own.'
     )
     );
   }(),
@@ -8598,11 +8598,11 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   el('div', { className: 'step' },
   el('div', { className: 'step-h' },
   el('div', { className: 'step-num' }, '1'),
-  el('div', { className: 'step-title' }, extMode === 'counter' ? 'What you’re defending' : 'Pick a motion')
+  el('div', { className: 'step-title' }, extMode === 'counter' ? 'What you’re defending' : 'Pick a topic')
   ),
   el('div', { className: 'step-help' }, extMode === 'counter' ?
   'Paste your essay’s thesis, project claim, or paper’s argument. Tap a sample if you want, or leave blank and Dr. Iyer opens with the mic.' :
-  'Type your own, click a category chip to roll one, or leave blank and the AI asks you on the mic.'),
+  'Type your own, click a category to get one, or leave blank and the AI asks you on the mic.'),
   el('div', { className: 'card' },
   el('input', {
     type: 'text',
@@ -8613,7 +8613,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
     'Paste your essay’s thesis, project claim, or main argument you’ll defend…' :
     'Social media does more harm than good…',
     maxLength: 400,
-    'aria-label': extMode === 'counter' ? 'Your essay, project, or claim to defend' : 'Debate motion'
+    'aria-label': extMode === 'counter' ? 'Your essay, project, or claim to defend' : 'Debate topic'
   }),
   // Counter-mode sample passages. Three exam-syllabus stems
   // (one bio, one physics, one history) so the first-time user
@@ -8694,7 +8694,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
       type: 'button',
       className: 'motion-chip motion-chip--roll',
       onClick: rollAny,
-      title: 'Roll a random motion from any category'
+      title: 'Pick a random topic from any category'
       // Styling lives in CSS, not inline: an inline colour outranks the
       // light-theme rule its five sibling chips get, which is how this
       // one ended up at 1.6:1 on light while they sat at 7.9:1.
@@ -8706,7 +8706,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
         type: 'button',
         className: 'motion-chip',
         onClick: () => rollCategory(tag),
-        title: count + ' ' + tag + ' motion' + (count === 1 ? '' : 's') + '. Click to reroll.'
+        title: count + ' ' + tag + ' topic' + (count === 1 ? '' : 's') + '. Click for another.'
       }, tag);
     })
     );
@@ -8724,7 +8724,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
     className: 'motion-chip',
     disabled: !motion.trim() || bgLoading,
     onClick: generateBackground,
-    title: !motion.trim() ? 'Type or roll a motion first' : 'Pull two short sentences of factual context the AI will use this round',
+    title: !motion.trim() ? 'Type or pick a topic first' : 'Pull two short sentences of factual context the AI will use this round',
     style: {
       background: !motion.trim() ? 'rgba(255,255,255,.02)' : 'rgba(96,165,250,.10)',
       borderColor: !motion.trim() ? 'rgba(255,255,255,.12)' : 'rgba(96,165,250,.35)',
@@ -8748,7 +8748,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   extMode !== 'counter' && (background || generatedBackground) && el('textarea', {
     value: background || generatedBackground,
     onChange: (e) => {setBackground(e.target.value);setGeneratedBackground('');},
-    placeholder: 'Factual context for the motion',
+    placeholder: 'Factual context for the topic',
     rows: 2,
     // className lets the light-theme rule (added below this
     // block) flip the color to a dark ink — the previous
@@ -9063,9 +9063,9 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   el('div', { className: 'summary-cta' },
   voiceGate.state === 'sign-in' ? el('div', { className: 'voice-gate' },
   el('div', { className: 'vg-eyebrow' }, 'Sample rounds used'),
-  el('div', { className: 'vg-h' }, 'Sign in and the voice round becomes part of your style profile.'),
+  el('div', { className: 'vg-h' }, 'Sign in to keep going.'),
   el('p', { className: 'vg-body' },
-  "Anonymous, every session starts from zero. Signed in, your voice rounds save to your record and feed the style profile the AI matches against. Used only to log you in. I never email you."
+  "Signed out, every round starts from zero. Signed in, your voice rounds save to your account and the AI learns how you argue. Your account is used only to sign you in."
   ),
   el('button', {
     type: 'button', className: 'cta vg-cta',
@@ -9085,7 +9085,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
       node.dataset.mounted = '1';
     }
   }),
-  el('a', { href: '/practice', className: 'vg-fallback', style: { opacity: .55, fontSize: '.74rem', marginTop: 10 } }, 'no thanks, try typed practice instead →')
+  el('a', { href: '/practice', className: 'vg-fallback', style: { opacity: .55, fontSize: '.74rem', marginTop: 10 } }, 'Or use typed practice instead →')
   ) :
   voiceGate.state === 'upgrade' ? el('div', { className: 'voice-gate' },
   el('div', { className: 'vg-eyebrow' }, 'Free voice rounds used'),
@@ -9138,7 +9138,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   voiceGate.limit - voiceGate.used + ' of ' + voiceGate.limit + ' free rounds left.' :
   voiceGate.used > 0 ?
   'Sample round available. Sign in after and the AI starts learning your voice.' :
-  'One sample round before sign-in. After that, your voice rounds feed your style profile.'
+  'One free round before sign-in. After that, sign in and the AI starts learning how you argue.'
   )
   )
   )
@@ -9183,7 +9183,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
 
   // Pinned motion — the round revolves around it, so it leads.
   el('div', { className: 'arena-motion' },
-  el('div', { className: 'eyebrow' }, extMode === 'counter' ? 'Defending' : 'Motion'),
+  el('div', { className: 'eyebrow' }, extMode === 'counter' ? 'Defending' : 'Topic'),
   el('div', { className: 'text' }, motion && motion.trim() ? motion.trim() :
   extMode === 'counter' ? 'Your examiner sets the topic on the mic.' : 'Name it on the mic, or it gets picked for you.')
   ),
@@ -9265,7 +9265,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   // so the existing orb glow / label / timer / phase-pill / speech-ctrl
   // rules all still apply. Adds a neutral judge-presence node on top.
   el('div', { className: 'arena-core stage' + (speaking === 'user' ? ' user' : '') },
-  !SIMPLE_ROUND && el('div', { className: 'judge-node', title: 'An AI judge tracks the round and writes the ballot at the end.' },
+  !SIMPLE_ROUND && el('div', { className: 'judge-node', title: 'An AI judge tracks the round and writes the decision at the end.' },
   el('span', { className: 'eye', 'aria-hidden': 'true' }),
   el('span', { className: 'jl' }, 'Judge'),
   el('span', { className: 'js' }, phase === 'done' ? 'Reading the flow' : 'Tracking the round')
@@ -9649,7 +9649,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   )
   ),
 
-  el('div', { className: 'notice info' }, el('strong', null, 'Round complete.'), ' Generate the judge\'s RFD to see how it landed.'),
+  el('div', { className: 'notice info' }, el('strong', null, 'Round complete.'), ' Get the judge\'s decision to see how it landed.'),
 
   // Stat tiles
   el('div', { className: 'summary-grid' },
@@ -9725,10 +9725,10 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
     className: 'cta',
     onClick: generateRFD,
     disabled: rfdLoading
-  }, rfdLoading ? 'Generating RFD…' : ['Generate Judge RFD ', el('span', { key: 'a', className: 'arrow' }, '→')]),
+  }, rfdLoading ? 'Writing the decision…' : ['Get the judge\'s decision ', el('span', { key: 'a', className: 'arrow' }, '→')]),
 
   rfd && el('div', { className: 'rfd-card' },
-  el('h3', null, 'Reason for Decision'),
+  el('h3', null, 'The judge\'s decision'),
   rfd
   ),
 
@@ -9914,8 +9914,8 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
     'Day ' + streak + ' streak. New motion tomorrow at midnight UTC →' :
     'Day ' + streak + ' streak. Take today’s motion →' :
     doneToday ?
-    'New motion tomorrow at midnight UTC →' :
-    'Take today’s motion next →'
+    'New topic tomorrow at midnight UTC →' :
+    'Take today’s topic next →'
     ),
     el('a', {
       key: 'discord',

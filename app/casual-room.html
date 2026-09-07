@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Casual debate room · itsdebatable.com</title>
-<meta name="description" content="One-off video room for casual debate. Prompt at the top, video below. No timer, no judge, no ballot." />
+<meta name="description" content="A quick video room for a casual argument. The topic at the top, the two of you below. No timer, no judge, no scoring." />
 <!-- Transient pairing room. Robots noindex so the random Daily URLs
      never accidentally surface in search. -->
 <meta name="robots" content="noindex">
@@ -322,7 +322,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   </div>
   <div class="room-actions">
     <span class="elapsed" id="elapsed" aria-label="Elapsed time">0:00</span>
-    <button class="next-btn" id="nextBtn" type="button" title="Leave this room and queue up for a new debater">Next opponent →</button>
+    <button class="next-btn" id="nextBtn" type="button" title="Leave this room and find someone new to argue with">Next opponent →</button>
   </div>
 </header>
 
@@ -330,7 +330,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   <div class="stage-status" id="stageStatus">
     <div class="spinner"></div>
     <h2>Setting up the room…</h2>
-    <p>Spinning up your video room. Other side will land here too. Camera + mic prompt comes from Daily.co.</p>
+    <p>Setting up your video room. The other person lands here too. Your browser will ask for camera and mic access.</p>
   </div>
 </div>
 
@@ -615,7 +615,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
         });
         showGuardNotice(
           'Camera paused by the safety check',
-          'Our on-device detector flagged your camera feed, so your video was cut before it reached the room. Nobody was removed and nothing was recorded. Your opponent is being asked to confirm; if they say it was a false alarm you can turn your camera back on.'
+          'The safety check on your device flagged your camera, so your video stopped before it reached the room. Nobody was removed and nothing was recorded. Your opponent is being asked to confirm; if they say it was a false alarm you can turn your camera back on.'
         );
         sendGuardMsg({ t: 'guard-review' });
         try { gtag('event', 'casual_room_guard_trip'); } catch(e){}
@@ -648,7 +648,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     d.className = 'guard-review';
     d.style.cssText = 'position:absolute;left:50%;bottom:70px;transform:translateX(-50%);z-index:41;width:min(430px,calc(100vw - 24px));background:#131317;border:1px solid rgba(239,68,68,.5);border-radius:14px;padding:16px 18px;box-shadow:0 18px 50px rgba(0,0,0,.55)';
     d.innerHTML = '<div style="font-weight:800;color:#fff;font-size:.95rem;margin-bottom:6px">Safety check</div>' +
-      '<div style="font-size:.84rem;color:rgba(255,255,255,.78);line-height:1.5">Our on-device detector flagged your opponent’s camera and paused their video. Is your opponent behaving inappropriately?</div>' +
+      '<div style="font-size:.84rem;color:rgba(255,255,255,.78);line-height:1.5">The safety check flagged your opponent’s camera and paused their video. Is your opponent behaving inappropriately?</div>' +
       '<div style="display:flex;gap:8px;margin-top:12px">' +
         '<button type="button" data-g="report" style="background:#dc2626;border:1px solid #dc2626;border-radius:999px;padding:7px 14px;color:#fff;font-family:inherit;font-weight:700;font-size:.78rem;cursor:pointer">Yes, report them</button>' +
         '<button type="button" data-g="clear" style="background:transparent;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:7px 14px;color:#f4f4f2;font-family:inherit;font-weight:700;font-size:.78rem;cursor:pointer">No, all good</button>' +
@@ -662,7 +662,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
         sessionId: localSessionId(),
         offender: remotePeer ? { sessionId: remotePeer.sessionId, userName: remotePeer.userName } : {},
       }).then(function(res){
-        if (res && res.ejected) showOpponentBanner('Opponent removed.', 'They were removed from the room after your report. Find a new debater?');
+        if (res && res.ejected) showOpponentBanner('Opponent removed.', 'They were removed from the room after your report. Find someone new?');
       });
       try { gtag('event', 'casual_room_guard_confirm', { confirmed: true }); } catch(e){}
     });
@@ -701,11 +701,11 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
           offender: target ? { sessionId: target.sessionId, userName: target.userName } : {},
         }).then(function(res){
           if (res && res.ejected){
-            showOpponentBanner('Opponent removed.', 'They were removed from the room after your report. Find a new debater?');
+            showOpponentBanner('Opponent removed.', 'They were removed from the room after your report. Find someone new?');
           } else {
             var t = document.createElement('div');
             t.className = 'report-sheet';
-            t.innerHTML = '<div class="rs-head">Report filed. Two independent reports remove a debater.</div>';
+            t.innerHTML = '<div class="rs-head">Report filed. It takes two separate reports to remove someone from the room.</div>';
             stage.appendChild(t);
             setTimeout(function(){ try { t.remove(); } catch(e){} }, 3500);
           }
@@ -721,7 +721,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
     if (!roomName){
       setStatus(
         '<h2>No room in the URL.</h2>' +
-        '<p>This page is opened automatically after a match on <a href="/spar" style="color:var(--accent);text-decoration:underline">/spar</a>. Land here yourself? Go back and find a debater.</p>' +
+        '<p>This page is opened automatically after a match on <a href="/spar" style="color:var(--accent);text-decoration:underline">/spar</a>. Landed here on your own? Go back and find someone to argue with.</p>' +
         '<div class="row"><a href="/spar">← Back to debate chat</a></div>'
       );
       return;
@@ -756,7 +756,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
         setStatus(
           '<h2>Sign in with Google or your phone to enter the video room.</h2>' +
           '<p>A seat in a live round takes a real account, so the person across from you is one too.</p>' +
-          '<div class="row"><a href="/spar">Sign in on the queue page</a></div>'
+          '<div class="row"><a href="/spar">Sign in and get matched</a></div>'
         );
         return;
       }
@@ -775,7 +775,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
         var detail = (res.body && (res.body.error || ('http_' + res.status))) || 'unknown error';
         setStatus(
           '<h2>Video room unavailable.</h2>' +
-          '<p>The Daily.co integration is offline or unconfigured.</p>' +
+          '<p>The video service is not responding right now.</p>' +
           '<div class="error-detail">' + escHtml(detail) + (hint ? ' (' + escHtml(hint) + ')' : '') + '</div>' +
           '<div class="row">' +
             '<button onclick="location.reload()">Retry</button>' +
@@ -832,7 +832,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
             // participants, so any event here is the other side.
             showOpponentBanner(
               'Your opponent left the room.',
-              'Find a new partner, or call it a round.'
+              'Find someone new, or call it here.'
             );
             try { gtag('event', 'casual_room_opponent_left', { source: source, elapsed_s: Math.floor((Date.now() - startTs)/1000) }); } catch(e){}
           });
@@ -845,7 +845,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
               if (!sawOpponent && !bannerShown){
                 showOpponentBanner(
                   'Your opponent did not arrive.',
-                  'They may have dropped on their side. Find another debater?'
+                  'Their connection may have dropped. Find someone else?'
                 );
                 try { gtag('event', 'casual_room_opponent_no_show', { source: source }); } catch(e){}
               }
@@ -879,7 +879,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
       try { gtag('event', 'casual_room_daily_mount', { source: source, mode: 'iframe_fallback' }); } catch(e){}
     }).catch(function(e){
       setStatus(
-        '<h2>Network error reaching the room service.</h2>' +
+        '<h2>We could not reach the video room.</h2>' +
         '<p>Check your connection and try again.</p>' +
         '<div class="error-detail">' + escHtml(e && e.message || 'fetch failed') + '</div>' +
         '<div class="row">' +
