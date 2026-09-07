@@ -191,6 +191,18 @@ if [ -f "$AUTH_MODAL_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# The gate in front of the live judge. A conversation round labels its
+# lines with the format's side words, and the reader that decides whether
+# anyone spoke has to know every one of them or a full round judges as
+# silence (2026-09-07, an eleven-minute round returned "No winner").
+if [ -f "$REPO_ROOT/scripts/test-round-evidence.mjs" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-round-evidence.mjs >/tmp/round-evidence-guard.log 2>&1); then
+    echo "[round-evidence-guard] commit blocked - a spoken round would judge as no contest:" >&2
+    tail -20 /tmp/round-evidence-guard.log >&2
+    exit 1
+  fi
+fi
+
 # Account conversion gates: visible time, round exemptions and server refusal.
 for SIGNIN_GUARD in test-signin-wall test-ai-account-required test-voice-preview test-voice-byok test-room-topic test-background-consent test-foreground-consent test-leaderboard-consistency test-standings-freshness; do
   [ -f "$REPO_ROOT/scripts/$SIGNIN_GUARD.mjs" ] || continue

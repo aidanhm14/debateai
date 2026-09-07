@@ -14,10 +14,26 @@
       && /[\p{L}\p{N}]/u.test(clean);
   }
 
+  // 2026-09-07: a conversation round labels its lines with the format's
+  // SIDE LABELS ("Jonas (For):", "Phat (Against):"), and this only knew
+  // the bench keys. Both sides resolved to null, an eleven-minute round
+  // with live AI notes read as silence, and the judge was never called.
+  // The reader now accepts every label the formats print and, for a
+  // conversation, falls back to the seat NAMES on the round.
   function sideOf(side){
-    var s = String(side || '').toLowerCase();
-    if (/^(pro|prop|gov|aff|og|cg)$/.test(s)) return 'pro';
-    if (/^(con|opp|neg|oo|co)$/.test(s)) return 'con';
+    var s = String(side || '').toLowerCase().trim();
+    if (/^(pro|prop|proposition|gov|government|aff|affirmative|for|og|cg)$/.test(s)) return 'pro';
+    if (/^(con|contra|opp|opposition|neg|negative|against|oo|co)$/.test(s)) return 'con';
+    return null;
+  }
+
+  function nameSide(name, round){
+    var n = String(name || '').toLowerCase().trim();
+    if (!n) return null;
+    var pro = String(round.proName || '').toLowerCase().trim();
+    var con = String(round.conName || '').toLowerCase().trim();
+    if (pro && n === pro && n !== con) return 'pro';
+    if (con && n === con && n !== pro) return 'con';
     return null;
   }
 
@@ -32,8 +48,12 @@
         var side = null, text = '';
         function flush(){ if (side && hasWords(text)) spoke[side] = true; }
         String(s.text || '').split('\n').forEach(function(line){
-          var match = line.match(/^\s*[^\n]*?\(([^)]+)\):\s*(.*)$/i);
-          if (match){ flush(); side = sideOf(match[1]); text = match[2]; }
+          var match = line.match(/^\s*([^\n]*?)\(([^)]+)\):\s*(.*)$/i);
+          if (match){
+            flush();
+            side = sideOf(match[2]) || nameSide(match[1], round);
+            text = match[3];
+          }
           else if (side) text += '\n' + line;
         });
         flush();
