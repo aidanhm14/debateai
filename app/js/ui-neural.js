@@ -35,18 +35,17 @@
   var NODE_COUNT = 0;
   var CONNECT_DIST_DARK = 150;
   var CONNECT_DIST_LIGHT = 180;
-  var MIN_SPEED=.04;
+  var MIN_SPEED=.08;
   var TWO_PI=Math.PI*2;
   // Frame cap. rAF fires at the display's native rate (60Hz on most
   // laptops, 120-144Hz on newer phones / iPad / gaming displays).
   // This is a slow decorative drift in the background. Capping at 30fps
   // (was 60) halves the per-second canvas + O(N^2) physics work and the
-  // battery draw during a long active session — this layer runs on /app
-  // and /practice where users sit for minutes. Integration is per-tick
-  // (n.x += n.vx), so the drift is correspondingly gentler at 30fps;
-  // for a background constellation that reads as calmer, not broken.
+  // battery draw during a long active session. Movement follows elapsed
+  // time so a busy page cannot make the background appear frozen.
   var FRAME_MIN_MS = 1000/30 - 1;
   var lastDrawAt = 0;
+  var motionTime = 0;
   // Visibility gate. Pause when the canvas scrolls fully offscreen
   // (rAF already throttles hidden tabs, but on a long landing page
   // the constellation runs continuously even after the user scrolls
@@ -133,8 +132,8 @@
       }
       if(nearest>best){best=nearest;x=px;y=py}
     }
-    var angle=Math.random()*TWO_PI,speed=MIN_SPEED+Math.random()*.08;
-    nodes.push({x:x,y:y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,r:Math.random()*1.5+1});
+    var angle=Math.random()*TWO_PI,speed=MIN_SPEED+Math.random()*.1;
+    nodes.push({x:x,y:y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,r:Math.random()*1.5+1,phase:Math.random()*TWO_PI});
   }
   function resize(){
     var oldW=W,oldH=H;
@@ -157,7 +156,7 @@
   function tick(ts,still){
     if(!running||!themeActive){rafId=0;return}
     // Frame cap — skip the paint if we're firing at 144Hz but only
-    // need 60Hz. The rAF re-fire still happens; we just bail out
+    // need 30Hz. The rAF re-fire still happens; we just bail out
     // before the expensive O(N²) edge pass.
     var now = ts || performance.now();
     if (!still && now - lastDrawAt < FRAME_MIN_MS) {
@@ -171,6 +170,9 @@
       rafId = requestAnimationFrame(tick);
       return;
     }
+    // Limit catch-up after scrolling or returning from a hidden tab.
+    var step=still?0:(lastDrawAt?Math.min((now-lastDrawAt)/(1000/30),2):1);
+    motionTime+=step/30;
     lastDrawAt = now;
     ctx.clearRect(0,0,W,H);
 
@@ -190,7 +192,7 @@
           edges.push(i,j);
           if(!still&&d2<12100){
             d=Math.sqrt(d2);
-            var force=.002*(110-d)/110;
+            var force=.002*(110-d)/110*step;
             var nx=dx/d*force,ny=dy/d*force;
             n.vx-=nx;n.vy-=ny;
             nj.vx+=nx;nj.vy+=ny;
@@ -199,6 +201,9 @@
       }
       if(still)continue;
       // No pull toward the center: the field should keep covering the margins.
+      // Different phases gently bend each path, making the web flex organically.
+      n.vx+=Math.sin(motionTime*.35+n.phase)*.0008*step;
+      n.vy+=Math.cos(motionTime*.29+n.phase)*.0008*step;
       spd2=n.vx*n.vx+n.vy*n.vy;
       if(spd2<MIN_SPEED*MIN_SPEED&&spd2>0){
         spd=Math.sqrt(spd2);
@@ -207,7 +212,7 @@
         spd=Math.sqrt(spd2);
         n.vx=n.vx/spd*.2;n.vy=n.vy/spd*.2;
       }
-      n.x+=n.vx;n.y+=n.vy;
+      n.x+=n.vx*step;n.y+=n.vy*step;
       var m=20;
       if(n.x<m){n.x=m;n.vx=Math.abs(n.vx)}else if(n.x>W-m){n.x=W-m;n.vx=-Math.abs(n.vx)}
       if(n.y<m){n.y=m;n.vy=Math.abs(n.vy)}else if(n.y>H-m){n.y=H-m;n.vy=-Math.abs(n.vy)}
@@ -239,7 +244,7 @@
     // Pulses: small count (≤10), keep individual fills.
     for(var p=pulses.length-1;p>=0;p--){
       var pu=pulses[p];
-      pu.t+=pu.speed;
+      pu.t+=pu.speed*step;
       if(pu.t>=1){pulses.splice(p,1);continue}
       var a=nodes[pu.from],b=nodes[pu.to];
       var px=a.x+(b.x-a.x)*pu.t,py=a.y+(b.y-a.y)*pu.t;
@@ -251,7 +256,7 @@
     }
     ctx.globalAlpha=1;
 
-    if(!still&&Math.random()<.04&&edges.length>0){
+    if(!still&&Math.random()<1-Math.pow(.96,step)&&edges.length>0){
       var idx=((Math.random()*(edges.length/2))|0)*2;
       addPulse(edges[idx],edges[idx+1]);
     }
