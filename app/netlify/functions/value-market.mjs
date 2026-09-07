@@ -1,3 +1,4 @@
+import { BETTING_LIVE } from './lib/betting-status.mjs';
 // ─────────────────────────────────────────────────────────────
 // Debater value markets. Trade a debater's rating with points.
 //
@@ -520,6 +521,9 @@ export default async (request, context) => {
   let body;
   try { body = await request.json(); } catch { return errorResponse('Bad JSON', 400, request); }
   const action = String(body.action || '');
+  if (!BETTING_LIVE && !['portfolio', 'settle'].includes(action)) {
+    return errorResponse('Betting is paused.', 410, request);
+  }
   const db = getDb();
 
   // Identity is optional for read-only actions so the board is a real

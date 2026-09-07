@@ -126,8 +126,7 @@ const URLS = [
   // /masterclass answers the learn-intent cluster ("learn to debate",
   // "debate class", "online debate course") with the 8-week curriculum.
   { path: '/masterclass',                             changefreq: 'weekly',  priority: '0.88', lastmod: '2026-07-30' },
-  // /tokens merged into /predict 2026-09-02 and 301s there, so it is no
-  // longer its own URL. The purchase lives at /predict#tokens.
+  { path: '/voice-tokens', changefreq: 'monthly', priority: '0.70', lastmod: '2026-09-06' },
   // High-intent editorial doorways that remained in the hand-maintained
   // sitemap snapshot but were missed when /sitemap.xml moved behind this
   // function. Each is self-canonical, indexable, and substantive.

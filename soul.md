@@ -1,5 +1,8 @@
 # soul.md. Debatable · itsdebatable.com
 
+> **BETTING PAUSED (Aidan, 2026-09-06).** Remove betting from the site entirely for now, including navigation, audience/debater controls, public market pages, and promotional copy. This supersedes earlier points-only restores and the merge of voice-token purchases into /predict. Voice tokens remain paid AI usage at /voice-tokens. Existing ledgers and settlement/refund logic remain for history; no new markets or stakes may be created.
+
+
 > **BRAND: the product name is "Debatable."** Canonical
 > domain is **itsdebatable.com** as of 2026-07-22 (aftermarket purchase
 > Aidan actually owns). Legacy domains 301 to it. Wordmark is two-tone

@@ -1518,7 +1518,7 @@ body.lr-pip .lr-pip-notice{display:block}
 }
 .panel-section{padding:24px 26px;border-bottom:1px solid var(--border)}
 .panel-section:last-child{border-bottom:none}
-/* Spectator market + persuasion controls belong to the round console,
+/* Private audience responses belong to the round console,
    not over the people in the call. The two-column grid stays compact on
    desktop and stacks the cards on phone-width layouts. */
 .spec-dock{
@@ -2157,8 +2157,7 @@ body.round-running .speech-clock-label.is-speaking{display:none}
 #sidesGuide .sg-item{font-size:.86rem;color:var(--text-dim)}
 #sidesGuide .sg-side{font-size:inherit;letter-spacing:0;text-transform:none;font-weight:800}
 #sidesGuide .sg-what{color:var(--text-dim)}
-/* The points bet panel is a spectator surface. A debater sees the room,
-   the resolution and the start; nothing to wager on before speaking. */
+/* Private audience responses are available only to spectators. */
 body:not(.spectator-mode) #audienceTools{display:none!important}
 /* The recording request, as the first thing in the panel. */
 .rec-topbar{flex:none;padding:12px 22px 0}
@@ -4054,11 +4053,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       </div>
 
 
-      <!-- Audience: the live market and the private "where do you stand"
+      <!-- Audience: the private "where do you stand"
            call. Spectator-only, so the section stays hidden until
            svDock() mounts something into it. -->
       <details class="round-details" id="audienceTools" hidden>
-        <summary><span id="audienceToolsLabel">Bet on yourself - Points</span><span class="rd-status audience-token-balance" id="audienceToolsStatus" aria-label="You have 1,000 play points. No cash value."><span class="atb-have">You have</span><b id="audienceTokensBalance">1K</b><span class="atb-cash" aria-hidden="true">pts</span></span></summary>
+        <summary><span id="audienceToolsLabel">Your take</span></summary>
         <div class="rd-body" id="audienceToolsBody"></div>
       </details>
 
@@ -7436,13 +7435,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // Same moment, same reason, for the side-swap control and any card
     // still open: the seats lock when the first speech starts.
     try { if (window.__lrSyncSideSwap) window.__lrSyncSideSwap(); } catch(e){}
-    // The prediction market records WHICH UID SITS ON WHICH SIDE and it
-    // settles by side, so a market opened before the seats settled would
-    // pay the wrong debater once a swap went through. It opens here
-    // instead of at round entry: this runs on every timer transition,
-    // local and mirrored, so it is the first moment on either client
-    // where the seats can no longer move.
-    if (state.timerState !== 'ready') { try { pmOpen(); } catch(e){} }
     var btn = $('playPauseBtn');
     if (!btn) return;
     var speechHeader = document.querySelector('.speech-header');
@@ -11951,8 +11943,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // costs the arrival. It fires after the first speech instead, from
     // endSpeech, when the person has actually done the thing they would
     // be consenting to store.
-    // pmOpen() deliberately NOT here — see updatePlayPauseBtn.
-    try { pmInitSpectator(); } catch(e){}
     $('phaseLabel').innerHTML = '<span class="dot"></span> ' + (openMode() ? 'Live · Just argue' : 'Live · Speech 1/' + FORMATS[state.formatKey].speeches.length);
     $('setupView').classList.add('hidden');
     $('roundView').classList.remove('hidden');
@@ -12816,7 +12806,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // holds both, so the capture gets only this seat's own lines.
     try { capPushSpeech(f.open ? Object.assign({}, entry, { side: capMySideKey(), text: openMyText() }) : entry); } catch(e){}
     state.speechIdx++;
-    try { pmLockCheck(); } catch(e){}
     publishSpeech(entry);
     // Overtime past the grace is the thing the judge now deducts for,
     // so record how often it actually happens and by how much.
@@ -13189,177 +13178,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     return { system: system, user: user };
   }
 
-  // ── Prediction market (the room bets on this round; AI judges) ──────
-  // Talks to /.netlify/functions/predict (server-authoritative free play
-  // balance; the backend keeps the historical points ledger name).
-  // Debaters open/lock/settle their round's market. Anyone watching bets on
-  // either side before the middle speech, and as of 2026-08-25 the two
-  // debaters can bet too, on THEMSELVES only: the server refuses a stake on
-  // your opponent, so nobody in a round can profit by losing it. Every call
-  // is fail-safe and can never break the round.
-  //
-  // NAMING, and it is a claims rule rather than a style choice: the free
-  // play currency in this panel is POINTS. "Tokens" on this site means the
-  // $4.99/mo voice allowance, which takes a real card, and both now live on
-  // the same page (/predict). One word for a thing you buy and a thing you
-  // bet with reads as buying betting chips, which is the one thing this
-  // economy is not. Renamed 2026-09-02; do not rename it back.
-  var PM_API='/.netlify/functions/predict';
-  var pmOpened=false, pmLocked=false, pmSettled=false, pmPollTimer=null, pmPanel=null, pmPick=null, pmHasBet=false;
-  function pmTok(){ return (state.user&&state.user.getIdToken)?state.user.getIdToken():Promise.reject(new Error('no-user')); }
-  function pmCall(payload){ return pmTok().then(function(tok){ return fetch(PM_API,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},body:JSON.stringify(payload)}).then(function(r){return r.json();}); }); }
-  function pmIsDebater(){ var s=mySide(); return s==='pro'||s==='con'; }
-  function pmMotion(){ try{ return state.motion || ($('motionDisplay')&&$('motionDisplay').textContent) || ''; }catch(e){ return ''; } }
-  function pmOpen(){
-    if (pmOpened||!pmIsDebater()||!state.room||!state.proUid||!state.conUid) return;
-    pmOpened=true;
-    pmCall({action:'open',room:state.room,proUid:state.proUid,conUid:state.conUid,proName:state.proName||'Pro',conName:state.conName||'Con',motion:pmMotion(),format:state.formatKey||''}).catch(function(){ pmOpened=false; });
-  }
-  function pmLockCheck(){
-    if (pmLocked||!pmIsDebater()||!state.room) return;
-    var f=FORMATS[state.formatKey]; if(!f||!f.speeches) return;
-    if (state.speechIdx >= Math.ceil(f.speeches.length/2)){ pmLocked=true; pmCall({action:'lock',room:state.room}).catch(function(){ pmLocked=false; }); }
-  }
-  function pmSettleVerdict(winner){
-    if (pmSettled||!pmIsDebater()||!state.room||(winner!=='pro'&&winner!=='con')) return;
-    pmSettled=true;
-    pmCall({action:'settle',room:state.room,verdict:winner}).catch(function(){ pmSettled=false; });
-  }
-  // ---- spectator side ----
-  function pmInitSpectator(){
-    try{
-      if (!state.user||!state.room||pmPanel) return;
-      // Debaters get the panel too now, locked to their own side. A judge or
-      // anyone else without a seat is a spectator and bets either way.
-      if (!isSpectator() && !pmIsDebater()) return;
-      pmRenderPanel(); pmPoll();
-    }catch(e){}
-  }
-  // 'pro' | 'con' for a seated debater, null for everyone else. This is the
-  // one thing that decides whether the opponent's button is live, and it is
-  // re-read rather than cached because seats can swap up until speech one.
-  function pmOwnSide(){ return pmIsDebater() ? mySide() : null; }
-  function pmCompactBalance(value){
-    var n=Math.max(0,Math.floor(Number(value)||0));
-    if(n>=1000000){ var m=Math.round(n/100000)/10; return String(m).replace(/\.0$/,'')+'M'; }
-    if(n>=1000){ var k=Math.round(n/100)/10; return String(k).replace(/\.0$/,'')+'K'; }
-    return n.toLocaleString();
-  }
-  function pmUpdateSummary(balance){
-    var label=document.getElementById('audienceToolsLabel');
-    if(label) label.textContent=pmOwnSide()?'Bet on yourself - Points':'Bet on this round - Points';
-    if(balance==null||!isFinite(Number(balance))) return;
-    var n=Math.max(0,Math.floor(Number(balance)||0));
-    var out=document.getElementById('audienceTokensBalance');
-    var stat=document.getElementById('audienceToolsStatus');
-    if(out) out.textContent=pmCompactBalance(n);
-    if(stat){ stat.hidden=false; stat.setAttribute('aria-label','You have '+n.toLocaleString()+' play points. No cash value.'); stat.title=n.toLocaleString()+' play points. No cash value.'; }
-  }
-  function pmRenderPanel(){
-    if (pmPanel) return;
-    var el=document.createElement('div'); el.id='pmPanel';
-    // Positioning now comes from #specDock, the shared bottom-left column
-    // that also holds the swing-vote panel. Both used to be fixed at the
-    // same coordinates and would have sat on top of each other.
-    el.style.cssText='background:var(--ui-soft);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.10);padding:14px;font-family:inherit;font-size:.82rem;color:var(--text)';
-    var pmHead = pmOwnSide() ? 'Back yourself with play points' : 'Bet play points on who is winning';
-    el.innerHTML='<div style="font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#fbbf24;margin-bottom:8px">'+pmHead+'</div>'+
-      '<div id="pmSides" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px"></div>'+
-      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><input id="pmStake" aria-label="Play point stake" type="number" value="50" min="1" step="10" style="width:78px;background:var(--ui-surface);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:8px;color:var(--text);padding:6px 8px;font:inherit"><button id="pmBet" disabled style="flex:1;background:#b91c1c;color:#fff;border:none;border-radius:999px;padding:8px;font:inherit;font-weight:700;cursor:pointer;opacity:.5">Bet points</button></div>'+
-      '<div id="pmStatus" style="font-size:.72rem;color:var(--text-dim);line-height:1.45"></div>'+
-      '<div style="font-size:.64rem;color:var(--text-dim);line-height:1.4;margin-top:7px">Free play points only. 18+. Eligible regions only. No cash value.</div>';
-    svDock().appendChild(el); pmPanel=el; pmUpdateSummary(null);
-    el.querySelector('#pmBet').addEventListener('click', pmPlaceBet);
-  }
-  function pmPoll(){
-    pmCall({action:'state',room:state.room}).then(function(d){ if(d&&d.ok) pmUpdate(d); }).catch(function(){}).then(function(){
-      if (!pmSettled) pmPollTimer=setTimeout(pmPoll, 5000);
-    });
-  }
-  function pmSelect(side){ if(pmHasBet) return; var own=pmOwnSide(); if(own&&side!==own) return; pmPick=side; pmUpdateSidesSelection(); var b=pmPanel&&pmPanel.querySelector('#pmBet'); if(b){ b.disabled=false; b.style.opacity='1'; } }
-  function pmUpdateSidesSelection(){
-    if(!pmPanel) return;
-    [].forEach.call(pmPanel.querySelectorAll('[data-pmside]'),function(c){ c.style.borderColor = c.getAttribute('data-pmside')===pmPick ? '#ef4444' : 'var(--border,rgba(127,127,127,.22))'; });
-  }
-  function pmPlaceBet(){
-    if(pmHasBet||!pmPick) return;
-    var stake=Math.max(1,parseInt((pmPanel.querySelector('#pmStake')||{}).value,10)||0);
-    var btn=pmPanel.querySelector('#pmBet'); if(btn){ btn.disabled=true; btn.textContent='Placing…'; }
-    pmSubmitBet(stake,btn,false);
-  }
-  function pmConfirmAge(){
-    if(!confirm('Point betting is for people age 18 or older.\n\nPlay points are free, cannot be purchased, and have no cash value.\n\nConfirm you are 18 or older?')) return Promise.resolve(false);
-    return pmCall({action:'attest',confirm:true}).then(function(d){
-      if(d&&d.ok&&d.eligible) return true;
-      var s=pmPanel&&pmPanel.querySelector('#pmStatus');
-      if(s) s.textContent=(d&&d.error)||'Could not confirm eligibility';
-      return false;
-    }).catch(function(){
-      var s=pmPanel&&pmPanel.querySelector('#pmStatus');
-      if(s) s.textContent='Could not confirm eligibility';
-      return false;
-    });
-  }
-  function pmSubmitBet(stake,btn,retried){
-    pmCall({action:'bet',room:state.room,pick:pmPick,stake:stake}).then(function(d){
-      if(d&&d.ok){ pmHasBet=true; pmUpdateSummary(d.balance); var s=pmPanel.querySelector('#pmStatus'); if(s) s.innerHTML='Bet placed: <b>'+stake+' points</b> on <b>'+pmPick.toUpperCase()+'</b>. '+d.balance+' points left.'; if(btn){ btn.textContent='Bet in'; } return; }
-      if(d&&d.code==='no_attestation'&&!retried){
-        pmConfirmAge().then(function(ok){ if(ok) pmSubmitBet(stake,btn,true); else if(btn){ btn.disabled=false; btn.textContent='Bet points'; } });
-        return;
-      }
-      if(btn){ btn.disabled=false; btn.textContent='Bet points'; }
-      var s2=pmPanel.querySelector('#pmStatus'); if(s2) s2.textContent=(d&&d.error)||'Could not place bet';
-    }).catch(function(){ if(btn){ btn.disabled=false; btn.textContent='Bet points'; } });
-  }
-  function pmUpdate(d){
-    pmUpdateSummary(d&&d.balance);
-    if(!pmPanel||!d.market) return;
-    var m=d.market, total=(m.poolPro||0)+(m.poolCon||0);
-    var oPro=m.poolPro>0?(total/m.poolPro).toFixed(2)+'x':'—', oCon=m.poolCon>0?(total/m.poolCon).toFixed(2)+'x':'—';
-    var locked=m.status!=='open', settled=m.status==='settled';
-    var sides=pmPanel.querySelector('#pmSides');
-    var own=pmOwnSide();
-    sides.innerHTML=[['pro',m.proName||'Pro',oPro],['con',m.conName||'Con',oCon]].map(function(x){
-      // A debater sees their opponent's side priced and unclickable, which
-      // is the honest way to say "you can back yourself, not against
-      // yourself" without hiding half the market from the person in it.
-      var off = locked || (own && x[0]!==own);
-      return '<button data-pmside="'+x[0]+'" '+(off?'disabled':'')+' title="'+(own&&x[0]!==own?'You are in this round. You can back yourself, not your opponent.':'')+'" style="text-align:left;background:var(--ui-surface);border:1px solid var(--border,rgba(127,127,127,.22));border-radius:10px;padding:9px 10px;color:var(--text);font:inherit;opacity:'+(off&&!locked?'.5':'1')+';cursor:'+(off?'default':'pointer')+'"><div style="font-weight:700;font-size:.8rem">'+escHtml(x[1])+'</div><div style="font-family:\'Geist Mono\',ui-monospace,monospace;color:#60a5fa;font-size:.78rem;font-weight:700">'+x[2]+'</div></button>';
-    }).join('');
-    if(!locked){ [].forEach.call(sides.querySelectorAll('[data-pmside]'),function(c){ c.addEventListener('click',function(){ pmSelect(c.getAttribute('data-pmside')); }); }); pmUpdateSidesSelection(); }
-    var st=pmPanel.querySelector('#pmStatus'), inp=pmPanel.querySelector('#pmStake'), bet=pmPanel.querySelector('#pmBet');
-    if(settled){
-      if(pmPollTimer) clearTimeout(pmPollTimer);
-      var won = d.myBet && d.myBet.pick===m.verdict;
-      st.innerHTML='<b>'+( (m.verdict==='pro'?(m.proName||'Pro'):(m.conName||'Con')) )+' won.</b> '+(d.myBet?(won?'You called it. '+d.balance+' points left.':'You missed it.'):'')+' Rating '+(d.tier||'')+' '+(d.rating||'');
-      if(inp) inp.disabled=true; if(bet){ bet.disabled=true; bet.style.opacity='.5'; }
-    } else if(locked){
-      st.textContent='Betting locked at the middle speech. '+total+' points in the pool.';
-      if(inp) inp.disabled=true; if(bet){ bet.disabled=true; bet.style.opacity='.5'; }
-    } else if(d.myBet){
-      pmHasBet=true; st.innerHTML='Bet in: <b>'+d.myBet.stake+' points</b> on <b>'+d.myBet.pick.toUpperCase()+'</b>. '+total+' points in the pool.';
-      if(bet){ bet.disabled=true; bet.textContent='Bet in'; bet.style.opacity='.5'; }
-      if(inp) inp.disabled=true;
-    } else {
-      st.innerHTML='Pool '+total+' points. You have <b>'+(d.balance!=null?d.balance:'not available')+'</b>. Betting locks at the middle speech.'+(own?' <b>You can only back your own side.</b>':'');
-    }
-  }
-
   /* ── SWING VOTE (persuasion capture) ──────────────────────────────
-     A different question from the market above it. The market asks
-     "which side will the judge vote for" — a forecast, settled by the
-     ballot, with a right answer. This asks "did the round change YOUR
-     mind" — no right answer, nothing at stake.
-
-     That difference sets the visibility rule. A prediction market
-     SHOULD show its price: publishing it is how a market aggregates
-     information, and a wrong call costs the caller. A persuasion vote
-     must NOT show a running tally, because there is no cost to being
-     wrong and nothing to aggregate — a visible tally just tells people
-     what to think and you end up measuring conformity. So the room's
-     split stays hidden until the ballot lands. Each viewer sees only
-     their own taps. (firestore.rules closes reads on opinion_deltas
-     outright, so the aggregate is admin-side only by construction.)
+     Private audience responses measure whether the round changed a
+     viewer's mind. The room's split stays hidden until the ballot lands
+     so a visible tally cannot influence the responses.
 
      Three phases: stance before, one-tap "that moved me" during (each
      tap stamped against state.roundStartedAt, the SAME origin as each
@@ -13476,19 +13298,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     d.id = 'specDock';
     d.className = 'spec-dock';
     d.setAttribute('role', 'region');
-    d.setAttribute('aria-label', 'Spectator market and audience calls');
+    d.setAttribute('aria-label', 'Your take on the round');
     var host = document.getElementById('audienceToolsBody');
     if (host){
       host.appendChild(d);
       var det = document.getElementById('audienceTools');
       if (det){
         det.hidden = false;
-        if(!state.user){
-          var label=document.getElementById('audienceToolsLabel');
-          var stat=document.getElementById('audienceToolsStatus');
-          if(label) label.textContent='Audience';
-          if(stat) stat.hidden=true;
-        }
+
       }
       return d;
     }
@@ -13966,7 +13783,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       + pointsHtml
       + '<div style="text-align:left;font-size:.68rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-top:22px">Why the judges disagreed</div>'
       + reasonsHtml + legacyWhy
-      + '<div style="font-size:.76rem;margin-top:16px;color:var(--text-ghost)">The ladder records a draw<span id="afterRatingSlot"></span>. No market winner is recorded.</div>'
+      + '<div style="font-size:.76rem;margin-top:16px;color:var(--text-ghost)">The ladder records a draw<span id="afterRatingSlot"></span>.</div>'
       + '<div style="margin-top:18px"><a class="btn" href="/live">Back to live debates</a></div>'
       + '</div>';
     try { renderAfterRating(); } catch(e){}
@@ -14512,7 +14329,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         }
         if (!res || !res.ok || !res.ballot) throw new Error((res && res.code) || 'server_judge_unavailable');
         renderBallot(res.ballot);
-        try { pmSettleVerdict(res.ballot.winner); } catch(e){}
         try { generateDeepRfd(res.ballot); } catch(e){ console.warn('[deep ballot]', e); }
         // Deliberately NOT publishBallot(): the server already wrote it,
         // and a client write here would replace a panel-stamped ballot
@@ -14593,7 +14409,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         throw new Error('Could not parse ballot. See browser console for the raw response.');
       }
       renderBallot(parsed);
-      try { pmSettleVerdict(parsed.winner); } catch(e){}
       try { generateDeepRfd(parsed); } catch(e){ console.warn('[deep ballot]', e); }
       // Push to Firestore so the other speaker's screen flips to the
       // ballot view automatically, no manual share, no refresh.
@@ -19535,8 +19350,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
 
   // Phone spectator chrome (2026-09-03, the founder: "for the audience i
   // just want it to be screen, chat, resolution boldly, and then options
-  // to learn more via transcript / round notes summary / the betting on
-  // who wins thing"). Under 760px the panel hides everything but the
+  // to learn more via transcript / round notes summary"). Under 760px the panel hides everything but the
   // resolution; a Chat bar sits above it and this row under it is the way
   // back into the rest. Desktop never shows either (CSS).
   function ensureSpecMenu(){
@@ -19552,16 +19366,16 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     m.id = 'specMenu'; m.className = 'spec-menu';
     m.innerHTML = '<button type="button" class="sm-btn" data-sm="transcript" aria-pressed="false">Transcript</button>'
       + '<button type="button" class="sm-btn" data-sm="notes" aria-pressed="false">Round notes</button>'
-      + '<button type="button" class="sm-btn" data-sm="bet" aria-pressed="false">Bet on who wins</button>';
+      + '<button type="button" class="sm-btn" data-sm="audience" aria-pressed="false">Your take</button>';
     head.insertAdjacentElement('afterend', m);
     m.addEventListener('click', function(e){
       var b = e.target && e.target.closest ? e.target.closest('[data-sm]') : null;
       if (!b) return;
       var k = b.getAttribute('data-sm');
       if (k === 'notes'){ state.rnRequested = true; try { localStorage.setItem('lr-round-notes', '1'); } catch(e){} renderRoundNotes(); }
-      var target = k === 'notes' ? $('moreOptions') : (k === 'bet' ? $('audienceTools') : document.querySelector('.transcript-area'));
-      if (k === 'bet' && target && !(($('audienceToolsBody') || {}).children || []).length){
-        toast('Betting opens once the round is live.'); return;
+      var target = k === 'notes' ? $('moreOptions') : (k === 'audience' ? $('audienceTools') : document.querySelector('.transcript-area'));
+      if (k === 'audience' && target && !(($('audienceToolsBody') || {}).children || []).length){
+        toast('Your take opens once the round is live.'); return;
       }
       var cls = 'spec-show-' + k;
       var on = !document.body.classList.contains(cls);
@@ -21515,8 +21329,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       quiet(function(){ startBackstopLoop = noop; });
       quiet(function(){ startPoiLoop = noop; });
       quiet(function(){ startCueLevels = noop; });
-      quiet(function(){ pmInitSpectator = noop; });
-      quiet(function(){ pmOpen = noop; });
       quiet(function(){ startRoomTips = noop; });
       quiet(function(){ startPrepBanner = noop; });
       quiet(function(){ checkOpponentPresence = noop; });
@@ -22105,7 +21917,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       // with the per-speech atMs values.
       if (typeof d.roundStartedAt === 'number' && !state.roundStartedAt) state.roundStartedAt = d.roundStartedAt;
       renderRound();
-      try { pmInitSpectator(); pmLockCheck(); } catch(e){}
       try { svInitSpectator(); } catch(e){}
       startPrepBanner();
     }
@@ -22123,7 +21934,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       // A queued spoken translation from the finished speech must not
       // talk over the next speaker.
       try { stopSpokenTranslation(); } catch(e){}
-      try { pmLockCheck(); } catch(e){}
       // New speech, new transcript to check against, and any card held
       // from the speaker's own speech is now theirs to read.
       state.fcText = ''; state.fcLastWords = 0;
@@ -23257,7 +23067,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
    The round panel had grown to answer a dozen questions at once. It now
    answers four, in this order and nothing above them: what are we
    debating, who is speaking, how long is left, what do I do now. The
-   transcript follows immediately; the market, the AI aides, the roster,
+   transcript follows immediately; audience responses, the AI aides, the roster,
    the speech order and the judge draft all still exist, folded behind
    three disclosures below it. Nothing was deleted.
    This block is last in the document on purpose: it re-weights rules
@@ -23571,16 +23381,6 @@ body.mode-doors-open .speech-header[data-action-state="start"] #playPauseBtn{dis
   margin-left:auto;font-size:.68rem;font-weight:650;letter-spacing:0;
   color:var(--text-dim);text-align:right;
 }
-#audienceTools .audience-token-balance{
-  display:inline-flex;align-items:center;gap:5px;flex:none;
-  padding:5px 9px;border-radius:999px;background:#15803d;color:#fff;
-  box-shadow:0 3px 10px rgba(21,128,61,.24);
-  font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;
-  white-space:nowrap;
-}
-#audienceTools .audience-token-balance .atb-have{font-size:.57rem;font-weight:700;opacity:.82}
-#audienceTools .audience-token-balance b{font-size:.76rem;font-weight:900}
-#audienceTools .audience-token-balance .atb-cash{font-size:.62rem;font-weight:900;letter-spacing:-.08em}
 .round-details .round-edit-bar{margin:0}
 .round-details .rd-note{margin:0;font-size:.74rem;line-height:1.5;color:var(--text-dim);opacity:.85}
 /* Inside a disclosure the aides are already framed, so drop their own
@@ -23679,8 +23479,7 @@ body.lr-modal-open .panel{overflow:hidden}
    resolution for mobile. just the start convo mode or start formal
    speeches - then encourage prep time at that point". And for the
    audience: "just ... screen, chat, resolution boldly, and then options to
-   learn more via transcript / round notes summary / the betting on who
-   wins thing". Everything hidden here keeps its id and its renderer; the
+   learn more via transcript / round notes summary". Everything hidden here keeps its id and its renderer; the
    phone simply does not paint it until it is wanted. Desktop untouched. */
 @media(max-width:760px){
   /* Debater, before speech 1: the resolution and the two doors. */
@@ -23717,7 +23516,7 @@ body.lr-modal-open .panel{overflow:hidden}
   body.spectator-mode #audFab,
   body.spectator-mode:not(.spec-show-transcript) .transcript-area,
   body.spectator-mode:not(.spec-show-notes) #moreOptions,
-  body.spectator-mode:not(.spec-show-bet) #audienceTools{display:none}
+  body.spectator-mode:not(.spec-show-audience) #audienceTools{display:none}
   body.spectator-mode .panel{padding-right:0}
   body.spectator-mode .speech-header{display:flex;flex-direction:column;gap:10px;padding:14px 16px 12px}
   body.spectator-mode .sh-main{display:block}

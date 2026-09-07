@@ -29,8 +29,8 @@ check('spectator mode hides repeated control stacks',
   /body\.spectator-mode #roundGuide\[data-phase="round"\],[\s\S]*?body\.spectator-mode #judgeDraft,[\s\S]*?body\.spectator-mode #prepBanner\{display:none!important\}/.test(page));
 check('spectator roster stays available in round details',
   !/body\.spectator-mode \.round-roster\{display:none!important\}/.test(page));
-check('setup and ballot guides stay available to spectators',
-  !/body\.spectator-mode #roundGuide,/.test(page));
+check('desktop setup and ballot guides stay available to spectators',
+  !/body\.spectator-mode #roundGuide,/.test(page.slice(0, page.indexOf('/* ── Phones, redesigned 2026-09-03'))));
 check('spectator motion and clock use compact styles',
   /body\.spectator-mode \.round-motion-bar\{[\s\S]*?grid-template-columns:minmax\(0,1fr\) auto/.test(page)
   && /body\.spectator-mode \.timer-num\{font-size:clamp\(2\.45rem,4vw,3\.35rem\)\}/.test(page));
@@ -38,15 +38,13 @@ check('live header carries spectator context',
   /id="spectatorMatchup"/.test(page)
   && /id="spectatorJudge"/.test(page)
   && /id="spectatorPrep"/.test(page));
-check('collapsed token market leads with the action and balance',
-  /id="audienceToolsLabel">Bet on yourself - Tokens</.test(page)
-  && /class="atb-have">You have</.test(page)
-  && /id="audienceTokensBalance">1K</.test(page)
-  && /class="atb-cash"[^>]*>\$\$</.test(page));
-check('collapsed token balance follows server state',
-  /function pmUpdateSummary\(balance\)/.test(page)
-  && /pmUpdateSummary\(d&&d\.balance\)/.test(page)
-  && /pmUpdateSummary\(d\.balance\)/.test(page));
+check('audience responses remain available without betting or a balance badge',
+  /id="audienceToolsLabel">Your take</.test(page)
+  && /function svInitSpectator/.test(page)
+  && !/audienceTokensBalance|pmRenderPanel|pmOpen|pmPlaceBet|data-sm="bet"/.test(page));
+check('spectator menu retains transcript, notes, and private responses',
+  /data-sm="transcript"/.test(page) && /data-sm="notes"/.test(page)
+  && /data-sm="audience"/.test(page));
 check('audience mode sets the spectator layout class',
   /document\.body\.classList\.add\('spectator-mode'\)/.test(page)
   && /document\.body\.classList\.toggle\('spectator-mode', spectator\)/.test(page));

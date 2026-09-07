@@ -661,8 +661,7 @@
       // 2026-08-27: moved off the permanent rail and back into Explore.
       // Keep both rows below Watch and Community, not among the paths for
       // entering a debate. `strong` is the menu's bold tier.
-      // 2026-08-29: relabelled 'Bet' -> 'Betting market' per the founder.
-      { href: '/predict',     label: 'Betting market', strong: true },
+      // 2026-09-06: betting is paused across all public surfaces.
     // 2026-09-01: removed per the founder (annotated screenshot strike).
     // Page stays live; restore = uncomment the line below.
     // { href: '/bounties',    label: 'Bounties', strong: true },
@@ -791,7 +790,6 @@
     '/credentials':    { desc: 'Proof of your record', plain: 'A shareable record of your rounds', icon: '<circle cx="12" cy="9.4" r="4.8"/><path d="M9.1 13.4L7.6 20l4.4-2.3L16.4 20l-1.5-6.6"/>' },
     '/coach':          { desc: 'Personal drills, tuned to you', icon: '<path d="M4.6 14v-2.4a7.4 7.4 0 0 1 14.8 0V14"/><rect x="3.6" y="13" width="4" height="5.8" rx="1.8"/><rect x="16.4" y="13" width="4" height="5.8" rx="1.8"/>' },
     '/room-judge':     { desc: 'AI judge for your video call', icon: '<rect x="3.6" y="5" width="16.8" height="11.8" rx="2"/><path d="M9 20.4h6M12 16.8v3.6"/>' },
-    '/predict':        { desc: 'Call winners, earn points', icon: '<path d="M4 17l5.5-5.5 3.5 3.5L19.5 8.4"/><path d="M14.8 8.4h4.7v4.7"/>' },
     '/bounties':       { desc: 'Fund a round you want to see', icon: '<path d="M12 3.8v16.4M16.1 7.1c-.9-1-2.2-1.5-4-1.5-2.1 0-3.6 1.1-3.6 2.8 0 3.8 7.1 2 7.1 5.8 0 1.8-1.5 3-3.8 3-1.8 0-3.2-.6-4.2-1.7"/>' },
     // 2026-07-30: these two moved off the rail into the menu, so they now
     // need the icon + one-line description every menu row carries. The
@@ -1092,7 +1090,6 @@
           // already covers watching, /community already covers chat.
           ['/community',      'big'],
           ['/watch',          'strong'],
-          ['/predict',        'strong'],
         ]),
         column('Debate', [
           // The source row above is /challenges. Keeping /live here made

@@ -1,3 +1,4 @@
+import { BETTING_LIVE } from './lib/betting-status.mjs';
 // Prediction market on real human rounds, AI-judged. POINTS ONLY (virtual,
 // non-redeemable). Server-authoritative: the client can NEVER write balances,
 // pools, or payouts. every economy mutation goes through this function with
@@ -128,6 +129,9 @@ export default async (request, context) => {
   let body;
   try { body = await request.json(); } catch (e) { return errorResponse('Bad JSON', 400, request); }
   const action = body && body.action;
+  if (!BETTING_LIVE && !['state', 'lock', 'settle'].includes(action)) {
+    return errorResponse('Betting is paused.', 410, request);
+  }
   const db = getDb();
   // 'list'/'resolve'/'seed' are public market upkeep (no economy mutation, self-
   // limiting): they keep the board fresh whether or not anyone is signed in.

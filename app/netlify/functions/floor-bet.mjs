@@ -1,3 +1,4 @@
+import { BETTING_LIVE } from './lib/betting-status.mjs';
 // ─────────────────────────────────────────────────────────────
 // POST /api/floor/bet  — place a play-credit position on a market.
 // Server-authoritative: validates the betting window against the
@@ -16,6 +17,8 @@ import { FLOOR, FLOOR_ANON_CACHE_KEY, windowOf, bettable, poolMult, defaultUser 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
+
+  if (!BETTING_LIVE) return errorResponse('Betting is paused.', 410, request);
 
   const token = extractBearerToken(request);
   if (!token) return errorResponse('Sign in to play The Floor.', 401, request);

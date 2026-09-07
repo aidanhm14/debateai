@@ -1,5 +1,8 @@
 # AGENTS.md
 
+> **BETTING PAUSED (Aidan, 2026-09-06).** Remove betting from the site entirely for now, including navigation, audience/debater controls, public market pages, and promotional copy. This supersedes earlier points-only restores and the merge of voice-token purchases into /predict. Voice tokens remain paid AI usage at /voice-tokens. Existing ledgers and settlement/refund logic remain for history; no new markets or stakes may be created.
+
+
 > Operational manual for AI coding agents working on Debatable (Codex,
 > Claude Code, Cursor, etc.). Read this first, then read [soul.md](soul.md)
 > for product/voice/decision context. If a change would contradict either

@@ -44,3 +44,5 @@ the newer layout adjusted around it.
 - [2026-09-06 — homepage voice greeting](2026-09-06-home-voice-prompt.md) — removed the greeting orb, rose AI button and italic serif treatment.
 
 - [Live popup photographic fallback](2026-09-06-live-popup-photo-fallback.md): replaced with current room snapshots and labeled animated illustrations.
+
+- [2026-09-06 — betting surfaces](2026-09-06-betting.md): paused market page, navigation, live-room controls, and landing promotions.

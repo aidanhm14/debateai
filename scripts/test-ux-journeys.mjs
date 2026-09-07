@@ -62,16 +62,8 @@ for (const path of [
   check(hasNamedGate(path), `${path} rejects anonymous Firebase identities`);
 }
 
-// 2026-09-02: app/tokens.html was DELETED by 3b73f2c5 ("merge /tokens
-// into the page") and this guard kept reading it, so it threw ENOENT on
-// every run and blocked every commit in the repo for everyone. A red
-// guard on main is worse than no guard, because the next person reads
-// the failure as noise. The two promises that still mean something moved
-// to /predict, which is where the token surface now lives; the third
-// ("no duplicate page-local auth control") was specific to tokens.html
-// sprouting its own button beside the topbar, and /predict owns a full
-// page bar with a sign-in control in it by design, so it does not port.
-const tokensSurface = read('app/predict.html');
+// Paid voice-token checkout stays available while betting is paused.
+const tokensSurface = read('app/voice-tokens.html');
 check(tokensSurface.includes("openAuthModal('signup',{onDone:function(u)"), 'token checkout resumes after sign-in');
 check(tokensSurface.includes("d.error==='NAMED_ACCOUNT_REQUIRED'"), 'token surface handles a server-side anonymous-account rejection');
 
@@ -94,7 +86,7 @@ const activeNavigationFiles = [
   'app/practice.html',
   'app/pricing.html',
   'app/profile.html',
-  'app/predict.html',
+  'app/voice-tokens.html',
   'app/native.html',
   'app/voice-debate.html',
   'app/newvoice.html',
@@ -477,7 +469,7 @@ for (const path of [
   );
 }
 
-for (const path of ['app/practice.html', 'app/pricing.html', 'app/predict.html', 'app/profile.html', 'app/native.html', 'app/spar.html']) {
+for (const path of ['app/practice.html', 'app/pricing.html', 'app/voice-tokens.html', 'app/profile.html', 'app/native.html', 'app/spar.html']) {
   check(inlineScriptsParse(path), `${path} inline scripts parse`);
 }
 

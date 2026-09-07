@@ -3,6 +3,7 @@
 // The double models optimistic retries, query conflicts, read-before-write,
 // and atomic commit failure. It is not a substitute for the Firestore SDK.
 import assert from 'node:assert/strict';
+import { BETTING_LIVE } from '../app/netlify/functions/lib/betting-status.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -139,8 +140,9 @@ class MemoryDb {
   }
 }
 
-function handler(db) {
+function handler(db, bettingLive = true) {
   const dependencies = {
+    BETTING_LIVE: bettingLive,
     verifyIdToken: async (uid) => ({ sub: uid, name: uid }),
     extractBearerToken: (request) => request.uid,
     corsResponse: () => ({ status: 204 }),
@@ -155,7 +157,7 @@ function handler(db) {
   return new Function(...Object.keys(dependencies), source)(...Object.values(dependencies));
 }
 
-function fixture(judgment = null, { empty = false } = {}) {
+function fixture(judgment = null, { empty = false, bettingLive = true } = {}) {
   const db = new MemoryDb();
   db.seed(MARKET, {
     room: 'round', proUid: 'participant-a', conUid: 'participant-b',
@@ -170,7 +172,7 @@ function fixture(judgment = null, { empty = false } = {}) {
     }
   }
   if (judgment) db.seed(JUDGMENT, judgment);
-  const run = handler(db);
+  const run = handler(db, bettingLive);
   const request = async (action, body = {}, uid = 'participant-a') => {
     try { return await run({ method: 'POST', uid, json: async () => ({ action, room: 'round', ...body }) }, {}); }
     catch (error) { return { status: 500, body: { error: String(error.message || error) } }; }
@@ -294,6 +296,24 @@ test('unauthorized and missing-market requests cannot mutate balances', async ()
   assert.equal((await request('settle', { room: 'missing' })).status, 404);
   assert.equal((await request('settle', {}, null)).status, 401);
   assert.deepEqual(db.snapshot(), before);
+});
+
+test('paused betting refuses new stakes and markets without touching the ledger', async () => {
+  assert.equal(BETTING_LIVE, false);
+  const { db, request } = fixture(serverWinner, { bettingLive: BETTING_LIVE });
+  const before = db.snapshot();
+  for (const action of ['open', 'bet', 'attest', 'list']) {
+    assert.equal((await request(action, { pick: 'pro', stake: 10 })).status, 410);
+  }
+  assert.deepEqual(db.snapshot(), before);
+  assert.equal(db.readLog.length, 0);
+});
+
+test('paused betting still permits settlement of existing stakes', async () => {
+  const { db, request } = fixture(serverWinner, { bettingLive: BETTING_LIVE });
+  success(await request('settle'));
+  assert.equal(db.data(MARKET).status, 'settled');
+  assert.equal(db.data(BALANCE('backer-pro')).balance, 110);
 });
 
 test('a delayed duplicate open cannot overwrite an already settled market', async () => {

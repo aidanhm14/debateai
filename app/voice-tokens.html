@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Voice tokens · Debatable</title>
+<meta name="description" content="$4.99 a month for 500 tokens. Get 10 extra voice rounds on Debatable and manage your token subscription.">
+<link rel="canonical" href="https://itsdebatable.com/voice-tokens">
+<link rel="icon" href="/icons/icon-192.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Voice tokens · Debatable">
+<meta property="og:description" content="$4.99 a month for 10 extra voice rounds.">
+<meta property="og:url" content="https://itsdebatable.com/voice-tokens">
+<meta property="og:image" content="https://itsdebatable.com/og-image.png">
+<link rel="stylesheet" href="/css/ui.css">
+<style>
+:root{--panel:var(--bg-elev-solid,#fff);--bd:var(--border,#d8d8d8);--bd2:var(--border,#ccc);--tx:var(--text,#17181c);--dim:var(--text-dim,#555);--faint:var(--text-dim,#555);--pro:var(--success-text,#166534);--pro-d:#14532d;--mono:ui-monospace,monospace;--shadow:0 4px 14px rgba(0,0,0,.06)}
+body{margin:0;background:var(--bg,#f8f7f4);color:var(--tx);font-family:Inter,system-ui,sans-serif}
+main{max-width:960px;margin:0 auto;padding:100px 24px 50px}
+h1,h3,p{margin:0 0 12px}a{color:inherit}
+.tokens-band{position:relative;overflow:hidden;margin:22px 0 4px;padding:22px;border:1px solid rgba(21,128,61,.28);border-radius:18px;background:linear-gradient(110deg,#f2fbf4,#fff 66%);box-shadow:var(--shadow)}
+.tokens-band>*{position:relative;z-index:1}
+.tokens-band .money-field{position:absolute;z-index:0}
+.tb-k{font-family:var(--mono);font-size:.58rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--pro)}
+.tokens-band h1{font-size:clamp(1.35rem,2.6vw,1.9rem);line-height:1.14;margin:5px 0 7px}
+.tb-lede{font-size:.86rem;line-height:1.52;color:var(--dim);max-width:64ch}
+.tb-lede strong{color:var(--tx)}
+.tb-banner{display:none;margin:14px 0 0;padding:10px 13px;border-radius:11px;font-size:.78rem;line-height:1.45;border:1px solid var(--bd2);background:var(--panel);color:var(--dim)}
+.tb-banner.on{display:block}
+.tb-banner.good{border-color:rgba(21,128,61,.34);background:rgba(21,128,61,.08);color:var(--tx)}
+.tb-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:18px;align-items:start}
+.tb-card{border:1px solid var(--bd);border-radius:13px;background:var(--panel);padding:15px}
+.tb-card h3{font-size:.95rem;margin-bottom:8px}
+.tb-balrow{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.tb-balnum{font-family:var(--mono);font-size:1.9rem;font-weight:800;line-height:1;color:var(--tx)}
+.tb-balmeta{font-size:.74rem;line-height:1.5;color:var(--dim)}
+.tb-chip{font-family:var(--mono);font-size:.6rem;font-weight:700;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid var(--bd2);color:var(--dim)}
+.tb-chip.active{border-color:rgba(21,128,61,.4);background:rgba(21,128,61,.1);color:var(--pro)}
+.tb-never{list-style:none;display:grid;gap:7px}
+.tb-never li{font-size:.77rem;line-height:1.45;color:var(--dim);padding-left:15px;position:relative}
+.tb-never li::before{content:'';position:absolute;left:0;top:.55em;width:6px;height:6px;border-radius:2px;background:var(--pro)}
+.tb-never li b{color:var(--tx)}
+.tb-actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:16px}
+.tb-actions button,.tb-actions a{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;padding:11px 17px;border-radius:10px;font-family:'Archivo',Georgia,serif;font-size:.79rem;font-weight:800;border:none;cursor:pointer}
+.tb-actions .buy{background:var(--pro-d);color:#fff}
+.tb-actions .buy:hover{background:var(--pro)}
+.tb-actions .buy[disabled]{opacity:.6;cursor:default}
+.tb-actions .ghost{border:1px solid var(--bd2);color:var(--tx);background:var(--panel)}
+.tb-note{flex:1 1 240px;min-width:0;font-size:.71rem;line-height:1.45;color:var(--faint)}
+.tb-legal{font-family:var(--mono);font-size:.57rem;color:var(--faint);margin-top:12px;line-height:1.6}
+
+
+.tokens-band{background:var(--panel)}
+.tokens-band h1{font-size:clamp(2rem,5vw,3.5rem)}
+.tb-k,.tb-never li::before{color:var(--tx)}
+.tb-never{padding:0}
+@media(max-width:700px){.tb-grid{grid-template-columns:1fr}main{padding:80px 16px 30px}.tokens-band{padding:20px}.tb-actions .buy{width:100%}}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+  authDomain: "debateos-78ac5.firebaseapp.com",
+  projectId: "debateos-78ac5",
+  storageBucket: "debateos-78ac5.firebasestorage.app",
+  messagingSenderId: "860359449192",
+  appId: "1:860359449192:web:f5dc0060dbd50d6c4fb9dd",
+};
+try { if (typeof firebase !== 'undefined' && !(firebase.apps && firebase.apps.length)) firebase.initializeApp(FIREBASE_CONFIG); }
+catch (e) { console.warn('[predict] firebase init skipped:', e.message); }
+</script>
+<script defer src="/js/track.js"></script>
+</head>
+<body>
+<div id="daTopbar"></div>
+<main>
+  <section class="tokens-band" id="tokens" aria-labelledby="tokensTitle">
+    <span class="tb-k">Live now &middot; billing by Stripe</span>
+    <h1 id="tokensTitle">More voice rounds.</h1>
+    <p class="tb-lede"><strong>$4.99 a month for 500 tokens.</strong> A voice round past your free allowance costs 50 tokens, so one cycle covers 10 extra rounds. Your free rounds stay free.</p>
+
+    <div class="tb-banner good" id="tkSuccess">Subscription active. Tokens land within a minute of each paid invoice. <a href="/voice-debate">Start a voice round now</a>.</div>
+    <div class="tb-banner" id="tkCanceled">Checkout closed. Nothing was charged.</div>
+    <div class="tb-banner" id="tkNotLive">Not on sale yet. The checkout is wired end to end and opens when pricing is set.</div>
+
+    <div class="tb-grid">
+      <div class="tb-card">
+        <h3>Your token balance</h3>
+        <div id="tkBalBody"><div class="tb-balmeta">Sign in to see your balance.</div></div>
+      </div>
+      <div class="tb-card">
+        <h3>What your tokens cover</h3>
+        <ul class="tb-never">
+          <li><b>Tokens are usage.</b> They pay for AI time on this site and nothing else.</li>
+          <li><b>Unused tokens stay yours.</b> Granted tokens remain in your account.</li>
+          <li><b>Tokens never convert to money.</b> No cash value, not transferable, not redeemable.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="tb-actions">
+      <button class="buy" id="tkSubscribe" data-native-hide data-cta="tokens-subscribe">Sign in to subscribe</button>
+      <button class="ghost" id="tkPortal" style="display:none">Manage billing</button>
+      <a class="ghost" href="/pricing" data-cta="tokens-plans">See all plans</a>
+      <span class="tb-note" id="tkNote">$4.99 a month, 500 tokens per cycle. Billing by Stripe; cancel anytime from this page. Granted tokens stay yours.</span>
+    </div>
+    <p class="tb-legal">Payments run through Stripe. Questions or pricing thoughts: <a href="mailto:hello@itsdebatable.com">hello@itsdebatable.com</a></p>
+  </section>
+</main>
+<script>
+(function(){
+  var user=null;
+  function $(id){ return document.getElementById(id); }
+  function isNamed(u){ return !!(u && !u.isAnonymous); }
+
+  var qs=new URLSearchParams(location.search);
+  if(qs.get('billing')==='success'){ $('tkSuccess').classList.add('on'); }
+  if(qs.get('billing')==='canceled'){ $('tkCanceled').classList.add('on'); }
+
+  async function headers(){
+    var h={'Content-Type':'application/json'};
+    try{
+      if(user){
+        var tok=await Promise.race([ user.getIdToken(), new Promise(function(_,rej){ setTimeout(function(){rej(new Error('token timeout'));},4000); }) ]);
+        h['Authorization']='Bearer '+tok;
+      }
+    }catch(e){}
+    return h;
+  }
+
+  async function loadBalance(){
+    if(!user){ $('tkBalBody').innerHTML='<div class="tb-balmeta">Sign in to see your balance.</div>'; return; }
+    try{
+      var r=await fetch('/api/tokens',{headers:await headers()});
+      if(!r.ok) throw new Error('http '+r.status);
+      var d=await r.json();
+      var st=String(d.status||'none');
+      $('tkPortal').style.display=(st==='active'||st==='past_due')?'':'none';
+      $('tkBalBody').innerHTML=
+        '<div class="tb-balrow"><span class="tb-balnum">'+(d.tokens||0)+'</span>'+
+        '<span class="tb-balmeta">granted '+(d.granted||0)+' &middot; spent '+(d.spent||0)+'</span>'+
+        '<span class="tb-chip'+(st==='active'?' active':'')+'">'+st+'</span></div>'+
+        '<div class="tb-balmeta" style="margin-top:8px">'+(d.perCycle||500)+' tokens per paid cycle &middot; '+(d.voiceRound||50)+' per voice round past the free cap.</div>';
+    }catch(e){
+      $('tkBalBody').innerHTML='<div class="tb-balmeta">Could not load your balance. Refresh to retry.</div>';
+    }
+  }
+
+  async function subscribe(){
+    var btn=$('tkSubscribe');
+    if(!isNamed(user)){ doSignIn(function(){ subscribe(); }); return; }
+    btn.disabled=true; btn.textContent='Opening checkout';
+    try{
+      var r=await fetch('/api/tokens/checkout',{method:'POST',headers:await headers(),body:'{}'});
+      var d=await r.json().catch(function(){return {};});
+      if(r.status===403 && d.error==='TOKENS_NOT_LIVE'){ $('tkNotLive').classList.add('on'); }
+      else if(r.status===403 && d.error==='NAMED_ACCOUNT_REQUIRED'){
+        user=null; btn.disabled=false; btn.textContent='Sign in to subscribe';
+        doSignIn(function(){ subscribe(); });
+        return;
+      }
+      else if(r.ok && d.url){ location.href=d.url; return; }
+      else { $('tkNote').textContent='Checkout hit an error. Try again in a minute.'; }
+    }catch(e){
+      $('tkNote').textContent='Checkout hit an error. Try again in a minute.';
+    }
+    btn.disabled=false; btn.textContent='Subscribe';
+  }
+
+  function doSignIn(onDone){
+    var tries=0;
+    function open(){
+      if (typeof window.openAuthModal === 'function') {
+        window.openAuthModal('signup',{onDone:function(u){
+          user=isNamed(u)?u:null;
+          loadBalance();
+          $('tkSubscribe').textContent=user?'Subscribe':'Sign in to subscribe';
+          if(user && typeof onDone==='function') onDone(user);
+        }});
+        return;
+      }
+      tries++;
+      if(tries<20){ setTimeout(open,150); return; }
+      $('tkNote').textContent='Sign-in is still loading. Refresh and try again.';
+    }
+    open();
+  }
+
+  async function openPortal(){
+    var btn=$('tkPortal');
+    btn.disabled=true;
+    try{
+      var r=await fetch('/api/tokens/portal',{method:'POST',headers:await headers(),body:'{}'});
+      var d=await r.json().catch(function(){return {};});
+      if(r.ok && d.url){ location.href=d.url; return; }
+    }catch(e){}
+    btn.disabled=false;
+  }
+
+  $('tkSubscribe').addEventListener('click',subscribe);
+  $('tkPortal').addEventListener('click',openPortal);
+
+  try{
+    firebase.auth().onAuthStateChanged(function(u){
+      user=isNamed(u)?u:null;
+      $('tkSubscribe').textContent=user?'Subscribe':'Sign in to subscribe';
+      loadBalance();
+    });
+  }catch(e){}
+})();
+</script>
+<script defer src="/js/topbar.js"></script>
+</body>
+</html>
