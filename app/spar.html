@@ -5629,7 +5629,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         var v = sparLangValid(langSel.value);
         state.lang = v;
         langSel.classList.toggle('xl', v !== 'en');
-        try { localStorage.setItem('debateos-ai-lang', v); } catch(e){}
+        if (window.DBLocale && window.DBLocale.norm(v)) window.DBLocale.set(v, { source: 'user', silent: true });
+        else { try { localStorage.setItem('debateos-ai-lang', v); } catch(e){} }
         try { gtag('event', 'spar_lang_set', { lang: v, format: formatParam }); } catch(e){}
         if (state.queueDocRef) state.queueDocRef.update({ lang: v }).catch(function(){});
         syncJudgeStepValue();

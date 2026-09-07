@@ -48,6 +48,7 @@
 <script defer src="/js/voice-transcript.js"></script>
 <script defer src="/js/public-identity.js"></script>
 <script defer src="/js/voice-allowance.js"></script>
+<script defer src="/js/locale.js"></script>
 <script defer src="/js/voice-preview-momentum.js"></script>
 
 <style>
@@ -1656,6 +1657,22 @@ if (handedSide === 'gov' || handedSide === 'pro' || handedSide === 'for') side =
 if (handedSide === 'opp' || handedSide === 'con' || handedSide === 'against') side = 'against';
 let status = 'idle';               // idle | connecting | live | ended
 let pc = null, dc = null, micStream = null, audioEl = null;
+// The shared locale moved mid-round (js/locale.js heard the person switch
+// language): re-hint the transcriber and tell the opponent, so the rest
+// of this round runs in the language now being spoken. The clash
+// minter's block already says to follow the user's lead; this makes it
+// explicit and fixes the transcription hint, which the model cannot.
+window.addEventListener('debatable:locale', (ev) => {
+  const code = ev && ev.detail && ev.detail.code;
+  if (!/^[a-z]{2}$/.test(code || '')) return;
+  roundLang = code;
+  if (!dc || dc.readyState !== 'open') return;
+  try {
+    dc.send(JSON.stringify({ type: 'session.update', session: { audio: { input: { transcription: { model: 'gpt-4o-transcribe', language: code } } } } }));
+    const nm = window.DBLocale ? window.DBLocale.name(code) : code;
+    dc.send(JSON.stringify({ type: 'conversation.item.create', item: { type: 'message', role: 'system', content: [{ type: 'input_text', text: '[Language] The user is now speaking ' + nm + '. Reply only in ' + nm + ' for the rest of the round. Keep your side and the claim exactly as they are.' }] } }));
+  } catch (e) {}
+});
 let audioCtx = null, userAnalyser = null, aiAnalyser = null;
 let userBuf = null, aiBuf = null;
 let startedAt = 0, timerIv = null;
@@ -2394,9 +2411,13 @@ async function start(){
     } catch (e) {}
     // English-first by design. Reading the shared debateos-locale key
     // caused the 2026-07-04 Spanish-lock bug: a stale 'es' from the
-    // landing-page picker pinned the whole round to Spanish. An explicit
-    // ?lang=xx on the URL is now the only override.
-    let aiLanguage = 'en';
+    // landing-page picker pinned the whole round to Spanish. Since
+    // 2026-09-07 the shared locale FOLLOWS what the person actually
+    // says (js/locale.js observes every transcript and switches, in both
+    // directions), and the clash minter's language block is soft, so a
+    // stale value corrects itself on the first clear utterance instead
+    // of policing the round. ?lang=xx on the URL still wins outright.
+    let aiLanguage = (window.DBLocale ? window.DBLocale.get() : 'en');
     try {
       const ql = (new URLSearchParams(location.search).get('lang') || '').toLowerCase();
       if (/^[a-z]{2}$/.test(ql)) aiLanguage = ql;
@@ -2837,6 +2858,10 @@ function handleEvent(e){
       break;
     case 'conversation.item.input_audio_transcription.completed': {
       const text = (e.transcript || '').trim();
+      // Language follows the person. The page translation waits for the
+      // ballot (flushUI in judgeRound) so a live pass never rewrites the
+      // captions mid-round; the opponent and transcriber switch now.
+      try { if (text && window.DBLocale) window.DBLocale.observe(text, { ui: 'defer' }); } catch (_) {}
       if (text) {
         turns.push({ who: 'you', text });
         vtPush('you', text);
@@ -2985,10 +3010,11 @@ function maybeLiveJudge(){
       stream: false,
       system:
         'You are silently scoring a live spoken argument between USER and MACHINE, mid-round. ' +
-        'Reply with ONE sentence under 22 words, plain English, present tense, addressed to USER as "you": ' +
+        'Reply with ONE sentence under 22 words, plain language, present tense, addressed to USER as "you": ' +
         'who is ahead right now and the single biggest reason. Call the other side "the machine". ' +
         'No hedging, no preamble, no final-verdict language; the round is still going.' +
-        ((roundJudge && window.JudgeRoster) ? ('\n' + JudgeRoster.promptBlock(roundJudge)) : ''),
+        ((roundJudge && window.JudgeRoster) ? ('\n' + JudgeRoster.promptBlock(roundJudge)) : '') +
+        ((window.DBLocale && window.DBLocale.get() !== 'en') ? ('\n' + window.DBLocale.promptBlock(window.DBLocale.get())) : ''),
       messages: [{ role: 'user', content: 'Claim: "' + (currentMotion || '') + '". USER argues ' + (side === 'for' ? 'FOR' : 'AGAINST') + ' it.\n\n' + transcript }],
       _feature: 'newvoice-livejudge',
     }),
@@ -3225,6 +3251,14 @@ function judgeRound(){
   } catch (e) {}
 
   const transcript = t.map((x) => (x.who === 'you' ? 'USER' : 'MACHINE') + ': ' + x.text).join('\n');
+  // The ballot is written in the language the user argued in. The two
+  // parsed lines ("Winner: ..." and "Score: N") stay English by
+  // instruction; only the prose moves.
+  let rfdLang = 'en', rfdLangBlock = '';
+  try {
+    rfdLang = window.DBLocale ? window.DBLocale.roundLang(t.filter((x) => x.who === 'you').map((x) => x.text).join(' ')) : 'en';
+    rfdLangBlock = (rfdLang !== 'en' && window.DBLocale) ? ('\n\n' + window.DBLocale.promptBlock(rfdLang)) : '';
+  } catch (e) {}
   // The assigned judge's paradigm rides the ballot as an emphasis lens.
   // Guard-wrapped by promptBlock: it may shift what gets rewarded, it
   // may not name a winner or change the required output shape.
@@ -3240,7 +3274,7 @@ function judgeRound(){
     'First line starts "Winner: You." or "Winner: The machine." or "Winner: Wash." ' +
     'Second line is exactly "Score: N" where N is a whole number from 1 to 100 for USER alone, on the same scale as every leaderboard round. ' + SCORE_CALIBRATION + ' ' +
     'Then three or four sentences: the clash that decided it (quote a short phrase from the transcript), the single best moment each side had, and one concrete, doable tip for USER\'s next round. ' +
-    'Address USER as "you" and call the other side "the machine".' + personaBlock;
+    'Address USER as "you" and call the other side "the machine".' + personaBlock + rfdLangBlock;
   const user =
     'Claim: "' + (currentMotion || 'unknown') + '". USER argued ' + (side === 'for' ? 'FOR' : 'AGAINST') +
     ' it; MACHINE argued the opposite.\n\nTranscript:\n' + transcript.slice(0, 12000);
@@ -3281,6 +3315,10 @@ function judgeRound(){
       if (w === 'you') { pill.textContent = 'You won'; pill.className = 'ballot-pill win-you'; }
       else if (w.indexOf('machine') >= 0) { pill.textContent = 'The AI won'; pill.className = 'ballot-pill win-ai'; }
       else { pill.textContent = 'Too close to call'; pill.className = 'ballot-pill'; }
+      // The canonical verdict string, kept beside the visible one: the
+      // page may be machine-translated after this, and the save path
+      // matches on the English.
+      try { if (pill.setAttribute) pill.setAttribute('data-verdict', pill.textContent); } catch (_) {}
       text = text.slice(m[0].length).trim();
     }
     // The score line, then the leaderboard. Parsed off the second line only;
@@ -3294,6 +3332,9 @@ function judgeRound(){
     postLeaderboard(score, outcome);
     if (m && score != null) trackVoiceEvent('voice_rfd_handoff', { round_id: judgedAnalyticsId, outcome, score });
     body.textContent = text;
+    // Safe point for the page translation the detector deferred: the
+    // ballot is rendered and nothing else reads the DOM back.
+    try { if (window.DBLocale) window.DBLocale.flushUI(); } catch (_) {}
   }).catch(() => {
     body.classList.remove('loading');
     if (jn) jn.hidden = true;
@@ -3428,7 +3469,7 @@ function buildRoundDoc(){
   const pill = $('ballotPill'), body = $('ballotBody');
   const card = $('ballotCard');
   const ballotReady = card && !card.hidden && body && !body.classList.contains('loading');
-  const verdict = (ballotReady && pill && !pill.hidden) ? (pill.textContent || '') : '';
+  const verdict = (ballotReady && pill && !pill.hidden) ? ((pill.getAttribute ? pill.getAttribute('data-verdict') : '') || pill.textContent || '') : '';
   return {
     room: 'nv_' + roundId,
     roundId,

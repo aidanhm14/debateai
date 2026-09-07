@@ -31,13 +31,41 @@ export function resolvePrompt(promptId, promptVars) {
 // kind/brutal register on a deliberation transcript is meaningless.
 export const JUDGE_PROMPT_IDS = new Set(['singleJudgeBallot', 'fullWrittenBallot']);
 
+// The languages every layer supports (client js/locale.js LANGS, the
+// Realtime minter, tts.mjs). A code outside this set is treated as English
+// rather than passed through, because the name is interpolated into a
+// prompt.
+export const PROMPT_LANG_NAMES = {
+  en: 'English', es: 'Spanish', fr: 'French', de: 'German', it: 'Italian',
+  pt: 'Portuguese', nl: 'Dutch', tr: 'Turkish', ru: 'Russian', ar: 'Arabic',
+  hi: 'Hindi', zh: 'Mandarin Chinese', ja: 'Japanese', ko: 'Korean',
+};
+
+// A judge writing in the language the round was argued in. Labels, JSON
+// keys and enum values are parsed by the client and must stay in English;
+// only the prose moves. Returns '' for English so an English round is
+// byte-identical to before this existed.
+export function languageBlock(code) {
+  const c = String(code || 'en').toLowerCase().split(/[-_]/)[0];
+  const name = PROMPT_LANG_NAMES[c];
+  if (!name || c === 'en') return '';
+  return `LANGUAGE: The debater argued in ${name}. Write every sentence of prose in ${name}: the decision, the reasoning, the feedback, the fixes, all of it. Do NOT translate or alter section labels, JSON keys, or enum values (winner values like "user" / "ai", axis names, SCORE, DECISION, THE BALLOT and the like); those are parsed by software and stay exactly as specified in English. Quote the transcript in its original language. Names of real people and proper nouns stay as they are.`;
+}
+
 export function applyPromptLibrary(body) {
   const promptId = body._promptId;
   const promptVars = body._promptVars;
+  // Round language, sent by /practice beside a ballot promptId. Consumed
+  // here on every proxy (all six call applyPromptLibrary) so it never
+  // reaches a provider as an unknown top-level key.
+  const language = body._language;
   delete body._promptId;
   delete body._promptVars;
+  delete body._language;
   let libText = resolvePrompt(promptId, promptVars);
   if (!libText) return;
+  const langText = languageBlock(language);
+  if (langText) libText = langText + '\n\n' + libText;
   // A judge ballot gets the delivery block prepended so it leads the
   // ballot method: how it is written, then how it is decided. The
   // allow-listed manner/length pair is consumed HERE so it never reaches

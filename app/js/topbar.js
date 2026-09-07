@@ -187,6 +187,31 @@
     document.head.appendChild(s);
   })();
 
+  // One language for the whole product (2026-09-07). locale.js is the
+  // authority for the stored locale, the Google Translate cookie that
+  // renders the page in it, the language detector the round surfaces feed,
+  // and the picker below. Sitewide for the same reason as the modules
+  // above: a language the site only honoured on two pages was not a site
+  // language. Idempotent (window.DBLocale guard); round pages without a
+  // topbar include it by hand.
+  (function ensureLocaleLoaded(){
+    if (window.DBLocale || document.querySelector('script[src*="/js/locale.js"]')) return;
+    var s = document.createElement('script');
+    s.src = '/js/locale.js';
+    s.defer = true;
+    document.head.appendChild(s);
+  })();
+  // locale.js is deferred and may land after the bar is built, so the
+  // picker mounts run through this rather than assuming the global.
+  function whenLocale(fn){
+    if (window.DBLocale){ fn(); return; }
+    var tries = 0;
+    var t = setInterval(function(){
+      if (window.DBLocale){ clearInterval(t); fn(); }
+      else if (++tries > 80) clearInterval(t);
+    }, 100);
+  }
+
   function openSharedAuth(mode){
     mode = mode || 'signin';
     var opts = /^\/(spar|live-round)(\.html)?$/.test(here) ? { liveVideo: true } : undefined;
@@ -917,7 +942,10 @@
     var left = el('div', { class: 'ui-topbar-left' }, [
       el('a', {
         href: '/',
-        class: 'ui-topbar-logo wm-red',
+        class: 'ui-topbar-logo wm-red notranslate',
+        // The brand is a name, not a word: Google Translate would otherwise
+        // render it "Discutible" on a Spanish page.
+        translate: 'no',
         'aria-label': 'Debatable, home',
         title: 'Back to home',
         html: '<span>Debatable</span>'
@@ -1529,6 +1557,18 @@
     // signed-in pill), so every page surfaces a path to the free
     // account. hydrateUser() below paints + wires it.
     var userSlot = el('span', { id: 'barUser' });
+    // Site language (2026-09-07). A quiet pill in the same dim-until-hover
+    // treatment as the theme toggle; locale.js owns what happens on
+    // change (the stored keys, the page translation, the event every
+    // round surface listens to). Pages carrying their own picker
+    // (.lang-picker on the landing and /practice) keep it and skip this.
+    // Hidden on phones by CSS; the burger sheet carries a labelled row.
+    if (!document.querySelector('.lang-picker')){
+      whenLocale(function(){
+        if (right.querySelector('.db-locale-picker')) return;
+        window.DBLocale.mountPicker(right, { before: userSlot });
+      });
+    }
     right.appendChild(userSlot);
 
     nav.appendChild(left);
@@ -1690,6 +1730,16 @@
     // element and cannot fall out of step with a second copy.
     var sheetUtils = el('div', { class: 'ui-topbar-sheet-utils', hidden: 'hidden' });
     sheet.appendChild(sheetUtils);
+
+    // Language row in the phone sheet. The desktop pill is hidden below
+    // 560px (see ui.css), so this labelled row is where a phone visitor
+    // finds it. A second <select> rather than a re-parented node: locale.js
+    // keeps every mounted picker in step, so two copies cannot disagree.
+    var sheetLang = el('div', { class: 'ui-topbar-sheet-lang notranslate', translate: 'no' }, [
+      el('span', { class: 'ui-topbar-sheet-utils-label' }, 'Language')
+    ]);
+    sheet.appendChild(sheetLang);
+    whenLocale(function(){ window.DBLocale.mountPicker(sheetLang); });
 
     // Social row in the mobile sheet. The desktop rail is icon-only and
     // hidden on phones, so this is where a phone visitor finds the

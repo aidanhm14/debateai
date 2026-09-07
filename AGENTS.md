@@ -1016,6 +1016,55 @@ Client passes `voice` (persona key), `intensity` (0-1), `premium`, and
 optionally `provider` to `/api/tts`. `tts.mjs` handles routing and
 provider-fallback.
 
+## Site language (one locale for UI, judging and voice)
+
+`app/js/locale.js` is the authority (2026-09-07). It owns the stored
+locale, the Google Translate cookie that renders every page in it, the
+detector the round surfaces feed, and the picker `topbar.js` mounts.
+
+```
+js/locale.js              DBLocale: get/set/detect/observe/roundLang/promptBlock
+js/topbar.js              injects locale.js sitewide; picker beside the theme
+                            toggle (desktop) and a Language row in the phone sheet
+lib/prompts.mjs           languageBlock() + the _language body field, consumed
+                            by applyPromptLibrary on all six brain proxies
+scripts/test-locale.mjs   runs in the pre-commit hook
+```
+
+- **Two keys, always the same value.** `debateos-locale` (UI) and
+  `debateos-ai-lang` (AI) are written together by `DBLocale.set`; older
+  readers of either key keep working. `debateos-locale-src` records who
+  set it (`user` / `detect` / `browser` / `live-round`). Never write one
+  key without the other.
+- **Detection is conservative and runs in both directions.** Every user
+  utterance on /voice-debate, /newvoice, /practice and /live-round goes
+  through `DBLocale.observe`. "Hi." and a four-word fragment switch
+  nothing; a clear sentence (8+ words, or 3+ characters of a non-Latin
+  script) does, and clear English switches back. That self-heals the
+  2026-07-04 stale-locale bug, so /newvoice reads the shared locale again.
+- **Ballots write prose in the round's language and keep labels English.**
+  Voice and newvoice compute `DBLocale.roundLang(userTurns)` and prepend
+  `promptBlock`; /practice sends `_language` beside a ballot `promptId`.
+  Section labels, JSON keys and enum values (SCORE, DECISION, "Winner:",
+  USER/AI) stay English because the parsers read them.
+- **The page pass is deferred on round pages.** `observe(text, {ui:'defer'})`
+  stores the switch and `DBLocale.flushUI()` applies it when the DOM is
+  safe (newvoice flushes at the ballot). `/voice-debate` carries
+  `data-locale-ui="off"`: React and a Google Translate DOM pass do not mix.
+- **Google Translate specifics.** The widget uses the default dropdown
+  layout, not SIMPLE, because only the dropdown renders the
+  `select.goog-te-combo` that a live switch drives; the landing and
+  /practice keep their own SIMPLE widget and reload instead. The wordmark
+  and the `<title>` carry `translate="no"` or "Debatable" renders as
+  "Debatible". The Browser pane runs hidden and throttles the widget's
+  DOM walk; verify translation in a headed Chrome.
+- **Browser language is an offer, never a switch.** A first visit on a
+  supported non-English browser gets one chip in that language; content is
+  the only signal that switches automatically.
+- Supported set (14) must agree across `LANGS` in locale.js,
+  `PROMPT_LANG_NAMES` in prompts.mjs and `REALTIME_LANG_NAMES` in
+  realtime-session.mjs; the guard asserts it.
+
 ## Page narration (retired 2026-08-12)
 
 The sitewide "Listen" pill is retired. `topbar.js`, standalone pages, and

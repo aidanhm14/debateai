@@ -748,6 +748,16 @@ if [ -f "$ROOMDRAFT_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+LOCALE_GUARD="$REPO_ROOT/scripts/test-locale.mjs"
+if [ -f "$LOCALE_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-locale.mjs >/tmp/locale-guard.log 2>&1); then
+    echo "[locale-guard] commit blocked — the site-language layer no longer holds:" >&2
+    tail -20 /tmp/locale-guard.log >&2
+    echo "[locale-guard] see scripts/test-locale.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
+
 ECHO_GUARD="$REPO_ROOT/scripts/test-transcribe-echo.mjs"
 if [ -f "$ECHO_GUARD" ] && command -v node >/dev/null 2>&1; then
   if ! (cd "$REPO_ROOT" && node scripts/test-transcribe-echo.mjs >/tmp/echo-guard.log 2>&1); then

@@ -34,6 +34,7 @@
 <script defer src="/js/avatar-account.js"></script>
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/ballot-read.js"></script>
+<script defer src="/js/locale.js"></script>
 <!-- Firebase init. This page needs auth for the rating widget AND the
      post-round save-hook below. Public web config (same as every other
      page); idempotent guard so a re-init is a no-op. 2026-06-08: this
@@ -806,6 +807,13 @@ body{
         + '</div>';
       return;
     }
+    // The round was argued in payload.lang (voice-debate detects it from
+    // the user's own turns). A non-English round makes the page follow:
+    // labels translate, the ballot prose is already in that language.
+    try {
+      var _rl = payload.lang && window.DBLocale ? window.DBLocale.norm(payload.lang) : '';
+      if (_rl && _rl !== 'en' && window.DBLocale.get() !== _rl) window.DBLocale.set(_rl, { source: 'detect', silent: true });
+    } catch(e){}
     var sections = parseRfd(payload.rfd);
     var isViva = payload.format === 'viva';
     var viva = isViva ? parseVivaScorecard(payload.rfd) : null;
@@ -1623,7 +1631,8 @@ body{
             voice: 'Statesman',
             intensity: 0.7,
             premium: true,
-            provider: 'elevenlabs'
+            provider: 'elevenlabs',
+            language: (payload.lang && /^[a-z]{2}$/.test(payload.lang)) ? payload.lang : 'en'
           })
         });
 

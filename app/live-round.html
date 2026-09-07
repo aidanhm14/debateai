@@ -54,6 +54,7 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
      neutral local context frame so setup never ends in a dead error state. -->
 <script src="/js/motion-brief.js"></script>
 <script defer src="/js/track.js"></script>
+<script defer src="/js/locale.js"></script>
 <!-- Friend graph + DM engine for the post-ballot "add friend" prompt
      (2026-08-31). Both defer; the round never waits on them. -->
 <script defer src="/js/friends.js"></script>
@@ -7561,10 +7562,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // picker, the offer strip's one-tap button). Everything downstream
   // reads localStorage through myLang(), so the write is the change; the
   // rest of this is making it take effect NOW rather than next round.
-  function setDebateLang(code){
+  function setDebateLang(code, force){
     var v = SR_LOCALE[code] ? code : 'en';
-    if (v === myLang()){ paintLangOffer(); return; }
-    try { localStorage.setItem('debateos-ai-lang', v); } catch(e){}
+    if (!force && v === myLang()){ paintLangOffer(); return; }
+    // Through the shared locale when it is loaded, so the rest of the
+    // site follows the round (source tag stops the listener below from
+    // re-entering; the translation pass waits for the next page load).
+    if (window.DBLocale && window.DBLocale.norm(v)) window.DBLocale.set(v, { source: 'live-round', ui: 'defer', silent: true });
+    else { try { localStorage.setItem('debateos-ai-lang', v); } catch(e){} }
     var sel = $('langSelect');
     if (sel){ sel.value = v; sel.classList.toggle('xl', v !== 'en'); }
     // Rebuild recognition so the new locale takes effect now, not on
@@ -7603,6 +7608,16 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     }
     paintLangOffer();
   }
+
+  // The shared locale moved (the detector heard another language, or a
+  // picker elsewhere): re-arm this round in it. Codes the mic cannot
+  // transcribe (outside SR_LOCALE) are ignored here and still apply to
+  // the rest of the site.
+  window.addEventListener('debatable:locale', function(ev){
+    var d = ev && ev.detail || {};
+    if (d.source === 'live-round') return;
+    if (SR_LOCALE[d.code]) setDebateLang(d.code, true);
+  });
 
   // The language the OTHER side of the round is speaking in, as opposed
   // to the one this browser is reading in. Completed speeches carry the
@@ -8120,7 +8135,13 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       for (var i = e.resultIndex; i < e.results.length; i++){
         var r = e.results[i];
         var txt = ((r[0] && r[0].transcript) || '').trim();
-        if (r.isFinal) mic.finals[mic.offset + i] = txt;   // assign, never append
+        if (r.isFinal){
+          mic.finals[mic.offset + i] = txt;   // assign, never append
+          // A final segment in another language moves the shared locale;
+          // the listener below re-arms the mic in it. Page translation
+          // waits for the next load, since this page reads its own DOM.
+          try { if (txt && window.DBLocale) window.DBLocale.observe(txt, { ui: 'defer' }); } catch(_){}
+        }
         else if (txt) interim += (interim ? ' ' : '') + txt;
       }
       state.micFinal = mic.finals.filter(Boolean).join(' ');

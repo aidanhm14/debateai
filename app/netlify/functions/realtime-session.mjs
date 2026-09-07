@@ -1373,7 +1373,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
     const aiLangCode = REALTIME_LANG_NAMES[aiLangRaw] ? aiLangRaw : 'en';
     const aiLangName = REALTIME_LANG_NAMES[aiLangCode];
     const languageBlock = (aiLangCode !== 'en')
-      ? `LANGUAGE: Speak the entire round in ${aiLangName}. This is non-negotiable — do not switch to English even briefly. Names of real people and proper nouns can stay in their native form. The user's motion is the ground truth; do not translate it back to English when restating it.\n\n`
+      ? `LANGUAGE: Speak the entire round in ${aiLangName}. Do not drift into English mid-round. The one exception: if the user clearly speaks a whole turn in a different language, switch to that language and stay there; the person in the room outranks this setting. Names of real people and proper nouns can stay in their native form. The user's motion is the ground truth; do not translate it back to English when restating it.\n\n`
       : '';
 
     // ── Debate vocabulary glossary ──────────────────────────────

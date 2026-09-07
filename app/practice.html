@@ -1319,8 +1319,8 @@ html[data-ext="1"][data-ext-mode="counter"] .page { padding-top:14px !important;
     if(lang&&lang!=='en'){
       var v='/en/'+lang;
       setCookie('googtrans',v);setCookie('googtrans',v,'.'+host);setCookie('googtrans',v,'.'+bare);
-      try{localStorage.setItem(KEY,lang)}catch(e){}
-    }else{try{localStorage.removeItem(KEY)}catch(e){}}
+      try{localStorage.setItem(KEY,lang);localStorage.setItem('debateos-ai-lang',lang);localStorage.setItem('debateos-locale-src','user:'+Date.now())}catch(e){}
+    }else{try{localStorage.setItem(KEY,'en');localStorage.setItem('debateos-ai-lang','en');localStorage.setItem('debateos-locale-src','user:'+Date.now())}catch(e){}}
     location.reload();
   };
   window.googleTranslateElementInit=function(){
@@ -4105,6 +4105,16 @@ async function callAI(sys, user, onChunk, brainKey, opts) {
   // on a non-judge prompt: the server strips the fields either way.
   if (opts && opts.judgeManner) body._judgeManner = opts.judgeManner;
   if (opts && opts.judgeDetail) body._judgeDetail = opts.judgeDetail;
+  // Round language for server-side prompts (the ballots). Speeches carry
+  // their own directive in buildPrompt; this covers the promptId path,
+  // where the prompt is assembled server-side and the client cannot
+  // prepend to it. Consumed by applyPromptLibrary on every proxy.
+  if (opts && opts.promptId) {
+    try {
+      var _pl = window.DBLocale ? window.DBLocale.get() : localStorage.getItem('debateos-ai-lang') || 'en';
+      if (_pl && _pl !== 'en') body._language = _pl;
+    } catch (e) {}
+  }
   var currentEndpoint = brain.endpoint;
   // Caller can pass an AbortSignal via opts.signal to cancel a stalled
   // generation. Used by speech callsites with a watchdog that aborts
@@ -6441,6 +6451,17 @@ function App() {
     } catch {return 'en';}
   });
   useEffect(() => {try {localStorage.setItem('debateos-ai-lang', aiLanguage);} catch {}}, [aiLanguage]);
+  // The shared locale (js/locale.js) moves when the person clearly types
+  // or speaks another language, or picks one anywhere on the site; the
+  // AI's language on this page follows it.
+  useEffect(() => {
+    function onLocale(ev) {
+      var code = ev && ev.detail && ev.detail.code;
+      if (code && typeof LANGUAGES !== 'undefined' && LANGUAGES[code]) setAiLanguage(code);
+    }
+    window.addEventListener('debatable:locale', onLocale);
+    return () => window.removeEventListener('debatable:locale', onLocale);
+  }, []);
 
   // Chrome-extension bridge. When practice.html is loaded inside the
   // extension's side panel (?ext=1), the panel posts the user's selection
@@ -8444,6 +8465,10 @@ function App() {
     var words = (text || '').trim().split(/\s+/).filter(Boolean).length;
     var wpmThisSpeech = words > 0 ? Math.round(words / (elapsedSec / 60)) : 0;
 
+    // A speech the person gave in another language moves the locale; the
+    // page translation waits for the next load (React and a live
+    // translation pass do not mix), the AI and the ballot switch now.
+    if (userTurn) {try {if (window.DBLocale) window.DBLocale.observe(text || '', { ui: 'defer' });} catch (e) {}}
     var entry = { code: cur.code, who: userTurn ? 'You' : 'AI', text: (text || '(no transcript)') + (interrupted ? ' [interrupted]' : ''), durationSec: elapsedSec, wpm: wpmThisSpeech, wordCount: words, interrupted };
     var newLog = [...log, entry];
     setLog(newLog);setAiText('');
