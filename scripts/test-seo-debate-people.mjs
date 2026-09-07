@@ -101,7 +101,7 @@ check('comparison page links exact anchor to canonical', platforms.includes('<a 
 check('AI discovery file identifies canonical page', llms.includes('[Debate people online](https://itsdebatable.com/debate-strangers)'));
 check('guide cluster links human intent to canonical', guides.includes('<a href="/debate-strangers">Debate people online on video</a>'));
 check('online-debate primary CTA explicitly enters the live-human path',
-  /<a class="btn-primary" href="\/spar\?from=debate-online"[^>]*>[\s\S]*?<span class="btn-primary-title">Debate someone live now<\/span>/.test(hub));
+  /<a class="btn-primary" href="\/spar\?from=debate-online"[^>]*>[\s\S]*?<span class="btn-primary-title">Debate someone now<\/span>/.test(hub));
 check('online-debate primary CTA has a large tap target',
   /\.btn-primary\{[\s\S]{0,180}min-height:88px/.test(hub));
 check('online-debate primary CTA stacks first on small screens',

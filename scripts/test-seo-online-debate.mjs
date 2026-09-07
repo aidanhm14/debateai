@@ -63,8 +63,8 @@ check('title begins with exact query', title.startsWith('Debate Online '));
 check('title fits search display', title.length >= 45 && title.length <= 60);
 check('description begins with the current watch-or-join intent', description.startsWith('Watch live arguments'));
 check('description fits search display', description.length >= 120 && description.length <= 160);
-check('one transactional H1 is present', h1 === 'Debate online. Climb the leaderboard.' && (page.match(/<h1\b/g) || []).length === 1);
-check('hero offers the watch-or-join intent', page.includes('Watch a real debate') && page.includes('Debate someone live now'));
+check('one transactional H1 is present', h1 === 'Debate online with a real person.' && (page.match(/<h1\b/g) || []).length === 1);
+check('hero offers the debate-now-or-home intent (2026-09-07: thesis-first rewrite, two doors)', page.includes('Watch a real debate') && page.includes('Debate someone now') && page.includes('Go to the home page'));
 check('entry uses live activity and offers an AI route',
   page.includes('id="onlineActivity"') && page.includes('/js/debate-discovery.js')
   && page.includes('href="/newvoice?from=debate-online"'));
