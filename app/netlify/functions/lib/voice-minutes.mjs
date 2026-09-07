@@ -63,15 +63,18 @@ const num = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n
 
 /**
  * Minutes already spent against a budget, read off the usage doc.
- * Lifetime is the larger of the minutes field and the legacy round count
- * priced at a full reserve each, so nobody's spent rounds are forgiven
- * by the model change. The month bucket only counts if it is this month.
+ * Unversioned history keeps the larger of minutes and the legacy round
+ * floor. The first settlement freezes that floor under usageVersion 2;
+ * subsequent sessions add only their actual minutes. We cannot reliably
+ * split older unversioned counts, so this does not retroactively refund
+ * them. The month bucket only counts if it is this month.
  */
 export function minutesUsed(doc, budget, nowMs) {
   const d = doc || {};
   if (budget.kind === 'month') {
     return d.monthKey === monthKey(nowMs) ? num(d.monthMinutes) : 0;
   }
+  if (d.usageVersion === 2) return num(d.minutes);
   const legacyRounds = num(d.rounds) + num(d.legacyRounds);
   return Math.max(num(d.minutes), legacyRounds * SESSION_RESERVE_MIN);
 }
@@ -102,10 +105,19 @@ function addMinutes(d, minutes, nowMs) {
  */
 export function settleOpen(doc, nowMs) {
   const d = { ...(doc || {}) };
-  if (!d.open) return { doc: d, charged: 0 };
   const charged = settleMinutes(d.open, nowMs);
   const out = addMinutes(d, charged, nowMs);
   delete out.open;
+  // Freeze the historical floor once. `rounds` continues counting new
+  // sessions for analytics; reinterpreting it as legacy usage on every
+  // read charged each new one-minute session as eight minutes.
+  // Settle first, then preserve the old floor. Reversing that order
+  // would add elapsed minutes on top of an already full legacy round.
+  if (out.usageVersion !== 2) {
+    out.minutes = minutesUsed(out, { kind: 'lifetime' }, nowMs);
+    out.usageVersion = 2;
+    delete out.legacyRounds;
+  }
   return { doc: out, charged };
 }
 

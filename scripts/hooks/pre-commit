@@ -494,6 +494,14 @@ if [ -f "$VOICEMIN_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+if [ -f "$REPO_ROOT/scripts/test-voice-allowance.mjs" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-voice-allowance.mjs >/tmp/voice-allowance-guard.log 2>&1); then
+    echo "[voice-allowance] commit blocked: the displayed allowance disagrees with the gate:" >&2
+    tail -25 /tmp/voice-allowance-guard.log >&2
+    exit 1
+  fi
+fi
+
 # ──────────────────────────────────────────────────────────────────
 # Topic-isolation guard. /newvoice once spoke private model instructions
 # as the debate topic because the opening turn told the model to read

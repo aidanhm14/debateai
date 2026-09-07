@@ -65,8 +65,11 @@ function usageRef(db, uid) { return db.collection(VOICE_USAGE_COLLECTION).doc(ui
 
 function withLegacy(doc, legacyProfileData) {
   const d = { ...(doc || {}) };
+  if (d.usageVersion === 2) return d;
   const legacy = Math.max(0, parseInt(legacyProfileData?.voiceSessionsUsed, 10) || 0);
-  if (legacy > (Number(d.rounds) || 0)) d.legacyRounds = legacy;
+  // Profile and protected counter describe overlapping history, not
+  // separate rounds. Only carry the difference into the migration floor.
+  if (legacy > (Number(d.rounds) || 0)) d.legacyRounds = legacy - (Number(d.rounds) || 0);
   return d;
 }
 

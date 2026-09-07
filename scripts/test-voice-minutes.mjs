@@ -69,6 +69,24 @@ ok(!g.allowed, 'a plan at its monthly line is walled until the month turns');
 g = evaluate({ monthKey: monthKey(T), monthMinutes: PLAN_VOICE_MINUTES_MONTH }, plan, Date.UTC(2026, 9, 1));
 ok(g.allowed && g.remaining === PLAN_VOICE_MINUTES_MONTH, 'the first of the month refills the plan budget');
 
+// Modern short rounds must not turn back into eight-minute legacy rounds.
+let short = {};
+for (let i = 0; i < 5; i++) {
+  const mint = applyMint(short, free, T + i * MIN, 'short' + i);
+  short = applyEnd(mint.doc, 'short' + i, T + i * MIN + 15000).doc;
+  const gate = evaluate(short, free, T + (i + 1) * MIN);
+  ok(gate.used === i + 1 && gate.remaining === FREE_VOICE_MINUTES - i - 1, 'short round ' + i + ' costs one actual minute');
+}
+ok(short.rounds === 5 && short.usageVersion === 2, 'modern analytics rounds remain separate from billed minutes');
+const historical = { rounds: 1, minutes: 1, open: { id: 'old', startedAtMs: T, reserve: 8, charged: 1 } };
+const migrated = applyEnd(historical, 'old', T + 3 * MIN).doc;
+ok(migrated.minutes === 8 && migrated.usageVersion === 2, 'old open session preserves its legacy floor without adding elapsed time twice');
+const afterOld = applyMint(migrated, free, T + 4 * MIN, 'new');
+const afterEnd = applyEnd(afterOld.doc, 'new', T + 4.5 * MIN).doc;
+ok(evaluate(afterEnd, free, T + 5 * MIN).used === 9, 'new short round after legacy migration adds one minute');
+ok(JSON.stringify(evaluate(afterEnd, free, T + 5 * MIN).doc) === JSON.stringify(evaluate(afterEnd, free, T + 6 * MIN).doc), 'repeated settled reads never inflate usage');
+ok(historical.minutes === 1 && historical.open.id === 'old', 'migration leaves its input unchanged');
+
 for (const f of failures) console.log('  FAIL:', f);
 console.log(`[test-voice-minutes] ${pass} passed, ${failures.length} failed`);
 process.exit(failures.length ? 1 : 0);
