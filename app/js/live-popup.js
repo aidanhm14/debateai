@@ -76,10 +76,10 @@
   /* 2026-09-01, the founder: "tell anonymous user someone is live in a
      pop up 'wants to debate' and then do 'need to sign in'". The WAITING
      source (someone is in the /spar queue right now) is armed SITEWIDE
-     again, not only on the intent pages. 2026-09-06 correction: only named
-     accounts get the centered Accept / Not now invitation. Guest sessions
-     never receive a person-to-person challenge, and the native Board stays
-     free of unsolicited live popups. The REPLAY source stays retired. */
+     again, not only on the intent pages. 2026-09-08: anonymous and signed-out
+     visitors get the invitation too; Accept requires sign-in before matching.
+     The native Board stays free of unsolicited live popups, and the REPLAY
+     source stays retired. */
   var WAITING_SITEWIDE = true;
 
   /* THE ORGANIC-INTENT LANE (2026-09-01, the founder: "bring pop ups to
@@ -511,15 +511,6 @@
     return '';
   }
 
-  function namedUser() {
-    try {
-      var fb = window.firebase;
-      if (!(fb && fb.apps && fb.apps.length && typeof fb.auth === 'function')) return false;
-      var user = fb.auth().currentUser;
-      return !!(user && user.uid && !user.isAnonymous);
-    } catch (e) { return false; }
-  }
-
   /* Google, Apple, and email accounts can enter live video directly. */
   function googleUser() {
     try {
@@ -534,7 +525,7 @@
   }
 
   function waitingItem() {
-    if (nativeBoard() || !namedUser()) return Promise.resolve(null);
+    if (nativeBoard()) return Promise.resolve(null);
     if (voiceAI && window.__daVoiceInvitesPaused) return Promise.resolve(null);
     try { if (localStorage.getItem('da-spar-bg') === '0') return Promise.resolve(null); } catch (e) {}
     return getJSON('/api/live-now').then(function (j) {
@@ -632,7 +623,7 @@
   }
 
   function renderWaitingInvite(item, opts) {
-    if (nativeBoard() || !namedUser() || cardVisible || busyInRound() || document.querySelector('.da-match-overlay')) return;
+    if (nativeBoard() || cardVisible || busyInRound() || document.querySelector('.da-match-overlay')) return;
     shown = true;
     cardVisible = true;
     injectCss();
@@ -651,13 +642,11 @@
     document.documentElement.classList.add('da-debate-invite-open');
     dialog.showModal();
     var closed = false;
-    var stopAuthWatch = null;
     var life = setTimeout(function () { close('timeout'); }, 45000);
     function close(reason) {
       if (closed) return;
       closed = true;
       clearTimeout(life);
-      if (stopAuthWatch) { stopAuthWatch(); stopAuthWatch = null; }
       dialog.close();
       dialog.remove();
       document.documentElement.classList.remove('da-debate-invite-open');
@@ -679,14 +668,6 @@
     }
     window.addEventListener('debatable:match-found', onMatch);
     window.addEventListener('storage', onStorage);
-    try {
-      var auth = window.firebase.auth();
-      if (typeof auth.onAuthStateChanged === 'function') {
-        stopAuthWatch = auth.onAuthStateChanged(function (user) {
-          if (!user || user.isAnonymous) close('signed-out');
-        });
-      }
-    } catch (e) {}
     dialog.addEventListener('cancel', function (event) { event.preventDefault(); close('dismiss'); });
     dialog.querySelector('[data-decline]').addEventListener('click', function () { close('dismiss'); });
     dialog.querySelector('[data-accept]').addEventListener('click', function () {

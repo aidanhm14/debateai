@@ -12,13 +12,14 @@ const named = { uid: 'test-self', isAnonymous: false, providerData: [{ providerI
 const guest = { uid: 'test-guest', isAnonymous: true, providerData: [] };
 const noPopup = '.da-wait-invite, .da-livepop';
 
-async function fixture(page, { user = null, routePath = '/leaderboard', native = false, holdWait = false } = {}) {
+async function fixture(page, { user = null, routePath = '/leaderboard', native = false, holdWait = false, peers = [{ uid: 'test-peer', name: 'Test opponent' }], optedOut = false } = {}) {
   const reads = { wait: 0, watch: 0, completed: 0 };
   let release;
   const held = new Promise(resolve => { release = resolve; });
   await page.setViewportSize({ width: 375, height: 812 });
   await page.clock.install();
-  await page.addInitScript(user => {
+  await page.addInitScript(({ user, optedOut }) => {
+    if (optedOut) localStorage.setItem('da-spar-bg', '0');
     const listeners = new Set();
     const auth = {
       currentUser: user,
@@ -32,15 +33,16 @@ async function fixture(page, { user = null, routePath = '/leaderboard', native =
     window.__setTestUser = next => { auth.currentUser = next; [...listeners].forEach(fn => fn(next)); };
     window.__testAuthListeners = () => listeners.size;
     window.__authCalls = 0;
-    window.openAuthModal = () => { window.__authCalls += 1; };
-  }, user);
+    window.openAuthModal = (mode, opts) => { window.__authCalls += 1; window.__authMode = mode; window.__authOptions = opts; };
+  }, { user, optedOut });
+  page.on('pageerror', error => { throw error; });
   await page.route('**/*', async route => {
     const url = new URL(route.request().url());
     if (url.origin !== 'https://debatable.test') return route.fulfill({ status: 200, body: '' });
     if (url.pathname === '/api/live-now') {
       reads.wait++;
       if (holdWait) await held;
-      await route.fulfill({ json: { debaters: [{ uid: 'test-peer', name: 'Test opponent' }] } });
+      await route.fulfill({ json: { debaters: peers } });
       reads.completed++;
       return;
     }
@@ -80,25 +82,44 @@ for (const [label, user] of [['signed out', null], ['anonymous', guest], ['named
   });
 }
 for (const [label, user] of [['signed out', null], ['anonymous', guest]]) {
-  test(`no named-person challenge for ${label} on web`, async ({ page }) => {
+  test(`${label} visitors see the profile invitation and sign in only after Accept`, async ({ page }) => {
     const { reads } = await fixture(page, { user });
     await page.clock.runFor(3_000);
-    await expect.poll(() => reads.watch).toBe(1);
-    await expect(page.locator('.da-wait-invite')).toHaveCount(0);
-    expect(reads.wait).toBe(0);
+    await expect(page.getByRole('heading', { name: 'Test opponent wants to debate' })).toBeVisible();
+    expect(reads.wait).toBe(1);
     expect(await page.evaluate(() => window.__authCalls)).toBe(0);
+    await page.getByRole('button', { name: 'Accept', exact: true }).click();
+    await expect(page.locator('.da-wait-invite')).toHaveCount(0);
+    expect(await page.evaluate(() => ({ calls: window.__authCalls, mode: window.__authMode, ...window.__authOptions }))).toMatchObject({
+      calls: 1, mode: 'signin', liveVideo: true, destination: '/spar', headline: 'Sign in to accept the debate',
+    });
+    await expect(page).toHaveURL('https://debatable.test/leaderboard');
+    await page.evaluate(user => window.__authOptions.onDone(user), named);
+    await expect(page).toHaveURL('https://debatable.test/spar');
+  });
+  test(`${label} visitors can dismiss without opening login or matching`, async ({ page }) => {
+    await fixture(page, { user });
+    await page.clock.runFor(3_000);
+    await page.getByRole('button', { name: 'Not now', exact: true }).click();
+    await page.clock.runFor(180_000);
+    await expect(page.locator(noPopup)).toHaveCount(0);
+    expect(await page.evaluate(() => window.__authCalls)).toBe(0);
+    await expect(page).toHaveURL('https://debatable.test/leaderboard');
   });
 }
-test('named web accounts get invitations; sign-out removes the invitation and listener', async ({ page }) => {
+test('signing out while an invitation is open requires login on Accept', async ({ page }) => {
   await fixture(page, { user: named });
   await page.clock.runFor(3_000);
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Test opponent wants to debate' })).toBeVisible();
   await page.evaluate(() => window.__setTestUser(null));
-  await expect(page.locator('.da-wait-invite')).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: 'Accept', exact: true }).click();
+  expect(await page.evaluate(() => window.__authCalls)).toBe(1);
+  await expect(page).toHaveURL('https://debatable.test/leaderboard');
   expect(await page.evaluate(() => window.__testAuthListeners())).toBe(0);
 });
-test('sign-out during a queue read cannot open a challenge', async ({ page }) => {
+test('sign-out during a queue read still offers the invitation with login on Accept', async ({ page }) => {
   const { reads, release } = await fixture(page, { user: named, holdWait: true });
   await page.clock.runFor(3_000);
   await expect.poll(() => reads.wait).toBe(1);
@@ -106,8 +127,55 @@ test('sign-out during a queue read cannot open a challenge', async ({ page }) =>
   release();
   await expect.poll(() => reads.completed).toBe(1);
   await page.clock.runFor(1_000);
-  await expect(page.locator('.da-wait-invite')).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: 'Accept', exact: true }).click();
+  expect(await page.evaluate(() => window.__authCalls)).toBe(1);
+  await expect(page).toHaveURL('https://debatable.test/leaderboard');
 });
+test('sign-in while an invitation is open continues directly on Accept', async ({ page }) => {
+  await fixture(page, { user: guest });
+  await page.clock.runFor(3_000);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.evaluate(user => window.__setTestUser(user), named);
+  await page.getByRole('button', { name: 'Accept', exact: true }).click();
+  await expect(page).toHaveURL('https://debatable.test/spar');
+});
+test('cancelling login keeps the visitor on the page and snoozes invitations', async ({ page }) => {
+  await fixture(page, { user: guest });
+  await page.clock.runFor(3_000);
+  await page.getByRole('button', { name: 'Accept', exact: true }).click();
+  await page.evaluate(() => window.__authOptions.onDone(null));
+  await page.clock.runFor(180_000);
+  await expect(page.locator(noPopup)).toHaveCount(0);
+  await expect(page).toHaveURL('https://debatable.test/leaderboard');
+});
+test('Accept opens the real shared login chooser for an anonymous visitor', async ({ page }, testInfo) => {
+  await fixture(page, { user: guest });
+  await page.addScriptTag({ path: path.join(app, 'js/auth-modal.js') });
+  await page.clock.runFor(3_000);
+  await expect(page.getByRole('heading', { name: 'Test opponent wants to debate' })).toBeVisible();
+  await expect(page.locator('#ditAuth')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Accept', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Sign in to accept the debate' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible();
+  await expect(page.locator('#daEmail')).toBeVisible();
+  await expect(page.locator('.da-wait-invite')).toHaveCount(0);
+  await expect(page).toHaveURL('https://debatable.test/leaderboard');
+  await page.screenshot({ path: testInfo.outputPath('anonymous-accept-login-375.png') });
+});
+for (const [label, options] of [
+  ['empty queue', { peers: [] }],
+  ['self-only queue', { peers: [{ uid: guest.uid, name: 'Me' }] }],
+  ['availability opt-out', { optedOut: true }],
+  ['active human round', { routePath: '/live-round' }],
+]) {
+  test(`anonymous invitations stay quiet for ${label}`, async ({ page }) => {
+    await fixture(page, { user: guest, ...options });
+    await page.clock.runFor(3_000);
+    await expect(page.locator(noPopup)).toHaveCount(0);
+    expect(await page.evaluate(() => window.__authCalls)).toBe(0);
+  });
+}
 test('a late native class suppresses an in-flight Board invitation', async ({ page }) => {
   const { reads, release } = await fixture(page, { user: named, holdWait: true });
   await page.clock.runFor(3_000);

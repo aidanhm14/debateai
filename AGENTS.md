@@ -43,6 +43,13 @@ are not consumed. Funding domains are separate for continuation signatures.
 
 ## Sign-in policy (2026-09-07)
 
+**Waiting-person invitations (2026-09-08):** Signed-out and anonymous
+visitors receive the real queued profile's “wants to debate” invitation.
+Accept opens the shared live-video sign-in chooser, then continues to
+`/spar` after authentication. This supersedes the 2026-09-06 guest-popup
+suppression. Empty queues, self-only results, opt-outs, dismissals and
+active human rounds stay quiet; the native Board remains excluded.
+
 Live video accepts Google, Apple, and normal email accounts, including
 email/password and emailed sign-in links. Firebase identifies both email
 methods as `password`. This supersedes the older Google-only live-video
