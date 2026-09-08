@@ -17102,10 +17102,29 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       var uids = [state.proUid, state.conUid].filter(Boolean).sort();
       return uids.length ? uids[0] === me : true;
     }
+    // RETIRED 2026-09-08 (Aidan, walking into a live room: "remove the
+    // motions required just get straight into room"). The step below asked
+    // two people who had just matched to agree a SETTING before Speech 1,
+    // and it fired on its own on every matched round the classifier called
+    // context-dependent. That is 30+ seconds of negotiation standing between
+    // a room and its first word, on the product whose measured leak is
+    // exactly there: last week 49 rooms with two people in them died before
+    // anyone spoke, and 154 abandon beacons landed at speech 0. A pre-round
+    // card is the wrong thing to spend that moment on.
+    //
+    // Off, not deleted. Everything below still works and the field is still
+    // read: a round that ALREADY carries contextFrame keeps its chip and
+    // still hands the frame to buildBallotPrompt, so rounds agreed under the
+    // old behaviour are unchanged. Turning it back on is this one constant,
+    // and if it ever returns it should be a control a debater opens, the way
+    // the motion draft became on-demand for the same reason.
+    var CONTEXT_STEP_ON = false;
+
     // Ask the classifier exactly once per round. Only matched rounds (both
     // seats known) get a context step; a solo/hotseat/direct-link round has
     // nobody to agree with.
     function maybeClassifyContext(d){
+      if (!CONTEXT_STEP_ON) return;
       if (!state.motion || (d && d.contextSetup)) return;
       if (!(state.proUid && state.conUid)) return;
       if (state.contextAsked || !isContextDriver() || motionLocked()) return;
@@ -17156,6 +17175,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         return;
       }
       if (chip) chip.hidden = true;
+      // Step retired: never paint the card. This sits BELOW the frame branch
+      // on purpose, so a round that already agreed a setting keeps its chip
+      // and its ballot frame; only the asking is gone. It also covers a room
+      // that was mid-negotiation when this shipped, which would otherwise be
+      // left holding a card nobody else can answer.
+      if (!CONTEXT_STEP_ON){ if (card) card.hidden = true; return; }
       // No decision yet, motion does not need one, or a degenerate option
       // set: no card.
       if (!setup || !setup.needsContext || !Array.isArray(setup.options) || setup.options.length < 2){
