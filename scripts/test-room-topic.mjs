@@ -108,7 +108,8 @@ assert.ok(!/Example:/.test(TOPIC_TOOLS[0].parameters.properties.motion.descripti
 const brief = buildTopicJudgeInstructions({ names: ['Ari', 'Bea'], from: 'Old claim here.', context: { issue: 'speech' }, attempt: 2 });
 for (const line of ['Never take a side', 'Never assign sides', 'propose_motion', 'three tries', 'abortion', 'Ari', 'Bea', 'not their first attempt', 'Start conversation', 'Start timed speeches', 'only BEFORE the round starts']) assert.ok(brief.includes(line), 'brief: ' + line);
 assert.ok(!brief.includes('—'), 'no em dashes in the brief');
-assert.ok(brief.includes(TOPIC_GREETING) && brief.includes('NEVER call propose_motion before'));
+assert.ok(brief.includes('NEVER call propose_motion before'));
+assert.ok(!brief.includes(TOPIC_GREETING), 'the ongoing brief must not re-request the arrival greeting on every response');
 assert.equal(validateProposedMotion('  Cities  should build more housing near transit. ', '').motion, 'Cities should build more housing near transit.');
 assert.equal(validateProposedMotion('Your view is wrong about housing policy.', '').ok, false);
 assert.equal(validateProposedMotion('Too short.', '').ok, false);

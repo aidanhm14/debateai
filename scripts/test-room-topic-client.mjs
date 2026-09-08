@@ -7,9 +7,9 @@ import { test } from 'node:test';
 // clock. These checks do not substitute for Daily/OpenAI audio in two browsers.
 const source = readFileSync(new URL('../app/js/room-topic.js', import.meta.url), 'utf8');
 const flush = async () => { for (let i = 0; i < 40; i++) await Promise.resolve(); };
-function fixture({ uid = 'a', holdOpen = false, holdSdp = false, holdResponses = false, holdPropose = false, rejectProposal = false } = {}) {
+function fixture({ uid = 'a', holdOpen = false, holdSdp = false, holdResponses = false, holdPropose = false, rejectProposal = false, joined = true, streamless = false, rejectPublish = false, failSdp = false } = {}) {
   let now = 0, timerId = 0, releaseOpen, releaseSdp, releasePropose;
-  const timers = new Map(), messages = [], pcs = [], tracks = [], elements = [], requests = [];
+  const timers = new Map(), messages = [], pcs = [], tracks = [], elements = [], requests = [], sources = [];
   const current = { id: 'talk-1', host: 'a', phase: 'listening', accepts: {}, proposals: 0, proposal: '', expiresAt: 180000 };
   const schedule = (fn, delay, interval = false) => {
     const id = ++timerId; timers.set(id, { fn, at: now + delay, delay, interval }); return id;
@@ -25,17 +25,17 @@ function fixture({ uid = 'a', holdOpen = false, holdSdp = false, holdResponses =
     play() { return Promise.resolve(); }
   }
   const body = new Element('body'), anchor = new Element('details'); anchor.parentNode = body;
-  const mediaTrack = { id: 'mic', readyState: 'live' };
-  const context = { uid, room: 'test', canChoose: true, joined: true, audioTrack: mediaTrack,
+  const mediaTrack = { id: 'mic', kind: 'audio', readyState: 'live', clone() { return { ...this, stop() { this.readyState = 'ended'; } }; } };
+  const context = { uid, room: 'test', canChoose: true, joined, audioTrack: mediaTrack,
     user: { getIdToken: async () => 'test-token' }, names: { a: 'Ari', b: 'Bea' },
     call: {
-      startCustomTrack({ trackName }) { tracks.push({ at: now, action: 'publish', name: trackName }); return Promise.resolve(); },
+      startCustomTrack({ trackName, track }) { tracks.push({ at: now, action: 'publish', name: trackName, track }); return rejectPublish ? Promise.reject(Error('Unable to publish')) : Promise.resolve(trackName); },
       stopCustomTrack(name) { tracks.push({ at: now, action: 'unpublish', name }); return Promise.resolve(); },
     },
   };
   class AudioContext {
     createMediaStreamDestination() { return { stream: { getAudioTracks: () => [mediaTrack] } }; }
-    createMediaStreamSource() { return { connect() {}, disconnect() {} }; }
+    createMediaStreamSource(stream) { const source = { track: stream.getAudioTracks()[0], connected: false, connect() { this.connected = true; }, disconnect() { this.connected = false; } }; sources.push(source); return source; }
     resume() { return Promise.resolve(); }
     close() {}
   }
@@ -55,7 +55,7 @@ function fixture({ uid = 'a', holdOpen = false, holdSdp = false, holdResponses =
     async createOffer() { return { sdp: 'test-offer' }; }
     async setLocalDescription() {}
     async setRemoteDescription() {
-      this.ontrack({ streams: [{ getAudioTracks: () => [mediaTrack] }] });
+      this.ontrack({ track: mediaTrack, streams: streamless ? [] : [{ getAudioTracks: () => [mediaTrack] }] });
       this.dc.onopen();
     }
     close() { this.closed = true; }
@@ -63,7 +63,7 @@ function fixture({ uid = 'a', holdOpen = false, holdSdp = false, holdResponses =
   const window = { AudioContext, __lrTopicContext: () => context, addEventListener() {} };
   const mint = { client_secret: { value: 'test' }, greeting: 'Test greeting.', instructions: 'FULL LISTENING AND CONTENT RULES' };
   vm.runInNewContext(source, {
-    window, console, RTCPeerConnection: PeerConnection, MediaStream: class {},
+    window, console, RTCPeerConnection: PeerConnection, MediaStream: class { constructor(tracks) { this.tracks = tracks; } getAudioTracks() { return this.tracks; } },
     Date: { now: () => now },
     document: { body, createElement: tag => new Element(tag), getElementById: id => id === 'rmbTools' ? anchor : null, addEventListener() {} },
     setTimeout: (fn, delay) => schedule(fn, delay), setInterval: (fn, delay) => schedule(fn, delay, true),
@@ -71,7 +71,7 @@ function fixture({ uid = 'a', holdOpen = false, holdSdp = false, holdResponses =
     fetch: async (url, options) => {
       if (url !== '/api/room-topic') {
         if (holdSdp) await new Promise(resolve => { releaseSdp = resolve; });
-        return { ok: true, text: async () => 'test-answer' };
+        return { ok: !failSdp, status: failSdp ? 503 : 200, text: async () => 'test-answer' };
       }
       const payload = JSON.parse(options.body), { action } = payload;
       requests.push(payload);
@@ -86,7 +86,7 @@ function fixture({ uid = 'a', holdOpen = false, holdSdp = false, holdResponses =
     },
   });
   return {
-    context, current, messages, pcs, tracks, requests, topic: window.RoomTopic,
+    context, current, messages, pcs, tracks, requests, sources, topic: window.RoomTopic,
     async open() { window.RoomTopic.open(); await flush(); },
     async release() { releaseOpen(); await flush(); },
     async releaseSdp() { releaseSdp(); await flush(); },
@@ -170,6 +170,64 @@ test('a dial completing after Start cannot publish or play a late judge track', 
   f.context.canChoose = false; f.topic.dismiss(); await f.releaseSdp();
   assert.equal(f.tracks.length, 0);
   assert.equal(f.pcs[0].closed, true);
+});
+
+test('a judge arriving before Daily joins is shared once the call connects', async () => {
+  const f = fixture({ joined: false }); await f.open();
+  assert.equal(f.tracks.length, 0);
+  f.context.joined = true; await f.tick(1500);
+  assert.equal(f.tracks.filter(t => t.action === 'publish').length, 1);
+});
+
+test('WebRTC audio delivered without a stream still reaches the other person', async () => {
+  const f = fixture({ streamless: true }); await f.open();
+  assert.equal(f.tracks.filter(t => t.action === 'publish').length, 1);
+});
+
+test('a failed Daily audio publication ends the judge instead of claiming to hear both people', async () => {
+  const f = fixture({ rejectPublish: true }); await f.open();
+  assert.equal(f.pcs[0].closed, true);
+  assert.equal(f.strip(), false);
+  assert.equal(f.topic.isPending(), false);
+});
+
+test('muting the host removes only that source and unmuting restores it', async () => {
+  const f = fixture(); const peer = { id: 'peer', readyState: 'live' };
+  f.context.peerAudioTrack = () => peer;
+  await f.open();
+  assert.equal(f.sources.filter(s => s.connected).length, 2);
+  f.context.micOn = false; await f.tick(1500);
+  assert.deepEqual(f.sources.filter(s => s.connected).map(s => s.track.id), ['peer']);
+  f.context.micOn = true; await f.tick(1500);
+  assert.equal(f.sources.filter(s => s.connected).length, 2);
+  f.topic.dismiss();
+  assert.equal(f.context.audioTrack.readyState, 'live', 'the person keeps their mic');
+  assert.equal(f.tracks.find(t => t.action === 'publish').track.readyState, 'ended', 'the judge voice stops');
+});
+
+test('a call that never joins times out and closes the listening strip', async () => {
+  const f = fixture({ joined: false }); await f.open();
+  await f.tick(20000);
+  assert.equal(f.pcs[0].closed, true);
+  assert.equal(f.strip(), false);
+  assert.equal(f.replies().length, 0, 'no private greeting while the other person cannot hear');
+});
+
+test('a failed WebRTC connection shuts down even when its data channel never closes', async () => {
+  const f = fixture(); await f.open();
+  f.pcs[0].connectionState = 'failed'; f.pcs[0].onconnectionstatechange(); await flush();
+  assert.equal(f.pcs[0].closed, true);
+  assert.equal(f.strip(), false);
+});
+
+test('a late SDP failure cannot cancel a newer discussion opened by the other person', async () => {
+  const f = fixture({ holdSdp: true, failSdp: true }); await f.open();
+  f.topic.dismiss(); await flush();
+  f.render({ id: 'talk-2', host: 'b', phase: 'listening' });
+  await f.releaseSdp();
+  assert.equal(f.requests.filter(r => r.action === 'cancel').length, 1);
+  assert.equal(f.current.phase, 'listening');
+  assert.equal(f.strip(), true);
 });
 
 test('the host stops queued speech when the other seat starts', async () => {

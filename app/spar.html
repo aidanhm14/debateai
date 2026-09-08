@@ -4451,7 +4451,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // rather than leaving a boot state on screen forever.
       console.warn('[spar] guest session failed:', err && err.message);
       try { gtag('event', 'spar_guest_session', { ok: 0, code: String(err && err.code || '').slice(0,40) }); } catch(e){}
-      renderGate();
+      renderSignedOutEntry();
     });
     return true;
   }
@@ -4655,9 +4655,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     startMatchProfileFlow({ beforeSignIn: true, onDone: renderGate, onClose: renderProfileGate });
   }
 
-  // Guest with a session: queue if someone is there and a round is left,
-  // otherwise the sign-in door.
-  function guestQueueOrGate(){ renderGate(); }
+  // A Firebase guest identity is still a stranger. Keep the first three
+  // questions ahead of the account door, whether anonymous auth worked or not.
+  function guestQueueOrGate(){ renderSignedOutEntry(); }
   function renderGate(){
     if (document.getElementById('sparGateCard')) return;
     var inApp = inAppBrowser();
@@ -8571,7 +8571,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       '<div style="margin:10px 16px 0" data-spar-night="rail"></div>' +
       '<div class="waitlist-rail__sched" id="wlSched" hidden></div>' +
       '<a class="waitlist-rail__site" href="/community" data-cta="spar-rail-community"><strong>The community feed</strong><span>Takes, clips, published rounds, and people posting for an opponent.</span></a>' +
-      '<a class="waitlist-rail__site" href="/chat" data-cta="spar-rail-chat"><strong>The Commons group chat</strong><span>One room for everyone, plus private threads to set up a round.</span></a>' +
+      '<a class="waitlist-rail__site" href="/chat" data-cta="spar-rail-chat"><strong>The Commons group chat</strong><span>One room for everyone, plus private threads to set up a round.</span></a>';
       // 2026-09-07, the founder: the Discord card came off this rail.
     document.body.appendChild(rail);
 

@@ -77,7 +77,7 @@
   function currentVoice(v) { return voice === v && !v.stopped && ctx().canChoose && active(talk) && talk.id === v.talkId; }
   function pump(v) {
     clearTimeout(v.replyTimer); v.replyTimer = null;
-    if (!currentVoice(v) || !v.pending || v.speaking || v.responding || v.playing || v.toolPending) return;
+    if (!currentVoice(v) || !v.shared || !v.pending || v.speaking || v.responding || v.playing || v.toolPending) return;
     var wait = v.quietUntil - Date.now();
     if (wait > 0) { v.replyTimer = setTimeout(function() { pump(v); }, wait); return; }
     var next = v.pending; v.pending = null;
@@ -86,7 +86,7 @@
     // response.instructions overrides the session brief. Keep the complete
     // listening/content rules even for a reminder or a tool follow-up.
     send({ type: 'response.create', response: v.instructions
-      ? { instructions: v.instructions + '\n\nTHIS TURN:\n' + next.instructions } : {} });
+      ? { instructions: v.instructions + '\n\nTHIS TURN:\n' + (next.kind === 'greeting' ? '' : 'The arrival greeting is finished. Continue the conversation without greeting again. ') + next.instructions } : {} });
   }
   function say(instructions, kind) {
     var v = voice;
@@ -117,18 +117,38 @@
   }
   function refreshSources(v) {
     var c = ctx();
-    addSource(v, c.audioTrack || (v.ownMic && v.ownMic.getAudioTracks()[0]), 'me');
+    // The borrowed camera capture can stay live while Daily is muted.
+    // Respect the room control rather than sending that private audio.
+    addSource(v, c.micOn === false ? null : (c.audioTrack || (v.ownMic && v.ownMic.getAudioTracks()[0])), 'me');
     var peer = c.peerAudioTrack ? c.peerAudioTrack() : null;
     addSource(v, peer, 'peer');
+    // ontrack can beat Daily's joined-meeting event. Keep the output and
+    // publish it when the call is ready, before letting the judge speak.
+    if (v.outputTrack) publish(v, v.outputTrack);
+  }
+  function failVoice(v, message) {
+    if (!currentVoice(v)) return;
+    notice(message);
+    dismiss();
   }
   function publish(v, track) {
     var c = ctx();
-    if (!c.call || !c.joined || v.published) return;
+    if (!currentVoice(v) || !track || !c.call || !c.joined || v.published) return;
     v.published = true;
+    v.call = c.call;
     try {
-      var p = c.call.startCustomTrack({ track: track, trackName: 'judge' });
-      if (p && p.catch) p.catch(function(e) { console.warn('[room-topic] judge track publish failed', e); v.published = false; });
-    } catch (e) { console.warn('[room-topic] judge track publish failed', e); v.published = false; }
+      // Own the published clone. Stopping the judge silences a publication
+      // still in flight without ever stopping a person's borrowed mic.
+      v.publishedTrack = track.clone();
+      Promise.resolve(c.call.startCustomTrack({ track: v.publishedTrack, trackName: 'judge', ignoreAudioLevel: true })).then(function() {
+        if (!currentVoice(v)) return;
+        v.shared = true;
+        if (v.dc && v.dc.readyState === 'open') clearTimeout(v.connectTimer);
+        pump(v);
+      }).catch(function() {
+        failVoice(v, 'The judge could not share its voice with the call. Tap Ask the judge to retry.');
+      });
+    } catch (e) { failVoice(v, 'The judge could not share its voice with the call. Tap Ask the judge to retry.'); }
   }
   function handleEvent(v, ev) {
     if (!currentVoice(v)) return;
@@ -191,11 +211,14 @@
   async function startVoice(mint) {
     stopVoice();
     var c = ctx();
-    var v = { pc: null, dc: null, ac: null, dest: null, sources: {}, audio: null, poll: null, published: false, stopped: false,
+    var v = { pc: null, dc: null, ac: null, dest: null, sources: {}, audio: null, poll: null, published: false, shared: false, stopped: false,
       talkId: talk.id, instructions: mint.instructions || '', speaking: false, responding: false, playing: false, heardSpeech: false, interrupted: false,
       turn: 0, toolPending: false, pending: null, replyTimer: null, quietUntil: Date.now() + QUIET_MS, greeted: false,
       greeting: 'Say exactly this, once, and nothing else: "' + String(mint.greeting || 'Hi, I am your judge. What do you two actually disagree on?').replace(/"/g, '') + '" Then stop and listen. Do not call any tool yet.' };
     voice = v;
+    v.connectTimer = setTimeout(function() {
+      failVoice(v, 'The judge could not connect to the call. Tap Ask the judge to retry.');
+    }, 20000);
     try {
       var AC = window.AudioContext || window.webkitAudioContext;
       v.ac = new AC();
@@ -213,6 +236,9 @@
 
       var pc = new RTCPeerConnection();
       v.pc = pc;
+      pc.onconnectionstatechange = function() {
+        if (pc.connectionState === 'failed') failVoice(v, 'The judge disconnected. Tap Ask the judge to retry.');
+      };
       pc.addTrack(v.dest.stream.getAudioTracks()[0], v.dest.stream);
       v.audio = document.createElement('audio');
       v.audio.autoplay = true; v.audio.playsInline = true; v.audio.setAttribute('playsinline', '');
@@ -221,10 +247,13 @@
       pc.ontrack = function(ev) {
         if (voice !== v || v.stopped || !ctx().canChoose) return;
         var stream = ev.streams && ev.streams[0];
-        if (!stream) return;
+        var track = ev.track || (stream && stream.getAudioTracks()[0]);
+        if (!track || track.kind !== 'audio') return;
+        if (!stream) stream = new MediaStream([track]);
         v.audio.srcObject = stream;
         var p = v.audio.play(); if (p && p.catch) p.catch(function() {});
-        publish(v, stream.getAudioTracks()[0]);
+        v.outputTrack = track;
+        publish(v, track);
       };
       var dc = pc.createDataChannel('oai-events');
       v.dc = dc;
@@ -236,6 +265,7 @@
       };
       dc.onopen = function() {
         if (voice !== v || v.stopped || !ctx().canChoose) { teardown(v); return; }
+        if (v.shared) clearTimeout(v.connectTimer);
         v.quietUntil = Date.now() + QUIET_MS;
         send({ type: 'session.update', session: { type: 'realtime', output_modalities: ['audio'],
           audio: { input: { turn_detection: { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 500, silence_duration_ms: 1000, create_response: false, interrupt_response: true } },
@@ -256,9 +286,10 @@
       if (voice !== v) { teardown(v); return; }
       ga('live_topic_voice_start', { model: mint.model || '' });
     } catch (e) {
-      teardown(v); if (voice === v) voice = null;
-      notice(e.message || 'The judge could not join. Try Spin a motion.');
-      api('cancel').catch(function() {});
+      // A failed SDP response from a dismissed session must not cancel
+      // a newer judge that the person has already opened.
+      if (!currentVoice(v)) { teardown(v); return; }
+      failVoice(v, e.message || 'The judge could not join. Tap Ask the judge to retry.');
     }
   }
   function teardown(v) {
@@ -266,9 +297,10 @@
     v.stopped = true;
     if (voice === v) voice = null;
     clearTimeout(v.replyTimer); v.pending = null;
+    clearTimeout(v.connectTimer);
     clearInterval(v.poll);
-    var c = ctx();
-    if (v.published && c.call) { try { c.call.stopCustomTrack('judge'); } catch (_) {} }
+    if (v.publishedTrack) { try { v.publishedTrack.stop(); } catch (_) {} }
+    if (v.published && v.call) { try { Promise.resolve(v.call.stopCustomTrack('judge')).catch(function() {}); } catch (_) {} }
     try { if (v.dc) v.dc.close(); } catch (_) {}
     try { if (v.pc) v.pc.close(); } catch (_) {}
     try { if (v.ac) v.ac.close(); } catch (_) {}
