@@ -1,19 +1,7 @@
+import schedule from '../../js/clash-schedule.js';
 /* scheduled-spar-night.mjs
- *
- * Open Spar Night reminder (2026-07-15). The /spar liquidity fix
- * is a set of fixed hours (12 AM, 3 PM, 7 PM ET, 90 min each, EVERY DAY
- * since 2026-09-01; Wednesdays only before that) when everyone
- * queues at once; this cron tells every reachable signed-in user about
- * today's sessions so the queue actually fills.
- *
- * THREE sessions, RETIMED 2026-09-02 to measured demand (see the
- * SESSIONS comment in app/js/spar-night.js): 12:00 AM ET Asia-Pacific day, 3:00
- * PM ET Europe evening, 7:00 PM ET US evening. The send moved from 13:00 to
- * 09:00 UTC with them, because 13:00 UTC is two hours AFTER the first
- * session ends and an email announcing an event that has already
- * happened is worse than no email. Companion surfaces: the
- * countdown cards on /landing + /spar (app/js/spar-night.js), which
- * compute the same schedule client-side.
+ * Weekly reminder for three DAILY sessions at 9 PM in New York, Berlin
+ * and Sydney. The shared schedule keeps each city at 9 PM through DST.
  *
  * Cohort: every user_profiles doc with an email that isn't opted out
  * (isOptedOut(prof, 'sparnight'): global emailOptOut, the shared
@@ -85,46 +73,7 @@ function alreadySentFor(prof, eventStartMs) {
   // cron or a moved event time would quietly eat.
   return ms > (eventStartMs - DAY_MS);
 }
-const LIVE_MS        = 90 * 60 * 1000;
-// First event: Wed 2026-07-22 20:00 EDT = 2026-07-23 00:00 UTC. Must
-// match FIRST_EVENT_UTC in app/js/spar-night.js.
-const FIRST_EVENT_UTC = Date.UTC(2026, 6, 23, 0, 0, 0);
-const TZ = 'America/New_York';
-
-// ── Next event start (same math as app/js/spar-night.js) ────────────────────
-function nyParts(utcMs) {
-  const fmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: TZ, weekday: 'short', year: 'numeric', month: '2-digit',
-    day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
-  });
-  const out = {};
-  for (const p of fmt.formatToParts(new Date(utcMs))) out[p.type] = p.value;
-  return out;
-}
-function nyToUtc(y, mo, d, hh, mm) {
-  const want = Date.UTC(y, mo - 1, d, hh, mm);
-  let guess = want;
-  for (let i = 0; i < 2; i++) {
-    const p = nyParts(guess);
-    const asUtc = Date.UTC(+p.year, +p.month - 1, +p.day, (+p.hour) % 24, +p.minute);
-    guess += want - asUtc;
-  }
-  return guess;
-}
-// Eastern hours of the three sessions. Must match SESSIONS in
-// app/js/spar-night.js. Every day since 2026-09-01.
-const SESSION_HOURS = [0, 15, 19];
-function nextEventStart(nowMs) {
-  for (let i = 0; i < 3; i++) {
-    const p = nyParts(nowMs + i * 86400000);
-    for (const hour of SESSION_HOURS) {
-      const start = nyToUtc(+p.year, +p.month, +p.day, hour, 0);
-      if (start + LIVE_MS <= nowMs) continue;
-      return Math.max(start, FIRST_EVENT_UTC);
-    }
-  }
-  return FIRST_EVENT_UTC;
-}
+const nextEventStart = now => schedule.nextSession(now).start;
 
 // ── Email template ───────────────────────────────────────────────────────────
 function renderEmail({ firstName, uid, stream = 'sparnight' }) {
@@ -132,18 +81,8 @@ function renderEmail({ firstName, uid, stream = 'sparnight' }) {
   // One recurring calendar link per session, because the reader is being
   // asked to pick the one that is evening where they live, and a single
   // link can only carry one hour.
-  const np = nyParts(nextEventStart(Date.now()));
-  const day = np.year + np.month + np.day;
-  const gcalFor = (label, hh, mm) => 'https://calendar.google.com/calendar/render?action=TEMPLATE'
-    + '&text=' + encodeURIComponent('Clash Hour (' + label + ') · Debatable')
-    + '&details=' + encodeURIComponent('Daily live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Join at itsdebatable.com/spar')
-    + '&location=' + encodeURIComponent('https://itsdebatable.com/spar')
-    + '&dates=' + day + 'T' + hh + '0000/' + day + 'T' + mm + '00'
-    + '&ctz=' + encodeURIComponent(TZ)
-    + '&recur=' + encodeURIComponent('RRULE:FREQ=DAILY');
-  const gcalAsia = gcalFor('Asia-Pacific night', '07', '0830');
-  const gcalEuro = gcalFor('Europe night', '15', '1630');
-  const gcalUs   = gcalFor('US night', '20', '2130');
+  const links = schedule.SESSIONS.map(s => schedule.calendarUrl(schedule.nextFor(s, Date.now())));
+  const [gcalAsia, gcalEuro, gcalUs] = links;
 
   const html = `
 <div style="max-width:520px;margin:0 auto;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#26262b">
@@ -154,17 +93,10 @@ function renderEmail({ firstName, uid, stream = 'sparnight' }) {
     More people queue at the same time, so the live pool has a better chance
     of finding an opponent. Take the session that is evening where you are.
   </p>
-  <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px;border-collapse:collapse">
-    <tr><td style="padding:9px 12px;border:1px solid #e6e4de;border-radius:8px 8px 0 0;font-size:.9rem;line-height:1.5">
-      <strong>12:00 AM ET</strong> &middot; Asia-Pacific day<br>
-      <span style="color:#6b6b76;font-size:.82rem">Delhi 9:30 AM, Tokyo 1 PM, Sydney 2 PM</span></td></tr>
-    <tr><td style="padding:9px 12px;border:1px solid #e6e4de;border-top:0;font-size:.9rem;line-height:1.5">
-      <strong>3:00 PM ET</strong> &middot; Europe evening<br>
-      <span style="color:#6b6b76;font-size:.82rem">London 8 PM, Berlin 9 PM, Lagos 8 PM</span></td></tr>
-    <tr><td style="padding:9px 12px;border:1px solid #e6e4de;border-top:0;border-radius:0 0 8px 8px;font-size:.9rem;line-height:1.5">
-      <strong>7:00 PM ET</strong> &middot; US evening<br>
-      <span style="color:#6b6b76;font-size:.82rem">Chicago 6 PM, Los Angeles 4 PM</span></td></tr>
-  </table>
+  <p style="font-size:.95rem;line-height:1.6;margin:0 0 20px">
+    9 PM New York<br>9 PM Berlin<br>9 PM Sydney<br>
+    Three separate sessions, each in that city's local time.
+  </p>
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">
     Ninety minutes each. Pick a side, run a timed round, and the judge
     ballot lands when it ends.

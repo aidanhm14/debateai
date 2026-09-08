@@ -57,6 +57,16 @@ are not consumed. Funding domains are separate for continuation signatures.
 
 ---
 
+## Daily live hours (2026-09-08)
+
+Aidan chose three separate daily sessions: **9 PM New York, 9 PM Berlin,
+and 9 PM Sydney**, each in that city's local time. This replaces the
+September 2 midnight / 3 PM / 7 PM Eastern schedule and all older hours.
+`app/js/clash-schedule.js` is shared by countdowns, calendar links, RSVP
+and the weekly reminder. Each city's daylight saving changes independently.
+The September 8 admin campaign is a short updated-site reminder, using
+existing opt-outs and exclusions, with per-address provider receipts.
+
 ## 1. What this is (one sentence)
 
 Debatable is a **live arena and media company for casual one-on-one spoken argument, open to anyone who wants to argue something out.** One person takes each side, a simple clock keeps the round moving, and the judge explains what won. The leaderboard supplies the cast; broadcasts, replays, and clips make the best rounds worth following. Lives at **itsdebatable.com** (canonical since 2026-07-22; debateai.com and the other legacy domains 301 there).

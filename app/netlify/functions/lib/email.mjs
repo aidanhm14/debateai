@@ -214,7 +214,7 @@ export function senderDomain(from) {
 // one-click headers ride along so mail clients show a native Unsubscribe.
 // Never throws: missing key or a network failure returns {ok:false, ...}.
 
-export async function sendEmail({ to, subject, html, text, uid, stream, from, replyTo, headers } = {}) {
+export async function sendEmail({ to, subject, html, text, uid, stream, from, replyTo, headers, idempotencyKey } = {}) {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, reason: 'no-key' };
   if (!to) return { ok: false, reason: 'no-recipient' };
@@ -251,7 +251,8 @@ export async function sendEmail({ to, subject, html, text, uid, stream, from, re
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`,
+        ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}) },
       body: JSON.stringify(payload),
     });
     let id, errName, errMsg;

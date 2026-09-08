@@ -1,71 +1,15 @@
-/* spar-night.js — Clash Hour countdown (2026-07-15; named Open Spar Night until 2026-09-01, when the sessions went daily and two of the three stopped being at night).
- *
- * The liquidity fix for /spar: fixed hours when everyone queues at
- * once, instead of visitors trickling in and never overlapping in the
- * 60s matchmaking window. 90-minute live windows. First event
- * 2026-07-22; before that the countdown targets the first event, after
- * that it always targets the next session.
- *
- * EVERY DAY since 2026-09-01 (the founder: "3 times to debate EVERY
- * DAY, 3 slots for the daytime to meet"). The three Eastern hours are
- * unchanged; the Wednesday gate is gone, so the countdown always points
- * at the next of today's or tomorrow's three sessions. The reminder
- * email (scheduled-spar-night.mjs) still goes out once a week.
- *
- * THREE sessions since 2026-08-24, one per side of the world (the
- * founder: run it three times, US night, Europe night, East
- * Asia/Australia night). One 8 PM ET hour is an evening in North
- * America and the middle of a working day everywhere else, which is a
- * strange shape for the liquidity fix on a site whose traffic is
- * global: it asked most of the field to turn up at 4 AM to meet each
- * other. Each session is anchored to an EASTERN wall-clock hour, which
- * keeps one DST-safe calculation for the whole schedule, and the city
- * times shown beside it are computed from the real instant at render
- * time so they stay true through every region's own DST.
- *
- * Deterministic and client-side only: no server dependency, no
- * Firestore reads. The weekly reminder email rides a separate cron
- * (netlify/functions/scheduled-spar-night.mjs) that computes the same
- * schedule server-side.
- *
- * Mounting: any element with data-spar-night="banner|rail" gets the
- * matching card. The scanner re-checks for a few seconds after load so
- * dynamically inserted slots (the /spar waitlist rail builds its DOM in
- * JS) get picked up without coupling. QA escape: ?sparnight=off.
- */
+/* Clash Hour countdown. Daily 9 PM sessions in Sydney, Berlin and New York.
+ * The shared clash-schedule.js also drives calendar links and email reminders. */
 (function () {
   if (typeof window === 'undefined') return;
   try {
     if (/[?&]sparnight=off\b/.test(location.search)) return;
   } catch (e) {}
 
-  var TZ = 'America/New_York';
-  var LIVE_MS = 90 * 60 * 1000;     // each session runs 90 minutes
-  // First event: Wed 2026-07-22 20:00 EDT = 2026-07-23 00:00 UTC.
-  var FIRST_EVENT_UTC = Date.UTC(2026, 6, 23, 0, 0, 0);
-  // Eastern hour, the region it is named for, and the zones whose local
-  // time is worth printing beside it. Ordered through the day.
-  // 2026-09-02: RETIMED TO MEASURED DEMAND. The 08-24 hours (7, 15, 20)
-  // were picked off a map, one per side of the world. Fourteen days of
-  // real live_rounds (test rooms excluded) say the map was wrong twice:
-  // by paired rooms, where two people actually met, 15:00 ET produced 13,
-  // 07:00 ET produced 1, and 20:00 ET produced ZERO. The real peaks sit
-  // one hour off and half a world away: 19:00 ET with 15 and 00:00 ET
-  // with 13. So Europe keeps its hour, the US session moves an hour
-  // earlier onto the peak it was sitting next to, and the Asia session
-  // moves to midnight ET, which is the middle of the Asian working day
-  // (Delhi 9:30 AM, Tokyo 1 PM, Sydney 2 PM) rather than its late
-  // evening. Re-measure before moving these again; n is 116 paired
-  // rooms over 14 days, which is enough to rank the hours and not
-  // enough to split them finely.
-  var SESSIONS = [
-    { hour: 0,  name: 'Asia-Pacific day',
-      zones: [['Delhi', 'Asia/Kolkata'], ['Tokyo', 'Asia/Tokyo'], ['Sydney', 'Australia/Sydney']] },
-    { hour: 15, name: 'Europe evening',
-      zones: [['London', 'Europe/London'], ['Berlin', 'Europe/Berlin'], ['Lagos', 'Africa/Lagos']] },
-    { hour: 19, name: 'US evening',
-      zones: [['New York', 'America/New_York'], ['Chicago', 'America/Chicago'], ['Los Angeles', 'America/Los_Angeles']] },
-  ];
+  var schedule = window.DBClashSchedule;
+  if (!schedule) return;
+  var LIVE_MS = schedule.LIVE_MS;
+  var SESSIONS = schedule.SESSIONS;
   function hourLabel(h) {
     var ampm = h >= 12 ? 'PM' : 'AM';
     var hh = h % 12; if (hh === 0) hh = 12;
@@ -85,50 +29,7 @@
     return out.join(' \u00b7 ');
   }
 
-  // ── Timezone math (no libraries) ─────────────────────
-  // Wall-clock parts of a UTC instant as seen in New York.
-  var partsFmt = null;
-  function nyParts(utcMs) {
-    if (!partsFmt) {
-      partsFmt = new Intl.DateTimeFormat('en-US', {
-        timeZone: TZ, weekday: 'short', year: 'numeric', month: '2-digit',
-        day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
-      });
-    }
-    var out = {};
-    partsFmt.formatToParts(new Date(utcMs)).forEach(function (p) { out[p.type] = p.value; });
-    return out;
-  }
-
-  // UTC instant for a New York wall-clock time. Two correction passes
-  // converge across DST boundaries.
-  function nyToUtc(y, mo, d, hh, mm) {
-    var want = Date.UTC(y, mo - 1, d, hh, mm);
-    var guess = want;
-    for (var i = 0; i < 2; i++) {
-      var p = nyParts(guess);
-      var asUtc = Date.UTC(+p.year, +p.month - 1, +p.day, (+p.hour) % 24, +p.minute);
-      guess += want - asUtc;
-    }
-    return guess;
-  }
-
-  // The next session whose live window hasn't ended yet. Walks today
-  // AND the three sessions inside it, so at 7:40 AM ET the answer is
-  // "live now, Asia-Pacific", at 9 AM it is "3 PM, Europe", and after
-  // 9:30 PM it is tomorrow's 7 AM. Every day since 2026-09-01.
-  function nextSession(nowMs) {
-    for (var i = 0; i < 3; i++) {
-      var p = nyParts(nowMs + i * 86400000);
-      for (var j = 0; j < SESSIONS.length; j++) {
-        var start = nyToUtc(+p.year, +p.month, +p.day, SESSIONS[j].hour, 0);
-        if (start + LIVE_MS <= nowMs) continue;   // already finished
-        if (start < FIRST_EVENT_UTC) continue;    // before the first event
-        return { start: start, session: SESSIONS[j] };
-      }
-    }
-    return { start: FIRST_EVENT_UTC, session: SESSIONS[2] }; // unreachable; safety
-  }
+  function nextSession(nowMs) { return schedule.nextSession(nowMs); }
 
   function eventState(nowMs) {
     var next = nextSession(nowMs);
@@ -150,39 +51,17 @@
     if (h > 0) return h + 'h ' + two(m) + 'm';
     return m + 'm ' + two(s % 60) + 's';
   }
-  // The event start in the visitor's own timezone, only when it reads
-  // differently from the ET label (saves non-US visitors the math).
   function localLabel(startMs) {
-    try {
-      var loc = new Date(startMs).toLocaleString(undefined, {
-        weekday: 'short', hour: 'numeric', minute: '2-digit',
-      });
-      var ny = new Date(startMs).toLocaleString('en-US', {
-        weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: TZ,
-      });
-      if (loc === ny) return '';
-      return loc + ' your time';
-    } catch (e) { return ''; }
+    try { return new Date(startMs).toLocaleString(undefined, {
+      weekday: 'short', hour: 'numeric', minute: '2-digit'
+    }) + ' your time'; } catch (e) { return ''; }
   }
 
   // Recurring Google Calendar template, for the session being SHOWN
   // rather than one fixed hour. Someone in Sydney who adds the card in
   // front of them should get the 9 PM session in their calendar, not a
   // US hour they were never going to make.
-  function gcalUrl(st) {
-    var p = nyParts(st.start);
-    var day = p.year + p.month + p.day;      // already zero-padded by Intl
-    var endMin = st.session.hour * 60 + 90;
-    var dates = day + 'T' + two(st.session.hour) + '0000/'
-      + day + 'T' + two(Math.floor(endMin / 60) % 24) + two(endMin % 60) + '00';
-    return 'https://calendar.google.com/calendar/render?action=TEMPLATE'
-      + '&text=' + encodeURIComponent('Clash Hour (' + st.session.name + ') · Debatable')
-      + '&details=' + encodeURIComponent('Daily live hour on Debatable. Everyone queues at once: real opponents, timed rounds, an AI judge ballot at the end. Three sessions every day, midnight, 3 PM and 7 PM ET. Join the queue at itsdebatable.com/spar')
-      + '&location=' + encodeURIComponent('https://itsdebatable.com/spar')
-      + '&dates=' + dates
-      + '&ctz=' + encodeURIComponent(TZ)
-      + '&recur=' + encodeURIComponent('RRULE:FREQ=DAILY');
-  }
+  function gcalUrl(st) { return schedule.calendarUrl(st); }
 
   function ga(name, meta) {
     try { if (window.track) window.track(name, meta || {}); } catch (e) {}
@@ -373,7 +252,7 @@
     // date is already the next day, and the .sn-local line under the
     // countdown is what carries that. Banner only; the rail variant is
     // too small to take a tile.
-    var cp = nyParts(st.start);
+    var cp = schedule.parts(st.start, st.session.tz);
     var cal =
       '<div class="sn-cal" aria-hidden="true">' +
         '<span class="sn-cal-m">' + (MON_ABBR[+cp.month - 1] || '') + '</span>' +
@@ -382,8 +261,8 @@
       '</div>';
     var endMin = st.session.hour * 60 + 90;
     var title = live
-      ? 'Clash Hour is on. Rounds matching until ' + hourLabel(Math.floor(endMin / 60)).replace(':00', ':' + two(endMin % 60)) + ' ET.'
-      : st.session.name + ' \u00b7 ' + hourLabel(st.session.hour) + ' ET, every day';
+      ? 'Clash Hour is on. Rounds matching until ' + hourLabel(Math.floor(endMin / 60)).replace(':00', ':' + two(endMin % 60)) + ' ' + st.session.city + ' time.'
+      : st.session.name + ' \u00b7 ' + hourLabel(st.session.hour) + ' ' + st.session.city + ' time, every day';
     // Rail headline is the simple version of the same fact; the session
     // name and exact next hour still ride the countdown's local line.
     var railTitle = live ? title : 'Three clash hours, every day.';
@@ -393,25 +272,19 @@
     // specified as those hours." The rail leads with the three hours
     // themselves, big, derived from SESSIONS so the schedule can never
     // drift from the timer that counts down to it.
-    // Each chip: the Eastern hour, then the same instant in the visitor's
-    // own clock (or the session's region when the two clocks agree).
-    // Built off the next session's Eastern DATE so DST is right today.
+    // Each chip shows the host hour and the visitor's next local date/time.
     var slotsHtml = SESSIONS.map(function (s) {
-      var startMs = nyToUtc(+cp.year, +cp.month, +cp.day, s.hour, 0);
-      var et = hourLabel(s.hour).replace(':00', '');
-      var under = s.name.replace(/ night$/, '');
-      try {
-        var loc = new Date(startMs).toLocaleTimeString(undefined, { hour: 'numeric' });
-        var ny = new Date(startMs).toLocaleTimeString('en-US', { hour: 'numeric', timeZone: TZ });
-        if (loc !== ny) under = loc + ' local';
-      } catch (e) {}
-      return '<span class="sn-slot"><b>' + et + ' ET</b><small>' + under + '</small></span>';
+      var next = schedule.nextFor(s, Date.now());
+      var local = new Date(next.start).toLocaleString(undefined, {
+        weekday: 'short', hour: 'numeric', minute: '2-digit'
+      });
+      return '<span class="sn-slot"><b>9 PM ' + s.city + '</b><small>' + local + ' your time</small></span>';
     }).join('');
     var sub = live
       ? 'Real opponents, timed rounds, a judge ballot at the end.'
       : (variant === 'rail'
         ? '<span class="sn-slots">' + slotsHtml + '</span>'
-        : 'Ninety minutes when everyone queues at once. Three sessions every day, one per side of the world: 12 AM, 3 PM and 7 PM ET.'
+        : 'Ninety minutes when everyone queues at once. Three sessions every day: 9 PM New York, 9 PM Berlin and 9 PM Sydney, each in local time.'
           + (cities ? ' This one is ' + cities + '.' : ''));
     var count = live
       ? 'ends in <span class="sn-count" data-sn-count></span>'

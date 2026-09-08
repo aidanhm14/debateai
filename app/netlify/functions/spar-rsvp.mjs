@@ -1,3 +1,4 @@
+import schedule from '../../js/clash-schedule.js';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 
@@ -76,45 +77,7 @@ function clamp(s, n) {
   return typeof s === 'string' ? s.trim().slice(0, n) : '';
 }
 
-// ── Next event start (same math as app/js/spar-night.js) ────────────────────
-// Every day at 7:00, 15:00, and 20:00 America/New_York, 90-minute windows
-// (Wednesdays only until 2026-09-01). Duplicated rather
-// than shared because the client copy has to stay dependency-free; if you
-// change one, change all three (here, spar-night.js, scheduled-spar-night.mjs).
-const TZ = 'America/New_York';
-const LIVE_MS = 90 * 60 * 1000;
-const FIRST_EVENT_UTC = Date.UTC(2026, 6, 23, 0, 0, 0);
-
-function nyParts(utcMs) {
-  const fmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: TZ, weekday: 'short', year: 'numeric', month: '2-digit',
-    day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
-  });
-  const out = {};
-  for (const p of fmt.formatToParts(new Date(utcMs))) out[p.type] = p.value;
-  return out;
-}
-function nyToUtc(y, mo, d, hh, mm) {
-  const want = Date.UTC(y, mo - 1, d, hh, mm);
-  let guess = want;
-  for (let i = 0; i < 2; i++) {
-    const p = nyParts(guess);
-    const asUtc = Date.UTC(+p.year, +p.month - 1, +p.day, (+p.hour) % 24, +p.minute);
-    guess += want - asUtc;
-  }
-  return guess;
-}
-function nextEventStart(nowMs) {
-  for (let i = 0; i < 3; i++) {
-    const p = nyParts(nowMs + i * 86400000);
-    for (const hour of [7, 15, 20]) {
-      const start = nyToUtc(+p.year, +p.month, +p.day, hour, 0);
-      if (start + LIVE_MS <= nowMs) continue;
-      return Math.max(start, FIRST_EVENT_UTC);
-    }
-  }
-  return FIRST_EVENT_UTC;
-}
+const nextEventStart = now => schedule.nextSession(now).start;
 
 export default async function handler(request) {
   if (request.method === 'OPTIONS') return corsResponse(request);

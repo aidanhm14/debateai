@@ -1064,6 +1064,21 @@
     </div>
   </div>
 
+  <!-- September 8: daily city-time reminder, one-off and resumable. -->
+  <div class="section" data-pane="ops">
+    <div class="card">
+      <div class="title"><span>September 8 · updated site + 9 PM reminders</span><span class="meta" id="dr-meta">Not run yet</span></div>
+      <div id="dr-body" class="ts" style="padding:6px 2px">Short reminder to eligible signups. Daily sessions at 9 PM New York, Berlin and Sydney, each in local time. Existing opt-outs and campaign exclusions apply. Preview shows the exact message and recipient count.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 2px 2px">
+        <button class="pill-btn" id="dr-preview">Preview cohort and email</button>
+        <button class="pill-btn" id="dr-test">Send test to me</button>
+        <button class="pill-btn primary" id="dr-send" disabled>Send</button>
+        <button class="pill-btn" id="dr-stop" hidden>Stop</button>
+      </div>
+      <div id="dr-test-status" class="ts" style="padding:6px 2px"></div>
+    </div>
+  </div>
+
   <!-- Retention: lapsed-user win-back email cohort. Read-only view of
        config/winback_state (written by scheduled-winback.mjs in dry-run).
        Shows what it WOULD email; flipping it live is an env change, not a
@@ -4377,7 +4392,11 @@ function wireAnnounceCard(prefix, endpoint){
         : '') +
       '<div style="opacity:.7;margin-top:4px">From ' + esc(r.from) +
         (r.senderVerified ? '' : ' <b style="color:#dc2626">(unverified sender, sending is blocked)</b>') + '</div>' +
-      '<div style="opacity:.7;margin-top:4px">Bracket: ' + esc(r.tournament && r.tournament.name) + '</div>' +
+      (r.tournament ? '<div style="opacity:.7;margin-top:4px">Bracket: ' + esc(r.tournament.name) + '</div>' : '') +
+      (r.subject ? '<div style="margin-top:8px"><b>Subject:</b> ' + esc(r.subject) + '</div>' : '') +
+      (r.previewText ? '<pre style="white-space:pre-wrap;font-family:inherit;line-height:1.5">' + esc(r.previewText) + '</pre>' : '') +
+      (r.acceptedTotal != null ? '<div><b>' + r.acceptedTotal + '</b> accepted by the email provider for this campaign</div>' : '') +
+      (s.excluded ? '<div>' + s.excluded + ' excluded by existing campaign settings</div>' : '') +
       (r.errors ? '<div style="color:#dc2626;margin-top:4px">' + r.errors + ' failed: ' +
         esc(Object.keys(r.errorReasons || {}).join(', ')) + '</div>' : '') +
       (r.dryRun && r.sample && r.sample.length
@@ -4420,7 +4439,7 @@ function wireAnnounceCard(prefix, endpoint){
         total += r.sent || 0;
         render(r);
         meta.textContent = total + ' sent · ' + r.remaining + ' to go';
-        if (stopped || !r.remaining || !r.sent) break;
+        if (stopped || r.halted || !r.remaining || !r.sent) break;
       }
     } catch (e) { fail(e); }
     stopBtn.hidden = true;
@@ -4430,6 +4449,15 @@ function wireAnnounceCard(prefix, endpoint){
   stopBtn.addEventListener('click', () => { stopped = true; stopBtn.disabled = true;
     setTimeout(() => { stopBtn.disabled = false; }, 1000); });
 }
+wireAnnounceCard('dr', '/api/admin/debate-reminder');
+$('dr-test').addEventListener('click', async () => {
+  $('dr-test').disabled = true;
+  try {
+    const r = await adminPost('/api/admin/debate-reminder', {test:true});
+    $('dr-test-status').textContent = r.result && r.result.ok ? 'Test accepted for ' + r.to : 'Test failed: ' + (r.result && r.result.reason);
+  } catch (e) { $('dr-test-status').textContent = e.message; }
+  $('dr-test').disabled = false;
+});
 wireAnnounceCard('oa', '/api/admin/open-announce');
 wireAnnounceCard('ua', '/api/admin/update-announce');
 wireAnnounceCard('or', '/api/admin/open-reminder');
