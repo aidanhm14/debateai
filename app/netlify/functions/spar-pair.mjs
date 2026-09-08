@@ -193,21 +193,31 @@ const STALE_PEER_MS = 3 * 60 * 1000;   // 3 min: well past the 60s AI fallback
 // Passed-proposal skips EXPIRE. A skip exists so a declined pair isn't
 // re-proposed in a loop, not to permanently blind two debaters to each
 // other; at ~10 DAU a permanent mutual skip deadlocks the whole queue
-// ("1 in queue" forever, no spawn). 5 min is long enough to not nag
-// within a sitting, short enough to self-heal.
-// 2026-08-24 (Aidan): 5 min was long enough that a misclick cost you the
-// only other person awake. Two minutes, but a SECOND pass on the same
-// person stops expiring: once is a slip, twice is an answer.
-const SKIP_TTL_MS = 2 * 60 * 1000;
+// ("1 in queue" forever, no spawn). It has come down twice for the same
+// reason: 5 min, then 2 min on 2026-08-24 because a misclick cost you the
+// only other person awake, then 30s on 2026-09-08 (Aidan: "offer rematch
+// with declined matches after 30 secodns actually not 2 mins").
+//
+// SKIP_HARD_COUNT IS WHAT MAKES 30s SAFE, so do not touch one without the
+// other. A short TTL on its own would be a nag loop: pass, wait half a
+// minute, meet the same person again, forever. The second pass on the
+// same person never expires, so the loop can run exactly once. Once is a
+// slip and the queue recovers from it in 30 seconds; twice is an answer
+// and it is permanent.
+const SKIP_TTL_MS = 30 * 1000;
 const SKIP_HARD_COUNT = 2;
 // A GHOST skip is not a decision anybody made: the peer's tab went quiet
-// for a minute. Two minutes of invisibility for that is the same penalty
-// as a human saying no, and at this queue depth it is usually the only
-// other person awake. 45s is long enough that a genuinely dead tab has
-// been cancelled and swept before we look at it again, short enough that
+// for a minute. 45s is long enough that a genuinely dead tab has been
+// cancelled and swept before we look at it again, short enough that
 // someone who was slow, asleep, or on a stalled snapshot stream can be
 // met inside the same sitting. Stamped in its own map so a ghost can
 // never be mistaken for a pass, or vice versa.
+//
+// NOTE, since 2026-09-08 this is LONGER than a human pass (45s vs 30s),
+// which reads backwards and is deliberate. This number is not a penalty,
+// it is the time it takes for a dead tab to be cancelled and swept; retry
+// sooner and we just re-target the same ghost. The pass TTL is a product
+// call about people, this one is a property of the reaper.
 const GHOST_SKIP_TTL_MS = 45 * 1000;
 // A match that actually opened a room blocks re-offering for a round's
 // length. Without this the pair you just entered a room with is still

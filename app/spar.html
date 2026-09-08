@@ -4146,17 +4146,18 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   // Mirror of spar-pair.mjs skipActive(): a passed-proposal skip only
-  // counts while its skipAt stamp is fresh (5 min). Legacy docs with
-  // bare skipUids arrays and no stamp read as expired, so old ghosts
-  // can't deadlock the queue.
-  // Mirrors spar-pair.mjs. Both sides must agree or the client filters on
-  // rules the server no longer enforces (or worse, POSTs pairs it refuses).
-  var SKIP_TTL_MS = 2 * 60 * 1000;
+  // counts while its skipAt stamp is fresh. Legacy docs with bare
+  // skipUids arrays and no stamp read as expired, so old ghosts can't
+  // deadlock the queue.
+  // MIRRORS spar-pair.mjs AND MUST MOVE IN THE SAME COMMIT. Both sides
+  // have to agree or the client filters on rules the server no longer
+  // enforces, or worse, POSTs pairs it refuses. 30s since 2026-09-08.
+  var SKIP_TTL_MS = 30 * 1000;
   var SKIP_HARD_COUNT = 2;          // passed on twice = never re-proposed
   var MATCH_SKIP_TTL_MS = 30 * 60 * 1000;  // already in a room together
-  // Mirrors spar-pair's GHOST_SKIP_TTL_MS. A ghosted proposal is nobody's
-  // decision, so it hides that peer for 45s, not for the two minutes a
-  // human pass earns.
+  // Mirrors spar-pair's GHOST_SKIP_TTL_MS. Longer than a human pass since
+  // 2026-09-08, which reads backwards and is deliberate: this is not a
+  // penalty, it is how long a dead tab takes to be cancelled and swept.
   var GHOST_SKIP_TTL_MS = 45 * 1000;
   var DECLINE_COOLDOWN_MS = 15 * 1000;     // no auto-proposal right after a pass
   function stampMs(at){
