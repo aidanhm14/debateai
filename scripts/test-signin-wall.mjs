@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const source = fs.readFileSync(new URL('../app/js/signin-wall.js', import.meta.url), 'utf8');
-function page({ path = '/', storage = new Map(), user = null, native = false, sdk = true } = {}) {
+function page({ path = '/', storage = new Map(), user = null, native = false, sdk = true, inApp = false } = {}) {
   let now = 0, listener;
   const intervals = [], asks = [], events = [], nodes = new Map(), busy = new Set();
   const docEvents = {}, winEvents = {};
@@ -14,6 +14,7 @@ function page({ path = '/', storage = new Map(), user = null, native = false, sd
     addEventListener: (ev, cb) => { docEvents[ev] = cb; },
   };
   const window = { __DB_NATIVE: native, openAuthModal: (mode, opts) => asks.push(opts),
+    __ditIsInAppBrowser: () => inApp,
     gtag: (...args) => events.push(args), addEventListener: (ev, cb) => { winEvents[ev] = cb; } };
   const firebase = { apps: [{}], auth: () => auth };
   if (sdk) window.firebase = firebase;
@@ -31,8 +32,15 @@ function page({ path = '/', storage = new Map(), user = null, native = false, sd
 }
 let p = page(); p.advance(299.75); assert.equal(p.asks.length, 0); p.advance(.25);
 assert.equal(p.asks.length, 1); assert.equal(p.asks[0].locked, true);
-assert.ok(!p.asks[0].googleOnly); assert.ok(!p.asks[0].liveVideo);
-p.advance(80); assert.equal(p.asks.length, 1); console.log('PASS first page asks at five visible minutes, once, locked, with every general sign-in option');
+assert.equal(p.asks[0].googleOnly, true); assert.ok(/Google/.test(p.asks[0].sub));
+p.advance(80); assert.equal(p.asks.length, 1); console.log('PASS first page asks at five visible minutes, once, locked, Google only');
+
+// Google refuses OAuth inside an in-app webview, so a locked Google-only card
+// there would be a page with no way out. Those visitors keep the email door.
+p = page({ inApp: true }); p.advance(300); assert.equal(p.asks.length, 1);
+assert.equal(p.asks[0].locked, true); assert.equal(p.asks[0].googleOnly, false);
+assert.ok(!/Google/.test(p.asks[0].sub));
+console.log('PASS an in-app browser still gets a door it can actually open');
 p = page(); p.advance(18); p.leave(); p = page({ path: '/practice', storage: p.storage }); p.advance(281.75); assert.equal(p.asks.length, 0); p.advance(.25); assert.equal(p.asks.length, 1);
 const refresh = page({ storage: p.storage }); refresh.advance(400); assert.equal(refresh.asks.length, 0); console.log('PASS navigation preserves the budget; a reload after the ask does not ask again');
 p = page(); p.advance(15); p.hidden(true); p.advance(320); p.hidden(false); p.advance(284.75); assert.equal(p.asks.length, 0); p.advance(.25); assert.equal(p.asks.length, 1); console.log('PASS background time does not count');

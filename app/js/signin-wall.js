@@ -33,7 +33,10 @@
    trip are the ones already proven there. There is one chooser on this
    site and this opens it.
 
-   Google-only live-video pairing lives on /spar and the server, not here.
+   IT ASKS FOR GOOGLE, per the founder, 2026-09-08. One door, and the one
+   exception is an in-app webview, where Google refuses OAuth outright and a
+   locked Google-only card would be a dead end rather than an ask. Live-video
+   pairing on /spar stays Google-only at its own door and on the server.
    AI starts have their own immediate account gate, server checks included.
 
    KILL SWITCH: LOCKED = false restores the closable 2026-09-07 ask without
@@ -135,14 +138,25 @@
     try { sessionStorage.setItem(SHOWN_KEY, '1'); } catch (e) {}
     track('signin_wall_shown', { path: location.pathname, seconds: Math.floor(seconds) });
     var livePerson = !/^\/(newvoice|practice|voice-debate)(?:\.html)?(?:\/|$)/.test(location.pathname);
+    // GOOGLE ONLY, per the founder. The one exception is a browser where
+    // Google physically cannot finish: Google refuses OAuth inside an
+    // in-app webview outright (`disallowed_useragent`, measured on the
+    // 2026-08-24 TikTok traffic), so a locked Google-only card there is a
+    // page with no way out at all. Those visitors keep the email door.
+    // Native is already returned above and never reaches this.
+    var inApp = false;
+    try { inApp = typeof window.__ditIsInAppBrowser === 'function' && window.__ditIsInAppBrowser(); } catch (e) {}
     window.openAuthModal('signup', {
       locked: LOCKED,
       livePerson: livePerson,
       liveVideo: /^\/spar(?:\.html)?(?:\/|$)/.test(location.pathname),
+      googleOnly: !inApp,
       headline: 'Sign in to keep going',
-      sub: livePerson
-        ? 'Debate real people face to face on live video. Sign in to keep your rounds and progress. Your account is free.'
-        : 'Sign in with Google, Apple or email to save your rounds, scores and progress. Your account is free.',
+      sub: inApp
+        ? 'Sign in to save your rounds, scores and progress. Your account is free.'
+        : (livePerson
+          ? 'Debate real people face to face on live video. Continue with Google to keep your rounds and progress. Your account is free.'
+          : 'Continue with Google to save your rounds, scores and progress. Your account is free.'),
       onDone: function (user) {
         if (named(user)) { shown = false; decide(user); return; }
         // Unreachable while LOCKED, because auth-modal's close() refuses every
