@@ -735,11 +735,12 @@
   // ── Social accounts ────────────────────────────────────────────────
   // 2026-08-12: Instagram surfaced per the founder, then YouTube, Twitch,
   // TikTok and X the same day once those handles were claimed (all five are
-  // trydebatable). 2026-08-22, per the founder: INSTAGRAM IS OUT of the nav
-  // rail. 2026-08-29: YouTube, Twitch and X are out while the live show runs
-  // on TikTok only; Discord left the rail 2026-09-04 for the landing card. The
-  // paused accounts remain claimed. Restoring one is re-adding its entry
-  // here and its public profile links, not rebuilding stream support.
+  // trydebatable). Every one has since come back out, on the founder's call,
+  // one at a time: Instagram 2026-08-22, YouTube/Twitch/X 2026-08-29, Discord
+  // 2026-09-04 (its door moved onto the landing's Live chats card), TikTok
+  // 2026-09-08. The rail is empty and the accounts stay claimed. A social
+  // icon in the nav is a door out of the product, so putting one back is an
+  // explicit product call, not a default.
   // Only accounts that ACTUALLY EXIST go in here: a nav
   // icon pointing at a 404 is worse than no icon. Adding one is a single
   // entry; the topbar rail, the mobile sheet row, and the hover colour all
@@ -760,26 +761,13 @@
   // old five-wide group still ended 230px clear of the wordmark. Attention
   // is the cap, so adding another network is an explicit product call.
   var SOCIALS = [
-    {
-      key: 'tiktok',
-      label: 'TikTok',
-      handle: '@trydebatable',
-      href: 'https://www.tiktok.com/@trydebatable',
-      brand: '#FE2C55',
-      size: 20,
-      // Filled silhouette from Simple Icons (CC0); the theme supplies the
-      // ink, and offset prints keep the mark legible without an app tile.
-      icon: '<g transform="translate(1.5 1.5) scale(.875)" stroke="none">'
-          + ['#25F4EE', '#FE2C55', 'var(--text, currentColor)'].map(function(fill, i){
-            var offset = ['-.65 -.45', '.65 .45', '0 0'][i];
-            return '<path fill="' + fill + '" transform="translate(' + offset + ')" d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>';
-          }).join('') + '</g>',
-    },
-    // 2026-09-04, per the founder: DISCORD IS OUT of the nav rail. The
-    // door moved onto the landing's Live chats card ("itll pull ppl in.
-    // take it outta nav, just on front page like that"). The footer and
-    // the community page keep their links; restoring the rail icon is
-    // re-adding the entry that sat here (git: ship/discord-card).
+    // 2026-09-08, per the founder: TIKTOK IS OUT of the nav rail ("remove
+    // the tiktok ... i dont want to confuse people"). That empties the rail,
+    // and the two `if (SOCIALS.length)` guards below render nothing rather
+    // than an empty group. The account stays claimed and the outward stream
+    // still simulcasts there; this is the public link, not the plumbing.
+    // Restoring one is re-adding its entry here (git: ship/tiktok-wall for
+    // TikTok, ship/discord-card for Discord) plus its public profile links.
   ];
 
   // Gradient ids have to be unique per document: socialIcon runs twice per
@@ -806,7 +794,7 @@
     // %PAINT% lets one entry fill a shape with whatever this icon is
     // stroked in (flat colour or the gradient just minted), which a
     // per-entry literal cannot do because the gradient id is generated
-    // here, per call. TikTok is the only user: see its note head.
+    // here, per call. No entry uses it while SOCIALS is empty.
     var body = s.icon.split('%PAINT%').join(stroke);
     var size = s.size || 16;
     return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="' + stroke + '" '

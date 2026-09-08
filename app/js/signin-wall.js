@@ -1,12 +1,44 @@
-/* Account ask, 2026-09-07. Three visible minutes across pages, then the
-   shared chooser opens ONCE per browser session and can be closed (x,
-   Escape, backdrop). It was a locked wall from 2026-08-26 to 2026-09-07;
-   the founder unlocked it so readers stay on the page for search dwell
-   instead of bouncing off a wall. Closing it is an answer: the ask never
-   returns in the same session. The Google-only rule for live video pairing
-   lives on /spar and the server, not here.
-   A direct human round and a round in the site shell stay uninterrupted.
-   AI starts have their own immediate account gate, including server checks. */
+/* Account ask, 2026-09-08. Five visible minutes across pages, then the
+   shared chooser opens LOCKED: no x, Escape does nothing, a backdrop click
+   does nothing, and the page behind it stops scrolling.
+
+   The history matters, because this is the third position on one control.
+   It was a locked wall at 45s from 2026-08-26. On 2026-09-07 the founder
+   unlocked it and moved it to 3 minutes so readers stayed on the page for
+   search dwell instead of bouncing off a wall. On 2026-09-08 he asked to
+   require the account again, at five minutes: "require a sign in after 5
+   mins on site without doing anything, esp if they are into it."
+
+   FIVE MINUTES IS WHAT RECONCILES THOSE TWO CALLS, so do not shorten it
+   and keep the lock. The pogo-sticking risk that unlocked this is a risk
+   about SKIMMERS: someone who meets a wall early, goes back to the search
+   results, and takes the ranking down with them. Nobody reads for five
+   visible minutes and then pogo-sticks; by then the dwell Google measures
+   has already been spent. What is left at five minutes is a reader who is
+   into it, and that is the one this is allowed to stop. Moving the number
+   down without unlocking puts it back in front of skimmers.
+
+   VISIBLE seconds, cumulative across pages in one browser session. A
+   backgrounded tab accumulates nothing, so a parked or prerendered tab is
+   never asked, and no crawler gets near the budget.
+
+   IT NEVER LANDS MID-SENTENCE. A locked card that steals focus while
+   someone is typing costs them the sentence and they cannot even close it
+   to finish, so an active text field defers the ask to a later tick.
+   A live round, a round riding in the site shell, and every surface that
+   owns its own gate are exempt outright.
+
+   It reuses js/auth-modal.js: every provider, the anonymous-account
+   linking dance, the in-app-browser warning and the emailed-link round
+   trip are the ones already proven there. There is one chooser on this
+   site and this opens it.
+
+   Google-only live-video pairing lives on /spar and the server, not here.
+   AI starts have their own immediate account gate, server checks included.
+
+   KILL SWITCH: LOCKED = false restores the closable 2026-09-07 ask without
+   touching anything else. GA4: signin_wall_shown / signin_wall_converted.
+   Read them against each other, and against organic dwell. */
 (function () {
   'use strict';
   if (window.__ditSigninWall) return;
@@ -26,7 +58,8 @@
   if (/[?&]oobCode=/.test(location.search)) return;
   if (/bot|crawl|spider|slurp|lighthouse|preview|monitor|pingdom|gtmetrix/i.test(navigator.userAgent || '')) return;
   window.__ditSigninWallArmed = true;
-  var WALL_SECONDS = 180;
+  var WALL_SECONDS = 300;   // five visible minutes; see the head
+  var LOCKED = true;        // the ask has no dismissal at this length
   var SPENT_KEY = 'debatable-wall-seconds';
   var SHOWN_KEY = 'debatable-wall-shown';
   var seconds = 0, shown = false, signedIn = false, watching = false;
@@ -89,6 +122,13 @@
         document.querySelector('.match-profile-flow') ||
         document.querySelector('.ob-modal.is-open') ||
         document.documentElement.getAttribute('data-intro') === '1') return;
+    // Mid-sentence is the one moment a locked card is indefensible: it
+    // takes focus, and the visitor cannot close it to finish the thought.
+    // Defer rather than skip, so the ask still arrives a tick later.
+    try {
+      var el = document.activeElement;
+      if (el && (/^(input|textarea|select)$/i.test(el.tagName) || el.isContentEditable)) return;
+    } catch (e) {}
     if (!window.openAuthModal) { ensureChooser(); return; }
     if (window.__sparSaveDeskProgress) window.__sparSaveDeskProgress();
     shown = true;
@@ -96,7 +136,7 @@
     track('signin_wall_shown', { path: location.pathname, seconds: Math.floor(seconds) });
     var livePerson = !/^\/(newvoice|practice|voice-debate)(?:\.html)?(?:\/|$)/.test(location.pathname);
     window.openAuthModal('signup', {
-      locked: false,
+      locked: LOCKED,
       livePerson: livePerson,
       liveVideo: /^\/spar(?:\.html)?(?:\/|$)/.test(location.pathname),
       headline: 'Sign in to keep going',
@@ -105,8 +145,10 @@
         : 'Sign in with Google, Apple or email to save your rounds, scores and progress. Your account is free.',
       onDone: function (user) {
         if (named(user)) { shown = false; decide(user); return; }
-        // Closed without an account. Keep `shown` so the ask does not reopen
-        // on the next tick, and the session key keeps it away on later pages.
+        // Unreachable while LOCKED, because auth-modal's close() refuses every
+        // dismissal path. Kept honest for the unlocked mode: `shown` stays set
+        // so the ask does not reopen on the next tick, and the session key
+        // keeps it away on later pages.
         track('signin_wall_dismissed', { path: location.pathname });
       }
     });

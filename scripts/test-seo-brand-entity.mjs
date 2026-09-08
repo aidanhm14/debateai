@@ -63,22 +63,26 @@ check('organization graphs do not publish a founder identity',
 check('organization graphs agree on the casual product',
   landingOrg?.knowsAbout?.includes('Casual one-on-one debate')
   && aboutOrg?.knowsAbout?.includes('Casual one-on-one debate'));
-check('structured identity keeps Discord and TikTok but pauses X, Twitch and YouTube',
+// 2026-09-08, per the founder: TIKTOK IS OUT of the public surfaces ("remove
+// the tiktok ... i dont want to confuse people"). The account stays claimed
+// and the studio still simulcasts there, so this pins the LINKS only.
+const paused = /(?:tiktok\.com|x\.com|twitch\.tv|youtube\.com)/;
+check('structured identity keeps Discord and Instagram and pauses TikTok, X, Twitch and YouTube',
   landingOrg?.sameAs?.includes('https://discord.gg/WMHZW9BKvJ')
-  && landingOrg?.sameAs?.includes('https://www.tiktok.com/@trydebatable')
+  && landingOrg?.sameAs?.includes('https://instagram.com/trydebatable')
   && aboutOrg?.sameAs?.includes('https://discord.gg/WMHZW9BKvJ')
-  && aboutOrg?.sameAs?.includes('https://www.tiktok.com/@trydebatable')
-  && !landingOrg?.sameAs?.some((url) => /(?:x\.com|twitch\.tv|youtube\.com)/.test(url))
-  && !aboutOrg?.sameAs?.some((url) => /(?:x\.com|twitch\.tv|youtube\.com)/.test(url)));
+  && aboutOrg?.sameAs?.includes('https://instagram.com/trydebatable')
+  && !landingOrg?.sameAs?.some((url) => paused.test(url))
+  && !aboutOrg?.sameAs?.some((url) => paused.test(url)));
 // 2026-09-04, per the founder: Discord left the rail for the landing's
 // Live chats card ("take it outta nav, just on front page like that").
-check('shared social row is TikTok only, and the Discord door sits on the landing chats card',
-  topbar.includes("key: 'tiktok'")
-  && !topbar.includes("key: 'discord'")
-  && landing.includes('class="fs-chats-discord" href="https://discord.gg/WMHZW9BKvJ"')
-  && !topbar.includes("key: 'x'")
-  && !topbar.includes("key: 'twitch'")
-  && !topbar.includes("key: 'youtube'"));
+// 2026-09-08: TikTok followed it out, so the rail carries no network at all.
+check('the shared social row is empty, and the Discord door sits on the landing chats card',
+  landing.includes('class="fs-chats-discord" href="https://discord.gg/WMHZW9BKvJ"')
+  && !/key: '(?:tiktok|discord|x|twitch|youtube|instagram)'/.test(topbar));
+check('no public surface links a paused network profile',
+  ![landing, about, press, llms, topbar, read('app/future.html')]
+    .some((surface) => /(?:tiktok\.com\/@|x\.com\/trydebatable|twitch\.tv\/trydebatable|youtube\.com\/@trydebatable)/.test(surface)));
 check('website and application have stable ids',
   website?.name === 'Debatable'
   && application?.name === 'Debatable'
