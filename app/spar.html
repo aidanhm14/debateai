@@ -4611,46 +4611,38 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return !!(state.user && !state.named && guestRounds.used > 0 && guestRoundsLeft() <= 0);
   }
 
-  // CONVERSION DISPLAY (2026-08-31, founder: "have it say 4 live and add
-  // the number of actually live to that number"). The signed-out gate is
-  // the one explicit exception to the same-day raw-public-number rule.
-  // /api/spar-queue remains the real waiting count used operationally;
-  // only this conversion label renders 4 + waiting. GA4 keeps both values
-  // so the display and the measurement are never confused downstream.
-  var GATE_LIVE_BASE = 4;
-  var gateLivePollTimer = null;
+  // 2026-09-08, the founder: "say 'people are live' - dont say number bc
+  // its low." THE NUMBER IS GONE, which also retires the 2026-08-31
+  // conversion exception that rendered 4 + the real waiting count on this
+  // one label. There is nothing left to pad, so the raw-public-number rule
+  // applies here again with no carve-out.
+  //
+  // Two things follow. The label no longer waits on the network, because
+  // it says the same words whatever comes back. And the 15s poll is
+  // retired: it existed to keep a number fresh. ONE read still goes out so
+  // the GA4 row carries the REAL waiting count at the moment the gate was
+  // shown, which is the measurement this endpoint is actually for.
+  var GATE_LIVE_LABEL = 'people are live';
   var gateLiveViewTracked = false;
 
-  function paintGateLive(waiting){
-    var pill = document.getElementById('gateLive');
-    var text = document.getElementById('gateLiveText');
-    if (!text) return;
+  function trackGateView(waiting){
+    if (gateLiveViewTracked) return;
+    gateLiveViewTracked = true;
     var queueWaiting = Math.max(0, Math.floor(Number(waiting) || 0));
-    var liveDisplay = GATE_LIVE_BASE + queueWaiting;
-    text.textContent = liveDisplay + ' are live for debating.';
-    if (pill) pill.hidden = false;
-    if (!gateLiveViewTracked){
-      gateLiveViewTracked = true;
-      try { gtag('event', 'spar_gate_view', { required: 1, reason: 'google_required', live_display: liveDisplay, queue_waiting: queueWaiting }); } catch(e){}
-    }
+    try { gtag('event', 'spar_gate_view', { required: 1, reason: 'google_required', queue_waiting: queueWaiting }); } catch(e){}
   }
 
   function startGateLiveCount(){
-    if (gateLivePollTimer) clearInterval(gateLivePollTimer);
     gateLiveViewTracked = false;
-    function refresh(){
-      if (!document.getElementById('sparGateCard')){
-        clearInterval(gateLivePollTimer);
-        gateLivePollTimer = null;
-        return;
-      }
-      fetch('/api/spar-queue', { cache: 'no-cache' })
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(d){ paintGateLive(d && d.waiting); })
-        .catch(function(){ paintGateLive(0); });
-    }
-    refresh();
-    gateLivePollTimer = setInterval(refresh, 15000);
+    var pill = document.getElementById('gateLive');
+    var text = document.getElementById('gateLiveText');
+    if (!text) return;
+    text.textContent = GATE_LIVE_LABEL;
+    if (pill) pill.hidden = false;
+    fetch('/api/spar-queue', { cache: 'no-cache' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){ trackGateView(d && d.waiting); })
+      .catch(function(){ trackGateView(0); });
   }
 
   // Let a new visitor answer question 3 before the account ask.
@@ -4713,7 +4705,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         // visitor move to a browser where Google can complete.
         (inApp ? '<p class="gate-inapp">This app\'s browser blocks Google sign-in. Use email below, or open itsdebatable.com/spar in Safari or Chrome. <button type="button" class="gate-copy" id="gateCopyLink">Copy link</button></p>' : '') +
         // Ships hidden so a text-only client does not read an unhydrated
-        // label. paintGateLive reveals 4 + the fresh waiting count.
+        // label. startGateLiveCount reveals it and reads the real queue once.
         '<div class="gate-live" id="gateLive" hidden><span class="gate-live-dot" aria-hidden="true"></span><span id="gateLiveText"></span></div>' +
         // One key. Inside an in-app browser the button is still rendered
         // rather than hidden (the detector is a user-agent guess), and

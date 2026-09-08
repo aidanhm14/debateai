@@ -8505,16 +8505,19 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      never a child, because `.fs-chats:not(.is-live)` hides the whole panel
      when the site is quiet and the product explanation must not go with it. */
   .fs-rightcol{display:none}
+  /* 2026-09-08, second pass, the founder: "get rid of 'what debatable is'
+     just number the steps clearly" and make the lines larger. The heading is
+     gone, so the numbers carry the structure and have to read as steps on
+     their own; the list keeps an accessible name for anyone who cannot see
+     the numerals. */
   .fs-what{pointer-events:auto;flex:none}
-  .fs-what-title{margin:0 0 14px;font-family:'Instrument Serif',var(--font-judge),Georgia,serif;
-    font-weight:700;font-size:1.5rem;line-height:1.1;letter-spacing:0}
-  .fs-what-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:11px}
-  .fs-what-list li{display:flex;gap:11px;align-items:flex-start;font-size:.9rem;line-height:1.42;
-    color:rgba(245,239,231,.84)}
-  [data-theme="light"] .fs-what-list li{color:rgba(26,26,31,.78)}
-  .fs-what-n{flex:none;width:20px;height:20px;margin-top:1px;border-radius:50%;
+  .fs-what-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:16px}
+  .fs-what-list li{display:flex;gap:13px;align-items:flex-start;font-size:1.06rem;font-weight:500;
+    line-height:1.42;color:rgba(245,239,231,.9)}
+  [data-theme="light"] .fs-what-list li{color:rgba(26,26,31,.84)}
+  .fs-what-n{flex:none;width:27px;height:27px;margin-top:1px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
-    font-size:.66rem;font-weight:800;color:#fff;background:#dc2626}
+    font-size:.84rem;font-weight:800;color:#fff;background:#dc2626}
   @media(min-width:1360px){
     .fscreen-wrap{position:relative;max-width:1440px;grid-template-columns:minmax(0,676px) minmax(250px,.5fr);column-gap:clamp(48px,5.5vw,110px)}
     .fs-rightcol{display:flex;position:absolute;right:0;top:50%;transform:translateY(-50%);
@@ -9323,10 +9326,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <div class="fs-rightcol">
     <!-- The plain answer to "what is this", in the founder's own three
          beats. It sits outside the feed so a quiet site never takes the
-         explanation down with the messages. -->
+         explanation down with the messages. The heading came off 2026-09-08;
+         the numbered steps are the whole block now. -->
     <div class="fs-what">
-      <h2 class="fs-what-title">What Debatable is</h2>
-      <ol class="fs-what-list">
+      <ol class="fs-what-list" aria-label="How Debatable works">
         <li><span class="fs-what-n" aria-hidden="true">1</span><span>You debate anything with someone who disagrees, or someone ranked near you.</span></li>
         <li><span class="fs-what-n" aria-hidden="true">2</span><span>An AI judges it.</span></li>
         <li><span class="fs-what-n" aria-hidden="true">3</span><span>You get a ranking on the leaderboard.</span></li>
@@ -9660,12 +9663,21 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      starts. __lbTopReq keeps its name and its meaning (null until the
      viewport is wide enough) because #ranked-band's lazy loader reads it
      to avoid a second request for the same payload. */
+  /* 2026-09-08, the founder: "get rid of leadrboard on left for now". ONE
+     switch, read by both halves that make the rail exist: the first-screen
+     shift that opens ~76px for it, and the renderer that paints it. The
+     markup, the CSS and the photo tier are untouched, so flipping this to
+     true brings it back exactly as it was. If it does come back it still
+     wears the founder's uploaded photo batch, per the standing 2026-08-25
+     instruction ("bring back the real photos - never reverse this"), which
+     this does not touch: hiding a surface is not reversing what it wore. */
+  window.__lbRailOn = false;
   window.__lbTop = (function(){
     var mq = window.matchMedia ? window.matchMedia('(min-width:1101px)') : null;
     var req = null, inFlight = false, again = false, waiting = [], subscribers = [], latest = null;
     function start(force, fresh){
       var wide = !mq || mq.matches;
-      if (wide) document.documentElement.classList.add('lbr-ready');
+      if (wide && window.__lbRailOn) document.documentElement.classList.add('lbr-ready');
       if (!wide && !force) return;
       if (inFlight){ if (fresh) again = true; return; }
       if (req && !fresh) return;
@@ -15470,6 +15482,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   var rail = document.getElementById('lbRail');
   var list = rail && document.getElementById('lbRailList');
   if (!rail || !list) return;
+  // Retired 2026-09-08; see window.__lbRailOn where it is declared. The
+  // aside ships hidden and body.lbr-on is what reveals it, so returning
+  // here leaves nothing on screen and starts no work.
+  if (!window.__lbRailOn) return;
   /* No width test here any more. Under 1101px the rail is display:none
      and the fetch has not started, so this script simply waits: the
      subscription below fires if and when the viewport is wide enough,

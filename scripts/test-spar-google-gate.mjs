@@ -167,18 +167,22 @@ check(!queuePeerCanMatch(peer('phone-peer', 'adult', 'phone')), 'a retired provi
 check(!queuePeerCanMatch(peer('guest-peer', 'adult', 'anonymous')), 'a guest must not count as an available opponent');
 check(!queuePeerCanMatch(peer('me', 'adult')), 'the current user must not count as their own opponent');
 
-// 2026-08-31, later founder conversion call: the signed-out gate is the
-// one declared exception to the raw-public-number rule. It displays four
-// plus the fresh /api/spar-queue waiting count, while analytics preserve
-// both the conversion display and the operational measurement.
-check(spar.includes('var GATE_LIVE_BASE = 4;'), 'signed-out gate must carry the founder-called base of four');
+// 2026-09-08, the founder: "say 'people are live' - dont say number bc its
+// low." The gate carries WORDS now, which retires the 2026-08-31 exception
+// that let this one label render four plus the real waiting count. Nothing
+// is padded here any more, and nothing may quietly become a number again:
+// these checks fail if a base, a sum, or a rendered count comes back.
+check(spar.includes("var GATE_LIVE_LABEL = 'people are live';"), 'signed-out gate must carry the wordless live label');
+check(!spar.includes('GATE_LIVE_BASE'), 'signed-out gate must not restore a padded base');
+check(!/liveDisplay/.test(spar), 'signed-out gate must not compute a displayed live figure');
 check(!/>\s*\d+ live now</.test(spar), 'signed-out gate markup must not hardcode a live figure');
-check(/id="gateLive" hidden/.test(spar), 'signed-out gate pill must ship hidden until its count is hydrated');
+check(spar.includes('text.textContent = GATE_LIVE_LABEL;'), 'signed-out gate must render the label and nothing counted');
+check(/id="gateLive" hidden/.test(spar), 'signed-out gate pill must ship hidden until the gate paints it');
 check(spar.includes('.gate-live[hidden]{display:none}') || /\.gate-live\[hidden\][^}]*display:none/.test(spar), 'gate pill must respect [hidden] against its display:flex');
-check(spar.includes("fetch('/api/spar-queue', { cache: 'no-cache' })"), 'signed-out gate must fetch the fresh public queue count');
-check(spar.includes('var liveDisplay = GATE_LIVE_BASE + queueWaiting;'), 'signed-out gate must add the real waiting count to four');
-check(spar.includes("text.textContent = liveDisplay + ' are live for debating.';"), 'signed-out gate must clarify that the combined live display is for debating');
-check(spar.includes('live_display: liveDisplay, queue_waiting: queueWaiting'), 'gate analytics must preserve displayed and measured counts separately');
+check(spar.includes("fetch('/api/spar-queue', { cache: 'no-cache' })"), 'signed-out gate must still read the real queue once for analytics');
+check(spar.includes('queue_waiting: queueWaiting'), 'gate analytics must keep the operational waiting measurement');
+check(!spar.includes('live_display'), 'gate analytics must not report a display figure that no longer exists');
+check(!/setInterval\(refresh, 15000\)/.test(spar), 'the 15s gate poll must stay retired now that no number needs refreshing');
 check(spar.includes('Sign up with Google'), 'signed-out gate must show the Google signup action');
 check(!spar.includes('autoPopAuthModal'), 'signed-out gate must remain the sole sign-in prompt instead of opening a duplicate modal');
 check(!spar.includes('AUTH_POP_DELAY_MS'), 'signed-out gate must not carry a delayed auth-popup timer');
