@@ -247,6 +247,8 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 
 ## 10. Decision log (major decisions with why)
 
+- **Homepage font: Source Sans 3** (2026-09-08). Aidan selected "A. Source Sans 3. Open, calm, conversational", reviewed the full homepage preview, and approved the push. The homepage uses Source Sans 3 for headings, body and controls on desktop and mobile, with semibold topics and actions. Archivo remains the wordmark, Source Serif 4 the written judge decision, and Geist Mono the score and clock. This supersedes the earlier serif and display-font calls for the homepage only. Other pages keep their existing typography.
+
 - **A declined pair is re-offered after 30 seconds, not two minutes** (2026-09-08, Aidan: "offer rematch with declined matches after 30 secodns actually not 2 mins"). Third cut of this number, always for the same reason: 5 min, then 2 min on 2026-08-24 because a misclick cost you the only other person awake, now 30s. At this queue depth the person you passed on is usually the only person there, so the cost of a slip is the whole sitting.
 
   **`SKIP_HARD_COUNT` is what makes 30 seconds safe, and the two must never move apart.** A short TTL alone would be a nag loop: pass, wait half a minute, meet the same person again, forever. The SECOND pass on the same person never expires, so the loop runs exactly once. Once is a slip and the queue heals from it in 30 seconds; twice is an answer and it is permanent.
