@@ -8505,19 +8505,44 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      never a child, because `.fs-chats:not(.is-live)` hides the whole panel
      when the site is quiet and the product explanation must not go with it. */
   .fs-rightcol{display:none}
-  /* 2026-09-08, second pass, the founder: "get rid of 'what debatable is'
-     just number the steps clearly" and make the lines larger. The heading is
-     gone, so the numbers carry the structure and have to read as steps on
-     their own; the list keeps an accessible name for anyone who cannot see
-     the numerals. */
-  .fs-what{pointer-events:auto;flex:none}
-  .fs-what-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:16px}
-  .fs-what-list li{display:flex;gap:13px;align-items:flex-start;font-size:1.06rem;font-weight:500;
-    line-height:1.42;color:rgba(245,239,231,.9)}
-  [data-theme="light"] .fs-what-list li{color:rgba(26,26,31,.84)}
-  .fs-what-n{flex:none;width:27px;height:27px;margin-top:1px;border-radius:50%;
+  /* 2026-09-08, third pass, the founder: the three steps fold into a "How it
+     works" button that links to the page and shows them on hover, so the
+     highlights below can be taller. The steps are ABSOLUTE, so they overlay
+     the feed instead of costing it height, which is what buys the chat its
+     extra room. Opacity and pointer-events do the hiding rather than display
+     or visibility, so the list stays in the accessibility tree and the link
+     that describes itself with it can actually be read. */
+  .fs-what{pointer-events:auto;flex:none;position:relative;z-index:3}
+  .fs-what-btn{display:inline-flex;align-items:center;gap:9px;padding:9px 16px;
+    border-radius:999px;border:1px solid rgba(26,26,31,.16);background:rgba(255,255,255,.72);
+    font-size:.94rem;font-weight:700;color:#1a1a1f;text-decoration:none;
+    transition:border-color .18s ease,background .18s ease,transform .18s ease}
+  .fs-what-btn:hover,.fs-what:focus-within .fs-what-btn{border-color:rgba(220,38,38,.55);
+    background:#fff;transform:translateY(-1px);text-decoration:none}
+  .fs-what-btn:focus-visible{outline:2px solid #dc2626;outline-offset:2px}
+  .fs-what-arrow{font-size:1rem;line-height:1;color:#dc2626}
+  :root:not([data-theme="light"]) .fs-what-btn{border-color:rgba(245,239,231,.22);
+    background:rgba(255,255,255,.06);color:#f5efe7}
+  :root:not([data-theme="light"]) .fs-what-btn:hover,
+  :root:not([data-theme="light"]) .fs-what:focus-within .fs-what-btn{background:rgba(255,255,255,.12);
+    border-color:rgba(240,82,82,.6)}
+  :root:not([data-theme="light"]) .fs-what-arrow{color:#f05252}
+  .fs-what-pop{position:absolute;top:calc(100% + 10px);left:0;width:min(340px,100%);
+    padding:16px 18px;border-radius:14px;background:#fff;
+    border:1px solid rgba(26,26,31,.1);box-shadow:0 18px 44px rgba(20,20,25,.16);
+    opacity:0;pointer-events:none;transform:translateY(-5px);
+    transition:opacity .16s ease,transform .16s ease}
+  .fs-what:hover .fs-what-pop,.fs-what:focus-within .fs-what-pop{opacity:1;pointer-events:auto;transform:none}
+  :root:not([data-theme="light"]) .fs-what-pop{background:#17171b;border-color:rgba(245,239,231,.14);
+    box-shadow:0 18px 44px rgba(0,0,0,.5)}
+  @media(prefers-reduced-motion:reduce){.fs-what-pop,.fs-what-btn{transition:none}}
+  .fs-what-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:13px}
+  .fs-what-list li{display:flex;gap:11px;align-items:flex-start;font-size:.97rem;font-weight:500;
+    line-height:1.4;color:rgba(26,26,31,.84)}
+  :root:not([data-theme="light"]) .fs-what-list li{color:rgba(245,239,231,.9)}
+  .fs-what-n{flex:none;width:24px;height:24px;margin-top:1px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
-    font-size:.84rem;font-weight:800;color:#fff;background:#dc2626}
+    font-size:.78rem;font-weight:800;color:#fff;background:#dc2626}
   @media(min-width:1360px){
     .fscreen-wrap{position:relative;max-width:1440px;grid-template-columns:minmax(0,676px) minmax(250px,.5fr);column-gap:clamp(48px,5.5vw,110px)}
     .fs-rightcol{display:flex;position:absolute;right:0;top:50%;transform:translateY(-50%);
@@ -8525,9 +8550,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       min-width:0;min-height:0;max-height:calc(100svh - 210px);
       color:#f5efe7;pointer-events:none}
     [data-theme="light"] .fs-rightcol{color:#1a1a1f}
+    /* Taller since 2026-09-08: the steps became a hover card, so the only
+       thing above the feed is one button and the feed takes the rest. */
     .fs-chats{display:flex;position:static;transform:none;width:auto;
       flex:1 1 auto;flex-direction:column;min-width:0;min-height:0;
-      height:auto;max-height:min(430px,calc(100svh - 470px));color:inherit;pointer-events:none}
+      height:auto;max-height:min(600px,calc(100svh - 300px));color:inherit;pointer-events:none}
   }
   .fs-chats-top{display:flex;align-items:center;gap:9px;margin-bottom:12px;flex:none;pointer-events:auto}
   .fs-chats-dot{flex:none;width:8px;height:8px;border-radius:50%;background:rgba(245,239,231,.28)}
@@ -9329,11 +9356,14 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          explanation down with the messages. The heading came off 2026-09-08;
          the numbered steps are the whole block now. -->
     <div class="fs-what">
-      <ol class="fs-what-list" aria-label="How Debatable works">
-        <li><span class="fs-what-n" aria-hidden="true">1</span><span>You debate anything with someone who disagrees, or someone ranked near you.</span></li>
-        <li><span class="fs-what-n" aria-hidden="true">2</span><span>An AI judges it.</span></li>
-        <li><span class="fs-what-n" aria-hidden="true">3</span><span>You get a ranking on the leaderboard.</span></li>
-      </ol>
+      <a class="fs-what-btn" href="/how-it-works" data-cta="first-screen-how-it-works" aria-describedby="fsWhatSteps">How it works<span class="fs-what-arrow" aria-hidden="true">&rarr;</span></a>
+      <div class="fs-what-pop" id="fsWhatSteps">
+        <ol class="fs-what-list" aria-label="How Debatable works">
+          <li><span class="fs-what-n" aria-hidden="true">1</span><span>You debate anything with someone who disagrees, or someone ranked near you.</span></li>
+          <li><span class="fs-what-n" aria-hidden="true">2</span><span>An AI judges it.</span></li>
+          <li><span class="fs-what-n" aria-hidden="true">3</span><span>You get a ranking on the leaderboard.</span></li>
+        </ol>
+      </div>
     </div>
     <aside class="fs-chats" id="fsChats" aria-label="Community chat highlights">
       <div class="fs-chats-top">
