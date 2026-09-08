@@ -12,7 +12,7 @@ const ladder=between('async function loadRatingLadder(){','// Standings for the 
 const loaders=between('async function fetchView(view){','state.loadFailed = state.loadFailed || {};');
 function payload(rating=1600,count=4){return {rows:Array.from({length:count},(_,i)=>({uid:String(i).repeat(28),name:'Person '+i,kind:'rating',rating:rating-i,rank:i+1,placed:true,games:5,wins:3,losses:2,draws:0,xp:150})),total:count};}
 
-test('homepage card, rail and phone strip refresh together and preserve real rows on failure',async({page,context})=>{
+test('homepage card and enabled rail refresh together and preserve real rows on failure',async({page,context})=>{
  let data=payload(),requests=0;
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/*',r=>{
@@ -23,7 +23,14 @@ test('homepage card, rail and phone strip refresh together and preserve real row
  await page.goto('https://standings.test/');
  await page.evaluate(()=>{window.DBPfp={};delete window.IntersectionObserver;});
  await page.addScriptTag({content:read('js/standings-refresh.js')});
- for(const script of [feed,band,rail])await page.addScriptTag({content:script});
+ for(const script of [feed,band])await page.addScriptTag({content:script});
+ // The founder hid the rail on September 8. Confirm the shipped default,
+ // then exercise its retained renderer with the explicit switch enabled.
+ expect(await page.evaluate(()=>window.__lbRailOn)).toBe(false);
+ await page.addScriptTag({content:rail});
+ await expect(page.locator('#lbRail')).toBeHidden();
+ await page.evaluate(()=>window.__lbRailOn=true);
+ await page.addScriptTag({content:rail});
  expect(errors).toEqual([]);
  await expect(page.locator('#ranked-band .rb-metric-value').first()).toHaveText('1600');
  await expect(page.locator('#lbRail .lbr-sc').first()).toHaveText('1600');

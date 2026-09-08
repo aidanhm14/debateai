@@ -87,7 +87,8 @@ async function world(browser, background = true) {
           throw new Error('transaction retries exhausted');
         },
       };
-      const user = { uid, isAnonymous: false, providerData: [{ providerId: 'google.com' }], getIdToken: async () => 'test-token' };
+      const user = { uid, isAnonymous: false, providerData: [{ providerId: 'google.com' }], getIdToken: async () => 'test-token',
+        getIdTokenResult: async () => ({ signInProvider: 'google.com', claims: { firebase: { sign_in_provider: 'google.com' } } }) };
       window.firebase = { apps: [{}], firestore: () => db, auth: () => ({ currentUser: user, onAuthStateChanged: cb => { const timer = setTimeout(() => cb(user), 0); return () => clearTimeout(timer); } }) };
       firebase.firestore.FieldValue = { serverTimestamp: () => ({ seconds: Date.now() / 1000 }) };
       window.DBIdentity = { forUser: () => ({ name: uid === 'a' ? 'Alex' : 'Otto', username: uid }) };
