@@ -301,7 +301,12 @@
         unread[u] = (u === uid) ? 0 : firebase.firestore.FieldValue.increment(1);
       });
       var doc = {
-        participants: meta.participants || [],
+        // Deep links build [me, peer], but the creator may have stored
+        // [peer, me]. Replacing that array violates the frozen-participant
+        // rule even though both uids match. Union preserves the stored
+        // order, seeds new threads, and also handles simultaneous first
+        // sends. Rules still reject adding anyone to an existing thread.
+        participants: firebase.firestore.FieldValue.arrayUnion.apply(null, meta.participants || []),
         participantInfo: pInfo,
         lastMessage: entry.preview || preview(text),
         lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),

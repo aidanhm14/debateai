@@ -1119,6 +1119,16 @@ if [ -f "$DM_EMAIL_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# DM replies must preserve frozen membership, including deep links that
+# reconstruct the same pair in the opposite order.
+if [ -f "$REPO_ROOT/scripts/test-dm-core.mjs" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-dm-core.mjs >/tmp/dm-core-guard.log 2>&1); then
+    echo "[dm-core-guard] commit blocked - DM send regression:" >&2
+    tail -20 /tmp/dm-core-guard.log >&2
+    exit 1
+  fi
+fi
+
 # Device DM delivery must work independently of the email cooldown, without
 # duplicate banners from older callers or dropped native-only notifications.
 if [ -f "$REPO_ROOT/scripts/test-dm-push.mjs" ] && command -v node >/dev/null 2>&1; then
