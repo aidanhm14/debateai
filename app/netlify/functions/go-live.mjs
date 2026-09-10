@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 // "Go live" broadcast. Called when a debater becomes available for a live
 // round (the background-spar "Available" toggle, or the /spar queue join).
 // Records lightweight presence in live_now/{uid} and fans a Web Push out to
@@ -53,11 +54,8 @@ export default async (request) => {
   const named = isNamedAccount(decoded);
   // The notification text is server-constructed, and for a guest the name is
   // too — a client-supplied name here would be a phishing surface.
-  const name = named
-    ? String((decoded.name || '').split(/\s+/)[0] || 'Someone').slice(0, 40)
-    : 'Someone';
-
   const db = getDb();
+  const name = await publicName(db, uid);
   const liveRef = db.collection('live_now').doc(uid);
 
   // Cooldown: only broadcast if this debater hasn't already pinged the pool

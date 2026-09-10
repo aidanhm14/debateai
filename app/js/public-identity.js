@@ -84,10 +84,12 @@
     return h >>> 0;
   }
 
+  var memorySeed = '';
   function browserSeed() {
+    if (memorySeed) return memorySeed;
     try {
       var saved = global.localStorage && global.localStorage.getItem(SEED_KEY);
-      if (saved) return saved;
+      if (saved) return (memorySeed = saved);
       var fresh = '';
       if (global.crypto && global.crypto.getRandomValues) {
         var bytes = new Uint32Array(2);
@@ -96,10 +98,11 @@
       } else {
         fresh = Date.now().toString(36) + Math.random().toString(36).slice(2);
       }
+      memorySeed = fresh;
       if (global.localStorage) global.localStorage.setItem(SEED_KEY, fresh);
-      return fresh;
+      return memorySeed;
     } catch (e) {
-      return 'guest-' + Math.random().toString(36).slice(2);
+      return memorySeed || (memorySeed = 'guest-' + Math.random().toString(36).slice(2));
     }
   }
 
@@ -478,14 +481,14 @@
     var sub = doc.createElement('p');
     sub.className = 'dbnp-sub';
     sub.textContent = firstTime
-      ? 'This is the name on your ballots, the leaderboard, and every round you play. Use your real name or a nickname. You can change it whenever you like.'
-      : 'Shown on your ballots, the leaderboard, and every round you play.';
+      ? 'This is the name on your ballots, the leaderboard, and every round you play. Use a nickname to keep your real name private. Your Google name is never used here.'
+      : 'Use a nickname to keep your real name private. The same name appears on your ballots, the leaderboard, and every round.';
 
     var nameField = doc.createElement('div');
     nameField.className = 'dbnp-field';
     var nameLabel = doc.createElement('label');
     nameLabel.setAttribute('for', 'dbnpName');
-    nameLabel.textContent = 'Name or nickname';
+    nameLabel.textContent = 'Public nickname';
     var nameInput = doc.createElement('input');
     nameInput.id = 'dbnpName';
     nameInput.type = 'text';
@@ -676,10 +679,31 @@
       if (attempt < 20) global.setTimeout(function () { bootHydrate(attempt + 1); }, 400);
     }
   }
-  try { bootHydrate(0); } catch (e) {}
+  if (global.document) { try { bootHydrate(0); } catch (e) {} }
+
+  function resolveRows(rows, nameField) {
+    nameField = nameField || 'displayName';
+    var ids = Array.from(new Set(rows.map(function (r) { return r.uid || r.ownerUid; }).filter(Boolean)));
+    var names = Object.create(null);
+    var requests = [];
+    for (var i = 0; i < ids.length; i += 100) {
+      requests.push(global.fetch('/api/public-identities?uids=' + encodeURIComponent(ids.slice(i, i + 100).join(',')), { cache: 'no-store' })
+        .then(function (r) { if (!r.ok) throw new Error('Names unavailable'); return r.json(); })
+        .then(function (data) { Object.assign(names, data.names || {}); }).catch(function () {}));
+    }
+    return Promise.all(requests).then(function () {
+      return rows.map(function (row) {
+        var copy = Object.assign({}, row);
+        var uid = row.uid || row.ownerUid;
+        copy[nameField] = uid ? (cleanName(names[uid]) || forId(uid).name) : 'Anonymous';
+        return copy;
+      });
+    });
+  }
 
   global.DBIdentity = {
     forId: forId,
+    resolveRows: resolveRows,
     forUser: forUser,
     forBrowser: function () { return forId(browserSeed()); },
     openEditor: openEditor,
@@ -695,4 +719,5 @@
     NAME_MAX: NAME_MAX,
     USERNAME_MAX: USERNAME_MAX
   };
-})(window);
+  if (typeof module === 'object' && module.exports) module.exports = global.DBIdentity;
+})(typeof window !== 'undefined' ? window : {});

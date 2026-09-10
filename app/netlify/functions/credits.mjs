@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 // /api/credits — your play-credit balance, and staking on a market.
 //
 // Credits are free, non-purchasable, non-transferable, non-redeemable
@@ -67,6 +68,7 @@ export default async (request) => {
   const now = Date.now();
 
   try {
+    const accountName = await publicName(db, uid);
     const result = await db.runTransaction(async (tx) => {
       const [mSnap, aSnap, pSnap] = await Promise.all([tx.get(marketRef), tx.get(acctRef), tx.get(posRef)]);
       if (!mSnap.exists) throw new Error('That market no longer exists.');
@@ -84,7 +86,7 @@ export default async (request) => {
 
       tx.set(acctRef, {
         ...a, uid,
-        name: String(decoded.name || '').slice(0, 60),
+        name: accountName,
         credits,
         staked: (a.staked || 0) + stake,
         updatedAt: now,

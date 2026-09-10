@@ -1,3 +1,4 @@
+import identity from '../../js/public-identity.js';
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
@@ -66,12 +67,7 @@ function makeInviteCode() {
 }
 
 function shortName(profile) {
-  const full = String(profile?.displayName || profile?.name || '').trim();
-  const parts = full.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.';
-  }
-  return parts[0] || 'Anonymous';
+  return identity.cleanName(profile?.displayName || profile?.name) || 'Anonymous';
 }
 
 // Default team name from two short names. "Hollinger & Rao" reads

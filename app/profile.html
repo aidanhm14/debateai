@@ -1928,7 +1928,7 @@ function renderSettings(user, profileData){
   try { localStorage.setItem('debateos-transcript-capture', captureOn ? '1' : '0'); } catch(_){}
   let muted = false;
   try { muted = localStorage.getItem('da-sfx-muted') === '1'; } catch(_){}
-  const ph = user.displayName || 'Your name';
+  const ph = window.DBIdentity ? DBIdentity.generatedFor(user).name : 'Your nickname';
   return `
     <details class="settings" id="settings">
       <summary>Account &amp; settings</summary>
@@ -1936,8 +1936,8 @@ function renderSettings(user, profileData){
         <div class="set-row">
           <div class="key">Display name</div>
           <div>
-            <input id="setName" type="text" value="${escapeHtml(nameOverride)}" maxlength="32" placeholder="${escapeHtml(ph)}"/>
-            <div class="hint">Your name or nickname, shown on the leaderboard, your results, and every round you play. Leave it blank to go back to the name on your account.</div>
+            <input id="setName" type="text" autocomplete="nickname" value="${escapeHtml(nameOverride)}" maxlength="32" placeholder="${escapeHtml(ph)}"/>
+            <div class="hint">Use a nickname to keep your real name private. It stays the same on the leaderboard and in every round. Leave it blank to use your anonymous name. Your Google name is never shown.</div>
           </div>
         </div>
         <div class="set-row">
@@ -2073,7 +2073,7 @@ function wireSettings(user, rows){
   }
   window.addEventListener('dbidentity:change', (ev) => {
     const picked = (ev && ev.detail && ev.detail.name) || '';
-    const shown = picked || user.displayName || user.email || 'Debater';
+    const shown = window.DBIdentity ? DBIdentity.forUser(user).name : 'Anonymous';
     const heroName = document.getElementById('heroName');
     if(heroName) heroName.textContent = shown.split(/\s+/)[0];
     const field = document.getElementById('setName');
@@ -2433,7 +2433,7 @@ function wireSettings(user, rows){
 // someone looks when they want to change their face. The host is filled
 // by hydrateProfileAvatar() below once the engine is up.
 function renderAvatar(user){
-  const name = (user.displayName || user.email || '').trim();
+  const name = (window.DBIdentity ? DBIdentity.forUser(user).name : 'Anonymous');
   const initial = (name[0] || '?').toUpperCase();
   return `<button type="button" class="avatar avatar-edit" id="profileAvatar"
     data-uid="${escapeHtml(user.uid || '')}" data-name="${escapeHtml(name)}"
@@ -2574,7 +2574,7 @@ function renderBrainBuilder(s){
 function renderNativeEmpty(user, profileData){
   const avatar = renderAvatar(user);
   const overrideName = (profileData && profileData.displayNameOverride) || '';
-  const headerName = overrideName || user.displayName || user.email || 'You';
+  const headerName = (window.DBIdentity ? DBIdentity.forUser(user).name : 'Anonymous');
   const first = headerName.split(/\s+/)[0];
   mount.innerHTML = `
     <div class="native-empty">
@@ -2631,7 +2631,7 @@ function renderEmpty(user, profileData){
   }
   const avatar = renderAvatar(user);
   const overrideName = (profileData && profileData.displayNameOverride) || '';
-  const headerName = overrideName || user.displayName || user.email || 'Debater';
+  const headerName = (window.DBIdentity ? DBIdentity.forUser(user).name : 'Anonymous');
   const first = headerName.split(/\s+/)[0];
   mount.innerHTML = `
     <section class="hero">
@@ -2733,7 +2733,7 @@ function renderDashboard(user, rows, profileData, progress){
   // Display-name override wins over Google name on the dashboard hero
   // so users see the same name they'll appear under on the leaderboard.
   const overrideName = (profileData && profileData.displayNameOverride) || '';
-  const headerName = overrideName || user.displayName || user.email || 'Debater';
+  const headerName = (window.DBIdentity ? DBIdentity.forUser(user).name : 'Anonymous');
   const first = headerName.split(/\s+/)[0];
 
   // XP-bar copy. When the user has hit the top tier, we collapse the

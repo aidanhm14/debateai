@@ -1,3 +1,4 @@
+import { publicName } from './public-identity.mjs';
 // ─────────────────────────────────────────────────────────────
 // lib/workspace.mjs — the billing workspace a plan attaches to.
 //
@@ -40,7 +41,7 @@ export function defaultWorkspaceName(decoded) {
 export async function createWorkspace(decoded, teamName) {
   const uid = decoded.sub;
   const email = decoded.email || '';
-  const name = decoded.name || '';
+  const name = await publicName(getDb(), uid);
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const customer = await stripe.customers.create({
     email,

@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 // POST /api/round/publish — auth-required.
 //
 // Takes a finished round payload and writes a sanitized copy to the
@@ -61,17 +62,13 @@ export default async (request) => {
   try { body = await request.json(); }
   catch { return errorResponse('Invalid JSON body', 400, request); }
 
-  // Caller MAY supply a displayName; if absent, use the Firebase
-  // displayName off the token. Either path lands in the same sanitizer
-  // which enforces first-name + last-initial.
-  if (!body.displayName && decoded.name) body.displayName = decoded.name;
+  const db = getDb();
+  body.displayName = await publicName(db, uid);
 
   const doc = sanitizePublishPayload(body, uid);
   if (!doc) {
     return errorResponse('Round payload missing required fields (motion + at least one speech).', 400, request);
   }
-
-  const db = getDb();
 
   // Loop until we generate a non-colliding ID. 8-char base-30 collisions
   // are vanishingly rare but we still guard. Two attempts is plenty.

@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { commProfileForScore, commScoreForSpeaks } from './lib/cert-tiers.mjs';
@@ -67,7 +68,7 @@ export default async (request) => {
 
     const cert = {
       certId: data.certId || id,
-      displayName: data.displayName || 'Anonymous',
+      displayName: await publicName(db, data.uid || data.ownerUid),
       tier: data.tier || 'novice',
       tierName: data.tierName || 'Novice',
       score: typeof data.score === 'number' ? data.score : null,

@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, getUserTeam, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
@@ -162,7 +163,7 @@ export default async (request) => {
 
   const threadId = threadIdOf(myTeam.team.id, toTeamId);
   try {
-    const fromName = (decoded.name || decoded.email || 'Anonymous').slice(0, 80);
+    const fromName = await publicName(db, decoded.sub);
     const ref = await db.collection('team_messages').add({
       threadId,
       fromTeamId: myTeam.team.id,

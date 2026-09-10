@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 // GET /r/:id — server-rendered public round page.
 //
 // The Quora/Genius play. Every published round becomes its own
@@ -591,6 +592,7 @@ export default async (request) => {
         viewCount: FieldValue.increment(1),
       }).catch(() => {});
     } catch (e) { /* swallow */ }
+    doc.displayName = await publicName(db, doc.uid || doc.ownerUid);
     return htmlResponse(renderPage(id, doc));
   }
 

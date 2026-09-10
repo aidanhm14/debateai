@@ -1,3 +1,4 @@
+import identity from '../app/js/public-identity.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -10,7 +11,7 @@ const ratings = [
   { id: newUid, data: () => ({ rating: 1900, rd: 200, games: 1, wins: 1 }) },
   { id: placedUid, data: () => ({ rating: 1500, rd: 80, games: 5, wins: 3 }) },
 ];
-const profiles = { [placedUid]: { displayName: 'Current name' }, [newUid]: { name: 'New person' } };
+const profiles = { [placedUid]: { displayName: 'Google Real Name', displayNameOverride: 'Current nickname' }, [newUid]: { name: 'New person' } };
 const db = {
   collection(name) {
     if (name === 'user_ratings') return { orderBy: () => ({ limit: () => ({ get: async () => ({ forEach: cb => ratings.forEach(cb) }) }) }) };
@@ -30,7 +31,7 @@ const db = {
 };
 const rows = await fetchRatingRows(db);
 assert.equal(rows[0].uid, placedUid, 'Placed account outranks a one-round high rating');
-assert.equal(rows[0].name, 'Current name');
+assert.equal(rows[0].name, 'Current nickname');
 assert.equal(rows[0].rank, 1);
 assert.equal(rows[1].rank, null, 'Placement has no invented rank');
 assert.equal(rows[0].xp, 6350, 'XP includes every round, beyond top-100 and profile-200 limits');
@@ -39,11 +40,10 @@ assert.deepEqual(composeTopRows(rows.slice().reverse(), [], 8), rows, 'Teaser an
 assert.deepEqual(composeTopRows([], [], 8), []);
 delete profiles[newUid];
 const recovered = await fetchRatingRows(db, {lookupNames:async ids => {
-  assert.deepEqual(ids,[newUid]);
-  return new Map([[newUid,'Apple account name']]);
+  throw new Error('Public boards must never query Auth names');
 }});
-assert.equal(recovered[1].name,'Apple account name','An account without a profile keeps its actual signup name');
-assert.equal(recovered[0].name,'Current name','Chosen public profile name always wins');
+assert.equal(recovered[1].name,identity.forId(newUid).name,'An account without a nickname keeps its stable anonymous alias');
+assert.equal(recovered[0].name,'Current nickname','Chosen public profile name always wins');
 
 let projected = false;
 const fallbackDb = { collection: () => ({ where: () => ({

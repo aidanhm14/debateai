@@ -963,6 +963,12 @@
       // upgrade-cta pill; the topbar doesn't need to also pin it.
     ]);
 
+    if (!onLanding) {
+      left.appendChild(el('a', {
+        href: '/', class: 'ui-home-cue', 'aria-label': 'Go to the Debatable homepage',
+        html: '<span class="ui-home-cue-arrow" aria-hidden="true">&#8592;</span><span>Go home</span>'
+      }));
+    }
     var right = el('div', { class: 'ui-topbar-right' });
     // 2026-05-26: mobile-only hamburger. Topbar links display:none at
     // ≤560px (see ui.css), leaving mobile users with no in-bar nav.

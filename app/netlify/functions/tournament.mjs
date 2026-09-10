@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
@@ -496,17 +497,10 @@ export default async (request) => {
     // the Open is in that state. A password account that never set a
     // display name can still resolve to nothing on the client.
     //
-    // Every caller here arrived with a VERIFIED ID token, so the name
-    // is read from that before any placeholder. The placeholder is the
-    // same string daPublicName() falls back to on the page, so the two
-    // surfaces cannot print different names for one person. The email
-    // is deliberately NOT used: the tab is public, and a local-part is
-    // half of someone's address.
-    const fallbackName = cleanText(decoded.name, 48)
-      || ('Debater ' + String(myUid).slice(-4).toUpperCase());
-    const sentName = cleanText(body?.name, 48);
-    let memberNames = [sentName || fallbackName];
-    let entryName = sentName || fallbackName;
+    // Entry and member labels use the same public identity as every board.
+    const entryIdentity = await publicName(db, myUid);
+    let memberNames = [entryIdentity];
+    let entryName = entryIdentity;
 
     if (teamSize === 2) {
       // A 2v2 tournament registers a formed duo, not a lone debater.

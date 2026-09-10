@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 // ─────────────────────────────────────────────────────────────────────
 // /api/stage — a viewer asks to join the live broadcast and argue on it.
 //
@@ -293,7 +294,7 @@ export default async (request) => {
       // publishes from one person into one room, which is an echo, so
       // /stage warns them to close the studio before going on mic.
       const side = normalizeSide(body.side);
-      const name = cleanText(body.name || decoded.name || 'Host', 40) || 'Host';
+      const name = await publicName(db, decoded.sub);
       const seated = await db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
         const board = snap.exists ? { ...emptyBoard(roomName), ...(snap.data() || {}) } : emptyBoard(roomName, now);
@@ -444,7 +445,7 @@ export default async (request) => {
 
     const built = buildRequest({
       uid,
-      name: body.name || decoded.name,
+      name: await publicName(db, decoded.sub),
       side: body.side,
       mode: body.mode,
       note: body.note,

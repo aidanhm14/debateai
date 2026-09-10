@@ -480,7 +480,7 @@
       (noEmail ? '' : '<div class="da-email-options">') +
       (noEmail ? '' : '<div class="da-or">or use email</div>' +
       '<form class="da-form" id="daEmailForm" data-mode="' + mode + '" data-email-mode="' + emailMode + '" novalidate>' +
-        (creating ? '<label class="da-label" for="daName">Name</label><input class="da-input" id="daName" type="text" autocomplete="name" maxlength="60" placeholder="Your name" />' : '') +
+        (creating ? '<label class="da-label" for="daName">Public nickname</label><input class="da-input" id="daName" type="text" autocomplete="nickname" maxlength="32" placeholder="Use a nickname, not your real name" />' : '') +
         '<label class="da-label" for="daEmail">Email</label>' +
         '<input class="da-input" id="daEmail" name="username" type="email" inputmode="email" autocomplete="username" placeholder="you@email.com" />' +
         (linkMode ? '' :
@@ -579,6 +579,22 @@
 
   function lastMethod() {
     try { return localStorage.getItem('debateos-last-signin-method') || ''; } catch (e) { return ''; }
+  }
+
+  function saveSignupNickname(user, name) {
+    if (!name || !user) return Promise.resolve(user);
+    return new Promise(function (resolve) {
+      function save() {
+        if (!window.DBIdentity) { resolve(user); return; }
+        window.DBIdentity.setName(name, undefined, user).then(function () { resolve(user); });
+      }
+      if (window.DBIdentity) { save(); return; }
+      var script = document.createElement('script');
+      script.src = '/js/public-identity.js';
+      script.onload = save;
+      script.onerror = function () { resolve(user); };
+      document.head.appendChild(script);
+    });
   }
 
   function finishSignIn(method) {
@@ -943,7 +959,7 @@
         }).then(function (result) {
           var user = result && result.user;
           if (mode === 'signup' && !reused && user && user.updateProfile) {
-            return user.updateProfile({ displayName: name }).then(function () { return user; });
+            return saveSignupNickname(user, name);
           }
           return user;
         }).then(function (user) {

@@ -348,8 +348,9 @@
       progressMarkup() +
       '<h2 class="ob-title">' + step.title + '</h2>' +
       '<p class="ob-sub">' + step.sub + '</p>' +
-      '<input class="ob-name" type="text" maxlength="40" autocomplete="name" placeholder="Display name" value="'
-        + escAttr(u && u.displayName ? u.displayName : '') + '">' +
+      '<input class="ob-name" type="text" maxlength="32" autocomplete="nickname" placeholder="Choose a public nickname" value="'
+        + escAttr(window.DBIdentity ? DBIdentity.forUser(u).name : '') + '">' +
+      '<p class="ob-sub">Use a nickname to keep your real name private.</p>' +
       '<div class="ob-faces"></div>' +
       '<div class="ob-face-acts">' +
         '<button type="button" class="ob-mini" data-a="more">More pictures</button>' +
@@ -405,8 +406,8 @@
       } catch (e) {}
     }
     var u = authUser();
-    if (name && u && u.updateProfile && name !== u.displayName) {
-      try { u.updateProfile({ displayName: name }); } catch (e) {}
+    if (name && u && window.DBIdentity) {
+      try { if (window.DBIdentity) DBIdentity.setName(name, undefined, u); } catch (e) {}
     }
     answers.profile = { face: !!faceChoice, named: !!name, builder: !!fromBuilder };
     if (name) answers.displayName = name;

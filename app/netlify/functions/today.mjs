@@ -1,3 +1,4 @@
+import { publicNames } from './lib/public-identity.mjs';
 // /today (and /today/{date}) — daily motion page.
 //
 // The content engine half of the SEO play: a fresh, indexable URL each
@@ -49,6 +50,7 @@ async function fetchRecentPublicRounds() {
       const data = d.data() || {};
       return {
         id: d.id,
+        uid: data.uid || data.ownerUid,
         motion: data.motion || '',
         displayName: data.displayName || '',
         formatName: data.formatName || data.format || '',
@@ -56,6 +58,8 @@ async function fetchRecentPublicRounds() {
         winner: data.winner || null,
       };
     }).filter(r => r.motion && r.id);
+    const names = await publicNames(db, rounds.map(row => row.uid));
+    rounds.forEach(row => { row.displayName = names.get(row.uid) || 'Anonymous'; });
     recentRoundsCache = { fetchedAt: now, rounds };
     return rounds;
   } catch (err) {
@@ -104,6 +108,8 @@ async function fetchDailyBoard(dateStr) {
         submittedAt: data.submittedAt || 0,
       };
     }).filter((e) => e.score !== null);
+    const names = await publicNames(db, entries.map(row => row.uid));
+    entries.forEach(row => { row.displayName = names.get(row.uid) || 'Anonymous'; });
     dailyBoardCache.set(dateStr, { fetchedAt: now, entries });
     // Cap cache size — if /today/ARCHIVE is hit a lot we don't want
     // to grow forever. 30 most-recent dates is generous.

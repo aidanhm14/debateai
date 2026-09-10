@@ -1,3 +1,4 @@
+import { publicName } from '../app/netlify/functions/lib/public-identity.mjs';
 // Offline handler regressions. No credentials, network, or production writes.
 // Run: node scripts/test-predict-settlement.mjs [path/to/predict.mjs]
 // The double models optimistic retries, query conflicts, read-before-write,
@@ -142,7 +143,7 @@ class MemoryDb {
 
 function handler(db, bettingLive = true) {
   const dependencies = {
-    BETTING_LIVE: bettingLive,
+    BETTING_LIVE: bettingLive, publicName,
     verifyIdToken: async (uid) => ({ sub: uid, name: uid }),
     extractBearerToken: (request) => request.uid,
     corsResponse: () => ({ status: 204 }),

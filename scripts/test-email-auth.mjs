@@ -164,6 +164,7 @@ function harness(options = {}) {
       setItem(key, value) { writes.push([key, String(value)]); session.set(key, String(value)); },
       removeItem: key => session.delete(key),
     },
+    DBIdentity: { setName(name, handle, user) { calls.push(['nickname', { displayNameOverride: name, uid: user.uid }]); return Promise.resolve({ok:true}); } },
     gtag: (...args) => events.push(args),
     setTimeout,
     clearTimeout,
@@ -269,10 +270,10 @@ test('new password account waits for persistent storage before creation and save
   assert.equal(h.query('#daEmailBtn').disabled, true);
   persistence.resolve();
   await settle();
-  assert.deepEqual(methods(h), ['persistence', 'create', 'updateProfile', 'verification']);
+  assert.deepEqual(methods(h), ['persistence', 'create', 'nickname', 'verification']);
   assert.equal(h.calls[1][1], EMAIL);
   assert.equal(h.calls[1][2], PASSWORD);
-  assert.equal(h.calls[2][1].displayName, 'A Returning Person');
+  assert.equal(h.calls[2][1].displayNameOverride, 'A Returning Person');
   assert.equal(completed(h).length, 1);
   assert.equal(completed(h)[0][2].method, 'email_password_signup');
   assert.equal(h.storage.get('debateos-last-signin-method'), 'email');
@@ -285,7 +286,7 @@ test('signing up from a guest links the existing UID after persistence succeeds'
   h.fill();
   h.submit();
   await settle();
-  assert.deepEqual(methods(h), ['persistence', 'link', 'updateProfile', 'verification']);
+  assert.deepEqual(methods(h), ['persistence', 'link', 'nickname', 'verification']);
   assert.equal(h.firebaseAuth.currentUser.uid, 'guest-to-preserve');
   assert.equal(h.firebaseAuth.currentUser.isAnonymous, false);
   assert.equal(h.calls[1][1].email, EMAIL);

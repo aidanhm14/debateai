@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 import { BETTING_LIVE } from './lib/betting-status.mjs';
 // Prediction market on real human rounds, AI-judged. POINTS ONLY (virtual,
 // non-redeemable). Server-authoritative: the client can NEVER write balances,
@@ -124,7 +125,7 @@ export default async (request, context) => {
   let decoded = null;
   if (token) { try { decoded = await verifyIdToken(token); } catch (e) { decoded = null; } }
   const uid = decoded ? decoded.sub : null;
-  const name = decoded ? String((decoded.name || '').split(/\s+/)[0] || 'Anon').slice(0, 24) : 'Anon';
+  const name = decoded ? await publicName(getDb(), decoded.sub) : 'Anonymous';
 
   let body;
   try { body = await request.json(); } catch (e) { return errorResponse('Bad JSON', 400, request); }

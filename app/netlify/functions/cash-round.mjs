@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 import { verifyIdToken, extractBearerToken, isNamedAccount } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
@@ -124,7 +125,7 @@ async function handle(action, body, request, context, db) {
   if (gate.error) return gate.error;
   const { decoded } = gate;
   const uid = decoded.sub;
-  const name = String(body.name || decoded.name || '').trim().slice(0, 60);
+  const name = await publicName(db, decoded.sub);
 
   // 18+ and jurisdiction, resolved server-side from the Netlify edge.
   // A minor cannot attest past this, by design.

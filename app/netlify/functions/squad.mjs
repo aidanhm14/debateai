@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 /* squad.mjs  —  /api/squad
  *
  * Coach-side roster management, and the private rounds a coach sets for
@@ -549,7 +550,7 @@ export default async (request) => {
 
   const user = {
     uid: decoded.sub,
-    name: clip(decoded.name || String(decoded.email || '').split('@')[0] || 'Debater', NAME_MAX),
+    name: await publicName(getDb(), decoded.sub),
     email: clip(decoded.email || '', 200),
   };
   const db = getDb();

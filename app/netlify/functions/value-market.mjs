@@ -1,3 +1,4 @@
+import { publicIdentity, publicName } from './lib/public-identity.mjs';
 import { BETTING_LIVE } from './lib/betting-status.mjs';
 // ─────────────────────────────────────────────────────────────
 // Debater value markets. Trade a debater's rating with points.
@@ -500,7 +501,7 @@ async function sync(db, limit = 50) {
     const pd = prof.exists ? prof.data() : {};
     const m = openMarket({
       subjectUid: uid,
-      name: pd.displayName || pd.name || 'Debater',
+      name: publicIdentity(uid, pd).name,
       handle: pd.handle || '',
       ratingDoc: r,
       now,
@@ -535,7 +536,7 @@ export default async (request, context) => {
     const token = extractBearerToken(request);
     if (token) {
       const decoded = await verifyIdToken(token);
-      if (decoded) { uid = decoded.sub || ''; email = decoded.email || ''; name = decoded.name || ''; }
+      if (decoded) { uid = decoded.sub || ''; email = decoded.email || ''; name = await publicName(db, uid); }
     }
   } catch { /* an unreadable token is the same as no token */ }
 

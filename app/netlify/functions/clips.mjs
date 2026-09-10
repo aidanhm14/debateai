@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 // Clips (WS2 Phase 6). A clip is a timestamped window into a published
 // recording — no transcoding, just {recordingId, start, end} that the
 // player seeks and clamps to. Anyone signed in can clip; the source
@@ -109,7 +110,7 @@ export default async (req) => {
     title: title || ('Clip from ' + (rec.title || 'a round')).slice(0, 120),
     recordingTitle: rec.title || '',
     uid,
-    name: String(body.name || decoded.name || 'Someone').slice(0, 60),
+    name: await publicName(db, decoded.sub),
     createdAt: FieldValue.serverTimestamp(),
     createdAtMs: Date.now(),
   };

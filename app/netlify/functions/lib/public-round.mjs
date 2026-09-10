@@ -1,3 +1,4 @@
+import identity from '../../../js/public-identity.js';
 // Shared helpers for public round pages (/r/{id}).
 //
 // Public rounds are a separate Firestore collection (`public_rounds`)
@@ -75,14 +76,8 @@ export function sanitizePublishPayload(raw, uid) {
       }
     : null;
 
-  // First-name + last-initial only. If the client sends a full name we
-  // truncate to that pattern server-side so a slip on the client can't
-  // leak a real-name doxx.
-  const rawName = clamp(raw.displayName, MAX_DISPLAY_NAME_CHARS).trim();
-  const parts = rawName.split(/\s+/).filter(Boolean);
-  const displayName = parts.length >= 2
-    ? `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`
-    : (parts[0] || '');
+  // The publishing endpoint has resolved this from the account's public nickname.
+  const displayName = identity.cleanName(raw.displayName);
 
   return {
     motion,

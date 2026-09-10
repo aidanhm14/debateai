@@ -1,3 +1,4 @@
+import { publicNames } from './lib/public-identity.mjs';
 /* find-users.mjs  ·  GET /api/find-users?q=<text>
  *
  * 2026-09-01, the founder: "have a find users feature and it goes to
@@ -31,7 +32,7 @@ import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
 const MAX_RESULTS = 20;
 const PROFILE_SCAN = 1500;
 const BOARD_SCAN = 600;
-const BROWSE_CACHE_KEY = 'find-users-browse-v1';
+const BROWSE_CACHE_KEY = 'find-users-browse-v2-private-names';
 const BROWSE_TTL_MS = 60 * 1000;
 
 function clean(s, n) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().slice(0, n); }
@@ -93,7 +94,10 @@ async function loadPeople(db) {
       byUid.set(uid, { uid, name, handle: null, photo: safePhoto(d.photoURL), bio: '', source: 'board', onBoard: true });
     });
   } catch (e) { console.warn('[find-users] board read failed', e && e.message); }
-  return Array.from(byUid.values());
+  const rows = Array.from(byUid.values());
+  const names = await publicNames(db, rows.map(row => row.uid));
+  rows.forEach(row => { row.name = names.get(row.uid) || 'Anonymous'; });
+  return rows;
 }
 
 export default async (request) => {

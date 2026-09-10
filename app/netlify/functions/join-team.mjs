@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, getUserTeam, PLANS, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
@@ -19,7 +20,7 @@ export default async (request) => {
 
   const uid = decoded.sub;
   const email = decoded.email || '';
-  const name = decoded.name || '';
+  const name = await publicName(getDb(), decoded.sub);
 
   // Check if user already has a team
   const existing = await getUserTeam(uid);

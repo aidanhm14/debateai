@@ -12,14 +12,11 @@
 import { withDeadline } from './firestore.mjs';
 import { displayRating, isRankable, tierFor, MIN_RATED_GAMES } from './rating.mjs';
 import { fetchAccountProgress } from './account-progress.mjs';
-import { getAuthDisplayNames } from './auth-admin.mjs';
+import { publicIdentity } from './public-identity.mjs';
 
-// The rating ladder, ordered placed-first (3+ real rated rounds) then
-// rating. Names joined
-// from user_profiles with a rating_changes fallback so a row never
-// renders blank. Returns [] on an empty ladder; throws on a failed
-// primary query so callers keep their own error posture.
-export async function fetchRatingRows(db, { limit = 100, lookupNames = getAuthDisplayNames } = {}) {
+// Placed accounts come first, then rating. Only explicit public nicknames
+// override the shared stable alias; Auth and historical names are private.
+export async function fetchRatingRows(db, { limit = 100 } = {}) {
   // Single-field orderBy rides the automatic index; no composite needed.
   const snap = await withDeadline(db.collection('user_ratings')
     .orderBy('rating', 'desc')
@@ -39,10 +36,7 @@ export async function fetchRatingRows(db, { limit = 100, lookupNames = getAuthDi
     raw.push({ uid: doc.id, d });
   });
 
-  // Names + avatars live on user_profiles, not the rating doc. One
-  // batched getAll for the whole board; a missing profile falls back
-  // to the name recorded on the debater's latest rating change so the
-  // row never renders blank.
+  // One profile read per account joins the chosen nickname and avatar.
   const profiles = new Map();
   if (raw.length) {
     const refs = raw.map((r) => db.collection('user_profiles').doc(r.uid));
@@ -52,31 +46,6 @@ export async function fetchRatingRows(db, { limit = 100, lookupNames = getAuthDi
     } catch (err) {
       console.warn('[rating-board] profile join failed', err && err.message);
     }
-  }
-  const nameless = raw.filter((r) => {
-    const p = profiles.get(r.uid);
-    return !(p && (p.displayName || p.name));
-  });
-  const changeNames = new Map();
-  if (nameless.length) {
-    await Promise.all(nameless.slice(0, 25).map(async (r) => {
-      try {
-        const cs = await withDeadline(db.collection('rating_changes')
-          .where('uid', '==', r.uid)
-          .orderBy('at', 'desc')
-          .limit(1)
-          .get(), 2000);
-        const row = cs.docs[0] && cs.docs[0].data();
-        if (row && row.name) changeNames.set(r.uid, row.name);
-      } catch (_) { /* composite index may be missing; fallback name only */ }
-    }));
-  }
-
-  let accountNames = new Map();
-  const missingNames = nameless.filter(r => !changeNames.get(r.uid)).map(r => r.uid);
-  if (missingNames.length){
-    try { accountNames = await withDeadline(lookupNames(missingNames), 3000); }
-    catch { /* Keep an unnamed row if Auth is unavailable; never expose an email. */ }
   }
   const progress = new Map();
   await Promise.all(raw.map(async ({ uid }) => {
@@ -95,7 +64,7 @@ export async function fetchRatingRows(db, { limit = 100, lookupNames = getAuthDi
     return {
       uid,
       xp: progress.get(uid)?.xp ?? null,
-      name: String(p.displayName || p.name || changeNames.get(uid) || accountNames.get(uid) || 'A debater').slice(0, 40),
+      name: publicIdentity(uid, p).name,
       photoURL: typeof p.photoURL === 'string' ? p.photoURL.slice(0, 500) : '',
       avatarIdentity: p.avatarIdentity || null,
       rating: disp.rating,

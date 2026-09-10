@@ -1,3 +1,4 @@
+import { publicIdentity } from './lib/public-identity.mjs';
 // /api/room-judge-session
 // OpenAI Realtime session minter for the Zoom / Twitch room judge.
 //
@@ -317,7 +318,7 @@ export default async (request) => {
   const source = body.source === 'screen' ? 'screen' : 'mic';
 
   const instructions = buildRoomJudgeInstructions({
-    displayName: profile.displayName || profile.name || email.split('@')[0],
+    displayName: publicIdentity(uid, profile).name,
     platform,
     format,
     motion: body.motion,

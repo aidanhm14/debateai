@@ -1,3 +1,4 @@
+import { publicNames } from './lib/public-identity.mjs';
 // Admin-only one-shot: scans `debate_rounds`, writes a slim leaderboard
 // entry to `leaderboard_entries` for every round that has a numeric
 // speakerPoints.user. Idempotent — doc id is `${uid}_${roundId}` so
@@ -89,17 +90,7 @@ export default async (request) => {
       candidates.push({ ownerUid, roundId, round: r, score });
     }
 
-    // Look up displayName for each unique uid via user_profiles.
-    const nameByUid = new Map();
-    await Promise.all(Array.from(uidsSeen).map(async (u) => {
-      try {
-        const p = await db.collection('user_profiles').doc(u).get();
-        const name = p.exists ? (p.data().displayName || '') : '';
-        nameByUid.set(u, shortenName(name));
-      } catch {
-        nameByUid.set(u, 'Anonymous');
-      }
-    }));
+    const nameByUid = await publicNames(db, Array.from(uidsSeen));
 
     if (dryRun) {
       return jsonResponse({

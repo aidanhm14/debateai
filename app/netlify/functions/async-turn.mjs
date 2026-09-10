@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 // /api/async/turn — finalize an uploaded recording into a round turn.
 //
 // POST, auth required. Body:
@@ -37,7 +38,7 @@ export default async (request) => {
   try { decoded = await verifyIdToken(token); }
   catch { return errorResponse('Authentication failed. Sign in again.', 401, request); }
   const uid = decoded.sub;
-  const name = String(decoded.name || (decoded.email ? decoded.email.split('@')[0] : '') || 'A debater').slice(0, 60);
+  const name = await publicName(getDb(), decoded.sub);
   const photo = typeof decoded.picture === 'string' ? decoded.picture.slice(0, 300) : '';
   const email = typeof decoded.email === 'string' ? decoded.email.slice(0, 200) : '';
 

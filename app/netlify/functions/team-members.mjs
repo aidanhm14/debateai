@@ -1,3 +1,4 @@
+import { publicIdentity } from './lib/public-identity.mjs';
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, getUserTeam, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
@@ -90,7 +91,7 @@ export default async (request) => {
         teamId: team.id,
         userId: profile.id,
         email: inviteEmail,
-        displayName: profile.data().displayName || '',
+        displayName: publicIdentity(profile.id, profile.data()).name,
         role: 'member',
         joinedAt: FieldValue.serverTimestamp(),
       });

@@ -2306,8 +2306,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   // the browse cards can show thread size without a subcollection read.
   function shortName(u){
     if (u && window.DBIdentity) return window.DBIdentity.forUser(u).name;
-    var n = String((u && u.displayName) || 'Member').trim().split(/\s+/);
-    return n.length > 1 ? n[0] + ' ' + n[n.length - 1].charAt(0).toUpperCase() + '.' : n[0];
+    return 'Anonymous';
   }
   function initialsOf(name){
     var p = String(name || '?').trim().split(/\s+/);
@@ -3407,6 +3406,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
           var data = d.data() || {};
           return {
             id: d.id,
+            uid: data.uid || data.ownerUid,
             motion: data.motion || '',
             displayName: data.displayName || 'Anonymous',
             formatName: data.formatName || data.format || '',
@@ -3418,7 +3418,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
               : null,
           };
         }).filter(function(r){ return r.motion && r.id; });
-        renderPublicRounds(rounds);
+        DBIdentity.resolveRows(rounds).then(renderPublicRounds);
       })
       .catch(function(err){
         console.warn('[rounds] firestore query failed', err);

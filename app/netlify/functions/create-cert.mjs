@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
@@ -251,7 +252,7 @@ export default async (request) => {
     );
   }
 
-  const cleanDisplayName = sanitizeDisplayName(displayName || decoded.name || decoded.email?.split('@')[0]);
+  const cleanDisplayName = sanitizeDisplayName(await publicName(getDb(), decoded.sub));
 
   try {
     const db = getDb();

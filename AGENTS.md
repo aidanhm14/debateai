@@ -1203,7 +1203,7 @@ Dead code, bugs and superseded infrastructure still get deleted properly.
   entries, channel messages, certs, a Daily `userName`). Pages that
   publish a name define `window.daPublicName(u)` and load the module
   themselves rather than relying on topbar.js's lazy load. Own-account
-  surfaces (/profile's editor, the account panel) are the exception.
+  name labels and nickname placeholders follow the same alias rule.
   Changing the FIRST/LAST array LENGTHS re-rolls every generated alias;
   ADJECTIVES/NOUNS are kept stable so handles do not churn.
 - Skipping the SW cache bump after an HTML edit — users get the stale

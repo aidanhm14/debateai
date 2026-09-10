@@ -1,3 +1,4 @@
+import { publicNames } from './lib/public-identity.mjs';
 // /api/live-now → GET. Who is actually waiting for a live round right now —
 // the real "N debaters live" signal, derived from the matchmaking_queue
 // (status=='waiting', joined within the reaper window). Distinct from
@@ -13,7 +14,7 @@ import { getDb, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, setCached } from './lib/admin-cache.mjs';
 
-const CACHE_KEY = 'live-now';
+const CACHE_KEY = 'live-now-v2-private-names';
 const CACHE_TTL_MS = 15 * 1000;        // 15s
 const WINDOW_MS = 6 * 60 * 1000;       // match the spar-pair reaper window
 const HARD_LIMIT = 200;                // safety cap
@@ -53,10 +54,12 @@ export default async (request) => {
       if (ms && ms < cutoff) return; // stale (reaper hasn't swept yet)
       count++;
       if (debaters.length < SAMPLE) {
-        debaters.push({ uid: doc.id, name: String(d.displayName || 'A debater').slice(0, 40), format: String(d.format || '').slice(0, 16) });
+        debaters.push({ uid: doc.id, name: 'Anonymous', format: String(d.format || '').slice(0, 16) });
       }
     });
 
+    const names = await publicNames(db, debaters.map(row => row.uid));
+    debaters.forEach(row => { row.name = names.get(row.uid) || 'Anonymous'; });
     const payload = { count, debaters, windowSec: 360, at: Date.now() };
     await setCachedShared(CACHE_KEY, payload, CACHE_TTL_MS);
     return jsonResponse(payload, 200, request);

@@ -1,3 +1,4 @@
+import { publicIdentity } from './lib/public-identity.mjs';
 // /api/coach-session — OpenAI Realtime session minter for the
 // personal-coach surface (FAB + /coach.html). Different from
 // /api/realtime-session in three ways:
@@ -374,7 +375,7 @@ export default async (request) => {
   const aiLang = /^[a-z]{2}$/.test(String(body.aiLanguage || '').toLowerCase()) ? String(body.aiLanguage).toLowerCase() : 'en';
 
   const instructions = buildCoachInstructions({
-    displayName: profile.displayName || profile.name || email.split('@')[0],
+    displayName: publicIdentity(uid, profile).name,
     debaterProfile: profile.debaterProfile,
     styleProfile: profile.styleProfile,
     fingerprint,

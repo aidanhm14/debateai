@@ -52,3 +52,5 @@ if (failures.length) {
   process.exit(1);
 }
 console.log('Public identity guard passed');
+
+await import('./test-public-names.mjs');

@@ -4259,7 +4259,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       : '';
     return '<div class="mf-faceoff">' +
         '<div class="mf-side me">' +
-          faceMarkup(currentPublicAvatarIdentity(), me.uid || '', me.displayName || 'You') +
+          faceMarkup(currentPublicAvatarIdentity(), me.uid || '', shortNameOf(me)) +
           '<span class="mf-tag">You</span>' +
         '</div>' +
         '<div class="mf-vs" aria-hidden="true">VS</div>' +
@@ -5818,7 +5818,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // keeps the module's own anonymous handle.
     try {
       if (localStorage.getItem('da-chat-handle')) return;
-      var first = ((state.user && state.user.displayName) || '').trim().split(/\s+/)[0];
+      var first = shortNameOf(state.user).split(/\s+/)[0];
       if (first) localStorage.setItem('da-chat-handle', first.slice(0, 32));
     } catch (e) {}
   }
@@ -7163,11 +7163,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (!u) return 'You';
     if (window.DBIdentity) return window.DBIdentity.forUser(u).name;
     if (u.isAnonymous) return guestName(u);
-    var fullName = (u.displayName || '').trim();
-    var parts = fullName.split(/\s+/).filter(Boolean);
-    return parts.length >= 2
-      ? parts[0] + ' ' + parts[parts.length - 1][0].toUpperCase() + '.'
-      : (parts[0] || 'You');
+    return 'Anonymous';
   }
 
   function navigateToRound(d, delay){
@@ -7439,7 +7435,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     var peerName = d.matchedWithName || 'Opponent';
     return '<div class="draft-vs">' +
         '<div class="draft-vs-side ' + mineState + '">' +
-          draftFaceHtml(currentPublicAvatarIdentity(), me.uid || '', me.displayName || 'You') +
+          draftFaceHtml(currentPublicAvatarIdentity(), me.uid || '', shortNameOf(me)) +
           '<span class="draft-vs-name">You' +
             '<span class="draft-vs-state">' + escHtml(mineLabel || '') + '</span>' +
           '</span>' +

@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 // ─────────────────────────────────────────────────────────────
 // /api/bounty — read and mutate a bounty.
 //
@@ -145,7 +146,7 @@ export default async (request) => {
   try { body = await request.json(); } catch { return errorResponse('Invalid request body', 400, request); }
   const action = String(body.action || '').trim();
   const uid = decoded.sub;
-  const myName = shortenName(decoded.name || decoded.email || 'Someone') || 'Someone';
+  const myName = await publicName(db, decoded.sub);
 
   // ── create ────────────────────────────────────────────────────────
   if (action === 'create') {

@@ -1,3 +1,4 @@
+import { publicName } from './lib/public-identity.mjs';
 // Daily-motion public leaderboard writer.
 //
 // Anyone who lands on /practice from /today (the `?dm=YYYY-MM-DD` CTA)
@@ -137,7 +138,7 @@ export default async (request) => {
 
   // Caller display fields. Trust decoded JWT for the photoURL; trust
   // the body for displayName but clamp + sanitize length.
-  const displayName = ((body.displayName || decoded.name || 'A debater') + '').slice(0, 80).trim();
+  const displayName = await publicName(getDb(), decoded.sub);
   const photoURL = (decoded.picture || '').toString().slice(0, 500);
 
   const db = getDb();

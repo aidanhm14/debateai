@@ -1,3 +1,4 @@
+import { publicNames } from './lib/public-identity.mjs';
 // /api/recent-activity → public, anonymized feed of recent site
 // activity for the notification-bell dropdown on every page. Goal:
 // make the site look alive to anon visitors so they see other people
@@ -38,7 +39,7 @@ import { getDb, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared } from './lib/admin-cache.mjs';
 
-const CACHE_KEY = 'recent-activity';
+const CACHE_KEY = 'recent-activity-v2-private-names';
 const CACHE_TTL = 5 * 60 * 1000;        // 5 min: near-static feed, keep quota burn low
 
 // Cap each source at a generous N then merge + truncate to 12. Pulling
@@ -131,7 +132,7 @@ export default async (request) => {
       const fmt = fmtLabel(data.format);
       items.push({
         kind:   'challenge',
-        name:   firstName(data.posterName || data.handle),
+        uid: data.posterUid,
         photo:  '',  // explicit drop: photos can be cached avatars that 404 / leak refs
         format: String(data.format || '').toLowerCase(),
         label:  'posted a ' + fmt + ' challenge',
@@ -166,7 +167,7 @@ export default async (request) => {
       const fmt = fmtLabel(data.format);
       items.push({
         kind:   'waitlist',
-        name:   firstName(data.displayName),
+        uid: data.uid,
         photo:  '',
         format: String(data.format || '').toLowerCase(),
         label:  'is open to a ' + fmt + ' round',
@@ -178,6 +179,9 @@ export default async (request) => {
   } catch (err) {
     console.warn('recent-activity waitlist_posts read failed:', err.message);
   }
+
+  const names = await publicNames(db, items.map(item => item.uid));
+  items.forEach(item => { item.name = names.get(item.uid) || 'Anonymous'; delete item.uid; });
 
   // Merge + sort desc + truncate.
   items.sort((a, b) => b.when - a.when);
