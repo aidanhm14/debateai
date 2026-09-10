@@ -966,7 +966,7 @@
     if (!onLanding) {
       left.appendChild(el('a', {
         href: '/', class: 'ui-home-cue', 'aria-label': 'Go to the Debatable homepage',
-        html: '<span class="ui-home-cue-arrow" aria-hidden="true">&#8592;</span><span>Go home</span>'
+        html: '<span class="ui-home-cue-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M19 12H5m7-7-7 7 7 7"/></svg></span><span>Go home</span>'
       }));
     }
     var right = el('div', { class: 'ui-topbar-right' });
