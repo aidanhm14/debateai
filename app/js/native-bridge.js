@@ -124,7 +124,7 @@
     }
   } catch (e) {}
 
-  // Load the APP DESIGN LAYER (app/css/native-app.css?v=social-20260909d). This stylesheet is
+  // Load the APP DESIGN LAYER (app/css/native-app.css?v=social-20260910a). This stylesheet is
   // the one place app-specific design lives; it loads ONLY in the app, so
   // it never affects the website. Injected as early as possible so app
   // styling is present before first paint.
@@ -133,7 +133,7 @@
     var l = document.createElement('link');
     l.id = 'db-native-app-css';
     l.rel = 'stylesheet';
-    l.href = '/css/native-app.css?v=social-20260909d';
+    l.href = '/css/native-app.css?v=social-20260910a';
     (document.head || document.documentElement).appendChild(l);
   })();
 
