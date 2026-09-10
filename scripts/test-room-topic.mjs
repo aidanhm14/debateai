@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { runTopicAction, mintTopicVoice, topicNames } from '../app/netlify/functions/room-topic.mjs';
-import { publicTopicTalk, topicRoundOpen, buildTopicJudgeInstructions, TOPIC_TOOLS, TOPIC_GREETING, TOPIC_MAX_MS, TOPIC_MAX_PROPOSALS } from '../app/netlify/functions/lib/room-topic.mjs';
+import { runTopicAction, mintTopicVoice, topicNames, ownsTopicVoice } from '../app/netlify/functions/room-topic.mjs';
+import { publicTopicTalk, topicRoundOpen, buildTopicJudgeInstructions, topicGreeting, TOPIC_TOOLS, TOPIC_GREETING, TOPIC_MAX_MS, TOPIC_MAX_PROPOSALS } from '../app/netlify/functions/lib/room-topic.mjs';
 import { validateProposedMotion } from '../app/netlify/functions/lib/spar-motion-generation.mjs';
 import { buildAdjudicationBlock } from '../app/netlify/functions/lib/adjudication.mjs';
 import { buildPrompt } from '../app/netlify/functions/live-judge.mjs';
@@ -35,9 +35,17 @@ function fixture() {
     },
   };
   const action = (uid, action, extra = {}) => runTopicAction(db, uid, { room: 'room', id: rows.get('room_topic_talks/room')?.id, action, ...extra }, () => time).then(r => publicTopicTalk(r.talk));
-  return { rows, action, elapse: ms => time += ms };
+  return { rows, action, db, elapse: ms => time += ms };
 }
 const PROPOSAL = 'Cities should replace most parking minimums with housing.';
+const race = fixture();
+const opens = await Promise.all(['a', 'a', 'b'].map(uid => runTopicAction(race.db, uid, { room: 'room', action: 'open' }, () => 1000)));
+assert.equal(opens.filter((result, index) => ownsTopicVoice(result, ['a', 'a', 'b'][index], 'open')).length, 1, 'concurrent tabs and both seats can only mint one judge');
+assert.equal(new Set(opens.map(result => result.talk.id)).size, 1);
+assert.equal(topicGreeting(null), TOPIC_GREETING);
+assert.match(TOPIC_GREETING, /study, do for work, or feel most passionate/);
+assert.match(topicGreeting({ issue: 'economy' }), /Your Match Desk answers differed on taxes and public services/);
+assert.equal(topicGreeting({ issue: 'invented private answer' }), TOPIC_GREETING);
 const f = fixture();
 await assert.rejects(f.action('outsider', 'open'), /Only the two/);
 let t = await f.action('a', 'open');

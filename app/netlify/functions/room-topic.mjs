@@ -16,7 +16,7 @@ import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { checkLayers } from './lib/rate-limit.mjs';
 import { topicRoundOpen, topicContext, newTopicTalk, publicTopicTalk, advanceTopicTalk,
-  TOPIC_MAX_MS, TOPIC_TOOLS, TOPIC_GREETING, buildTopicJudgeInstructions } from './lib/room-topic.mjs';
+  TOPIC_MAX_MS, TOPIC_TOOLS, TOPIC_GREETING, topicGreeting, buildTopicJudgeInstructions } from './lib/room-topic.mjs';
 
 const TOPIC_VOICE = process.env.OPENAI_TOPIC_VOICE || 'marin';
 const MODEL_FALLBACKS = [
@@ -111,6 +111,9 @@ export async function mintTopicVoice(instructions, fetchImpl = fetch) {
 export function topicNames(round, uids) {
   return (uids || []).map(id => id === round.conUid ? round.conName : round.proName);
 }
+export function ownsTopicVoice({ talk, resumed }, uid, action) {
+  return action === 'open' && !resumed && talk.host === uid && talk.phase === 'listening';
+}
 
 export default async function handler(request) {
   if (request.method === 'OPTIONS') return corsResponse(request);
@@ -133,13 +136,15 @@ export default async function handler(request) {
     if (!voiceRate.ok) return errorResponse('The judge has helped you pick enough topics for now. Use Change it or Spin a motion.', 429, request);
   }
   try {
-    const { talk, round } = await runTopicAction(getDb(), uid, body);
+    const { talk, round, resumed } = await runTopicAction(getDb(), uid, body);
     const out = { ok: true, talk: publicTopicTalk(talk) };
-    if (body.action === 'open' && talk.host === uid && talk.phase === 'listening') {
+    // A repeated tap or another tab on the host account must never mint a
+    // second voice for the same talk. Only the transaction's creator dials.
+    if (ownsTopicVoice({ talk, resumed }, uid, body.action)) {
       const instructions = buildTopicJudgeInstructions({
         names: topicNames(round, talk.uids), from: talk.from, context: talk.context, attempt: talk.attempt,
       });
-      try { out.voice = await mintTopicVoice(instructions); }
+      try { out.voice = await mintTopicVoice(instructions); out.voice.greeting = topicGreeting(talk.context); }
       catch (err) {
         console.error('[room-topic] voice mint failed:', err.message);
         // No voice means no judge. Cancel the talk so the other seat is

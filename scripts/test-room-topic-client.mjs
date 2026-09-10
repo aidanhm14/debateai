@@ -9,7 +9,7 @@ const source = readFileSync(new URL('../app/js/room-topic.js', import.meta.url),
 const flush = async () => { for (let i = 0; i < 40; i++) await Promise.resolve(); };
 function fixture({ uid = 'a', holdOpen = false, holdSdp = false, holdResponses = false, holdPropose = false, rejectProposal = false, joined = true, streamless = false, rejectPublish = false, failSdp = false } = {}) {
   let now = 0, timerId = 0, releaseOpen, releaseSdp, releasePropose;
-  const timers = new Map(), messages = [], pcs = [], tracks = [], elements = [], requests = [], sources = [];
+  const timers = new Map(), messages = [], pcs = [], tracks = [], elements = [], requests = [], sources = [], appMessages = [], network = [];
   const current = { id: 'talk-1', host: 'a', phase: 'listening', accepts: {}, proposals: 0, proposal: '', expiresAt: 180000 };
   const schedule = (fn, delay, interval = false) => {
     const id = ++timerId; timers.set(id, { fn, at: now + delay, delay, interval }); return id;
@@ -18,17 +18,19 @@ function fixture({ uid = 'a', holdOpen = false, holdSdp = false, holdResponses =
     constructor(tag) { this.tagName = tag; this.children = []; this.style = {}; this.classList = { toggle() {} }; elements.push(this); }
     setAttribute() {}
     addEventListener() {}
-    appendChild(child) { this.children.push(child); child.isConnected = true; return child; }
+    appendChild(child) { this.children.push(child); child.isConnected = true; child.parentNode = this; return child; }
     insertBefore(child) { return this.appendChild(child); }
     replaceChildren() { this.children = []; }
     remove() { this.isConnected = false; }
     play() { return Promise.resolve(); }
   }
   const body = new Element('body'), anchor = new Element('details'); anchor.parentNode = body;
+  const stage = new Element('div'); body.appendChild(stage);
   const mediaTrack = { id: 'mic', kind: 'audio', readyState: 'live', clone() { return { ...this, stop() { this.readyState = 'ended'; } }; } };
-  const context = { uid, room: 'test', canChoose: true, joined, audioTrack: mediaTrack,
+  const context = { uid, room: 'test', canChoose: true, joined, audioTrack: mediaTrack, stage,
     user: { getIdToken: async () => 'test-token' }, names: { a: 'Ari', b: 'Bea' },
     call: {
+      sendAppMessage(data) { appMessages.push(data); },
       startCustomTrack({ trackName, track }) { tracks.push({ at: now, action: 'publish', name: trackName, track }); return rejectPublish ? Promise.reject(Error('Unable to publish')) : Promise.resolve(trackName); },
       stopCustomTrack(name) { tracks.push({ at: now, action: 'unpublish', name }); return Promise.resolve(); },
     },
@@ -70,6 +72,7 @@ function fixture({ uid = 'a', holdOpen = false, holdSdp = false, holdResponses =
     clearTimeout: id => timers.delete(id), clearInterval: id => timers.delete(id),
     fetch: async (url, options) => {
       if (url !== '/api/room-topic') {
+        network.push(url);
         if (holdSdp) await new Promise(resolve => { releaseSdp = resolve; });
         return { ok: !failSdp, status: failSdp ? 503 : 200, text: async () => 'test-answer' };
       }
@@ -86,7 +89,7 @@ function fixture({ uid = 'a', holdOpen = false, holdSdp = false, holdResponses =
     },
   });
   return {
-    context, current, messages, pcs, tracks, requests, sources, topic: window.RoomTopic,
+    context, current, messages, pcs, tracks, requests, sources, elements, appMessages, network, topic: window.RoomTopic,
     async open() { window.RoomTopic.open(); await flush(); },
     async release() { releaseOpen(); await flush(); },
     async releaseSdp() { releaseSdp(); await flush(); },
@@ -142,24 +145,27 @@ test('Start tears down the judge immediately and stale snapshots cannot restore 
 
 test('accepting a topic ends the voice immediately without a farewell interruption', async () => {
   const f = fixture(); await f.open();
+  const replies = f.replies().length;
   f.render({ phase: 'done' });
   assert.equal(f.topic.isPending(), false);
   assert.equal(f.pcs[0].closed, true);
   assert.equal(f.tracks.at(-1).action, 'unpublish');
-  await f.tick(6000); assert.equal(f.replies().length, 0);
+  await f.tick(6000); assert.equal(f.replies().length, replies);
 });
 
 test('a slow open response cannot dial the judge after Start', async () => {
   const f = fixture({ holdOpen: true }); await f.open();
   f.context.canChoose = false; f.topic.dismiss(); await f.release();
-  assert.equal(f.pcs.length, 0);
+  assert.equal(f.pcs[0].closed, true);
+  assert.equal(f.network.length, 0, 'the prepared connection never dials OpenAI');
   assert.equal(f.strip(), false);
 });
 
 test('dismissing while opening cannot dial a late judge even if the room is still in setup', async () => {
   const f = fixture({ holdOpen: true }); await f.open();
   f.topic.dismiss(); await f.release();
-  assert.equal(f.pcs.length, 0);
+  assert.equal(f.pcs[0].closed, true);
+  assert.equal(f.network.length, 0, 'the prepared connection never dials OpenAI');
   assert.equal(f.strip(), false);
   assert.equal(f.requests.at(-1).action, 'cancel');
   assert.equal(f.requests.at(-1).id, 'talk-1');
@@ -254,9 +260,64 @@ test('a brief pause and a handoff between people never trigger a judge response'
 });
 
 test('the greeting waits too when people are already talking', async () => {
-  const f = fixture(); await f.open();
+  const f = fixture({ joined: false }); await f.open();
   await f.event('input_audio_buffer.speech_started'); await f.tick(12000);
+  f.context.joined = true; await f.tick(1500);
   assert.equal(f.replies().length, 0);
+});
+
+test('audio prepares without microphone capture or a provider call, and the greeting has no four-second hold', async () => {
+  const f = fixture(); f.topic.prepare(); await flush();
+  const prepared = f.pcs[0];
+  assert.equal(f.requests.length, 0);
+  assert.equal(f.network.length, 0);
+  assert.equal(f.sources.length, 0);
+  assert.equal(f.tracks.length, 0);
+  await f.open();
+  assert.equal(f.pcs.length, 1, 'opening reuses the prepared transport');
+  assert.equal(f.pcs[0], prepared);
+  assert.equal(f.replies().length, 1);
+  assert.equal(f.replies()[0].at, 0, 'greeting is requested as soon as the shared voice is ready');
+});
+
+test('unused preparation expires and starting a round cancels an in-flight preparation', async () => {
+  const f = fixture(); f.topic.prepare(); await f.tick(30000);
+  assert.equal(f.pcs[0].closed, true);
+  assert.equal(f.network.length, 0);
+  f.topic.prepare(); f.topic.dismiss();
+  assert.equal(f.pcs[1].closed, true);
+});
+
+test('repeated taps never create a second session or greeting', async () => {
+  const f = fixture(); await f.open(); await f.open(); await f.tick(6000); await f.open();
+  assert.equal(f.requests.filter(r => r.action === 'open').length, 1);
+  assert.equal(f.pcs.length, 1);
+  assert.equal(f.tracks.filter(t => t.action === 'publish').length, 1);
+  assert.equal(f.replies().length, 1);
+});
+
+test('judge transcript appears over the cameras and is relayed to the other seat', async () => {
+  const f = fixture(); await f.open();
+  const overlay = f.elements.find(e => e.id === 'topicJudgeStrip' && e.isConnected);
+  assert.equal(overlay.parentNode, f.context.stage);
+  await f.event('response.output_audio_transcript.delta', { item_id: 'intro', delta: "Hi, I'm " });
+  await f.event('response.output_audio_transcript.delta', { item_id: 'intro', delta: 'your judge.' });
+  await f.event('output_audio_buffer.started'); await f.tick(120);
+  const caption = f.elements.filter(e => e.className === 'topic-strip-transcript').at(-1);
+  assert.equal(caption.textContent, "Hi, I'm your judge.");
+  const update = f.appMessages.at(-1);
+  assert.equal(update.text, caption.textContent);
+  assert.equal(update.status, 'Speaking');
+  await f.event('response.output_audio_transcript.done', { item_id: 'intro', transcript: "Hi, I'm your judge." });
+  assert.equal(caption.textContent, "Hi, I'm your judge.", 'done replaces the delta rather than duplicating it');
+  const peer = fixture({ uid: 'b' }); peer.render({});
+  peer.topic.receive(update, 'outsider');
+  const remote = peer.elements.filter(e => e.className === 'topic-strip-transcript').at(-1);
+  assert.notEqual(remote.textContent, update.text);
+  peer.topic.receive(update, 'a'); assert.equal(remote.textContent, update.text);
+  peer.topic.receive({ ...update, seq: update.seq - 1, text: 'stale' }, 'a'); assert.equal(remote.textContent, update.text);
+  peer.topic.receive({ ...update, id: 'old-talk', seq: 999, text: 'wrong talk' }, 'a'); assert.equal(remote.textContent, update.text);
+  peer.topic.dismiss(); peer.render({}); assert.equal(peer.strip(), false);
 });
 
 test('reminders cannot interrupt either a person or judge playback', async () => {

@@ -11658,6 +11658,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     call.on('app-message', function(ev){
       var data = ev && ev.data;
       if (!data || typeof data !== 'object') return;
+      if (data.t === 'topic-caption'){
+        var topicSender = call.participants()[ev.fromId];
+        if (topicSender && window.RoomTopic) window.RoomTopic.receive(data, topicSender.user_id);
+        return;
+      }
       if (data.t === 'guard-review'){ try { showGuardReviewCard(); } catch(e){} }
       else if (data.t === 'guard-clear'){ try { onGuardCleared(); } catch(e){} }
       else if (data.t === 'seat-left'){ try { noteOppSaidGone(data.uid); } catch(e){} }
@@ -17650,7 +17655,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       if (state.conUid) names[state.conUid] = state.conName || 'Against';
       return { room: state.room, user: state.user, uid: myUid(), spectator: isSpectator(),
         canChoose: state.phase === 'round' && !isSpectator() && !motionChangeLocked(), audioTrack: srvBorrowTrack(), micOn: room.micOn,
-        call: room.call, joined: !!room.joined, peerAudioTrack: topicPeerTrack, names: names };
+        call: room.call, joined: !!room.joined, peerAudioTrack: topicPeerTrack, names: names, stage: room.wrap };
     };
     window.__lrTopicNotice = toast;
     // Options disclosure: the summary line stays, the tools grid toggles.

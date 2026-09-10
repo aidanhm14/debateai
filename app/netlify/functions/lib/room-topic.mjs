@@ -8,7 +8,8 @@
 // the Daily room through the tapper's browser, says it is the judge and
 // asks what they want to argue about, listens to BOTH of them, and calls
 // the propose_motion tool when it has one. The proposal lands on the
-// round doc and the resolution bar shows a one-tap Use it for each seat.
+// round doc. Since 2026-09-10, a compact transcript sits over the cameras
+// with a one-tap Use it for each seat, without an extra consent flow.
 //
 // What this module owns: the phase machine (listening -> proposed ->
 // done | cancelled), the public projection, the judge's instructions,
@@ -20,7 +21,14 @@ export const TOPIC_MAX_MS = 3 * 60000;
 export const TOPIC_MAX_PROPOSALS = 3;
 // The one line the judge says on arrival. A literal, because a model told to
 // "greet them" improvises and a mini model improvised badly.
-export const TOPIC_GREETING = "Hi, I'm your judge. Talk it through together. What's been on your minds? I'll listen for a good question to argue.";
+export const TOPIC_GREETING = "Hi, I'm your judge. I'll listen to you both talk and suggest a topic. What do you study, do for work, or feel most passionate about?";
+export function topicGreeting(context) {
+  const subjects = { economy: 'taxes and public services', immigration: 'immigration', speech: 'speech online', democracy: 'democratic institutions' };
+  const subject = context && subjects[context.issue];
+  return subject
+    ? "Hi, I'm your judge. I'll listen to you both talk and suggest a topic. Your Match Desk answers differed on " + subject + ". Want to start there, or with something you're passionate about?"
+    : TOPIC_GREETING;
+}
 export function topicRoundOpen(round) {
   return !!round && !round.tournamentRound && !round.tournamentId && !round.ballotPending
     && !['complete', 'ended', 'ballot', 'judged', 'cancelled'].includes(round.status)
@@ -91,7 +99,7 @@ function clean(s, max) {
 export function buildTopicJudgeInstructions({ names, from, context, attempt }) {
   const [a, b] = (names || []).map(n => clean(n, 40) || 'one of them');
   const issueLine = context && context.issue
-    ? `If they have nothing, one subject they answered differently on when they signed up was ${context.issue}. That is a hint about a subject, never about what either of them believes. Offer it only if they are stuck.`
+    ? `Their Match Desk answers differed on ${context.issue}. The arrival greeting may mention that subject as an invitation. Never assign either answer to a person or assume their position on a specific policy. Their spoken interests take priority; follow those if they prefer something else.`
     : 'If they are stuck and ask for help, offer two contrasting, concrete directions connected to anything they have shared. Interests can be personal, playful, philosophical, cultural or political. Do not cycle through a stock list of policy topics.';
   const currentLine = from ? `The resolution on their screen right now is "${clean(from, 220)}". They want something else, so do not suggest that one or a rewording of it.` : '';
   const retryLine = attempt > 1 ? 'This is not their first attempt. Ask what missed the mark and follow their correction. Do not rush or change the subject unless they want that.' : '';
