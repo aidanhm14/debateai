@@ -38,6 +38,7 @@
 <script src="/js/native-bridge.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="/js/chat-challenge.js"></script>
 <script defer src="/js/avatar.js"></script>
 <style>
 /* ── Neural constellation on this surface (2026-08-18 sitewide sweep;
@@ -493,21 +494,33 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     state.busy = true; render();
     try {
       await ensureAuth();
+      if (c.mode === 'live' && c.challengedUid){
+        var room = await DBChatChallenge.enter(c, state.user, true);
+        location.href = room.url;
+        return;
+      }
       var r = await post({ action:'accept', id:c.id });
       sfx('confirm'); track('challenge_accept', { format:c.format, mode:c.mode });
       state.busy = false;
-      if (c.mode === 'live' && c.challengedUid){
-        nav({ slug:c.slug });
-        return;
-      }
       // Straight into the round rather than back to a board. Async rounds
       // are recorded at /rounds; a live one is organised on /spar.
       var next = c.mode === 'live' ? '/spar?challenge=1' : '/rounds';
       alert('You are in, on ' + (r.side === 'a' ? c.sides.a : c.sides.b) + '.');
       location.href = next;
     } catch(e){
+      if (c.mode === 'live' && c.challengedUid) await load();
       state.busy = false; state.err = e.message; render();
     }
+  }
+
+  async function join(c){
+    if (state.busy) return;
+    state.busy = true; render();
+    try {
+      await ensureAuth();
+      var room = await DBChatChallenge.enter(c, state.user, false);
+      location.href = room.url;
+    } catch(e){ state.busy = false; state.err = e.message; render(); }
   }
 
   async function follow(c){
@@ -776,7 +789,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     var acts = '';
     if (c.status === 'open' && seats < 2 && !mine && aim !== 'theirs'){
       acts += '<button class="btn btn-red" data-accept="'+esc(c.id)+'"'+(state.busy?' disabled':'')+'>'+
-        (state.busy ? 'Taking...' : (aim === 'mine' ? 'Answer it' : 'Take the other side'))+'</button>';
+        (state.busy ? 'Opening...' : (c.mode === 'live' && c.challengedUid ? 'Accept and join' : aim === 'mine' ? 'Answer it' : 'Take the other side'))+'</button>';
     } else if (c.status === 'open' && aim === 'theirs'){
       acts += '<span class="meta">This one is aimed at ' + esc(c.challengedName || 'a specific debater') +
         '. Only they can take it.</span>';
@@ -789,11 +802,11 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     if (state.user && c.creator && c.creator.uid === state.user.uid && seats < 2){
       acts += '<button class="btn btn-ghost" data-cancel="'+esc(c.id)+'">Cancel</button>';
     }
-    if (mine && c.mode === 'live' && c.challengedUid && c.status === 'accepted'){
+    if (mine && c.mode === 'live' && c.challengedUid && ['accepted','live'].indexOf(c.status) >= 0){
       var peer = (c.accepted || []).filter(function(p){ return p.uid !== state.user.uid; })[0];
       if (peer){
-        acts += '<p>Challenge accepted. Message each other to agree on a time and share your live invite.</p>' +
-          '<a class="btn btn-red" href="/spar?dm=' + encodeURIComponent(peer.uid) + '&amp;name=' + encodeURIComponent(peer.name || 'Opponent') + '">Set up your round</a>';
+        acts += '<p>Challenge accepted. You and ' + esc(peer.name || 'your opponent') + ' have the same room.</p>' +
+          '<button class="btn btn-red" data-join="' + esc(c.id) + '"' + (state.busy ? ' disabled' : '') + '>Join debate</button>';
       }
     }
 
@@ -833,6 +846,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       var c = byId(b.getAttribute('data-cid')); if (c) pickSide(c, b.getAttribute('data-side')); }; });
     on('[data-accept]', function(b){ b.onclick = function(){
       var c = byId(b.getAttribute('data-accept')); if (c) accept(c); }; });
+    on('[data-join]', function(b){ b.onclick = function(){
+      var c = byId(b.getAttribute('data-join')); if (c) join(c); }; });
     on('[data-follow]', function(b){ b.onclick = function(){
       var c = byId(b.getAttribute('data-follow')); if (c) follow(c); }; });
     on('[data-cancel]', function(b){ b.onclick = function(){

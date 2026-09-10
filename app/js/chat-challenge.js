@@ -26,6 +26,11 @@
       return;
     }
     if (document.getElementById('chatChallenge')) return;
+    if (!opts.ageReady){
+      ensureAge().then(function(){ open(Object.assign({}, opts, { ageReady:true })); })
+        .catch(function(err){ window.alert(err.message); });
+      return;
+    }
     var peers = people(user.uid, opts.active, opts.threads);
     var dialog = document.createElement('dialog');
     dialog.id = 'chatChallenge';
@@ -34,7 +39,7 @@
     dialog.innerHTML = '<form>' +
       '<h2 id="chatChallengeTitle">Challenge to debate</h2>' +
       (peers.length ?
-        '<p>Pick someone from your chats and a question you want to argue.</p>' +
+        '<p>Choose a question. They can accept and join you from this chat.</p>' +
         '<label for="challengePerson">Send to</label><select id="challengePerson" required>' +
         '<option value="">Choose someone</option>' + peers.map(function(p){
           var selected = opts.active && !opts.active.isGroup && (opts.active.participants || []).length === 2 && opts.active.participants.indexOf(p.uid) >= 0;
@@ -43,7 +48,7 @@
         '<label for="challengeQuestion">What do you want to debate?</label>' +
         '<textarea id="challengeQuestion" required minlength="8" maxlength="300" rows="3" placeholder="Cities should make public transit free."></textarea>' +
         '<label for="challengeSide">Your side</label><select id="challengeSide"><option value="a">For</option><option value="b">Against</option></select>' +
-        '<p class="chat-challenge-note">They get a link in a direct message. The challenge also appears on the public board. Only the person you choose can accept.</p>' +
+        '<p class="chat-challenge-note">Only this person can accept. You both get a button for the same live video room. The challenge also appears on the public board.</p>' +
         '<p class="chat-challenge-error" role="alert" hidden></p>' +
         '<div class="chat-challenge-actions"><button type="submit" class="chat-challenge-send">Send challenge</button><button type="button" data-close>Cancel</button></div>' :
         '<p>No chat contacts yet. Start a conversation with someone, then challenge them here.</p>' +
@@ -124,5 +129,139 @@
     if (focus && focus.value) focus = dialog.querySelector('#challengeQuestion');
     if (focus) focus.focus();
   }
-  window.DBChatChallenge = { open:open, people:people };
+  var ageScript = null;
+  function ensureAge(){
+    if (!ageScript) ageScript = new Promise(function(resolve, reject){
+      if (window.daAskAgeBand) return resolve();
+      var script = document.createElement('script'); script.src = '/js/age-gate.js';
+      script.onload = resolve;
+      script.onerror = function(){ ageScript = null; reject(new Error('Could not load the age check. Try again.')); };
+      document.head.appendChild(script);
+    });
+    return ageScript.then(function(){ return new Promise(function(resolve, reject){
+      window.daAskAgeBand(function(band){
+        window.daRecordAgeBand(band, function(saved){
+          if (saved) resolve(); else reject(new Error('Could not confirm your age. Try again.'));
+        });
+      });
+    }); });
+  }
+
+  function challengeSlug(text){
+    var matches = String(text || '').match(/https:\/\/itsdebatable\.com\/c\/([a-z0-9-]+)(?=[\s/?#).,;:!?]|$)/i);
+    return matches ? matches[1] : '';
+  }
+
+  async function post(action, c, user){
+    var response = await fetch('/api/challenge', {
+      method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer ' + await user.getIdToken()},
+      body:JSON.stringify({ action:action, id:c.id })
+    });
+    var data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Could not update the challenge. Try again.');
+    return data;
+  }
+
+  async function enter(c, user, accept){
+    if (!user || user.isAnonymous) throw new Error('Sign in before joining this debate.');
+    await ensureAge();
+    if (accept) await post('accept', c, user);
+    return post('join', c, user);
+  }
+
+  // One live card for the current conversation. Old plain-text challenge
+  // links work too; the API, not the message text, supplies all actions.
+  function mount(opts){
+    var host = opts.host, candidate = null, current = null, stopped = false, busy = false, loading = false, revision = 0, error = '', lastPaint = '';
+    function paint(){
+      if (stopped) return;
+      host.hidden = !candidate;
+      if (!candidate) { host.innerHTML = ''; lastPaint = ''; return; }
+      if (!current){
+        lastPaint = '';
+        host.innerHTML = '<p role="status">' + esc(error || 'Loading debate invite...') + '</p>';
+        if (error){
+          var retry = document.createElement('button'); retry.type = 'button'; retry.textContent = 'Retry';
+          retry.onclick = function(){ error = ''; refresh(); }; host.appendChild(retry);
+        }
+        return;
+      }
+      var mine = current.creator.uid === opts.user.uid;
+      var open = current.status === 'open';
+      var ready = ['accepted', 'live'].indexOf(current.status) >= 0;
+      var peer = mine ? current.challengedName || opts.peerName || 'the other person' : current.creator.name || opts.peerName || 'the other person';
+      var own = (current.accepted || []).filter(function(p){return p.uid === opts.user.uid;})[0];
+      var side = own ? own.side : ((current.accepted || [])[0] || {}).side === 'a' ? 'b' : 'a';
+      var note = open ? (mine ? 'Waiting for ' + peer + ' to accept.' : peer + ' invited you to a live video debate.')
+        : ready ? 'Accepted. Join the same room when you are ready.' : 'This challenge is ' + current.status + '.';
+      var markup = '<div class="chat-invite-copy"><span class="chat-invite-label">Live debate</span>' +
+        '<strong>' + esc(current.claim) + '</strong><p role="status">' + esc(note) + '</p>' +
+        ((open || ready) ? '<small>Your side: ' + esc((current.sides || {})[side] || (side === 'a' ? 'For' : 'Against')) + '</small>' : '') + '</div>' +
+        '<div class="chat-invite-actions">' +
+        (ready || (open && !mine) ? '<button type="button" data-enter>' + (busy ? 'Opening debate...' : ready ? 'Join debate' : 'Accept and join') + '</button>' : '') +
+        (open && mine ? '<button type="button" data-cancel>Cancel invite</button>' : '') +
+        '<a href="/c/' + encodeURIComponent(current.slug) + '">Details</a></div>' +
+        (error ? '<p class="chat-invite-error" role="alert">' + esc(error) + '</p>' : '');
+      // Unchanged refreshes preserve keyboard focus and in-progress clicks.
+      if (markup === lastPaint) return;
+      host.innerHTML = markup; lastPaint = markup;
+      var button = host.querySelector('[data-enter]');
+      if (button){ button.disabled = busy; button.onclick = async function(){
+        if (busy) return;
+        var version = revision, c = current;
+        busy = true; error = ''; paint();
+        try {
+          var result = await enter(c, opts.user, c.status === 'open');
+          if (!stopped && version === revision) window.location.href = result.url;
+        } catch(err){ if (!stopped && version === revision) error = err.message; }
+        finally { if (!stopped && version === revision){ busy = false; await refresh(); paint(); } }
+      }; }
+      var cancel = host.querySelector('[data-cancel]');
+      if (cancel){ cancel.disabled = busy; cancel.onclick = async function(){
+        busy = true; error = ''; paint();
+        try { await post('cancel', current, opts.user); }
+        catch(err){ error = err.message; }
+        busy = false; await refresh(); paint();
+      }; }
+    }
+    async function refresh(){
+      if (stopped || !candidate || loading || document.hidden) return;
+      var version = revision, selected = candidate;
+      loading = true;
+      try {
+        var response = await fetch('/api/challenge?slug=' + encodeURIComponent(selected.slug), { cache:'no-store' });
+        var data = await response.json();
+        if (stopped || version !== revision) return;
+        if (!response.ok) throw new Error(data.error || 'Could not load the invite.');
+        var c = data.challenge;
+        // A forwarded or forged link is not an invitation from this peer.
+        if (!c || c.mode !== 'live' || c.creator.uid !== selected.fromUid ||
+          [opts.user.uid, opts.peerUid].indexOf(c.challengedUid) < 0 ||
+          c.creator.uid === c.challengedUid){ candidate = null; current = null; }
+        else current = c;
+      } catch(err){ if (!stopped && version === revision) error = err.message; }
+      finally {
+        loading = false;
+        if (!stopped && version === revision) paint();
+        else if (!stopped) refresh();
+      }
+    }
+    var timer = setInterval(function(){ if (!busy) refresh(); }, 8000);
+    function resume(){ if (!document.hidden) refresh(); }
+    document.addEventListener('visibilitychange', resume);
+    return {
+      update:function(messages){
+        var next = null;
+        (messages || []).forEach(function(m){
+          var slug = !m.pending && !m.failed && challengeSlug(m.text);
+          if (slug && [opts.user.uid, opts.peerUid].indexOf(m.fromUid) >= 0) next = { slug:slug, fromUid:m.fromUid };
+        });
+        if (candidate && next && candidate.slug === next.slug && candidate.fromUid === next.fromUid) return;
+        revision++; candidate = next; current = null; error = ''; busy = false;
+        paint(); refresh();
+      },
+      close:function(){ stopped = true; revision++; clearInterval(timer); document.removeEventListener('visibilitychange', resume); host.hidden = true; host.innerHTML = ''; }
+    };
+  }
+  window.DBChatChallenge = { open:open, people:people, challengeSlug:challengeSlug, mount:mount, enter:enter };
 })();

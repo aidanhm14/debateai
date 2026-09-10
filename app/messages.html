@@ -274,6 +274,7 @@ img.msg-av{display:block}
         </button>
         <button class="msg-challenge" id="msgChallenge" type="button" hidden>Challenge to debate</button>
       </div>
+      <section class="chat-invite" id="msgInvite" hidden aria-label="Debate invite"></section>
       <div class="msg-feed" id="msgFeed">
         <div class="msg-note">Pick a conversation on the left, <a href="/friends" style="color:var(--accent);font-weight:700">find a friend</a>, or <a href="/spar" style="color:var(--accent);font-weight:700">debate a stranger</a> and message them after.</div>
       </div>
@@ -351,6 +352,7 @@ img.msg-av{display:block}
   var activeId = '';
   var activeThread = null;     // {id, participants, participantInfo}
   var dm = null, threadsUnsub = null;   // dm = the open thread's DBDM handle
+  var challengeCard = null;
   var MSG_MAX = 1000;
   var FORMATS = ['APDA','BP','Policy','LD','PF','Worlds','Asian Parli','Congress'];
   var myFormats = [];
@@ -516,6 +518,11 @@ img.msg-av{display:block}
   // timer, and when the tab comes back.
   function startThread(){
     if (dm){ try { dm.close(); } catch(e){} dm = null; }
+    if (challengeCard) challengeCard.close();
+    var peer = peerOf(activeThread);
+    challengeCard = !activeThread.isGroup && peer.uid ? DBChatChallenge.mount({
+      host:$('msgInvite'), user:me, peerUid:peer.uid, peerName:peer.name
+    }) : null;
     dm = DBDM.open({
       db: db,
       uid: me.uid,
@@ -537,6 +544,7 @@ img.msg-av{display:block}
     var feed = $('msgFeed');
     if (!feed) return;
     var msgs = (v && v.messages) || [];
+    if (challengeCard) challengeCard.update(msgs);
     if (!msgs.length){
       var note = 'No messages yet. Send one to start the thread.';
       if (v && v.status === 'loading') note = 'Loading…';
@@ -830,6 +838,10 @@ img.msg-av{display:block}
 
   firebase.auth().onAuthStateChanged(function(user){
     if (!user){
+      if (challengeCard){ challengeCard.close(); challengeCard = null; }
+      if (dm){ dm.close(); dm = null; }
+      if (threadsUnsub){ threadsUnsub(); threadsUnsub = null; }
+      me = null;
       $('msgSignin').hidden = false;
       $('msgShell').hidden = true;
       return;

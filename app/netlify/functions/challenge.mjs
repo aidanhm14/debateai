@@ -18,6 +18,7 @@ import { sendSmsToUser } from './lib/sms.mjs';
 import { getDb, FieldValue, withDeadline } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, deleteCachedShared } from './lib/admin-cache.mjs';
+import { joinChallengeRoom } from './lib/challenge-room.mjs';
 import {
   validateChallengeInput, makeChallengeData, publicChallenge,
   canTransition, slugify, normalizeClaim, feedKeyFor, OPEN_STATUSES,
@@ -60,15 +61,18 @@ async function uidFrom(request) {
 }
 
 // Identity stamped onto the doc so a board render needs no join.
-async function identityFrom(request) {
+async function identityFrom(request, db) {
   const token = extractBearerToken(request);
   if (!token) return null;
   try {
     const d = await verifyIdToken(token);
+    if (d.firebase?.sign_in_provider === 'anonymous') return null;
+    const profile = await withDeadline(db.collection('user_profiles').doc(d.sub).get(), 2500);
     return {
       uid: d.sub,
-      name: String(d.name || (d.email ? d.email.split('@')[0] : '') || '').slice(0, 60),
+      name: String((profile.exists && profile.data().displayNameOverride) || 'Someone').slice(0, 60),
       photo: typeof d.picture === 'string' ? d.picture.slice(0, 300) : '',
+      provider: d.firebase?.sign_in_provider || '',
     };
   } catch { return null; }
 }
@@ -176,7 +180,7 @@ export default async (request) => {
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
 
   // ── WRITE ─────────────────────────────────────────────────────────
-  const me = await identityFrom(request);
+  const me = await identityFrom(request, db);
   if (!me) return errorResponse('Sign in first.', 401, request);
 
   let body;
@@ -216,7 +220,7 @@ export default async (request) => {
       try {
         const p = await withDeadline(
           db.collection('user_profiles').doc(challengedUid).get(), 2000);
-        challengedName = p.exists ? shortenName(p.data().displayName || '') : '';
+        challengedName = p.exists ? shortenName(p.data().displayNameOverride || '') : '';
       } catch (err) {
         console.warn('[challenge] challenged-name lookup failed', err.message);
       }
@@ -259,7 +263,7 @@ export default async (request) => {
         sendToUser(challengedUid, {
           title: (me.name || 'A debater') + ' challenged you',
           body: claimSnippet ? '"' + claimSnippet + '" Tap to accept the round.' : 'Tap to accept the round.',
-          url: '/challenges',
+          url: '/c/' + encodeURIComponent(slug),
           tag: 'da-challenge-' + ref.id,
         }).catch(() => {}),
         // force:true skips quiet hours and nothing else. Someone calling
@@ -268,7 +272,7 @@ export default async (request) => {
         sendSmsToUser(challengedUid, {
           kind: 'challenge',
           force: true,
-          body: `${me.name || 'A debater'} challenged you on Debatable${claimSnippet ? `: "${claimSnippet}"` : ''}. https://itsdebatable.com/challenges\n\nReply STOP to stop.`,
+          body: `${me.name || 'Someone'} challenged you on Debatable${claimSnippet ? `: "${claimSnippet}"` : ''}. https://itsdebatable.com/c/${encodeURIComponent(slug)}\n\nReply STOP to stop.`,
         }).catch(() => {}),
       ]);
     }
@@ -284,6 +288,17 @@ export default async (request) => {
   if (!found) return errorResponse('Challenge not found', 404, request);
   const ref = found.ref;
 
+  if (action === 'join') {
+    if (!['google.com', 'apple.com', 'password'].includes(me.provider)) {
+      return errorResponse('Sign in with Google, Apple, or email to enter the video room.', 403, request);
+    }
+    try {
+      return jsonResponse(await joinChallengeRoom(db, ref, me.uid), 200, request);
+    } catch (e) {
+      return errorResponse(e.message || 'Could not open this debate. Try again.', 409, request);
+    }
+  }
+
   // accept ───────────────────────────────────────────────────────────
   // Transactional: two people tapping Accept within the same second must
   // not both land on side B.
@@ -292,6 +307,10 @@ export default async (request) => {
       const result = await db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
         const d = snap.data();
+        if (d.moderation?.state === 'hidden') throw new Error('This challenge is under review.');
+        // A retry after a lost response is the same acceptance, not an error.
+        const ownSeat = (d.accepted || []).find(p => p.uid === me.uid);
+        if (ownSeat && ['accepted', 'live'].includes(d.status)) return { side: ownSeat.side };
         if (!OPEN_STATUSES.has(d.status)) throw new Error('This challenge is not open.');
         if (d.applicationMode === 'apply') throw new Error('This one takes applications. Apply instead.');
         if (d.challengedUid && d.challengedUid !== me.uid) throw new Error('This challenge is aimed at someone else.');
@@ -320,14 +339,14 @@ export default async (request) => {
         await Promise.all([
           sendToUser(result.notifyUid, {
             title: (me.name || 'Someone') + ' accepted your challenge',
-            body: 'Your round is on. Tap to set it up.',
-            url: '/challenges',
+            body: 'Your challenge was accepted. Tap to open it.',
+            url: '/c/' + encodeURIComponent(found.data().slug || ref.id),
             tag: 'da-challenge-accept-' + ref.id,
           }).catch(() => {}),
           sendSmsToUser(result.notifyUid, {
             kind: 'challenge',
             force: true,
-            body: `${me.name || 'Someone'} accepted your challenge on Debatable. Your round is on. https://itsdebatable.com/challenges\n\nReply STOP to stop.`,
+            body: `${me.name || 'Someone'} accepted your challenge on Debatable. https://itsdebatable.com/c/${encodeURIComponent(found.data().slug || ref.id)}\n\nReply STOP to stop.`,
           }).catch(() => {}),
         ]);
       }
@@ -402,16 +421,20 @@ export default async (request) => {
 
   // cancel ───────────────────────────────────────────────────────────
   if (action === 'cancel') {
-    const d = found.data();
-    if (d.creator?.uid !== me.uid) return errorResponse('Only the creator can cancel this.', 403, request);
-    if (!canTransition(d.status, 'cancelled')) {
-      return errorResponse('A ' + d.status + ' challenge cannot be cancelled.', 409, request);
+    try {
+      await db.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        const d = snap.data();
+        if (d.creator?.uid !== me.uid) throw new Error('Only the creator can cancel this.');
+        if (d.mode === 'live' && d.challengedUid && ['accepted', 'live'].includes(d.status)) {
+          throw new Error('This invite was already accepted. Open the debate to leave the round.');
+        }
+        if (!canTransition(d.status, 'cancelled')) throw new Error('A ' + d.status + ' challenge cannot be cancelled.');
+        tx.update(ref, { status: 'cancelled', feedKey: 'quiet', updatedAt: Date.now() });
+      });
+    } catch (e) {
+      return errorResponse(e.message || 'Could not cancel this challenge.', 409, request);
     }
-    await ref.update({
-      status: 'cancelled',
-      feedKey: 'quiet',
-      updatedAt: Date.now(),
-    });
     await invalidateFeeds();
     return jsonResponse({ ok: true }, 200, request);
   }
