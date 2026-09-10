@@ -62,6 +62,123 @@
   document.documentElement.classList.add('dbnative');
   document.documentElement.setAttribute('data-native-page', location.pathname.replace(/^\//, '').replace(/\.html$/, '') || 'native');
 
+  // Native appearance owns the palette independently of website preferences.
+  // Apply before first paint; legacy pages and preference sync may write their
+  // own theme later, so keep these three attributes consistent without reloads.
+  // BEGIN NATIVE APPEARANCE
+  (function nativeAppearance() {
+    var root = document.documentElement;
+    var key = 'db-native-appearance';
+    var preference = 'light';
+    var media = window.matchMedia('(prefers-color-scheme: dark)');
+    var quickButton, choices = [];
+    function valid(value) { return /^(light|dark|system)$/.test(value || '') ? value : 'light'; }
+    try { preference = valid(localStorage.getItem(key)); } catch (_) {}
+    function resolved() { return preference === 'system' ? (media.matches ? 'dark' : 'light') : preference; }
+    function attr(name, value) { if (root.getAttribute(name) !== value) root.setAttribute(name, value); }
+    function pluginCall(name, method, options) {
+      try {
+        var plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins[name];
+        if (plugin && typeof plugin[method] === 'function') Promise.resolve(plugin[method](options)).catch(function () {});
+      } catch (_) {}
+    }
+    function syncNativeChrome() {
+      var dark = resolved() === 'dark';
+      // Capacitor's DARK style means light status-bar text on a dark surface.
+      pluginCall('StatusBar', 'setStyle', { style: dark ? 'DARK' : 'LIGHT' });
+      pluginCall('StatusBar', 'setBackgroundColor', { color: dark ? '#000000' : '#FAF9F6' });
+      pluginCall('Keyboard', 'setStyle', { style: dark ? 'DARK' : 'LIGHT' });
+    }
+    function apply() {
+      var theme = resolved();
+      var changed = root.getAttribute('data-native-theme') !== theme;
+      attr('data-native-theme', theme);
+      attr('data-native-appearance', preference);
+      attr('data-theme', theme === 'dark' ? 'crimson' : 'light');
+      attr('data-force-theme', theme === 'dark' ? 'crimson' : 'light');
+      attr('data-lighting', theme);
+      root.style.colorScheme = theme;
+      var color = document.querySelector('meta[name="theme-color"]');
+      if (color) color.setAttribute('content', theme === 'dark' ? '#000000' : '#faf9f6');
+      choices.forEach(function (button) {
+        button.setAttribute('aria-pressed', String(button.dataset.appearance === preference));
+      });
+      if (quickButton) {
+        var label = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+        quickButton.setAttribute('aria-label', label);
+        quickButton.title = label;
+        quickButton.innerHTML = theme === 'dark'
+          ? '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>'
+          : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13A9 9 0 0 1 11 3.2 9 9 0 1 0 20.8 13Z"/></svg>';
+      }
+      if (changed) syncNativeChrome();
+    }
+    function set(value) {
+      preference = valid(value);
+      try { localStorage.setItem(key, preference); } catch (_) {}
+      apply();
+    }
+    window.DBNativeAppearance = { set: set, apply: apply, get: function () { return preference; } };
+    apply();
+    new MutationObserver(function () {
+      var theme = resolved();
+      var legacy = theme === 'dark' ? 'crimson' : 'light';
+      if (root.getAttribute('data-theme') !== legacy || root.getAttribute('data-force-theme') !== legacy || root.getAttribute('data-lighting') !== theme) apply();
+    }).observe(root, { attributes: true, attributeFilter: ['data-theme', 'data-force-theme', 'data-lighting'] });
+    function systemChanged() { if (preference === 'system') apply(); }
+    if (media.addEventListener) media.addEventListener('change', systemChanged);
+    else media.addListener(systemChanged);
+    window.addEventListener('storage', function (event) {
+      if (event.key === key || event.key === null) {
+        try { preference = valid(localStorage.getItem(key)); } catch (_) {}
+        apply();
+      }
+    });
+    window.addEventListener('pageshow', syncNativeChrome);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) syncNativeChrome(); });
+    function mount() {
+      var header = document.querySelector('.nh-header');
+      if (header) {
+        var actions = document.createElement('div');
+        actions.className = 'nh-header-actions';
+        quickButton = document.createElement('button');
+        quickButton.type = 'button';
+        quickButton.className = 'nh-icon-button';
+        quickButton.id = 'dbAppearanceToggle';
+        quickButton.addEventListener('click', function () { set(resolved() === 'dark' ? 'light' : 'dark'); });
+        actions.appendChild(quickButton);
+        var messages = header.querySelector('.nh-icon-button');
+        if (messages) actions.appendChild(messages);
+        header.appendChild(actions);
+      }
+      var page = root.getAttribute('data-native-page');
+      var container = page === 'profile' ? document.querySelector('main.wrap') : page === 'settings' ? document.querySelector('.wrap') : null;
+      if (container) {
+        var card = document.createElement('section');
+        card.className = 'db-appearance';
+        card.setAttribute('aria-labelledby', 'dbAppearanceTitle');
+        card.innerHTML = '<h2 id="dbAppearanceTitle">Appearance</h2><p>Choose your app look.</p><div class="db-appearance-options" role="group" aria-label="App appearance"></div>';
+        var group = card.querySelector('.db-appearance-options');
+        ['light', 'dark', 'system'].forEach(function (value) {
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.dataset.appearance = value;
+          button.textContent = value.charAt(0).toUpperCase() + value.slice(1);
+          button.addEventListener('click', function () { set(value); });
+          choices.push(button);
+          group.appendChild(button);
+        });
+        if (page === 'settings' && container.querySelector('.hd')) container.querySelector('.hd').after(card);
+        else container.prepend(card);
+      }
+      apply();
+      syncNativeChrome();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, { once: true });
+    else mount();
+  })();
+  // END NATIVE APPEARANCE
+
   // ── Splash: hold it until the page has painted, then hide ──────────
   // A clean install of build 10 showed a blank cream screen for 10 to 15
   // seconds on the simulator (2026-09-06, screenshots at 3/6/10/15s): the
@@ -124,7 +241,7 @@
     }
   } catch (e) {}
 
-  // Load the APP DESIGN LAYER (app/css/native-app.css?v=social-20260910c). This stylesheet is
+  // Load the APP DESIGN LAYER (app/css/native-app.css?v=social-20260910d). This stylesheet is
   // the one place app-specific design lives; it loads ONLY in the app, so
   // it never affects the website. Injected as early as possible so app
   // styling is present before first paint.
@@ -133,7 +250,7 @@
     var l = document.createElement('link');
     l.id = 'db-native-app-css';
     l.rel = 'stylesheet';
-    l.href = '/css/native-app.css?v=social-20260910c';
+    l.href = '/css/native-app.css?v=social-20260910d';
     (document.head || document.documentElement).appendChild(l);
   })();
 

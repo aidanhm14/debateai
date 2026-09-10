@@ -1942,6 +1942,12 @@
   // session. Hard reload on change so the token cascade and any
   // per-section <style> blocks settle from a clean slate.
   function wireThemeToggle(){
+    // The app changes appearance in place and keeps a separate device choice.
+    if (window.__DB_NATIVE && window.DBNativeAppearance) {
+      window.DBNativeAppearance.apply();
+      return;
+    }
+
     // Page-level opt-out: pages whose <body> palette is hardcoded (e.g.
     // /us, /india) set <html data-force-theme="crimson"> so the shared
     // topbar always renders its matching DARK token set regardless of
