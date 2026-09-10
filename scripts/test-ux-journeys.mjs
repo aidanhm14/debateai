@@ -393,9 +393,11 @@ check(
     && nativeBridge.includes("{ href: '/friends', label: 'People'")
     && nativeBridge.includes("{ href: '/watch', label: 'Watch'")
     && nativeBridge.includes("{ href: '/profile', label: 'You'")
+    && nativeBridge.includes("{ href: '/leaderboard', label: 'Leaderboard'")
+    && nativeBridge.indexOf("label: 'Leaderboard'") > nativeBridge.indexOf("label: 'You'")
     && read('app/friends.html').includes('<script src="/js/native-bridge.js"></script>')
     && read('app/messages.html').includes('<script src="/js/native-bridge.js"></script>'),
-  'native tabs expose Home, People, Watch and You with social pages connected',
+  'native tabs expose Home, People, Watch, You, then Leaderboard with social pages connected',
 );
 check(
   topbar.includes("{ href: '/challenges',  label: 'Claims & challenges', big: true }")

@@ -4,7 +4,7 @@
 
 Both platforms load `https://itsdebatable.com/native`. The shared home leads
 with people, the existing talking-face clips in a moving strip, and **Find someone**.
-The four tabs are **Home, People, Watch, You**. AI voice remains available
+The five tabs are **Home, People, Watch, You, Leaderboard**. AI voice remains available
 from Home as **Debate the AI**.
 
 The home uses existing matchmaking, friendships, messages, video, recordings,
@@ -25,7 +25,7 @@ a real person. Talk it out.” Do not restore “Different opinions. Good compan
 
 - `app/native.html`: shared native home.
 - `app/js/native-home.js`: discovery, friends, sharing and photo controls.
-- `app/js/native-bridge.js`: native integration and four-tab navigation.
+- `app/js/native-bridge.js`: native integration and five-tab navigation.
 - `app/css/native-app.css` and `css/native-app.css`: matching style files.
 - `mobile/android/`: Android shell, Google Firebase client config and icons.
 - `mobile/ios/`: existing iPhone shell.
@@ -66,8 +66,8 @@ App Links verification also needs that release certificate in the site's
 
 ## iPhone and store verification
 
-The existing iOS build 11 already loads this shared web surface. The redesign
-does not itself prove sign-in, microphone, push or camera work on a device.
+The existing iOS build 11 already loads this shared web surface. Aidan confirmed microphone and camera working on his iPhone on September 10.
+This is user-reported device evidence. Sign-in recovery and push still need verification.
 The source safety guard and IPA audit are supporting checks only.
 
 Before submitting either platform, test on physical devices: cold launch,
@@ -94,3 +94,17 @@ The shared home is deployed in commit `4ebbf67`. Browser checks confirm the
 main action clears the tab bar at 320×568 and 393×852, visible clips play muted,
 the pause control stops all motion, and reduced-motion preferences show stills.
 The repository commit hooks and the hosted smoke check pass.
+
+## September 10 updates
+
+Home uses the public-domain U.S. Capitol photo for universal-basic-income
+topics, the existing supplied Discord screenshot, and approved community
+faces. The AI voice action uses a warm gradient with gentle press feedback.
+Leaderboard is the fifth tab, after You.
+
+The phone round uses the full width for its topic, a 44px recording control,
+and fixed conversation/speech start choices. After a speech begins, Camera
+view expands the call and hides supporting details. Show details restores
+them; the decision exits Camera view automatically. Clock, speech controls,
+recording status and the existing call/safety controls remain available.
+The call element is never moved or restarted by this display preference.

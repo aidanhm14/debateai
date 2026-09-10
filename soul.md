@@ -254,6 +254,10 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 
 ## 10. Decision log (major decisions with why)
 
+- **Phone rounds give the camera and start controls room (2026-09-10).** Aidan confirmed the live camera and audio work and asked for a wider, shorter topic block, a compact recording button, reachable conversation/speech actions, and an optional camera-focused view after speeches begin. Camera view hides supporting details while preserving call controls, reporting, the clock and speech controls. It is reversible, does not move the call element, and returns to details for the decision. Recording consent and judging are unchanged.
+
+- **More color and a fifth app tab (2026-09-10).** Aidan asked for Congress imagery on the universal-basic-income topic, the existing Discord screenshot, faces on Community, and a polished AI voice button. Reuse licensed topic photography and the approved face bank. The native tabs are now Home, People, Watch, You, Leaderboard; this supersedes the four-tab layout below. Aidan also confirmed camera and audio work on his iPhone.
+
 - **The mobile app is social on iPhone and Android (2026-09-09).** Aidan asked to redesign both apps around people, conversations, and discovery, then rejected abstract slogan copy: use a simple “Debate someone.” heading and “Find someone” action. The app home leads directly to human matching, reuses the landing page’s silent talking-face clips of the supplied consented people in a pausable moving strip, and keeps AI as a secondary action. The four native tabs are Home, People, Watch, You. Shared accounts, safety, rounds, and judging remain the existing product; app styling stays in `native-app.css`. Android is added to the existing Capacitor project, with its own Firebase client registration. The same `/native` UI serves both platforms.
 
 

@@ -49,6 +49,21 @@
       return r.json();
     }).finally(function () { clearTimeout(timeout); });
   }
+  // Topic covers are illustrative. Other replays retain their own versioned frame.
+  function setWatchImage(title, recording) {
+    var image = $('watchImage');
+    var isIncome = /\b(universal basic income|ubi)\b/i.test(title || '');
+    var src = '/img/politics/capitol.jpg';
+    if (!isIncome && recording && /^[a-z0-9][a-z0-9-]{7,79}$/i.test(recording.id || '')) {
+      src = '/api/recording-thumb?id=' + encodeURIComponent(recording.id) +
+        (recording.thumbV ? '&v=' + encodeURIComponent(recording.thumbV) : '');
+    } else if (!isIncome && title) src = '/img/landing/live-round-board-800.jpg';
+    image.onerror = function () {
+      image.onerror = null;
+      image.src = '/img/landing/live-round-board-800.jpg';
+    };
+    image.src = src;
+  }
   function refreshDiscovery() {
     if (pending || document.hidden) return;
     pending = true;
@@ -66,6 +81,7 @@
         $('watchLabel').textContent = 'LIVE NOW';
         $('watchHeading').textContent = s.title || 'A conversation is happening.';
         $('watchDetail').textContent = 'Drop in and hear both sides.';
+        setWatchImage(s.title);
         $('homeWatch').classList.add('is-live');
         return;
       }
@@ -76,6 +92,7 @@
         $('watchLabel').textContent = playable.length ? 'FROM THE CONVERSATION' : 'WATCH';
         $('watchHeading').textContent = playable.length ? (playable[0].motion || playable[0].title || 'Hear both sides.') : "Watch a debate.";
         $('watchDetail').textContent = playable.length ? 'Watch this and more conversations.' : 'Explore the watch page.';
+        setWatchImage(playable.length ? (playable[0].motion || playable[0].title) : '', playable[0]);
       });
     }).catch(function () {
       // A previous live state must expire when the status becomes unknown.
@@ -83,6 +100,7 @@
       $('watchLabel').textContent = 'WATCH';
       $('watchHeading').textContent = "Watch a debate.";
       $('watchDetail').textContent = 'Live debates and replays.';
+      setWatchImage('');
     });
     Promise.allSettled([queue, watch]).finally(function () { pending = false; });
   }

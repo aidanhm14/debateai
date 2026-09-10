@@ -35,7 +35,7 @@ reach that shell, but code presence is not an end-to-end device test.
 | Filtering | Community writes use content screening; live camera safety-check integration is present | Source; device behavior still needs validation |
 | Production language | Previously reported native beta meter/label removed or hidden in the native branch | Served-file checks in Claude's handoff |
 | AI account requirement | Named sign-in before starting a fresh AI round | Current sign-in policy and source |
-| Native navigation | Home, People, Watch, You; tab bar hidden in immersive rounds | Native bridge source and browser verification; physical-device check pending |
+| Native navigation | Home, People, Watch, You, Leaderboard; tab bar hidden in immersive rounds | Native bridge source and browser verification; physical-device check pending |
 
 For this rejection's web changes, a new binary is not inherently required.
 Reuse build 10 if Claude's device checks confirm it is the intended release.
@@ -115,7 +115,7 @@ Terms: https://itsdebatable.com/terms
 Support: https://itsdebatable.com/support
 Account deletion: You > Account and settings > Delete account.
 
-The app's tab bar is Home, People, Watch, You. Immersive rounds hide the tabs.
+The app's tab bar is Home, People, Watch, You, Leaderboard. Immersive rounds hide the tabs.
 
 We have also updated App Review Information with the current instructions and attached the same recording there.
 
@@ -161,7 +161,7 @@ PRODUCTION APP
 The labels identified in the previous 2.2 review have been removed from the iOS app.
 
 NATIVE FEATURES
-Apple sign-in, push notifications, native sharing, deep links, camera and microphone permission handling, and the persistent Home, People, Watch, You tabs. Immersive rounds hide the tabs. An internet connection is required.
+Apple sign-in, push notifications, native sharing, deep links, camera and microphone permission handling, and the persistent Home, People, Watch, You, Leaderboard tabs. Immersive rounds hide the tabs. An internet connection is required.
 
 ACCOUNT DELETION
 You > Account and settings > Delete account. This deletes the account in the app without requiring a support email; the confirmation explains data removal and retention.

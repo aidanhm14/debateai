@@ -124,7 +124,7 @@
     }
   } catch (e) {}
 
-  // Load the APP DESIGN LAYER (app/css/native-app.css?v=social-20260910a). This stylesheet is
+  // Load the APP DESIGN LAYER (app/css/native-app.css?v=social-20260910b). This stylesheet is
   // the one place app-specific design lives; it loads ONLY in the app, so
   // it never affects the website. Injected as early as possible so app
   // styling is present before first paint.
@@ -133,7 +133,7 @@
     var l = document.createElement('link');
     l.id = 'db-native-app-css';
     l.rel = 'stylesheet';
-    l.href = '/css/native-app.css?v=social-20260910a';
+    l.href = '/css/native-app.css?v=social-20260910b';
     (document.head || document.documentElement).appendChild(l);
   })();
 
@@ -207,7 +207,8 @@
       { href: '/native', label: 'Home', match: /^\/(native|newvoice|voice-debate|practice|spar|debate-chat|partners)(?:\.html)?$/, icon: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/>' },
       { href: '/friends', label: 'People', match: /^\/(friends|messages|chat|community|users)(?:\.html|\/.*)?$/, icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>' },
       { href: '/watch', label: 'Watch', match: /^\/(watch|spectate|live|livedebates)(?:\.html)?$/, icon: '<path d="m10 8 6 4-6 4Z"/><rect x="2" y="4" width="20" height="16" rx="4"/>' },
-      { href: '/profile', label: 'You', match: /^\/(profile|settings|brain|leaderboard|ladder|debate-rating|tournaments|tournament|open)(?:\.html)?$/, icon: '<circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/>' }
+      { href: '/profile', label: 'You', match: /^\/(profile|settings|brain)(?:\.html)?$/, icon: '<circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/>' },
+      { href: '/leaderboard', label: 'Leaderboard', match: /^\/(leaderboard|ladder|debate-rating|tournaments|tournament|open)(?:\.html)?$/, icon: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0ZM7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3"/>' }
     ];
     var nav = document.createElement('nav');
     nav.className = 'db-native-tabs';

@@ -8,7 +8,7 @@
 
 > **2026-09-09:** the current mobile redesign and Android build instructions are in
 > `APP_REDESIGN.md`. Both platforms use the live `/native` home. Navigation is
-> Home, People, Watch, You. Some historical setup details below have been
+> Home, People, Watch, You, Leaderboard. Some historical setup details below have been
 > superseded; build 11 is the latest locally verified iOS release artifact.
 
 ---

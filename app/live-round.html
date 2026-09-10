@@ -3652,6 +3652,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   </div>
 </div>
 
+<button id="roundFocusBtn" class="lr-focus-toggle" type="button" aria-pressed="false" aria-controls="panel" hidden>Camera view</button>
 <div class="split">
 
   <!-- LEFT: Daily.co iframe. Server-side function creates the room
@@ -5610,6 +5611,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // The phone layout pins the speech controls to the bottom of the
     // viewport, but only while there is a speech to control.
     document.body.classList.toggle('lr-round-live', phase === 'round');
+    updateRoundFocus();
     var phaseIdx = phase === 'setup' ? 0 : phase === 'round' ? 1 : 2;
     var ids = ['rgSetup','rgRound','rgBallot'];
     ids.forEach(function(id, idx){
@@ -7444,8 +7446,47 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
     state.timerState = 'ended';
   }
+  // Display preference only. Never move the call element or touch its tracks.
+  var roundFocusSelected = false, roundFocusStarted = false, roundFocusRoom = '', roundFocusScroll = 0;
+  var roundFocusPhone = window.matchMedia('(max-width:760px)');
+  function updateRoundFocus(){
+    var button = $('roundFocusBtn');
+    if (!button) return;
+    if (roundFocusRoom !== state.room || state.phase !== 'round' || isSpectator()){
+      roundFocusSelected = false;
+      roundFocusStarted = false;
+      roundFocusRoom = state.room;
+    }
+    if (state.phase === 'round' && !isSpectator() &&
+        (state.speechIdx > 0 || state.timerState === 'running' || state.timerState === 'paused' || state.timerElapsed > 0)) roundFocusStarted = true;
+    var available = roundFocusPhone.matches && roundFocusStarted && state.phase === 'round' && !isSpectator() &&
+      !document.body.classList.contains('lr-mini') && !document.body.classList.contains('lr-pip') && !document.body.classList.contains('lr-vid-off');
+    if (!available) roundFocusSelected = false;
+    if (button.hidden === available) button.hidden = !available;
+    var active = available && roundFocusSelected;
+    if (document.body.classList.contains('lr-camera-focus') !== active) document.body.classList.toggle('lr-camera-focus', active);
+    button.setAttribute('aria-pressed', String(active));
+    button.textContent = active ? 'Show details' : 'Camera view';
+  }
+  $('roundFocusBtn').addEventListener('click', function(){
+    roundFocusSelected = !roundFocusSelected;
+    if (roundFocusSelected) roundFocusScroll = window.scrollY;
+    updateRoundFocus();
+    window.scrollTo({ top: roundFocusSelected ? 0 : roundFocusScroll, behavior: 'instant' });
+  });
+  document.addEventListener('keydown', function(event){
+    if (event.key === 'Escape' && roundFocusSelected){
+      roundFocusSelected = false; updateRoundFocus();
+      window.scrollTo({ top: roundFocusScroll, behavior: 'instant' });
+      $('roundFocusBtn').focus({ preventScroll: true });
+    }
+  });
+  if (roundFocusPhone.addEventListener) roundFocusPhone.addEventListener('change', updateRoundFocus);
+  // Mini-player / hidden-video transitions happen outside the speech renderer.
+  new MutationObserver(updateRoundFocus).observe(document.body, { attributes:true, attributeFilter:['class'] });
   function updatePlayPauseBtn(){
     updatePlayPauseBtnCore();
+    updateRoundFocus();
     // After the core, never before: the core rewrites btn.className
     // wholesale, which would drop the awaiting classes.
     try { updateStartCue(); } catch(e){}
@@ -24601,5 +24642,6 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
      else, so they carry it themselves. -->
 <script defer src="/js/auth-modal.js"></script>
 <script src="/js/room-topic.js"></script>
+<link rel="stylesheet" href="/css/round-mobile.css?v=20260910a">
 </body>
 </html>

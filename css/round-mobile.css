@@ -1,0 +1,68 @@
+/* Phone round: the real start controls stay at the viewport edge.
+   This layer only changes presentation; recording consent and speech ownership
+   remain in the existing handlers. Camera view never reparents the live video. */
+.lr-focus-toggle { display:none; }
+@media(max-width:760px) {
+  /* The desktop audience rail reserved 52px even after it became a phone FAB.
+     Container containment also trapped fixed action bars inside this panel. */
+  body.lr-round-live .panel { padding-right:0; container-type:normal; overflow:visible; }
+  body.lr-round-live .speech-header,
+  body.mode-doors-open:not(.spectator-mode) .speech-header { width:100%; padding:12px; gap:10px; }
+  body.lr-round-live .sh-main { width:100%; grid-column:1/-1; }
+  body.lr-round-live .sh-motion .rmb-motion,
+  body.mode-doors-open:not(.spectator-mode) .sh-motion .rmb-motion { max-width:none; font-size:clamp(1.3rem,5.7vw,1.6rem); line-height:1.17; font-weight:650; text-wrap:wrap; overflow-wrap:break-word; }
+  body.lr-round-live .sh-motion .rmb-eyebrow { margin-bottom:5px; }
+  body.lr-round-live .sh-house { margin-top:6px; }
+  body.lr-round-live .rec-topbar { padding:8px 12px 0; }
+  body.lr-round-live .rec-topbar .rmb-rec { gap:8px; flex-wrap:wrap; justify-content:flex-start; }
+  body.lr-round-live .rec-topbar .rmb-rec-btn { flex:0 0 auto; min-height:44px; padding:9px 12px; font-size:.78rem; line-height:1.2; letter-spacing:0; border-radius:11px; white-space:nowrap; }
+  body.lr-round-live .rec-topbar .rmb-rec-elapsed { flex:1; min-width:90px; font-size:.65rem; line-height:1.3; letter-spacing:0; }
+  body.mode-doors-open:not(.spectator-mode) .speech-header .speech-actions { display:none!important; }
+  body.mode-doors-open:not(.spectator-mode) .speech-header .mode-doors {
+    position:fixed; left:0; right:0; bottom:0; z-index:318; margin:0;
+    width:auto; display:grid; grid-template-columns:1fr; gap:7px;
+    padding:9px 12px calc(9px + env(safe-area-inset-bottom,0px));
+    border-top:1px solid var(--border); background:var(--bg);
+    box-shadow:0 -8px 24px #0003;
+  }
+  body.mode-doors-open:not(.spectator-mode) .speech-header .mode-doors[hidden] { display:none; }
+  body.mode-doors-open:not(.spectator-mode) .speech-header .mode-doors .btn { min-height:46px; padding:10px 12px; font-size:.9rem; line-height:1.25; letter-spacing:0; }
+  body.mode-doors-open:not(.spectator-mode) .mode-doors .md-sub { display:none; }
+  body.lr-round-live:not(.spectator-mode) .panel { padding-bottom:calc(90px + env(safe-area-inset-bottom,0px)); }
+  body.lr-round-live.mode-doors-open:not(.spectator-mode) .panel { padding-bottom:calc(128px + env(safe-area-inset-bottom,0px)); }
+  body.lr-round-live .speech-header .speech-actions { z-index:318; }
+  body.lr-round-live:not(.spectator-mode) #audFab { bottom:calc(86px + env(safe-area-inset-bottom,0px)); }
+  body.lr-round-live.mode-doors-open:not(.spectator-mode) #audFab { bottom:calc(134px + env(safe-area-inset-bottom,0px)); }
+  .lr-focus-toggle:not([hidden]) { display:block; position:fixed; z-index:319; left:12px; bottom:calc(84px + env(safe-area-inset-bottom,0px)); min-height:44px; padding:10px 14px; border:1px solid var(--border); border-radius:24px; background:var(--bg); color:var(--text); box-shadow:0 3px 12px #0003; font:700 .78rem/1.2 'DM Sans',sans-serif; cursor:pointer; }
+  .lr-focus-toggle:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+  /* Camera fills the available screen. Keep mic, camera, Report, Leave,
+     the clock, and the original speech controls usable at all times. */
+  body.lr-camera-focus { overflow:hidden; }
+  body.lr-camera-focus nav.bar { visibility:hidden; }
+  body.lr-camera-focus .split { display:block; }
+  body.lr-camera-focus #jitsiPane { position:fixed!important; inset:calc(60px + env(safe-area-inset-top,0px)) 0 calc(75px + env(safe-area-inset-bottom,0px)); z-index:110; width:100%!important; height:auto!important; min-height:0!important; max-height:none!important; margin:0; padding:0; }
+  body.lr-camera-focus #panel { container-type:normal; padding:0!important; overflow:visible; background:transparent; }
+  body.lr-camera-focus #panel>*:not(#roundView),
+  body.lr-camera-focus #roundView>*:not(.speech-header):not(.rec-topbar),
+  body.lr-camera-focus .speech-header>*:not(.speech-clock):not(.speech-actions),
+  body.lr-camera-focus .cam-hint,
+  body.lr-camera-focus .lr-open-card,
+  body.lr-camera-focus #roomStage,
+  body.lr-camera-focus #audFab { display:none!important; }
+  body.lr-camera-focus .speech-header { padding:0; border:0; background:transparent; }
+  body.lr-camera-focus .speech-clock { display:flex!important; position:fixed; top:calc(8px + env(safe-area-inset-top,0px)); left:14px; z-index:319; flex-direction:row; align-items:center; gap:9px; min-width:0; min-height:44px; padding:0; border:0; }
+  body.lr-camera-focus .speech-clock-label { font-size:.68rem; }
+  body.lr-camera-focus .timer-num { font-size:1.5rem; }
+  body.lr-camera-focus .timer-target { display:none; }
+  body.lr-camera-focus .lr-focus-toggle { top:calc(8px + env(safe-area-inset-top,0px)); right:12px; bottom:auto; left:auto; }
+  body.lr-camera-focus .rec-topbar { display:none; }
+  body.lr-camera-focus .rec-topbar:has(.rmb-rec.recording) { display:block; position:fixed; z-index:119; top:calc(62px + env(safe-area-inset-top,0px)); left:10px; padding:0; max-width:calc(100% - 20px); }
+  body.lr-camera-focus .rec-topbar .rmb-rec { padding:3px 8px; border-radius:12px; background:var(--bg); }
+  body.lr-camera-focus .cv-tray { padding:8px; }
+  body.lr-camera-focus .cv-btn { min-height:44px; }
+}
+@media (orientation:landscape) and (max-height:600px) and (min-width:640px) {
+  body.lr-round-live:not(.lr-camera-focus) .panel { padding-bottom:14px; }
+  body.lr-round-live:not(.lr-camera-focus) .speech-header .mode-doors { position:static; padding:0; box-shadow:none; }
+  body.lr-camera-focus .speech-header .speech-actions { position:fixed; left:0; right:0; bottom:0; padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px)); background:var(--bg); }
+}
