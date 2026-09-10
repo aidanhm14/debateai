@@ -250,8 +250,8 @@ export function buildNoWinnerBallot(judged, round = {}, now = Date.now()) {
     resolution: String(panel.resolution || (votesCast ? 'unresolved' : 'no_votes')).slice(0, 40),
     at: now,
     reason,
-    proName: String(round.proName || 'Pro').slice(0, 80),
-    conName: String(round.conName || 'Con').slice(0, 80),
+    proName: [round.proName || 'Pro',round.proName2].filter(Boolean).join(' and ').slice(0,160),
+    conName: [round.conName || 'Con',round.conName2].filter(Boolean).join(' and ').slice(0,160),
     votesCast,
     panelSize,
     quorum,
@@ -454,8 +454,9 @@ export function buildPrompt(d) {
   const user = [
     `FORMAT: ${d.formatName || d.format || 'Quick Clash'}`,
     `MOTION: ${String(d.motion || '').slice(0, 500)}`,
-    `PROPOSITION: ${d.proName || 'Pro'}`,
-    `OPPOSITION: ${d.conName || 'Con'}`,
+    `PROPOSITION: ${[d.proName || 'Pro',d.proName2].filter(Boolean).join(' and ')}`,
+    `OPPOSITION: ${[d.conName || 'Con',d.conName2].filter(Boolean).join(' and ')}`,
+    d.proUid2 || d.conUid2 ? 'Two people argue on each side. The result and points belong to the side; keep each person’s words attributed to their speaker.' : '',
     '',
     'TRANSCRIPT:',
     transcriptFrom(d.speeches, { includePace: d.tournamentRound === true, interjections: d.interjections }),
@@ -851,8 +852,8 @@ export default async (request, context) => {
     // guess whether 28 means a good round or a poor one.
     scoreScale: 100,
     pointsDerived: derived.derived === true,
-    proName: d.proName || 'Pro',
-    conName: d.conName || 'Con',
+    proName: [d.proName || 'Pro',d.proName2].filter(Boolean).join(' and '),
+    conName: [d.conName || 'Con',d.conName2].filter(Boolean).join(' and '),
     panel: judged.panel,
     at: judgedAt,
   };

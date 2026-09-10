@@ -274,7 +274,8 @@ service cloud.firestore {
       // Writes still require sign-in (and participant checks below).
       allow read:   if true;
       allow create: if isSignedIn()
-                    && stringUnder('motion', 4096);
+                    && stringUnder('motion', 4096)
+                    && !request.resource.data.keys().hasAny(['teamSize','teamHostUid','teamLockedAt','teamSeatsOpenedAt','teamEnding','teamFinished','teamFinishedAt','proUid2','conUid2','proName2','conName2']);
 
       // The consent map can only be touched by the consenting user
       // for their own UID key. Computes the affected keys of the
@@ -330,6 +331,32 @@ service cloud.firestore {
               && request.resource.data.get('conUid', '') == resource.data.proUid);
       }
 
+      // Only /api/team-seats assigns partner seats or locks the roster.
+      // The host cannot bypass the viewer's request through a direct write.
+      function teamSeatsHeld() {
+        return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'teamSize','teamHostUid','teamLockedAt','teamSeatsOpenedAt','teamEnding','teamFinished','teamFinishedAt',
+          'proUid2','conUid2','proName2','conName2'
+        ]) && (resource.data.get('teamSize', 1) != 2
+          || (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['proUid','conUid'])
+            && (resource.data.get('teamLockedAt', 0) == 0
+              || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['format']))));
+      }
+      function ownTeamStreamOnly(field) {
+        let ownKey = resource.data.get('proUid', '') == request.auth.uid ? 'pro'
+          : resource.data.get('conUid', '') == request.auth.uid ? 'con'
+          : resource.data.get('proUid2', '') == request.auth.uid ? 'pro2' : 'con2';
+        return request.resource.data.get(field, {}).diff(resource.data.get(field, {})).affectedKeys().hasOnly([ownKey]);
+      }
+      function teamCaptureAllowed() {
+        return resource.data.get('teamSize', 1) != 2
+          || (ownTeamStreamOnly('openSegs') && ownTeamStreamOnly('openLive')
+            && request.resource.data.get('seatSeen', {}).diff(resource.data.get('seatSeen', {})).affectedKeys().hasOnly([request.auth.uid])
+            && request.resource.data.get('seatLeft', {}).diff(resource.data.get('seatLeft', {})).affectedKeys().hasOnly([request.auth.uid])
+            && (request.resource.data.get('currentTimer', {}).get('state', '') != 'running'
+              || resource.data.get('teamLockedAt', 0) > 0));
+      }
+
       // Participant-only writes once the round has both UIDs locked
       // in (i.e., a posted+accepted challenge). Spectators land here
       // signed-in but match neither side, so they can read the round
@@ -342,11 +369,15 @@ service cloud.firestore {
                     && leaderboardConsentChangeIsOwnUid()
                     && motionAcceptsChangeIsOwnUid()
                     && seatsHeldOrTraded()
+                    && teamSeatsHeld()
+                    && teamCaptureAllowed()
                     && (
                       !('proUid' in resource.data)
                       || !('conUid' in resource.data)
                       || resource.data.proUid == request.auth.uid
                       || resource.data.conUid == request.auth.uid
+                      || resource.data.get('proUid2', '') == request.auth.uid
+                      || resource.data.get('conUid2', '') == request.auth.uid
                     );
       allow delete: if false;
 

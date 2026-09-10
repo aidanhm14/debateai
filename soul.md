@@ -12,16 +12,20 @@
 > round" for actions. The iOS app ships as "Debatable"; its bundle ID
 > remains unchanged for App Store compatibility.
 
-> **CASUAL 1V1 ONLY (Aidan's call, 2026-08-27).** Debatable is one
-> person against one person, arguing one question in plain language.
+> **CASUAL 1V1 AND 2V2 (Aidan, updated 2026-09-10).** Debatable is one
+> or two people on each side, arguing one question in plain language.
 > Competitive debate formats, tournament rule sets, and team debate are
 > not part of the public product. Do not expose APDA, BP, PF, LD, Policy,
-> Worlds, Congress, MUN, 2v2, or other named formats in setup, navigation,
+> Worlds, Congress, MUN, or other competitive formats in setup, navigation,
 > marketing, metadata, or public guides. The old parsers, prompts, and
 > stored fields may remain dormant where deletion would break saved
 > rounds or migration history. Dormant code is compatibility, not a
 > supported product surface. This decision supersedes every format-first
-> statement retained later in this document.
+> statement retained later in this document. The host can open two team
+> seats before a round starts. Viewers request a seat; the host approves.
+> Four distinct people must join before Start locks the roster. Each
+> person keeps their own capture and public nickname. The judge decides
+> between teams, and 2v2 results stay off the 1v1 leaderboard.
 
 **A living document of what this product is, who it's for, how it sounds, and why the decisions were made the way they were. When a new contributor (or a new Claude session) loads this repo, read this file first. If a change would contradict something here, either the change or this file is wrong. don't ship the change without reconciling.**
 
@@ -78,7 +82,7 @@ Do not relax the rule or allow a sender to replace a conversation member.
 
 ## 1. What this is (one sentence)
 
-Debatable is a **live arena and media company for casual one-on-one spoken argument, open to anyone who wants to argue something out.** One person takes each side, a simple clock keeps the round moving, and the judge explains what won. The leaderboard supplies the cast; broadcasts, replays, and clips make the best rounds worth following. Lives at **itsdebatable.com** (canonical since 2026-07-22; debateai.com and the other legacy domains 301 there).
+Debatable is a **live arena and media company for casual spoken argument, open to anyone who wants to argue something out.** One or two people take each side, a simple clock keeps the round moving, and the judge explains what won. The leaderboard supplies the cast; broadcasts, replays, and clips make the best rounds worth following. Lives at **itsdebatable.com** (canonical since 2026-07-22; debateai.com and the other legacy domains 301 there).
 
 **Brand system:** the product name is **"Debatable"**, hosted at **itsdebatable.com**. It is the only public name across visible copy, metadata, structured data, generated audio, native labels, and extensions. CTAs describe the action instead of acting as a second brand. The canonical full-round surface is `/practice`; retired public URLs only survive as server-side redirects.
 
@@ -102,7 +106,7 @@ for anyone. Copy rules that follow from it, and they are enforceable:
   credential is gone from every public surface along with the name, so
   "Debater" now survives only as a role inside a round.
 - **Do not expose competitive formats in the social product.** A stranger
-  gets one casual 1v1 structure. There is no format picker, team option,
+  gets casual 1v1, with a host-approved 2v2 option. There is no competitive format picker
   or tournament rulebook to decode. The one narrow exception is the
   explicitly chosen Competitive speeches AI-practice path from
   `/newvoice`, which opens `/practice?entry=competitive` for people who

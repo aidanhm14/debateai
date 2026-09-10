@@ -1,5 +1,15 @@
 # AGENTS.md
 
+**Casual 2v2 restored (2026-09-10, Aidan).** A host may open two extra
+team seats before a human round starts. Signed-in viewers request an open
+seat and the host approves each request through `/api/team-seats`. A team
+round needs four distinct people present before starting. Its roster locks
+at Start, camera/mic tokens require a verified seat, and each participant
+owns a separate transcript stream. Conversation and timed speeches both
+work. The judge decides between the two teams; team results do not enter
+the 1v1 leaderboard. This supersedes the no-teams restriction below without
+restoring competitive formats or the legacy partner-matching page.
+
 **Speech clocks (2026-09-07):** Timed speeches show minutes and seconds
 remaining and stop at `0:00`, including overtime, audience views, floating
 players and recordings. Only conversational mode may display a running
@@ -182,8 +192,8 @@ the switch date. The hero surface is no longer frozen.
 
 Debatable is a voice-first adversarial-argument trainer at
 **itsdebatable.com**. **Debatable is the only public product name.**
-As of 2026-08-27, every public round is **casual 1v1**: one person on
-each side, no teams, format picker, or tournament rulebook. Competitive
+Public human rounds are **casual 1v1 or host-approved 2v2**: one or two
+people on each side, without a competitive format picker or tournament rulebook. Competitive
 debate formats are not part of human matching, public social rounds, or
 the default AI entry. **Narrow AI-practice exception, called 2026-09-03:**
 `/newvoice`, the public "Debate the AI" door, offers a clearly labeled

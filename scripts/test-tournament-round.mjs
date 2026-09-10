@@ -138,9 +138,10 @@ const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + 
     'room creation reads the server-written admission record');
   ok(/allowed\.indexOf\(String\(who\.uid\)\)/.test(roomSrc),
     'participant admission requires the verified uid on the room roster');
-  ok(/privacy:\s*admission\.tournament\s*\?\s*'private'\s*:\s*'public'/.test(roomSrc),
-    'tournament Daily rooms are private while casual rooms remain public');
-  ok(/admission\.tournament\s*&&\s*!token/.test(roomSrc),
+  ok(/const secureRoom = admission\.tournament \|\| !!teamRound/.test(roomSrc)
+    && /privacy:\s*secureRoom\s*\?\s*'private'\s*:\s*'public'/.test(roomSrc),
+    'tournament and host-approved team rooms are private; other casual rooms remain public');
+  ok(/secureRoom\s*&&\s*!token/.test(roomSrc),
     'a tournament room never falls back to a tokenless join');
   ok(/room_admissions/.test(dropinSrc) && /room_admissions/.test(adminSrc),
     'drop-in and synchronous tournament pairing both stamp room admission');

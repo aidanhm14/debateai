@@ -80,6 +80,9 @@ export function eligibility(source, d) {
   }
 
   if (source === 'live') {
+    // A team result cannot be credited to just the first person on each
+    // side of the 1v1 ladder. Team rounds keep their own shared ballot.
+    if (d.teamSize === 2 || d.proUid2 || d.conUid2) return {ok:false,reason:'team_round'};
     const ballot = d.ballot;
     const noWinner = d.ballotUnresolved;
     const hasWinner = !!(ballot && (ballot.winner === 'pro' || ballot.winner === 'con'));

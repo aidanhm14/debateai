@@ -37,6 +37,7 @@ import { getDb, withDeadline } from './lib/firestore.mjs';
 import { verifyIdToken } from './lib/auth.mjs';
 import { checkLayers } from './lib/rate-limit.mjs';
 import { parseTournamentRoom } from './lib/tournament-round.mjs';
+import Teams from '../../js/room-teams.js';
 
 // Providers that may hold a SEAT in a live video room. Keep in sync with
 // spar-pair.mjs and isLiveVideoAccount() in firestore.rules.
@@ -200,6 +201,19 @@ export default async (req) => {
   // above, the admission check fails closed because guessing a room name
   // must never produce a participant token.
   const admission = await tournamentAdmission(name);
+  // A viewer's URL is never a team-seat grant. Approved rosters are read
+  // before a sending token is minted; secure rooms have no tokenless path.
+  let teamRound = null;
+  try {
+    const snap = await withDeadline(getDb().collection('live_rounds').doc(name).get(), 3000);
+    if (snap.exists && (snap.data().teamHostUid || Teams.enabled(snap.data()))) teamRound = snap.data();
+  } catch(e) {
+    return jsonResponse(503,{error:'Could not verify the room seats. Try again.'});
+  }
+  const secureRoom = admission.tournament || !!teamRound;
+  if (teamRound && !receiveOnly && !Teams.keyForUid(teamRound,who.uid)) {
+    return jsonResponse(403,{rosterOnly:true,error:'The host must approve your team seat before you can join as a participant.'});
+  }
   // Every person entering live video, including a receive-only viewer,
   // needs a Google, Apple, or email account.
   // The stage renderer is the sole non-person exception so /air and OBS
@@ -298,7 +312,7 @@ export default async (req) => {
   const createRoom = (props) => fetch(DAILY_API + '/rooms', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ name, privacy: admission.tournament ? 'private' : 'public', properties: props }),
+    body: JSON.stringify({ name, privacy: secureRoom ? 'private' : 'public', properties: props }),
   });
   let recordingAvailable = recordingEnabled();
   let resp = await createRoom(properties);
@@ -331,6 +345,12 @@ export default async (req) => {
   }
 
   const room = await resp.json();
+  if (teamRound && room.privacy !== 'private') {
+    const locked = await fetch(DAILY_API+'/rooms/'+encodeURIComponent(name),{
+      method:'POST',headers,body:JSON.stringify({privacy:'private'}),
+    });
+    if (!locked.ok) return jsonResponse(503,{error:'Could not secure the team room. Try again.'});
+  }
 
   // Create-or-fetch means an EXISTING room keeps the properties it was
   // made with, so every room made before the bogus-property fix above
@@ -385,7 +405,7 @@ export default async (req) => {
   let token = null;
   try {
     let tr = await mintToken(tokenProps);
-    if (!tr.ok && tokenProps.permissions && !admission.tournament){
+    if (!tr.ok && tokenProps.permissions && !secureRoom){
       console.warn('[create-daily-room] viewer permissions rejected (' + tr.status + '), reminting without');
       delete tokenProps.permissions;
       tr = await mintToken(tokenProps);
@@ -393,8 +413,8 @@ export default async (req) => {
     if (tr.ok) token = (await tr.json()).token || null;
   } catch (e) { /* tokenless join still works */ }
 
-  if (admission.tournament && !token) {
-    return jsonResponse(503, { error: 'Could not issue a secure tournament room token. Try again.' });
+  if (secureRoom && !token) {
+    return jsonResponse(503, { error: 'Could not issue a secure room token. Try again.' });
   }
 
   // room.url is the canonical URL (e.g., https://debateai.daily.co/Debatable-c123).
