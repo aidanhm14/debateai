@@ -30,6 +30,13 @@ const config: CapacitorConfig = {
     iosScheme: 'https',
   },
 
+  android: {
+    appendUserAgent: ' DebatableApp/1.0',
+    backgroundColor: '#FAF9F6',
+    allowMixedContent: false,
+    webContentsDebuggingEnabled: false,
+  },
+
   ios: {
     contentInset: 'never',
     backgroundColor: '#F7F6F2',
@@ -46,7 +53,7 @@ const config: CapacitorConfig = {
       launchAutoHide: true,
       launchFadeOutDuration: 150,
       backgroundColor: '#F7F6F2',
-      androidSplashResourceName: 'splash',
+      androidSplashResourceName: 'debatable_splash',
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
       iosSpinnerStyle: 'small',

@@ -1,10 +1,15 @@
-# Debatable iOS App Handover for Codex
+# Debatable iOS and Android App Handover for Codex
 
 > Read this before touching anything under `mobile/` or before making a
 > change meant to affect the iOS app. It explains what the app is, how it
 > relates to the website, how to build/run it, the app-specific UI design
 > system, and Apple's rules. Pairs with the repo-root `AGENTS.md` (website
 > deploy topology) and `soul.md` (product/voice).
+
+> **2026-09-09:** the current mobile redesign and Android build instructions are in
+> `APP_REDESIGN.md`. Both platforms use the live `/native` home. Navigation is
+> Home, People, Watch, You. Some historical setup details below have been
+> superseded; build 11 is the latest locally verified iOS release artifact.
 
 ---
 

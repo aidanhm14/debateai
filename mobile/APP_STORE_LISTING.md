@@ -154,7 +154,7 @@ offending content and users.
 
 ## Account deletion evidence
 
-Path: Me > Account and settings > Delete account. The implementation cancels
+Path: You > Account and settings > Delete account. The implementation cancels
 active subscriptions, removes public identity and the Firebase Auth account,
 and purges associated data. A server-side continuation completes remaining
 cleanup if the first request runs out of time. Some shared-round and legally

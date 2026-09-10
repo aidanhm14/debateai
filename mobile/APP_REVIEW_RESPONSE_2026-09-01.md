@@ -35,7 +35,7 @@ reach that shell, but code presence is not an end-to-end device test.
 | Filtering | Community writes use content screening; live camera safety-check integration is present | Source; device behavior still needs validation |
 | Production language | Previously reported native beta meter/label removed or hidden in the native branch | Served-file checks in Claude's handoff |
 | AI account requirement | Named sign-in before starting a fresh AI round | Current sign-in policy and source |
-| Native navigation | Friends, Watch, Debate, Board, Me; tab bar hidden in immersive rounds | Native bridge source and Claude's simulator observation |
+| Native navigation | Home, People, Watch, You; tab bar hidden in immersive rounds | Native bridge source and browser verification; physical-device check pending |
 
 For this rejection's web changes, a new binary is not inherently required.
 Reuse build 10 if Claude's device checks confirm it is the intended release.
@@ -63,7 +63,7 @@ actual terms, Report, and Block controls, not an artificial uninterrupted take.
    and use Apple or Google sign-in.
 2. **Enter a controlled live round:** the Watch page contains
    "Get in a debate yourself. Join a live room!" linking to `/spar`.
-   Verify its exact position on the device before recording. The Friends
+   Verify its exact position on the device before recording. The People
    tab also supports a Challenge to an existing friend. Prefer that direct
    invitation to testing against an unrelated person in the public queue.
    The second controlled account must be signed in with Google or Apple.
@@ -113,9 +113,9 @@ The attached iPhone recording demonstrates the terms, flagging, and blocking flo
 
 Terms: https://itsdebatable.com/terms
 Support: https://itsdebatable.com/support
-Account deletion: Me > Account and settings > Delete account.
+Account deletion: You > Account and settings > Delete account.
 
-The app's tab bar is Friends, Watch, Debate, Board, Me. Immersive rounds hide the tabs.
+The app's tab bar is Home, People, Watch, You. Immersive rounds hide the tabs.
 
 We have also updated App Review Information with the current instructions and attached the same recording there.
 
@@ -140,12 +140,12 @@ Debatable is a social app for one-on-one spoken debates. People can debate each 
 
 AI VOICE FLOW
 1. Sign in using the supplied review access. In the iOS chooser, Apple and Google are available. Agree to the Terms of Use before continuing.
-2. Open Debate, then Start a round. Choose a topic, side, and voice in the setup, then tap Start debating.
+2. Open Home, then Debate the AI. Choose a topic, side, and voice in the setup, then tap Start debating.
 3. Allow microphone access and exchange arguments with the AI. Tap Finish debate to request the transcript and feedback.
-4. Me contains the profile, round history, and account settings.
+4. You contains the profile, round history, and account settings.
 
 LIVE HUMAN FLOW
-Live video requires a Google or Apple account. From Watch, use "Get in a debate yourself. Join a live room!" to reach matching. Complete or skip the Match Desk questions and join the queue. Availability depends on another person being present. An existing friend can also be challenged from Friends.
+Live video requires a Google or Apple account. From Watch, use "Get in a debate yourself. Join a live room!" to reach matching. Complete or skip the Match Desk questions and join the queue. Availability depends on another person being present. An existing friend can also be challenged from People.
 
 The attached physical-iPhone recording demonstrates the terms, Report, and Block controls using two controlled accounts. To reproduce a live round, use a second Google or Apple account on another device. Confirm the intended test participant before submitting a test report.
 
@@ -161,10 +161,10 @@ PRODUCTION APP
 The labels identified in the previous 2.2 review have been removed from the iOS app.
 
 NATIVE FEATURES
-Apple sign-in, push notifications, native sharing, deep links, camera and microphone permission handling, and the persistent Friends, Watch, Debate, Board, Me tabs. Immersive rounds hide the tabs. An internet connection is required.
+Apple sign-in, push notifications, native sharing, deep links, camera and microphone permission handling, and the persistent Home, People, Watch, You tabs. Immersive rounds hide the tabs. An internet connection is required.
 
 ACCOUNT DELETION
-Me > Account and settings > Delete account. This deletes the account in the app without requiring a support email; the confirmation explains data removal and retention.
+You > Account and settings > Delete account. This deletes the account in the app without requiring a support email; the confirmation explains data removal and retention.
 
 SUPPORT
 https://itsdebatable.com/support
