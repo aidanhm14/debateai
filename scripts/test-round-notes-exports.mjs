@@ -88,3 +88,23 @@ assert(live.includes('id="openRoundNotes"') && live.includes('body.spectator-mod
 assert(exporter.includes("scope:SCOPE,include_granted_scopes:false"));
 assert(!exporter.includes('localStorage') && !exporter.includes('sessionStorage'));
 console.log('Round notes and Google Docs export: all assertions passed');
+
+// Compact legacy notes keep their full source available, including negations
+// and caveats. New notes ask the provider for genuinely short phrases.
+const compactSource = live.slice(live.indexOf('  function compactRoundNote('),live.indexOf('  function renderNotePreview('));
+const compactContext = vm.createContext({});
+vm.runInContext(compactSource,compactContext);
+const compact = compactContext.compactRoundNote;
+assert.equal(compact('Community corrections may reduce misinformation.').text,'Community corrections may reduce misinformation.');
+assert.equal(compact('  Buses  may not run at night.  ').text,'Buses may not run at night.');
+assert.equal(compact('').text,'');
+const legacy = 'The speaker does not support a ban unless reliable public transport is available to every night worker.';
+const preview = compact(legacy);
+assert.equal(preview.full,legacy);
+assert.equal(preview.shortened,true);
+assert(preview.text.endsWith('…'));
+assert(preview.text.includes('does not'));
+assert(preview.text.split(/\s+/).length <= 10);
+assert(compact('x'.repeat(180)).text.length <= 101);
+assert(requests.every(r=>r.system.includes('never more than 10') && r.system.includes('Keep negations')));
+console.log('Compact notes: bounds, uncertainty, and full source preserved');

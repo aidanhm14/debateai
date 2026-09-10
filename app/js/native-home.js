@@ -4,13 +4,12 @@
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
   var pending = false, timer;
-  var photoMotion = $('photoMotion');
   var photoTrack = document.querySelector('.nh-face-track');
   var faceVideos = Array.from(photoTrack.querySelectorAll('video'));
   var visibleFaces = new Set();
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   function syncFaceMotion() {
-    var allowed = !document.hidden && !reduceMotion.matches && photoMotion.getAttribute('aria-pressed') !== 'true';
+    var allowed = !document.hidden && !reduceMotion.matches;
     faceVideos.forEach(function (video) {
       if (allowed && visibleFaces.has(video)) {
         if (!video.getAttribute('src')) video.src = video.getAttribute('data-src');
@@ -29,14 +28,6 @@
   faceVideos.forEach(function (video) { faceObserver.observe(video); });
   if (reduceMotion.addEventListener) reduceMotion.addEventListener('change', syncFaceMotion);
   else reduceMotion.addListener(syncFaceMotion);
-  photoMotion.addEventListener('click', function () {
-    var paused = photoMotion.getAttribute('aria-pressed') !== 'true';
-    photoMotion.setAttribute('aria-pressed', String(paused));
-    photoMotion.setAttribute('aria-label', paused ? 'Play face animations' : 'Pause face animations');
-    photoTrack.classList.toggle('is-paused', paused);
-    photoMotion.querySelector('path').setAttribute('d', paused ? 'M9 5l10 7-10 7z' : 'M9 6v12M15 6v12');
-    syncFaceMotion();
-  });
   document.addEventListener('visibilitychange', function () {
     photoTrack.classList.toggle('is-hidden', document.hidden);
     syncFaceMotion();

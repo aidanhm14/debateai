@@ -173,7 +173,7 @@
       '#lpip-shell{position:fixed;inset:0;width:100vw;height:100vh;border:0;margin:0;z-index:2147482000;background:var(--bg,#0a0a0c)}' +
       '@keyframes lpipShellPulse{0%{box-shadow:0 0 0 0 rgba(255,59,59,.55)}70%{box-shadow:0 0 0 6px rgba(255,59,59,0)}100%{box-shadow:0 0 0 0 rgba(255,59,59,0)}}' +
       '@keyframes lpipShellBarIn{from{transform:translate(-50%,-12px);opacity:0}to{transform:translate(-50%,0);opacity:1}}' +
-      '#lpip-shellbar{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:2147482500;display:flex;align-items:center;gap:12px;padding:9px 10px 9px 17px;border-radius:999px;background:rgba(10,10,12,.9);color:#f0f0f0;border:1px solid rgba(255,255,255,.16);box-shadow:0 12px 40px rgba(0,0,0,.5);font:600 13px/1 DM Sans,Archivo,Georgia,serif;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);max-width:calc(100vw - 28px);animation:lpipShellBarIn .25s cubic-bezier(.2,.8,.2,1)}' +
+      '#lpip-shellbar{position:fixed;top:calc(var(--safe-top,env(safe-area-inset-top,0px)) + 8px);left:50%;transform:translateX(-50%);z-index:2147482500;display:flex;align-items:center;gap:12px;padding:9px 10px 9px 17px;border-radius:999px;background:rgba(10,10,12,.9);color:#f0f0f0;border:1px solid rgba(255,255,255,.16);box-shadow:0 12px 40px rgba(0,0,0,.5);font:600 13px/1 DM Sans,Archivo,Georgia,serif;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);max-width:calc(100vw - 28px);animation:lpipShellBarIn .25s cubic-bezier(.2,.8,.2,1)}' +
       '#lpip-shellbar .lpsb-live{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#ff6a6a}' +
       '#lpip-shellbar .lpsb-live i{width:7px;height:7px;border-radius:50%;background:#ff3b3b;animation:lpipShellPulse 1.6s infinite}' +
       '#lpip-shellbar .lpsb-where{color:#9aa0a6;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw}' +
@@ -186,10 +186,19 @@
       '#lpip-shellbar .lpsb-return:hover{background:#ef4444;transform:translateY(-1px);box-shadow:0 7px 22px rgba(220,38,38,.55)}' +
       '#lpip-shellbar .lpsb-return:active{transform:translateY(0)}' +
       '#lpip-shellbar .lpsb-return:focus-visible{outline:3px solid #fff;outline-offset:2px}' +
-      '#lpip-shellbar .lpsb-leave{font:inherit;font-weight:700;font-size:12px;min-height:36px;padding:8px 13px;border-radius:999px;border:1px solid rgba(255,255,255,.22);cursor:pointer;background:transparent;color:rgba(255,255,255,.72);white-space:nowrap;transition:background .15s,color .15s,border-color .15s}' +
+      '#lpip-shellbar .lpsb-leave{font:inherit;font-weight:700;font-size:12px;min-height:44px;padding:8px 13px;border-radius:999px;border:1px solid rgba(255,255,255,.22);cursor:pointer;background:transparent;color:rgba(255,255,255,.72);white-space:nowrap;transition:background .15s,color .15s,border-color .15s}' +
       '#lpip-shellbar .lpsb-leave:hover{color:#fff;border-color:rgba(255,255,255,.4)}' +
       '#lpip-shellbar .lpsb-leave.is-armed{background:#b91c1c;border-color:#b91c1c;color:#fff;animation:lpipShellPulse 1.6s infinite}' +
-      '@media(max-width:560px){#lpip-shellbar .lpsb-where{display:none}}';
+      '@media(max-width:760px),(orientation:landscape) and (max-height:600px){' +
+      '#lpip-shellbar{left:max(8px,var(--safe-left,env(safe-area-inset-left,0px)));right:max(8px,var(--safe-right,env(safe-area-inset-right,0px)));width:auto;max-width:none;box-sizing:border-box;transform:none;animation:none;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px;padding:6px;border-radius:18px}' +
+      'html.lpip-shell-on::before{content:"";position:fixed;inset:0 0 auto;height:calc(var(--safe-top,env(safe-area-inset-top,0px)) + 76px);background:var(--bg,#0a0a0c);z-index:2147482100;pointer-events:none}' +
+      '#lpip-shellbar .lpsb-where{display:none}' +
+      '#lpip-shellbar .lpsb-live{white-space:nowrap;font-size:10px;letter-spacing:.03em;padding:0 4px}' +
+      '#lpip-shellbar .lpsb-return{min-width:0;padding:10px 8px;font-size:14px}' +
+      '#lpip-shellbar .lpsb-leave{width:70px;padding:8px 4px;font-size:12px}' +
+      '#lpip-shell{top:calc(var(--safe-top,env(safe-area-inset-top,0px)) + 76px);height:calc(100vh - var(--safe-top,env(safe-area-inset-top,0px)) - 76px);height:calc(100dvh - var(--safe-top,env(safe-area-inset-top,0px)) - 76px)}' +
+      '}' +
+      '@media(prefers-reduced-motion:reduce){#lpip-shellbar,#lpip-shellbar .lpsb-live i,#lpip-shellbar .lpsb-leave{animation:none}}';
     document.head.appendChild(s);
   }
 
@@ -216,25 +225,27 @@
     shellBar = document.createElement('div');
     shellBar.id = 'lpip-shellbar';
     shellBar.innerHTML =
-      '<span class="lpsb-live"><i></i>Round live</span>' +
+      '<span class="lpsb-live"><i aria-hidden="true"></i>Live</span>' +
       '<span class="lpsb-where"></span>' +
-      '<button type="button" class="lpsb-return">Return to the round &rarr;</button>' +
-      '<button type="button" class="lpsb-leave">Leave round</button>';
+      '<button type="button" class="lpsb-return">Back to round</button>' +
+      '<button type="button" class="lpsb-leave" aria-label="Leave the round">Leave</button>';
     shellBar.querySelector('.lpsb-return').addEventListener('click', function () {
       if (typeof opts.onReturn === 'function') { try { opts.onReturn(); } catch (e) {} }
     });
     // Leaving the call is a double press, Zoom-style: the first press arms
-    // the button ("Sure? Leave the call"), the second within 4s actually
+    // the button ("Leave call?"), the second within 4s actually
     // leaves. A single stray click can never end the round.
     var leaveBtn = shellBar.querySelector('.lpsb-leave');
     var leaveTimer = null;
     leaveBtn.addEventListener('click', function () {
       if (!leaveBtn.classList.contains('is-armed')) {
         leaveBtn.classList.add('is-armed');
-        leaveBtn.textContent = 'Sure? Leave the call';
+        leaveBtn.textContent = 'Leave call?';
+        leaveBtn.setAttribute('aria-label', 'Confirm leaving the round');
         leaveTimer = setTimeout(function () {
           leaveBtn.classList.remove('is-armed');
-          leaveBtn.textContent = 'Leave round';
+          leaveBtn.textContent = 'Leave';
+          leaveBtn.setAttribute('aria-label', 'Leave the round');
         }, 4000);
         return;
       }

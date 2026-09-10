@@ -15,7 +15,7 @@ or join a queue on load.
 
 Faces reuse the landing page’s existing silent talking clips, with the consented
 stills as posters. Only visible clips play. Motion pauses when the page is
-hidden, respects reduced-motion preferences and has a visible pause button.
+hidden, respects reduced-motion preferences. The home pause button was removed at Aidan’s request on September 10.
 The phone header and photo strip are compact so the main action fits above
 the tab bar. Its supporting text has 13:1 contrast against a white background.
 The first-screen copy is intentionally direct: “Debate someone.” and “Meet
@@ -92,7 +92,7 @@ installation, Google sign-in, calls and push still need physical-device checks.
 
 The shared home is deployed in commit `4ebbf67`. Browser checks confirm the
 main action clears the tab bar at 320×568 and 393×852, visible clips play muted,
-the pause control stops all motion, and reduced-motion preferences show stills.
+reduced-motion preferences show stills. The pause control checked at that point has since been removed.
 The repository commit hooks and the hosted smoke check pass.
 
 ## September 10 updates
@@ -108,3 +108,9 @@ view expands the call and hides supporting details. Show details restores
 them; the decision exits Camera view automatically. Clock, speech controls,
 recording status and the existing call/safety controls remain available.
 The call element is never moved or restarted by this display preference.
+
+The September 10 phone clarity update puts camera choices below the live
+video, promotes the AI judge above the notes, and uses short neutral note
+bullets. The return bar reserves the iPhone safe area and uses Back to round
+and Leave, with the existing two-press leave confirmation. These changes
+ship through the live web assets, including inside the installed app.
