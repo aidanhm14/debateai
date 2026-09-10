@@ -54,3 +54,9 @@ assert.ok(!/getAuthDisplayNames|p\.displayName\s*\|\||p\.name\s*\|\|/.test(board
 assert.ok(!source.includes('Use your real name'));
 assert.ok(source.includes("nameInput.autocomplete = 'nickname'"));
 console.log('Public names: browser/server parity, nickname selection/reset, account isolation, blocked storage, legacy rows and offline privacy passed.');
+
+for (const file of ['stage', 'communication-profile', 'room-judge', 'coach', 'home', 'profile']) {
+  const page = fs.readFileSync('app/' + file + '.html', 'utf8');
+  assert.ok(page.includes('/js/public-identity.js'), file + ' loads public identity explicitly');
+  assert.ok(!/(?:user|u)\.displayName/.test(page), file + ' cannot display a sign-in name');
+}

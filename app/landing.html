@@ -22139,7 +22139,7 @@ window.addEventListener('load', function(){
     // If the user is already signed in, swap the hover caption to "Continue".
     auth.onAuthStateChanged(function(user){
       if (user && !user.isAnonymous) {
-        heroTimer.setAttribute('aria-label', 'Continue as ' + (user.displayName || user.email));
+        heroTimer.setAttribute('aria-label', 'Continue as ' + (window.DBIdentity ? DBIdentity.forUser(user).name : 'your account'));
         heroTimer.style.setProperty('--timer-caption', '"Tap to continue \\2192"');
       }
     });
@@ -22680,7 +22680,7 @@ window.addEventListener('load', function(){
   function sendRequest(room, u, comment){
     cleanup();
     var reqRef = db.collection('live_rounds').doc(room.id).collection('joinRequests').doc(u.uid);
-    var payload = { name: (u.displayName || 'A debater'), status: 'pending', requestedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    var payload = { name: (window.DBIdentity ? DBIdentity.forUser(u).name : 'Anonymous'), status: 'pending', requestedAt: firebase.firestore.FieldValue.serverTimestamp() };
     payload.comment = comment ? comment : firebase.firestore.FieldValue.delete();
     reqRef.set(payload, { merge:true }).catch(function(){});
     var resolved = false;

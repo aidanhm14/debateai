@@ -4553,6 +4553,7 @@ function PolyBackground() {
 
 
 
+
     // Small delay to ensure DOM is ready
   }, []);var [genActive, setGenActive] = useState(false);useEffect(() => {window.__triggerDebaterAnim = function (active) {setGenActive(active);};return () => {delete window.__triggerDebaterAnim;};}, []);return el(React.Fragment, null, el('div', { className: 'bg-canvas' }), // Fractal-noise grain overlay matching landing.html .hero-grain.
     // Subtle texture on top of the gradient + drifting blobs.
@@ -4584,8 +4585,7 @@ function createStreamThrottle(onChunk /* outputRef unused, kept for compat */) {
       if (finished) onChunk(streamed);return;} // Choose how many chars to reveal this frame.
     var step;if (finished) {// Stream done. drain the rest quickly but still visibly (≤~1s for 2000 chars)
       step = Math.max(BASE_STEP * 6, Math.ceil(behind / 30));} else if (behind > CATCHUP_CAP) {// API produced a big burst. speed up so we catch up within ~1s
-      step = Math.ceil(behind / 40);
-    } else {
+      step = Math.ceil(behind / 40);} else {
       step = BASE_STEP;
     }
     revealed = Math.min(streamed.length, revealed + step);
@@ -13113,7 +13113,7 @@ function Forum({ user, onSignIn }) {
       id: Date.now().toString(),
       author: user ? daPublicName(user) : 'Anonymous',
       authorUid: user ? user.uid : null,
-      avatar: user ? (user.displayName || 'A').charAt(0).toUpperCase() : 'A',
+      avatar: user && window.DBIdentity ? DBIdentity.forUser(user).name.charAt(0).toUpperCase() : 'A',
       type: postType,
       body: newPost.trim(),
       createdAt: new Date().toISOString(),

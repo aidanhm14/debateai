@@ -384,6 +384,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       });
   }
 
+  var resolvedName = 'Anonymous';
   function loadProfile(uid){
     if (!uid || !db) return Promise.resolve(null);
     return db.collection('public_profiles').doc(uid).get()
@@ -533,7 +534,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
   function actionsHTML(p){
     var isSelf = me && targetUid && me.uid === targetUid;
-    var name = (p && p.name) || nameFromHandle(handle);
+    var name = resolvedName;
     if (isSelf){
       return '<div class="pactions">' +
         '<a class="btn" href="/messages">Your messages</a>' +
@@ -580,7 +581,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     }
     if (p && p.__private) p = profileDoc = null; // owner viewing before first save
 
-    var name = (p && p.name) || nameFromHandle(handle);
+    var name = resolvedName;
     var stats = window.DBDomains.forEntries(entries);
     document.title = name + ' · Debatable';
 
@@ -639,7 +640,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       '<h2>Your public profile</h2>' +
       '<p class="hint">This is what other people see at your profile link. Your judged rounds and subject map are drawn from the leaderboard automatically, so there is nothing to type there.</p>' +
       '<div class="fld"><label for="edName">Display name</label>' +
-        '<input id="edName" maxlength="60" value="' + esc(p.name || daPublicName(me)) + '" placeholder="How you want to be listed"></div>' +
+        '<input id="edName" maxlength="32" autocomplete="nickname" value="' + esc(resolvedName || daPublicName(me)) + '" placeholder="Use a nickname to keep your real name private"></div>' +
       '<div class="fld"><label for="edHandle">Handle</label>' +
         '<input id="edHandle" maxlength="30" value="' + esc(p.handle || '') + '" placeholder="e.g. ananya-r">' +
         '<div class="sub" id="edHandleSub">Your profile lives at /users/&lt;handle&gt;. Letters, numbers and dashes.</div></div>' +
@@ -702,7 +703,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     var status = $('edStatus');
     function say(msg, cls){ status.textContent = msg; status.className = 'ed-status' + (cls?' '+cls:''); }
 
-    var name = ($('edName').value||'').trim().slice(0,60);
+    var name = DBIdentity.cleanName($('edName').value || '');
     if (!name){ say('Add a display name first.', 'err'); return; }
     var wantHandle = slugify($('edHandle').value || name);
     if (!wantHandle){ say('That handle has no usable characters.', 'err'); return; }
@@ -737,11 +738,13 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     // and we must not write the profile under a handle we did not get.
     claimHandle(wantHandle)
       .then(function(){
-        return db.collection('public_profiles').doc(me.uid).set(doc, { merge: true });
+        return db.collection('public_profiles').doc(me.uid).set(doc, { merge: true })
+          .then(function(){ return DBIdentity.setName(name, undefined, me); });
       })
       .then(function(){
         var oldHandle = profileDoc && profileDoc.handle;
         profileDoc = doc;
+        resolvedName = name;
         handle = wantHandle;
         say('Saved. Your profile is at /users/' + wantHandle, 'ok');
         try { history.replaceState(null, '', '/users/' + wantHandle); } catch(e){}
@@ -788,8 +791,9 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         extras.innerHTML = '';
         return;
       }
-      return Promise.all([loadProfile(targetUid), loadEntries(targetUid)]).then(function(res){
+      return Promise.all([loadProfile(targetUid), loadEntries(targetUid), DBIdentity.resolveRows([{uid:targetUid}])]).then(function(res){
         profileDoc = res[0];
+        resolvedName = res[2][0].displayName;
         entries = res[1] || [];
         render();
       });

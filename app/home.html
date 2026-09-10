@@ -151,6 +151,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script defer src="/js/track.js"></script>
+<script src="/js/public-identity.js"></script>
 </head>
 <body>
   <div id="daTopbar"></div>
@@ -248,8 +249,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   try {
     if (typeof firebase !== 'undefined' && firebase.auth){
       firebase.auth().onAuthStateChanged(function(u){
-        if (!u || u.isAnonymous || !u.displayName) return;
-        var first = String(u.displayName).trim().split(/\s+/)[0];
+        if (!u || u.isAnonymous) return;
+        var first = (window.DBIdentity ? DBIdentity.forUser(u).name : 'Anonymous').split(/\s+/)[0];
         if (!first) return;
         $('homeTitle').innerHTML = 'Welcome back, <span>' + esc(first) + '.</span>';
         $('homeSub').textContent = 'Here is what is happening while you were away.';
