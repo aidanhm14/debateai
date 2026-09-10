@@ -42,7 +42,10 @@
       // local origins only, so it can never turn the public website into the
       // native shell.
       if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)
-          && new URLSearchParams(location.search).has('native-preview')) return true;
+          && (new URLSearchParams(location.search).has('native-preview') || sessionStorage.getItem('db-native-preview') === '1')) {
+        sessionStorage.setItem('db-native-preview', '1');
+        return true;
+      }
     } catch (e) {}
     return false;
   }
@@ -57,6 +60,7 @@
   if (!isNative) return; // web: do nothing.
 
   document.documentElement.classList.add('dbnative');
+  document.documentElement.setAttribute('data-native-page', location.pathname.replace(/^\//, '').replace(/\.html$/, '') || 'native');
 
   // ── Splash: hold it until the page has painted, then hide ──────────
   // A clean install of build 10 showed a blank cream screen for 10 to 15
@@ -120,7 +124,7 @@
     }
   } catch (e) {}
 
-  // Load the APP DESIGN LAYER (app/css/native-app.css). This stylesheet is
+  // Load the APP DESIGN LAYER (app/css/native-app.css?v=social-20260909d). This stylesheet is
   // the one place app-specific design lives; it loads ONLY in the app, so
   // it never affects the website. Injected as early as possible so app
   // styling is present before first paint.
@@ -129,7 +133,7 @@
     var l = document.createElement('link');
     l.id = 'db-native-app-css';
     l.rel = 'stylesheet';
-    l.href = '/css/native-app.css';
+    l.href = '/css/native-app.css?v=social-20260909d';
     (document.head || document.documentElement).appendChild(l);
   })();
 
@@ -197,15 +201,13 @@
 
   function mountNativeTabs() {
     if (immersive || document.querySelector('.db-native-tabs')) return;
-    /* Match the phone website's five stable destinations. Debate stays the
-       raised middle control, but it is the app's home button: /native is
-       the shell launch screen and already leads with Start a round. */
+    // Social navigation shared by both mobile platforms. The homepage
+    // owns discovery; existing destinations keep their live functionality.
     var items = [
-      { href: '/friends', label: 'Friends', match: /^\/(friends|messages|chat)(?:\.html)?$/, icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' },
-      { href: '/watch', label: 'Watch', match: /^\/(watch|spectate|live|livedebates)(?:\.html)?$/, icon: '<path d="m10 8 6 4-6 4Z"/><rect x="2" y="4" width="20" height="16" rx="3"/>' },
-      { href: '/native', label: 'Debate', primary: true, match: /^\/(native|newvoice|voice-debate|practice|spar|debate-chat|partners)(?:\.html)?$/, icon: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>' },
-      { href: '/leaderboard', label: 'Board', match: /^\/(leaderboard|ladder|debate-rating|tournaments|tournament|open)(?:\.html)?$/, icon: '<path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0Z"/><path d="M7 6H4v2a3 3 0 0 0 3 3"/><path d="M17 6h3v2a3 3 0 0 1-3 3"/>' },
-      { href: '/profile', label: 'Me', match: /^\/(profile|settings|brain)(?:\.html)?$/, icon: '<circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/>' }
+      { href: '/native', label: 'Home', match: /^\/(native|newvoice|voice-debate|practice|spar|debate-chat|partners)(?:\.html)?$/, icon: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/>' },
+      { href: '/friends', label: 'People', match: /^\/(friends|messages|chat|community|users)(?:\.html|\/.*)?$/, icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>' },
+      { href: '/watch', label: 'Watch', match: /^\/(watch|spectate|live|livedebates)(?:\.html)?$/, icon: '<path d="m10 8 6 4-6 4Z"/><rect x="2" y="4" width="20" height="16" rx="4"/>' },
+      { href: '/profile', label: 'You', match: /^\/(profile|settings|brain|leaderboard|ladder|debate-rating|tournaments|tournament|open)(?:\.html)?$/, icon: '<circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/>' }
     ];
     var nav = document.createElement('nav');
     nav.className = 'db-native-tabs';
@@ -271,7 +273,7 @@
     } catch (e) {}
     return {
       title: 'Debatable - Everyone has an opinion',
-      text: text || 'Practice a real debate out loud.',
+      text: text || 'Join me on Debatable.',
       url: 'https://itsdebatable.com/',
     };
   };
@@ -321,8 +323,17 @@
     mountOfflineNotice();
     wireNativeDeepLinks();
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountNativeChrome);
-  else mountNativeChrome();
+  // Long third-party script loads must not leave a visible page without
+  // navigation. Mount when the body exists, independent of DOMContentLoaded.
+  if (document.body) mountNativeChrome();
+  else {
+    var bodyObserver = new MutationObserver(function () {
+      if (!document.body) return;
+      bodyObserver.disconnect();
+      mountNativeChrome();
+    });
+    bodyObserver.observe(document.documentElement, { childList: true, subtree: true });
+  }
 
   // If the app deep-navigates to the pricing route, bounce it — a hard
   // guarantee the reviewer never sees a purchase surface even if a stray

@@ -389,11 +389,13 @@ check(
 );
 const nativeBridge = read('app/js/native-bridge.js');
 check(
-  nativeBridge.includes("{ href: '/friends', label: 'Friends'")
-    && nativeBridge.includes("{ href: '/native', label: 'Debate', primary: true")
+  nativeBridge.includes("{ href: '/native', label: 'Home'")
+    && nativeBridge.includes("{ href: '/friends', label: 'People'")
+    && nativeBridge.includes("{ href: '/watch', label: 'Watch'")
+    && nativeBridge.includes("{ href: '/profile', label: 'You'")
     && read('app/friends.html').includes('<script src="/js/native-bridge.js"></script>')
     && read('app/messages.html').includes('<script src="/js/native-bridge.js"></script>'),
-  'native tabs expose Friends and use the raised Debate control as app home',
+  'native tabs expose Home, People, Watch and You with social pages connected',
 );
 check(
   topbar.includes("{ href: '/challenges',  label: 'Claims & challenges', big: true }")
