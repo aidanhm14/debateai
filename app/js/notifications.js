@@ -988,6 +988,12 @@
     // Already mounted somewhere? (defensive — placeBell is called once.)
     if (bell.isConnected) return;
     function attempt() {
+      // Bespoke headers reserve space for the bell beside their own controls.
+      var slot = document.querySelector('[data-da-bell-slot]');
+      if (slot) {
+        slot.appendChild(bell);
+        return true;
+      }
       // .app-topbar-right is the main /app (index.html) React topbar;
       // without it the bell + Available pill had no anchor there and the
       // bell fell back to floating.
