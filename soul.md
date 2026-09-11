@@ -82,6 +82,14 @@ mute, browser autoplay rules, other playing audio, and open dialogs take
 priority. Reduced motion keeps the line still and suppresses the automatic
 invitation. Failed or stale activity reads never qualify as an empty site.
 
+**Homepage depth (2026-09-10, Aidan):** Keep the actual left-hand round
+screen, its three doors, and the transparent Discord highlights on the right.
+The approved light and dark treatments lift the screen and buttons diagonally
+up-right, with rounded bevels and soft down-left shadows. Do not darken the
+shadows to create depth or replace the existing particle background. Desktop
+gets a small screen float and button press feedback; reduced motion keeps
+the static depth, and the separate mobile home keeps its layout.
+
 ## Daily live hours (2026-09-08)
 
 Aidan chose three separate daily sessions: **9 PM New York, 9 PM Berlin,
