@@ -18,7 +18,7 @@
   var reduced = matchMedia('(prefers-reduced-motion: reduce)');
   var SEEN = 'da-ai-alone-invited-v1';
   var seen = false, eligibleUntil = 0, lastSpoke = 0, busy = false, checking = false;
-  var active = null, attemptId = 0, hoverTimer = 0, captionTimer = 0, raf = 0, previousFrame = 0, energy = 0;
+  var active = null, pending = null, attemptId = 0, hoverTimer = 0, raf = 0, previousFrame = 0, energy = 0;
   var arrived = Date.now(), audioContext, analyser, samples;
   var audio = new Audio();
   audio.preload = 'none'; audio.volume = 0.65;
@@ -42,9 +42,9 @@
   function markSeen() { seen = true; try { sessionStorage.setItem(SEEN, '1'); } catch (_) {} }
   function stop() {
     attemptId++;
-    audio.pause(); busy = false; active = null;
+    audio.pause(); busy = false; active = null; pending = null;
     links.forEach(function (link) { link.classList.remove('is-ai-speaking'); });
-    caption.hidden = true; clearTimeout(captionTimer);
+    caption.hidden = true;
   }
   dismiss.addEventListener('click', function () { markSeen(); stop(); });
   function connectAudio() {
@@ -58,7 +58,7 @@
   async function speak(kind, link) {
     if (busy || blocked() || !visible(link) || Date.now() - lastSpoke < 15000) return;
     if (kind === 'alone' && (seen || Date.now() > eligibleUntil)) return;
-    busy = true; active = kind;
+    busy = true; active = kind; pending = null;
     var attempt = ++attemptId;
     audio.src = '/audio/ai-invite/' + kind + '.mp3';
     try {
@@ -73,25 +73,34 @@
       lastSpoke = Date.now();
       if (kind === 'alone') markSeen();
       link.classList.add('is-ai-speaking');
+      animate();
       words.textContent = kind === 'alone' ? 'Wanna debate me? Press Debate the AI, and get a ranking.' : 'Hey, wanna debate me?';
       caption.hidden = false;
-    } catch (_) { if (attempt === attemptId) stop(); }
+    } catch (error) {
+      if (attempt !== attemptId) return;
+      stop();
+      // Fresh browsers can reject sound before a click, regardless of
+      // sign-in. Retry only on a trusted interaction, never fake playback.
+      if (error && error.name === 'NotAllowedError') pending = { kind: kind, link: link };
+    }
   }
-  audio.addEventListener('ended', function () {
-    busy = false; active = null; links.forEach(function (link) { link.classList.remove('is-ai-speaking'); });
-    captionTimer = setTimeout(function () { caption.hidden = true; }, 1800);
-  });
+  audio.addEventListener('ended', stop);
+  audio.addEventListener('pause', function () { if (busy) stop(); });
   audio.addEventListener('error', stop);
   audio.addEventListener('timeupdate', function () { if (busy && blocked()) stop(); });
   links.forEach(function (link) {
     link.addEventListener('pointerenter', function (e) {
       if (e.pointerType === 'touch') return;
+      animate();
       clearTimeout(hoverTimer);
       hoverTimer = setTimeout(function () { speak('hover', link); }, 220);
     });
-    link.addEventListener('pointerleave', function () { clearTimeout(hoverTimer); if (active === 'hover') stop(); });
+    link.addEventListener('pointerleave', function () {
+      clearTimeout(hoverTimer);
+      if (active === 'hover' || (pending && pending.kind === 'hover')) stop();
+    });
     link.addEventListener('focus', function () { if (link.matches(':focus-visible')) speak('hover', link); });
-    link.addEventListener('blur', function () { if (active === 'hover') stop(); });
+    link.addEventListener('blur', function () { if (active === 'hover' || (pending && pending.kind === 'hover')) stop(); });
     link.addEventListener('click', stop);
   });
 
@@ -102,7 +111,9 @@
   function draw(now) {
     raf = 0;
     if (document.hidden) return;
-    var shown = canvases.filter(function (item) { return item.onScreen; });
+    var shown = canvases.filter(function (item) {
+      return item.onScreen && (item.link.matches(':hover') || item.link.classList.contains('is-ai-speaking'));
+    });
     if (!shown.length) return;
     if (!reduced.matches) raf = requestAnimationFrame(draw);
     if (!reduced.matches && now - previousFrame < 33) return;
@@ -172,7 +183,10 @@
   function interaction(e) {
     if (!e.isTrusted) return;
     try { connectAudio(); if (audioContext) audioContext.resume().catch(function () {}); } catch (_) {}
-    if (!e.target.closest('a,button,input,select,textarea,[contenteditable]')) maybeInvite();
+    if (e.target.closest('a,input,select,textarea,[contenteditable]')) return;
+    if (pending && pending.kind === 'hover' && pending.link.matches(':hover,:focus-visible')) {
+      speak('hover', pending.link);
+    } else maybeInvite();
   }
   document.addEventListener('pointerup', interaction);
   document.addEventListener('keydown', interaction);

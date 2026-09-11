@@ -72,7 +72,10 @@ preview stays on its existing Realtime transport and server hangup policy.
 The post-round judge and rating rules are unchanged.
 
 **AI door invitations (2026-09-10, Aidan):** The homepage's AI button has
-a moving voice waveform and says "Hey, wanna debate me?" on hover. When
+a voice waveform on hover or during playback and says "Hey, wanna debate me?"
+on hover. The waveform and subtitle stay hidden while idle, and the subtitle
+clears when playback ends. The clips are public for signed-out visitors too;
+a fresh browser that blocks autoplay can retry after a trusted click. When
 fresh public activity reads show the visitor is alone, with no other
 waiting person, live round, or site stream, it says "Wanna debate me?
 Press Debate the AI, and get a ranking." once per tab session, after eight
@@ -81,6 +84,11 @@ browsing does not open a microphone or a per-visitor model session. Sound
 mute, browser autoplay rules, other playing audio, and open dialogs take
 priority. Reduced motion keeps the line still and suppresses the automatic
 invitation. Failed or stale activity reads never qualify as an empty site.
+
+**Homepage actions (2026-09-10, Aidan):** The desktop row below Meet
+someone now shows Watch, a green Bet button, then Debate the AI. Bet opens
+`/bet`. The experimental raised screen and button styling was reverted
+at Aidan's request; preserve the prior surface and transparent chat rail.
 
 ## Daily live hours (2026-09-08)
 

@@ -56,7 +56,7 @@ test.describe('public pages', () => {
     expect(errors, 'uncaught exceptions on the landing').toEqual([]);
   });
 
-  test('landing keeps all three doors visible for a returning claim-arm visitor', async ({ page }) => {
+  test('landing keeps all four doors visible for a returning claim-arm visitor', async ({ page }) => {
     const errors = trackErrors(page);
     await page.addInitScript(() => localStorage.setItem('da-fsclaim-ab', 'claim'));
     await page.goto('/?fsclaim=claim');
@@ -65,6 +65,7 @@ test.describe('public pages', () => {
     for (const [selector, href] of [
       ['.fs-cta--primary', '/spar'],
       ['.fs-cta--watch', '/watch'],
+      ['.fs-cta--bet', '/bet'],
       ['.fs-cta--ai', '/newvoice?handoff=landing-quick-ai'],
     ]) {
       const cta = actions.locator(selector);
