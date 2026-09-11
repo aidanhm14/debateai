@@ -1,5 +1,10 @@
 # soul.md. Debatable · itsdebatable.com
 
+> **HOMEPAGE PANEL ALWAYS HAS CONTENT (Aidan, 2026-09-11).** The example
+> board's right panel shows a judge status, a completed decision, or an
+> invitation for an unplayed round. Never leave it blank on challenge cards
+> or depend on an animation starting to make its content visible.
+
 > **HIGHLIGHTS FONT (Aidan, 2026-09-10).** The first-screen community
 > highlights use Arial, with Helvetica and sans-serif fallbacks. Messages,
 > handles, source labels, the Discord button and the join link inherit this

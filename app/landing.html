@@ -8208,7 +8208,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fscreen .fs-board .fs-ballot-top{margin-bottom:0}
   .fscreen .fs-board.is-chal .fs-chal{display:none}
   .fscreen .fs-board.is-chal .fs-ballot{display:block}
-  .fscreen .fs-board.is-chal .fs-ballot-wait{visibility:hidden}
+  .fscreen .fs-board.is-chal .fs-ballot-wait .fs-wait-dot{display:none}
   /* Small label over the decision so the card names its own author: the
      AI judge. */
   .fs-ballot-k{display:block;margin-bottom:5px;font-size:.58rem;font-weight:800;letter-spacing:.13em;
@@ -8218,14 +8218,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-board .fs-ballot-wait{display:flex;align-items:center;gap:4px;font-size:.66rem;font-weight:800;
     letter-spacing:.1em;text-transform:uppercase;color:rgba(245,239,231,.68)}
   [data-theme="light"] .fs-board .fs-ballot-wait{color:rgba(26,26,31,.64)}
-  .fs-board .fs-ballot-wait span{width:4px;height:4px;border-radius:50%;background:currentColor;animation:fsDot 1.3s infinite}
+  .fs-board .fs-ballot-wait .fs-wait-dot{width:4px;height:4px;border-radius:50%;background:currentColor;animation:fsDot 1.3s infinite}
   .fs-board .fs-ballot-wait .d2{animation-delay:.18s}
   .fs-board .fs-ballot-wait .d3{animation-delay:.36s}
   @keyframes fsDot{0%,60%,100%{opacity:.3}30%{opacity:1}}
   .fs-ballot.is-in .fs-ballot-wait{display:none}
   .fs-ballot-card{display:none}
   .fs-ballot.is-in .fs-ballot-card{display:block;animation:fsRise .34s ease both}
-  @keyframes fsRise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  /* A paused entrance must never hide the decision after the waiting line clears. */
+  @keyframes fsRise{from{transform:translateY(6px)}to{transform:none}}
   .fs-ballot-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:5px}
   .fs-board .fs-ballot-top b{font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:#4ade80}
   [data-theme="light"] .fs-board .fs-ballot-top b{color:#16a34a}
@@ -9249,7 +9250,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            word "ballot" stays out of the visible copy on his call; this
            is the AI judge's decision, said in those words. -->
       <div class="fs-ballot" id="fsBallot">
-        <div class="fs-ballot-wait" id="fsWait"><span class="fs-wait-label">AI judge</span><b class="fs-wait-copy">The judge is deciding</b> <span class="d1"></span><span class="d2"></span><span class="d3"></span></div>
+        <div class="fs-ballot-wait" id="fsWait"><span class="fs-wait-label" id="fsWaitLabel">AI judge</span><b class="fs-wait-copy" id="fsWaitCopy">The judge is deciding</b> <span class="fs-wait-dot d1"></span><span class="fs-wait-dot d2"></span><span class="fs-wait-dot d3"></span></div>
         <div class="fs-ballot-card fs-fade" id="fsBallotCard">
           <span class="fs-ballot-k" id="fsBallotK">AI judge&rsquo;s decision</span>
           <div class="fs-ballot-top">
@@ -12032,7 +12033,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   var el = {};
   ['fsMotion','fsTitle','fsFaceA','fsFaceB','fsNameA','fsNameB','fsSideA','fsSideB',
    'fsNameAmini','fsNameBmini','fsPctA','fsPctB','fsFill','fsMark','fsLine','fsDot','fsClock',
-   'fsOddsLive','fsBallot','fsBallotK','fsWinner','fsScore','fsCard','fsBallotCard',
+   'fsOddsLive','fsBallot','fsBallotK','fsWinner','fsScore','fsCard','fsBallotCard','fsWaitLabel','fsWaitCopy',
    'fsViewers','fsVolume','fsChance','fsChanceNm',
    'fsArea','fsMid','fsVol','fsFlag','fsAxHi','fsAxLo','fsDelta','fsOpenFig','fsYouAvatar',
    'fsChalLine','fsChalAlt','fsChalNote']
@@ -12458,6 +12459,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     var isChal = r.kind === 'challenge';
     var isMatched = isChal && !!r.matched;
     var isYou = isMatched && r.openTopic && !r.title;
+    el.fsWaitLabel.textContent = isChal ? (isMatched ? 'Your round' : 'Open challenge') : 'AI judge';
+    el.fsWaitCopy.textContent = isChal
+      ? (isMatched ? 'Pick a topic. Take a side.' : 'Win rounds. Earn your shot.')
+      : 'The judge is deciding';
     board.classList.toggle('is-chal', isChal);
     board.classList.toggle('is-matched', isMatched);
     board.classList.toggle('is-you', !!isYou);
