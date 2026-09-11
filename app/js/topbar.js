@@ -963,7 +963,7 @@
       // upgrade-cta pill; the topbar doesn't need to also pin it.
     ]);
 
-    if (!onLanding) {
+    if (/^\/debate-online(\.html)?$/.test(here)) {
       left.appendChild(el('a', {
         href: '/', class: 'ui-home-cue', 'aria-label': 'Go to the Debatable homepage',
         html: '<span class="ui-home-cue-label">Go home</span><span class="ui-home-cue-arrow" aria-hidden="true"><svg viewBox="0 0 144 64" width="144" height="64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M130 10C148 46 98 65 76 44C58 27 77 14 88 28C106 52 48 65 12 13M13 29L12 13L29 16"/></svg></span>'
