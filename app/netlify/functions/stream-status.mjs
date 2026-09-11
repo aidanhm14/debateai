@@ -64,6 +64,7 @@ export default async (req) => {
     }
   } catch (e) {
     console.warn('[stream-status] read failed:', e.message);
+    out.error = 'unavailable';
   }
   return new Response(JSON.stringify(out), {
     status: 200,

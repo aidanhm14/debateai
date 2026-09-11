@@ -71,6 +71,17 @@ continues the same round through a new session. The bounded signed-out
 preview stays on its existing Realtime transport and server hangup policy.
 The post-round judge and rating rules are unchanged.
 
+**AI door invitations (2026-09-10, Aidan):** The homepage's AI button has
+a moving voice waveform and says "Hey, wanna debate me?" on hover. When
+fresh public activity reads show the visitor is alone, with no other
+waiting person, live round, or site stream, it says "Wanna debate me?
+Press Debate the AI, and get a ranking." once per tab session, after eight
+seconds. Both fixed clips were recorded with GPT-Live 1's Marin voice;
+browsing does not open a microphone or a per-visitor model session. Sound
+mute, browser autoplay rules, other playing audio, and open dialogs take
+priority. Reduced motion keeps the line still and suppresses the automatic
+invitation. Failed or stale activity reads never qualify as an empty site.
+
 ## Daily live hours (2026-09-08)
 
 Aidan chose three separate daily sessions: **9 PM New York, 9 PM Berlin,
