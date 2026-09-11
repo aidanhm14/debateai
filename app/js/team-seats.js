@@ -22,13 +22,8 @@
       if(!current){host.hidden=true;return;}
       var u=user(), uid=u&&u.uid, isHost=current.hostUid===uid;
       var mine=current.seats.find(function(s){return s.uid===uid;});
-      host.replaceChildren();host.hidden=!current.enabled&&!current.canEnable;
+      host.replaceChildren();host.hidden=!current.enabled;
       if(host.hidden)return;
-      if(!current.enabled){
-        host.appendChild(button('Open 2v2 team seats','enable'));
-        host.appendChild(line('Invite two viewers to join, one on each side. You approve their requests.','team-seat-hint'));
-        return;
-      }
       var heading=document.createElement('strong');heading.textContent='2v2 · Two people per side';host.appendChild(heading);
       var grid=document.createElement('div');grid.className='team-seat-grid';
       ['pro','con'].forEach(function(side){

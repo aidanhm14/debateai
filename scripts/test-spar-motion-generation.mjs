@@ -4,7 +4,7 @@ import {
 } from '../app/netlify/functions/lib/spar-motion-generation.mjs';
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const fallback = 'Wealth taxes are necessary to prevent oligarchy.';
+const fallback = 'The US should tax wealth to stop billionaires controlling politics.';
 const answer = {
   motion: 'Governments should give every adult a tax-free savings allowance.',
   for: 'A protected savings floor helps people build security without relying on benefits.',

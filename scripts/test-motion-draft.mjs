@@ -234,7 +234,8 @@ function assertSideInvariant(d, label) {
     for (let i = 0; i < 12; i++) seen.add(autoResolve(sideBeat).side);
     eq(seen.size, 1, 'the timeout side is derived, never rolled');
   }
-  eq(r1.table.find((m) => m.id === r1.motionId).text, 'Geoengineering is inevitable.',
+  // The September 11 pool refresh changes this seed's selected topic, not its side.
+  eq(r1.table.find((m) => m.id === r1.motionId).text, 'Competition between the US and China is about power, not values.',
      'the seeded motion for this fixture is stable across runs');
   eq(r1.phase, 'done', 'an expired draft still finishes');
   ok(r1.autoOffer && r1.autoResponse && r1.autoSide, 'the board can say a clock made each call');

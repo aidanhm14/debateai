@@ -81,6 +81,10 @@ Invent a concrete claim that exposes that disagreement without claiming either
 person supports it. Give each side a plausible, distinct reason to argue it.
 Return only JSON with exactly three string fields: motion, for, against.
 Motion: one declarative sentence, 12 to 200 characters, understandable on a phone.
+Use everyday words, ideally under 18 words. Avoid academic terms such as oligarchy,
+meritocracy and redistribution. Never say "your country" or "in your country".
+Use the US for a policy example unless the supplied issue names another country;
+this names the example, never either person’s nationality.
 For and against: one plausible short argument each, 12 to 240 characters each.
 Name a concrete actor, policy or tradeoff. Avoid a broad topic, a question, a
 bundle of unrelated claims, loaded labels, invented facts, statistics or names.

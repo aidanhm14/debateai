@@ -4155,9 +4155,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
                 <span class="rc-name" id="rosterOppName">—</span>
               </div>
               <span class="rc-side" id="rosterOppSide">—</span>
+              <div class="rc-actions">
               <button type="button" class="rc-dm" id="rosterOppDm" hidden title="Message your opponent">✉ Message</button>
               <button type="button" class="rc-safety" id="rosterOppReport" hidden title="Report or block your opponent">Report</button>
               <button type="button" class="rc-safety" id="rosterOppAiReport" hidden title="Report suspected AI use. The transcript gets screened and a human reviews; a report never decides the round.">🤖 AI?</button>
+              </div>
             </div>
           </div>
           <!-- 4-team roster (BP / Worlds): populated by renderRoster; shown
@@ -4190,8 +4192,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       <section class="round-bet" id="roundBet" aria-labelledby="rb-title" hidden>
         <div class="rb-head"><div><p class="rb-eyebrow">BET · FREE PLAY TOKENS</p><h3 id="rb-title">Bet on this round.</h3></div><span id="rb-balance" class="rb-balance" hidden></span></div>
         <p id="rb-caption" class="rb-caption">Choose a side and a token amount.</p>
-        <div id="rb-market" hidden>
           <div class="rb-plot"><div class="pool-legend"><span>Pro</span><span>Con</span></div><div class="pool-chart" id="rb-chart"></div><p class="pool-chart-note">Share of play tokens. Not a win probability.</p></div>
+        <div id="rb-market" hidden>
           <div class="rb-choices" role="group" aria-label="Who will win?">
             <button class="rb-choice" id="rb-pick-pro" type="button" aria-pressed="false"><span class="rb-role">PRO</span><b id="rb-name-pro">Pro</b><span id="rb-pool-pro"></span></button>
             <button class="rb-choice" id="rb-pick-con" type="button" aria-pressed="false"><span class="rb-role">CON</span><b id="rb-name-con">Con</b><span id="rb-pool-con"></span></button>
@@ -4199,6 +4201,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           <form id="rb-form" hidden><label class="rb-stake-label" for="rb-stake">Play tokens to bet</label><div class="rb-stake-row"><input id="rb-stake" type="number" inputmode="numeric" min="1" max="5000" step="1" value="50" required><button id="rb-submit" class="rb-submit" type="submit" disabled>Choose a side</button></div></form>
           <div class="rb-age" id="rb-age" hidden><p>Play-token betting is for people 18 or older in eligible regions.</p><label><input id="rb-age-check" type="checkbox"> I am 18 or older.</label><button class="rb-submit" id="rb-age-confirm" type="button">Confirm and place bet</button><button class="rb-cancel" id="rb-age-cancel" type="button">Cancel</button></div>
         </div>
+        <button class="rb-submit" id="rb-start" type="button" hidden>Start conversation to bet</button>
         <p class="rb-status" id="rb-status" role="status">Finding this round's pool…</p>
         <div class="rb-footer"><a class="round-bet-guide" href="/bet" target="_blank" rel="noopener">How betting works ↗</a><span>18+ · No cash value</span></div>
       </section>
@@ -13640,10 +13643,13 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if(state.room) href+='?room='+encodeURIComponent(state.room)+'&return='+encodeURIComponent(location.pathname+location.search);
     document.querySelectorAll('.viewer-bet-link,.round-bet-guide').forEach(function(a){a.href=href;});
     var d=state.lastRoundDoc;
-    if(window.DBRoundBet)window.DBRoundBet.update({room:state.room,viewer:isSpectator(),demo:!!window.__lrDesign,enabled:!!(window.__lrDesign&&window.__lrDesign!=='setup')||!!(state.room&&d&&!d.isPrivate&&d.teamSize!==2&&!d.proUid2&&!d.conUid2&&!d.tournamentId&&!d.tournamentRound)});
+    if(window.DBRoundBet)window.DBRoundBet.update({room:state.room,viewer:isSpectator(),started:!!(d&&(Number(d.speechIdx)>0||(d.currentTimer&&d.currentTimer.state!=='ready'))),canStart:!!(d&&d.status==='round'&&!isSpectator()&&!Number(d.speechIdx)&&(!d.currentTimer||d.currentTimer.state==='ready')&&(!d.draft||d.draft.phase==='done')),demo:!!window.__lrDesign,enabled:!!(window.__lrDesign&&window.__lrDesign!=='setup')||!!(state.room&&d&&!d.isPrivate&&d.teamSize!==2&&!d.proUid2&&!d.conUid2&&!d.tournamentId&&!d.tournamentRound)});
   }
   var playBetBusy=false, playBetOpened=false, playBetLocked=false, playBetSettled=false;
   document.addEventListener('round-bet-ready',updateBetLinks);
+  document.addEventListener('round-bet-start',function(){
+    if(modeDoorsVisible())startInMode('open');
+  });
   function syncPlayBet(){
     updateBetLinks();
     var d=state.lastRoundDoc,u=state.user;
@@ -24933,12 +24939,14 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
 
 <style id="round-clarity">
 #panel:has(#ballotView:not(.hidden))>#roundGuide{display:none}
-.judge-overview{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:0 16px;scroll-margin-top:calc(12px + var(--safe-top,env(safe-area-inset-top,0px)));margin:14px 22px 0;padding:10px 14px;border:1px solid rgba(217,201,138,.4);border-radius:14px;background:rgba(217,201,138,.06);transition:opacity .3s ease}
+.judge-overview{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:0 12px;scroll-margin-top:calc(12px + var(--safe-top,env(safe-area-inset-top,0px)));margin:8px 22px 0;padding:4px 12px;border:1px solid rgba(217,201,138,.4);border-radius:14px;background:rgba(217,201,138,.06);transition:opacity .3s ease}
 .judge-overview[hidden],.setup-judge-block[hidden]{display:none}
 .judge-overview.is-dismissed{opacity:0;pointer-events:none}
 .judge-overview #roomStage{display:flex;padding:0;container-type:normal}
 .judge-overview .rail-judge{width:100%;justify-content:flex-start;padding:0;border:0;background:none;box-shadow:none}
-.judge-overview .rail-judge .rj-meta{display:flex;gap:4px}
+.judge-overview .rail-judge .rj-meta{display:flex;gap:0;line-height:1.2}
+.judge-overview .rail-judge{min-height:0}
+.judge-overview .rail-judge .rj-status{display:none}
 .judge-overview .rj-label{font-size:1.35rem;letter-spacing:0;text-transform:none}
 .judge-overview .rj-purpose{font-size:.82rem;line-height:1.35;color:var(--text);text-wrap:pretty}
 [data-theme="light"] .judge-overview .rj-label{color:#76520a}
@@ -24947,9 +24955,18 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
 .judge-overview #judgeAdjudicates>summary{min-height:44px;justify-content:flex-end;padding:4px 0;font-size:.74rem}
 .judge-overview .judge-how-body{padding:0 14px 12px}
 @media(max-width:500px){
-  .judge-overview{grid-template-columns:1fr}
-  .judge-overview #judgeAdjudicates>summary{justify-content:flex-start}
+  .judge-overview .rj-label{font-size:1.12rem}
+  .judge-overview .rj-purpose{font-size:.7rem}
+  .judge-overview #judgeAdjudicates>summary{max-width:100px;text-align:right;line-height:1.3}
 }
+.round-roster .roster-card{display:grid;grid-template-columns:8px 34px minmax(0,1fr) auto;align-content:center;gap:10px}
+.round-roster .roster-card .rc-meta{grid-column:3}
+.round-roster .roster-card .rc-side{grid-column:4;justify-self:end}
+.round-roster .roster-card .rc-name{white-space:normal;overflow-wrap:anywhere}
+.round-roster .rc-actions{grid-column:2/-1;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.round-roster .rc-actions:not(:has(button:not([hidden]))){display:none}
+.round-roster .rc-actions .rc-dm{margin:0}
+@media(max-width:1100px){.round-roster{flex-direction:column}}
 #ballotNotesHost .rn-export{display:none}
 #ballotLoading{padding:24px 18px;min-height:0;text-align:center}
 #ballotLoading .spinner{width:32px;height:32px;margin:0 auto 12px}
@@ -24976,7 +24993,7 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
   #jitsiPane .cv-tray{padding:6px 8px;gap:6px}
   #jitsiPane .cv-tray .cv-btn{min-height:44px;padding:8px 12px;font-size:13px;letter-spacing:0}
   .split #panel{padding-right:0}
-  .judge-overview{margin:12px 14px 0;gap:0 10px;padding:10px 12px}
+  .judge-overview{margin:6px 14px 0;gap:0 8px;padding:3px 10px}
   .judge-overview #roomStage{padding:0}
   .judge-overview .rail-judge{gap:12px}
   .judge-overview .rail-judge .rj-avatar{width:34px;height:34px}

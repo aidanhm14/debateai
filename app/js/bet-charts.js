@@ -8,7 +8,12 @@
     host._betChartWidth=Math.round(host.clientWidth);
     if(window.ResizeObserver&&!host._betChartResize){host._betChartResize=new ResizeObserver(function(entries){var width=Math.round(entries[0].contentRect.width);if(width>0&&width!==host._betChartWidth)poolChart(host,host._betChartMarket,host._betChartOptions);});host._betChartResize.observe(host);}
     var total=Number(market.poolPro)+Number(market.poolCon);
-    if(!total){var empty=document.createElement('p');empty.className='pool-chart-empty';empty.textContent='The graph starts with the first bet.';host.appendChild(empty);return;}
+    if(!total){
+      var width=Math.max(260,host._betChartWidth||600),empty=svgNode('svg',{viewBox:'0 0 '+width+' 180',role:'img','aria-label':'Play-token pool graph. No bets yet.'});
+      [0,50,100].forEach(function(v){var y=140-v;empty.append(svgNode('line',{x1:46,y1:y,x2:width-16,y2:y,class:'pool-grid'}),svgNode('text',{x:0,y:y+4,class:'pool-axis'},v+'%'));});
+      empty.appendChild(svgNode('text',{x:(width+30)/2,y:170,'text-anchor':'middle',class:'pool-axis'},'The graph starts with the first bet.'));
+      host.appendChild(empty);return;
+    }
     var history=(market.priceHistory||[]).filter(function(p){return Number.isFinite(p.at)&&Number.isFinite(p.proPct);}).slice(-60);
     var latest=Math.round(Number(market.poolPro)/total*100);
     if(!history.length)history=[{at:1,proPct:latest}];

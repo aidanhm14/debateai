@@ -13,6 +13,15 @@
     $('stake').disabled=busy;
     if(market&&market.status==='open'&&!myBet&&market.lockAt<=Date.now()){$('form').hidden=true;$('status').textContent='Betting is closed. The judge will make the call.';}
   }
+  function waiting(){
+    $('start').hidden=!config.canStart||!!market;
+    if(window.DBBetCharts)window.DBBetCharts.pool($('chart'),{poolPro:0,poolCon:0,priceHistory:[]});
+    $('caption').textContent=config.viewer?'Back either side once the round starts.':'Back your own side with free play tokens.';
+    $('status').textContent=config.started?'Opening this round’s betting pool…':config.canStart?'Start the conversation, then choose your token amount.':config.viewer?'Betting opens when the speakers start.':'Settle the topic and start the conversation to open betting.';
+  }
+  $('start').addEventListener('click',function(){
+    if(config.canStart)document.dispatchEvent(new Event('round-bet-start'));
+  });
   function refresh(force){
     if(!config.enabled||config.demo||!config.room||busy||(!force&&Date.now()-lastRead<5000))return Promise.resolve();
     lastRead=Date.now();var request=++version,room=config.room;
@@ -22,7 +31,8 @@
       $('balance').hidden=d.balance==null;$('balance').textContent=d.balance==null?'':Number(d.balance).toLocaleString()+' tokens';
       $('title').textContent=ownSide?'Bet on yourself.':'Bet on this round.';
       $('market').hidden=!market;
-      if(!market){$('status').textContent='Betting opens when this public one-on-one round starts.';return;}
+      if(!market){waiting();return;}
+      $('start').hidden=true;
       if(ownSide)pick=ownSide;if(myBet)pick=myBet.pick;
       $('caption').textContent=ownSide?'You can only bet on your own side.':'Back either side with free play tokens.';
       var total=market.poolPro+market.poolCon;
@@ -61,7 +71,8 @@
     if(changed){++version;market=null;myBet=null;ownSide=null;pick=null;lastRead=0;$('market').hidden=true;$('age').hidden=true;$('age-check').checked=false;$('balance').hidden=true;}
     if(!config.enabled)return;
     $('title').textContent=ownSide||!config.viewer?'Bet on yourself.':'Bet on this round.';
-    if(config.demo){$('status').textContent='Betting opens when a public one-on-one round starts.';return;}
+    if(!market)waiting();
+    if(config.demo)return;
     if(!authBound){try{firebase.auth().onAuthStateChanged(function(){market=null;myBet=null;ownSide=null;pick=null;refresh(true);});authBound=true;}catch(e){}}
     refresh(false);
   }};

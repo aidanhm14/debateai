@@ -106,11 +106,9 @@ at Aidan's request; preserve the prior surface and transparent chat rail.
 an icon-only Friends button and a gear icon for Settings. Keep accessible
 names and the existing destinations. The explanation link reads "How it works."
 
-**Wordmark colors (updated 2026-09-11, Aidan):** The homepage uses solid
-red letters in both light and dark modes, with no white fill or outline.
-Other pages retain white "Debat" and red "able", with a fine red outline
-on the white letters. The homepage exception supersedes the September 10
-decision to use white and red everywhere.
+**Wordmark colors (updated 2026-09-11, Aidan):** Every public Debatable
+wordmark uses solid red letters in both light and dark modes, including mobile.
+No white fill or outline. This supersedes the earlier homepage-only exception.
 
 **Compact room judge (2026-09-11, Aidan):** The room's judge introduction
 uses a larger "AI judge" label, "Decides the winner." and "Read how it
@@ -119,12 +117,31 @@ row is gone. After one minute of speech time, the introduction fades out
 and releases its space; setup and pauses do not count. It returns with
 the decision or a fresh setup.
 
-**Betting paths (2026-09-11, Aidan):** Keep the opening split visible
-and require a choice between Bet on yourself and Bet on others. Show
-only the chosen guide, followed by the shared pool explanation and
-rankings, with a way to choose the other path. Scrolling alone does not
-reveal both guides. A direct link from a round retains its bet slip and
-uses the server-reported membership to choose the appropriate guide.
+**Betting paths (2026-09-11, Aidan):** The opening cards stay on the same
+page. On desktop, scrolling expands the side under the mouse and reveals its
+guide inside that card. Moving to the other side changes the focus smoothly.
+Touch and keyboard users select either card. The graph, pool explanation and
+rankings continue below. The round panel shows the pool graph even before the
+first bet and offers Start conversation to bet. Bets open only after the
+conversation starts, as Aidan explicitly confirmed. Existing account, age,
+region, own-side, one-bet and closing-time rules still apply.
+
+**Everyday topics (2026-09-11, Aidan):** The homepage leads with arguments
+people can understand immediately: going through a partner's phone, dating a
+friend's ex, sharing locations, splitting bills and tipping, mixed with clear
+political choices. Use named US policies instead of "in your country". New
+casual suggestions use everyday words, ideally under 18 words; explain the
+choice in the claim instead of requiring knowledge of academic terminology.
+The casual draft pool and AI subject picker follow the same rule. Existing
+agreed topics and historical rounds are not rewritten. This supersedes the
+older rule excluding relationship topics from the homepage's leading cards.
+
+**Compact round details (2026-09-11, Aidan):** Hide the option to open new
+2v2 team seats for now. Preserve existing team rounds. The matching transition
+has one loading ring around the opponent's profile image. The judge introduction
+uses a short horizontal panel. Opponent actions sit below the name and side
+so Message cannot squeeze the name to a few characters. Watch places Bet
+immediately to the left of its red Join button.
 
 ## Daily live hours (2026-09-08)
 

@@ -130,6 +130,7 @@ export function scopingBlock() {
     '- Ask ONE short question at a time, two or three exchanges at most. If they name a subject ("phones in school", ' +
     '"billionaires", "my roommate never cleans"), propose a specific claim in one sentence and ask if that is the one.\n' +
     '- If they are already sure, do not slow them down: say the sentence back and move on.\n' +
+    '- Use everyday words, ideally under 18 words. Never say your country. Name the US for a policy example unless they specify somewhere else; do not infer nationality.\n' +
     '- Keep to the content boundary above exactly as you would mid-round: offer a nearby safer claim instead.\n' +
     '- Ask which side THEY want. If they do not care, give them the harder side and say so.\n' +
     '- The moment they agree to a claim and a side, call set_claim with the sentence and their side, and say ' +

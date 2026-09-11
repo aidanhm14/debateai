@@ -1,5 +1,13 @@
 # AGENTS.md
 
+## September 11 copy and layout updates
+
+- All public Debatable wordmarks are solid red, including mobile. No white fill or outline.
+- Homepage topics lead with everyday disagreements; name the US in policy claims, never "your country". Keep casual suggestions in plain words. Update example verdicts with any changed topic and regenerate draft-motions from practice.html.
+- The betting guide expands left or right during scroll on the same page; mouse position selects the side. Keep touch and keyboard choices. In-round betting starts only after the conversation starts, with a clear start button in its panel and the graph visible before the first bet.
+- The option to open new 2v2 seats is hidden for now. Preserve already-open team rounds.
+
+
 **Casual 2v2 restored (2026-09-10, Aidan).** A host may open two extra
 team seats before a human round starts. Signed-in viewers request an open
 seat and the host approves each request through `/api/team-seats`. A team
