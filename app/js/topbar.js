@@ -931,26 +931,17 @@
       ? LINKS.filter(function(L){ return L.href !== '/room-judge'; })
       : LINKS;
 
-    // ── Wordmark: "Debatable" in accent red ────────────────────────────
-    // 2026-07-22, per the founder: the red-vs-black A/B (2026-07-19, weighted
-    // 90/10 to red) is CLOSED and red is the wordmark, everywhere, for
-    // everyone. The bucketing, the sticky localStorage assignment and the
-    // ab_exposure ping are all gone. Stale 'debateos-ab:wordmark_color'
-    // keys in returning visitors' localStorage are simply never read
-    // again, so nobody keeps a black wordmark from an old assignment.
-    // The word sits in the existing accent span (.ui-topbar-logo span =
-    // var(--accent)); the sr-only line still teaches crawlers and AT the
-    // also-known-as names.
+    // Keep the same white/red wordmark in every theme and on every page.
     var left = el('div', { class: 'ui-topbar-left' }, [
       el('a', {
         href: '/',
-        class: 'ui-topbar-logo wm-red notranslate',
+        class: 'ui-topbar-logo notranslate',
         // The brand is a name, not a word: Google Translate would otherwise
         // render it "Discutible" on a Spanish page.
         translate: 'no',
         'aria-label': 'Debatable, home',
         title: 'Back to home',
-        html: '<span>Debatable</span>'
+        html: '<span class="db-wordmark notranslate" translate="no" role="img" aria-label="Debatable"><span class="db-wordmark-base">Debat</span><span class="db-wordmark-accent">able</span></span>'
             + '<sup style="font-size:.5em;opacity:.55;margin-left:2px;font-weight:400">&trade;</sup>'
             + '<span class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">'
             + ' Debatable, home at itsdebatable.com.'

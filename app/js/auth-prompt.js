@@ -193,7 +193,7 @@
     back.innerHTML =
       '<div class="dit-authprompt" role="dialog" aria-modal="true" aria-label="Sign in">' +
         '<button type="button" class="ap-x" aria-label="Close">×</button>' +
-        '<div class="ap-eyebrow">Debatable</div>' +
+        '<div class="ap-eyebrow"><span class="db-wordmark notranslate" translate="no" role="img" aria-label="Debatable"><span class="db-wordmark-base">Debat</span><span class="db-wordmark-accent">able</span></span></div>' +
         '<h3>Keep your rounds.</h3>' +
         '<p>Sign in with Google to save your history, ballots, and streak, and pick up right where you left off.</p>' +
         '<button type="button" class="ap-google">' + GOOGLE_G + '<span>Continue with Google</span></button>' +

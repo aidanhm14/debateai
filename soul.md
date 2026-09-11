@@ -10,8 +10,9 @@
 
 > **BRAND: the product name is "Debatable."** Canonical
 > domain is **itsdebatable.com** as of 2026-07-22 (aftermarket purchase
-> Aidan actually owns). Legacy domains 301 to it. Wordmark is two-tone
-> "Debat" + red "able". **Debatable is the only public product name.**
+> Aidan actually owns). Legacy domains 301 to it. Wordmark is white
+> "Debat" + red "able" in every theme, including light mode. White letters
+> have a thin red edge for contrast. Never switch "Debat" to dark ink. **Debatable is the only public product name.**
 > Do not preserve retired names in JSON-LD, accessibility text, social
 > metadata, narration, or CTA copy. Use "Start debating" or "Start a
 > round" for actions. The iOS app ships as "Debatable"; its bundle ID
@@ -98,6 +99,11 @@ at Aidan's request; preserve the prior surface and transparent chat rail.
 **Compact header (2026-09-10, Aidan):** The shared desktop header uses
 an icon-only Friends button and a gear icon for Settings. Keep accessible
 names and the existing destinations. The explanation link reads "How it works."
+
+**Wordmark colors (2026-09-10, Aidan):** Use white "Debat" and red "able"
+on all site wordmarks, in light and dark modes. This supersedes the old
+all-red header decision. The shared wordmark component preserves white
+letter fill with a fine red outline on light backgrounds.
 
 ## Daily live hours (2026-09-08)
 
