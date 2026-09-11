@@ -15,7 +15,7 @@
 //   oneSeated   at least one debater's client wrote a presence beat
 //   bothSeated  every named seat wrote one — both people really arrived
 //   spoke       at least one speech landed in `speeches`
-//   finished    a ballot exists / status == 'ballot'
+//   finished    a decision or completed unresolved panel result exists
 //
 // `seatSeen` is the load-bearing field: a per-uid map stamped by the seat
 // heartbeat in live-round.html, so it is evidence of ARRIVAL, unlike
@@ -34,6 +34,8 @@
 // Cost: one collection scan bounded by MAX_DOCS, behind the shared 5-min
 // admin cache, and the panel is lazy-loaded with its workspace.
 
+import { roundOutcome, hasCapturedSpeech } from './lib/round-funnel.mjs';
+import { getExcludedUids } from './lib/founder-exclude.mjs';
 import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
@@ -76,12 +78,13 @@ function classify(d) {
   const benches = benchesOf(d);
   const seatedBenches = benches.filter((uids) => uids.some((u) => toMs(seen[u]) > 0)).length;
   const speeches = Array.isArray(d.speeches) ? d.speeches.length : 0;
-  const finished = !!d.ballot || d.status === 'ballot' || !!d.completedAt;
+  const outcome = roundOutcome(d);
+  const finished = outcome === 'decided' || outcome === 'unresolved';
   return {
     measurable: benches.length >= 2,
     seatedBenches,
     speeches,
-    finished,
+    finished, outcome, captured: hasCapturedSpeech(d),
   };
 }
 
@@ -90,8 +93,9 @@ function emptyBucket() {
     created: 0,
     oneSeated: 0,
     bothSeated: 0,
-    spoke: 0,
+    spoke: 0, captured: 0,
     finished: 0,
+    decided: 0, unresolved: 0, no_contest: 0, pending: 0, unfinished: 0,
     unmeasurable: 0,
     speechesTotal: 0,
   };
@@ -152,7 +156,7 @@ export default async (request) => {
   const daysRaw = parseInt(url.searchParams.get('days') || '', 10);
   const days = Number.isFinite(daysRaw) ? Math.max(1, Math.min(MAX_DAYS, daysRaw)) : DEFAULT_DAYS;
 
-  const cacheKey = 'roundfunnel:' + days;
+  const cacheKey = 'roundfunnel:v2:' + days;
   const cached = wantsFresh(request) ? null : await getCachedShared(cacheKey);
   if (cached) return jsonResponse(cached, 200, request);
 
@@ -168,22 +172,26 @@ export default async (request) => {
       .limit(MAX_DOCS)
       .get();
 
+    const excluded = await getExcludedUids(db);
+    let excludedCount = 0;
     const before = emptyBucket();
     const after = emptyBucket();
     const recent = [];
 
     snap.docs.forEach((doc) => {
       const d = doc.data() || {};
+      if ([d.proUid, d.conUid, d.proUid2, d.conUid2, d.posterUid].some(u => excluded.has(u))) { excludedCount++; return; }
       const startedMs = toMs(d.roundStartedAt);
       const c = classify(d);
       const b = startedMs >= READY_CHECK_MS ? after : before;
 
       b.created += 1;
       if (!c.measurable) b.unmeasurable += 1;
-      if (c.seatedBenches >= 1) b.oneSeated += 1;
+      if (c.measurable && c.seatedBenches >= 1) b.oneSeated += 1;
       if (c.measurable && c.seatedBenches >= 2) b.bothSeated += 1;
-      if (c.speeches > 0) { b.spoke += 1; b.speechesTotal += c.speeches; }
-      if (c.finished) b.finished += 1;
+      if (c.measurable && c.speeches > 0) { b.spoke += 1; b.speechesTotal += c.speeches; }
+      if (c.measurable && c.captured) b.captured += 1;
+      if (c.measurable) { b[c.outcome] += 1; if (c.finished) b.finished += 1; }
 
       if (recent.length < 25) {
         recent.push({
@@ -193,7 +201,7 @@ export default async (request) => {
           seatedBenches: c.seatedBenches,
           benches: c.measurable ? 2 : benchesOf(d).length,
           speeches: c.speeches,
-          finished: c.finished,
+          finished: c.finished, outcome: c.outcome, captured: c.captured,
         });
       }
     });
@@ -203,7 +211,7 @@ export default async (request) => {
       sinceISO: new Date(sinceMs).toISOString(),
       readyCheckISO: new Date(READY_CHECK_MS).toISOString(),
       sampled: snap.size >= MAX_DOCS,
-      total: snap.size,
+      total: snap.size - excludedCount, excluded: excludedCount, definitionVersion: 2,
       before: summarize(before),
       after: summarize(after),
       recent,

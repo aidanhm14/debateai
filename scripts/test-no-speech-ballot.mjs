@@ -56,7 +56,7 @@ function fn(name) {
 const nodes = {};
 const node = id => nodes[id] ||= { innerHTML: '', classList: { add(){}, remove(){} } };
 let writes = [], fetches = 0;
-const client = { RoundEvidence, state: { log: [], formatKey: 'quick', serverJudgeTried: true, audienceEvals: [], room: 'test' },
+const client = { liveJourney(){}, RoundEvidence, state: { log: [], formatKey: 'quick', serverJudgeTried: true, audienceEvals: [], room: 'test' },
   ballotLoadingHTML: '', firebaseDb: null, $: node, escHtml: s => String(s).replaceAll('<', '&lt;'),
   isSpectator: () => false, clearBallotRecovery(){}, updateRoundGuide(){}, stopBallotWaitCue(){},
   capFinish(){}, endRecordingAfterReactions(){}, renderRecTail(){},

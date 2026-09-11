@@ -50,6 +50,7 @@ const queue = {
 };
 const entry = {
   console, Promise, Date, JSON, Object, Array,
+  DBLiveJourney: { event() {}, watch(ref, options) { return ref.onSnapshot(options.value); } },
   state: { user: { uid: 'me', getIdTokenResult: async () => ({ signInProvider: 'password' }) }, profileReady: false }, matchProfile: null,
   activeMatchProfileRun: null, shell: { innerHTML: '' },
   firebaseDb: { collection: () => ({ doc: () => queue }) },

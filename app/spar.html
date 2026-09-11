@@ -106,6 +106,7 @@
 <link rel="stylesheet" href="/css/arcade.css">
 <link rel="stylesheet" href="/css/arcade-flow.css">
 <script src="/js/arcade-flow.js"></script>
+<script src="/js/live-journey.js"></script>
 
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -4929,62 +4930,69 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     try { if (window.gtag) gtag('event', 'spar_signin_pop_shown', { rounds_left: left, format: formatParam, variant: push ? 'ping' : 'record' }); } catch(e){}
   }
 
+  function setGateAuthBusy(busy){
+    ['signInBtn', 'appleInBtn', 'emailStartBtn'].forEach(function(id){
+      var button = document.getElementById(id);
+      if (button){ button.disabled = busy; button.setAttribute('aria-busy', String(busy)); }
+    });
+  }
   function doGoogleSignIn(){
-    // Native still routes through the required terms agreement before auth.
-    // Web keeps the direct one-tap Google path.
+    if (state.signInPending) return state.signInPending;
     if (window.__DB_NATIVE && typeof window.openAuthModal === 'function'){
-      window.openAuthModal('signup', { liveVideo: true });
-      return;
+      window.openAuthModal('signup', { liveVideo: true }); return;
     }
-    // Inside an in-app browser Google cannot complete (disallowed_useragent
-    // on the popup, and the redirect dies on partitioned storage). Every
-    // secondary path on this page that says "sign in" lands here, so the
-    // one place to turn that click into a door that opens is here.
     if (inAppBrowser()){ doInAppSignIn(); return; }
     if (!firebaseAuth){
       var gateError = document.getElementById('gateError');
       if (gateError) gateError.innerHTML = '<div class="error">Google sign-in did not load. Refresh the page and try again.</div>';
       return;
     }
-    // Straight to Google. This button says "Continue with Google", and
-    // routing it through the shared chooser answered that click with a
-    // modal whose biggest button said the same words — the duplicate the
-    // founder cut on 2026-08-23. Live video now has no second provider
-    // path on this card, so the click stays direct.
     var provider = new firebase.auth.GoogleAuthProvider();
     var current = firebaseAuth.currentUser;
-    var signInPromise;
-    if (current && current.isAnonymous && current.linkWithPopup){
-      signInPromise = current.linkWithPopup(provider).catch(function(err){
-        var code = err && err.code || '';
-        if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use'){
-          try {
-            if (state.queueDocRef) {
-              state.queueDocRef.update({
-                status: 'cancelled',
-                cancelReason: 'guest_upgrade',
-                cancelledAt: firebase.firestore.FieldValue.serverTimestamp(),
-              }).catch(function(){});
-            }
-          } catch(e){}
-          return firebaseAuth.signInWithPopup(provider);
-        }
-        throw err;
-      });
-    } else {
-      signInPromise = firebaseAuth.signInWithPopup(provider);
-    }
-    signInPromise.catch(function(err){
-      try { if (window.gtag) gtag('event', 'sign_in_error', { code: (err && err.code) || 'unknown', message: ((err && err.message) || '').slice(0, 200), surface: 'spar', method: 'popup' }); } catch(_){}
-      // Some in-app browsers (Instagram, TikTok) block popup OAuth.
-      // Fall back to redirect, which most embedded browsers tolerate.
+    var started = Date.now();
+    setGateAuthBusy(true);
+    var ge = document.getElementById('gateError');
+    if (ge) ge.textContent = 'Finish signing in in the Google window.';
+    DBLiveJourney.event('auth_started', { surface: 'spar', provider: 'google' });
+    var request;
+    // Open synchronously inside the click. Deferring this into a promise
+    // loses the browser's popup permission. The pending promise gates all
+    // subsequent entrances until success, cancellation, or redirect failure.
+    try {
+      request = current && current.isAnonymous && current.linkWithPopup
+        ? current.linkWithPopup(provider).catch(function(err){
+          if (err && (err.code === 'auth/credential-already-in-use' || err.code === 'auth/email-already-in-use')){
+            if (state.queueDocRef) state.queueDocRef.update({
+              status: 'cancelled', cancelReason: 'guest_upgrade',
+              cancelledAt: firebase.firestore.FieldValue.serverTimestamp(),
+            }).catch(function(){});
+            // Google already succeeded. Reuse its credential; a second
+            // popup here is outside the gesture and can be blocked.
+            if (err.credential) return firebaseAuth.signInWithCredential(err.credential);
+            return firebaseAuth.signInWithRedirect(provider);
+          }
+          throw err;
+        }) : firebaseAuth.signInWithPopup(provider);
+    } catch(e){ request = Promise.reject(e); }
+    state.signInPending = Promise.resolve(request).catch(function(err){
       if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment')){
-        firebaseAuth.signInWithRedirect(provider);
-      } else {
-        var ge = document.getElementById('gateError');
-        if (ge) ge.innerHTML = '<div class="error">Sign-in failed: ' + escHtml(err && err.message || 'unknown') + '</div>';
+        DBLiveJourney.event('auth_redirect', { surface: 'spar', code: err.code });
+        return firebaseAuth.signInWithRedirect(provider);
       }
-    });
+      throw err;
+    }).then(function(result){
+      if (result && result.user) DBLiveJourney.event('auth_completed', { surface: 'spar', provider: 'google', elapsed_ms: Date.now() - started });
+      if (ge) ge.textContent = '';
+      return result;
+    }).catch(function(err){
+      var code = (err && err.code) || 'unknown';
+      DBLiveJourney.event('auth_failed', { surface: 'spar', code: code, elapsed_ms: Date.now() - started });
+      try { gtag('event', 'sign_in_error', { code: code, surface: 'spar', method: 'popup' }); } catch(e){}
+      if (ge) ge.textContent = code === 'auth/popup-closed-by-user'
+        ? 'The Google window closed before sign-in finished. Try again, or continue with email.'
+        : 'Sign-in could not finish. Try again, or continue with email.';
+    }).then(function(result){ state.signInPending = null; setGateAuthBusy(false); return result; });
+    return state.signInPending;
   }
 
   // Phased status messages, tied to elapsed wait time. Replaces the
@@ -7047,7 +7055,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function subscribeMyDoc(){
     if (!state.queueDocRef) return;
     if (state.queueUnsub){ try { state.queueUnsub(); } catch(e){} }
-    state.queueUnsub = state.queueDocRef.onSnapshot(function(doc){
+    var queueRef = state.queueDocRef;
+    state.queueUnsub = DBLiveJourney.watch(queueRef, { read: function(){ return DBLiveJourney.readDocument(queueRef, firebaseAuth.currentUser); }, value: function(doc){
       if (!doc.exists){
         // MY doc is gone and the page has no idea. Measured 2026-09-07
         // off a session replay: a debater sat on "Searching" for over
@@ -7064,6 +7073,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         return;
       }
       var d = doc.data();
+      if (state.lastJourneyStatus !== d.status){
+        state.lastJourneyStatus = d.status;
+        DBLiveJourney.event('queue_state', { surface: 'spar', status: d.status, room: d.room || '', wait_sec: Math.round((Date.now() - state.joinedAtMs) / 1000) || 0 });
+      }
       if (state.pausingMatch) { state.pausedMatchDoc = d; return; }
       // Mirror my mutual-skip list (declined consent proposals) so
       // tryMatch stops POSTing at peers the server will refuse anyway.
@@ -7155,9 +7168,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         teardownQueue();
         location.href = '/';
       }
-    }, function(err){
-      console.warn('[spar] subscribeMyDoc error', err);
-    });
+    }, report: function(stage, info){ DBLiveJourney.event(stage, Object.assign({ surface: 'spar' }, info)); } });
   }
   function shortNameOf(u){
     if (!u) return 'You';
@@ -7169,6 +7180,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function navigateToRound(d, delay){
     if (!d || !d.room || state.roundNavPending || state.cancelled) return;
     state.roundNavPending = true;
+    DBLiveJourney.event('room_navigation', { surface: 'spar', room: d.room });
     window.__debatableRoundInFlight = true;
     // Build the live-round URL. We do not need to know which side this
     // browser got; the round-room infra reconciles from proUid/conUid.
@@ -7746,9 +7758,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // you. A timer-fired pass is nobody's decision, so it earns nothing.
     if (!accept && !auto) state.declineUntil = Date.now() + DECLINE_COOLDOWN_MS;
     try { gtag('event', accept ? 'spar_consent_accept' : 'spar_consent_pass', { format: formatParam, auto: !!auto }); } catch(e){}
-    return firebaseAuth.currentUser.getIdToken().then(function(idToken){
+    var controller = new AbortController();
+    var request = firebaseAuth.currentUser.getIdToken().then(function(idToken){
+      if (controller.signal.aborted) throw new Error('Consent request timed out');
       return fetch('/.netlify/functions/spar-pair', {
-        method: 'POST',
+        method: 'POST', signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + idToken,
@@ -7767,8 +7781,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         j.__status = res.status;
         return j;
       });
-    }).then(function(j){
-      if (j && j.ok) return true;
+    });
+    return DBLiveJourney.timeout(request, 10000).then(function(j){
+      DBLiveJourney.event('consent_result', { surface: 'spar', accepted: !!accept, status: j.__status, code: j.code || j.reason || (j.ok ? 'ok' : 'unknown'), matched: !!j.matched });
+      if (j && j.ok){
+        if (state.queueUnsub && state.queueUnsub.refresh) state.queueUnsub.refresh();
+        return true;
+      }
       // The allowance ran out between queueing and accepting (another tab
       // spent the last round, or the optimistic local count was stale).
       // recoverConsentCard would hand back buttons that cannot work, so take
@@ -7789,12 +7808,16 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       var reason = (j && (j.reason || j.error)) || 'unknown';
       if (reason === 'consent_state_gone'){
         console.info('[spar] consent state gone before my ' + (accept ? 'accept' : 'pass'));
+        if (state.queueUnsub && state.queueUnsub.refresh) state.queueUnsub.refresh();
         return true;
       }
       console.warn('[spar] consent POST soft-failed:', reason);
       recoverConsentCard();
       return false;
     }).catch(function(err){
+      controller.abort();
+      DBLiveJourney.event('consent_failed', { surface: 'spar', accepted: !!accept, code: err.code || 'network' });
+      if (state.queueUnsub && state.queueUnsub.refresh) state.queueUnsub.refresh();
       // Network blip mid-click: same recovery. The auto-pass timers
       // (mine or the peer's) still backstop a never-delivered decline.
       console.warn('[spar] consent POST failed', err);

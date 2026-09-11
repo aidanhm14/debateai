@@ -116,6 +116,7 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
 <script defer src="/js/daily-loader.js"></script>
 <script defer src="/js/cam-avatar.js"></script>
 <script src="/js/room-snapshot.js"></script>
+<script src="/js/live-journey.js"></script>
 <script src="/js/room-teams.js"></script>
 <script src="/js/team-seats.js"></script>
 <script defer src="/js/age-gate.js"></script>
@@ -6972,7 +6973,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var hint = $('readyHint');
     if (hint) hint.style.display = '';
   }
+  function liveJourney(stage, detail){
+    DBLiveJourney.event(stage, Object.assign({ surface: 'live', room: state.room, round_started_at: state.roundStartedAt || 0, format: state.formatKey, speech: state.speechIdx, role: isSpectator() ? 'viewer' : 'participant' }, detail || {}));
+  }
   function startSpeechTimer(){
+    liveJourney('speech_start_requested', { timer: state.timerState });
     if (state.isDuo && state.lastRoundDoc && state.lastRoundDoc.teamEnding) return;
     if (state.isDuo && !state.teamLockedAt){
       if (state.teamStartPending) return;
@@ -6996,10 +7001,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (state.phase === 'round' && state.speechIdx === 0 && !isSpectator()
         && state.recordingRequired !== false){
       if (state.recordingRequired === null){
+        liveJourney('speech_start_blocked', { reason: 'recording_check' });
         toast('Checking the tournament recording before Speech 1.');
         return;
       }
       if (!cloudRec.doc || cloudRec.doc.recordingStatus !== 'recording'){
+        liveJourney('speech_start_blocked', { reason: 'recording_consent' });
         showCloudRecordingConsent();
         if (cloudRec.doc && cloudRec.doc.recordingConsents
             && state.user && cloudRec.doc.recordingConsents[state.user.uid] === true){
@@ -7026,19 +7033,21 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // spar-matched pair, so silence here is the common case, not the edge.
     if (state.phase === 'round' && state.speechIdx === 0 && !isSpectator()
         && window.__lrDraftPending && window.__lrDraftPending()){
+      liveJourney('speech_start_blocked', { reason: 'topic_pending' });
       var dHint = $('readyHint');
       if (dHint){
         dHint.style.display = '';
         dHint.innerHTML = '<strong>Finish the draft first.</strong> '
           + 'One of you opened a motion draft, and the resolution is not settled until it closes. '
-          + 'Speech 1 starts the moment it does.';
+          + 'Then press Start to begin Speech 1.';
       }
-      toast('The topic is still being chosen. Speech 1 starts once it is settled.');
+      toast('The topic is still being chosen. Once it is settled, press Start.');
       var dBoard = document.getElementById('draftBoard');
       if (dBoard && dBoard.scrollIntoView) dBoard.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     if (state.phase === 'round' && state.speechIdx === 0 && !isSpectator() && !judgeLockKey()){
+      liveJourney('speech_start_blocked', { reason: 'judge_agreement' });
       state.judgeDraftOpen = true;
       renderJudgeDraft();
       var jHint = $('readyHint');
@@ -7054,6 +7063,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var wasReady = state.timerState === 'ready';
     state.timerStart = Date.now();
     state.timerState = 'running';
+    liveJourney('speech_started', { mic_available: !!(state.micSupport && state.micSupport.available) });
     // While someone is actually speaking, the panel collapses to the two
     // things anyone looks at: the clock and the transcript. Everything
     // else in there is SETUP, and setup is over.
@@ -7434,7 +7444,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var segs = openSeg.segs.slice(), total = 0;
     for (var i = segs.length - 1; i >= 0; i--){ total += segs[i].text.length; if (total > 12000){ segs = segs.slice(i + 1); break; } }
     var payload = {}; payload[side] = segs;
-    return ref.set({ openSegs: payload }, { merge: true }).catch(function(e){if(strict)throw e;console.warn('[Team transcript]',e.message);});
+    return ref.set({ openSegs: payload }, { merge: true }).then(function(){
+      if (!state.journeyConversationCaptured && segs.some(function(s){ return RoundEvidence.hasWords(s.text); })){
+        state.journeyConversationCaptured = true; liveJourney('transcript_captured');
+      }
+    }).catch(function(e){
+      if (state.journeyCaptureError !== e.code){ state.journeyCaptureError = e.code; liveJourney('speech_save_failed', { code: e.code || 'unknown' }); }
+      if(strict)throw e;console.warn('[Team transcript]',e.message);
+    });
   }
   function openPeerSide(){ var s = mySide(); return s === 'pro' ? 'con' : (s === 'con' ? 'pro' : ''); }
   function openAdoptPeer(d){
@@ -10532,12 +10549,21 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (camConv.camP) return camConv.camP;
     // Camera pixels go to the room ONLY in 'camera' (passthrough) mode;
     // in 'avatar' mode they feed the on-device face tracker and nothing
-    // else. Degrade to audio-only, then to an empty stream; the avatar
-    // animates from mic level alone if it has to.
+    // else. Camera failure can degrade to audio-only; microphone failure
+    // must remain visible so the person can allow it and retry.
     camConv.camP = navigator.mediaDevices.getUserMedia({ audio: true, video: captureConstraints(mode || 'camera', room.facing || 'user') })
-      .catch(function(){ return navigator.mediaDevices.getUserMedia({ audio: true, video: false }); })
-      .catch(function(){ return new MediaStream(); })
-      .then(function(ms){ return window.DebateCam.start(ms, { mode: mode || 'avatar', label: seatLabel() }); })
+      .catch(function(e){ liveJourney('media_capture_failed', { code: e.name || 'unknown', scope: 'camera_and_microphone' }); return navigator.mediaDevices.getUserMedia({ audio: true, video: false }); })
+      .catch(function(e){ liveJourney('media_microphone_failed', { code: e.name || 'unknown' }); throw e; })
+      .then(function(ms){
+        return Promise.resolve().then(function(){ return window.DebateCam.start(ms, { mode: mode || 'avatar', label: seatLabel() }); }).catch(function(e){
+          // The camera renderer can fail after microphone permission
+          // succeeded. Preserve the working audio-only fallback.
+          ms.getVideoTracks().forEach(function(t){ t.stop(); });
+          if (room.joinPending) e.liveAudio = ms.getAudioTracks()[0];
+          else ms.getAudioTracks().forEach(function(t){ t.stop(); });
+          throw e;
+        });
+      })
       .then(function(c){ camConv.cam = c; startGuard(c); return c; })
       .catch(function(e){ camConv.camP = null; throw e; });
     return camConv.camP;
@@ -11689,7 +11715,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       })
       .then(function(){ if (btn) btn.disabled = false; });
   }
-  function joinWith(videoSource){
+  function joinWith(videoSource, audioSource){
     // The token key is OMITTED rather than set to undefined when there is
     // none: daily-js validates on the key's presence, so `token:undefined`
     // fails with "token should be a string" and takes the whole join with
@@ -11705,11 +11731,13 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // is also the only honest name to join under: the token already
     // carries hasPresence:false, so nobody in the round sees them at all.
     if (room.viewer) props.audioSource = false;
+    else if (audioSource) props.audioSource = audioSource;
     if (typeof room.token === 'string' && room.token) props.token = room.token;
     return room.call.join(props).then(function(r){
       tuneSendQuality();
       return r;
     }).catch(function(e){
+      liveJourney('call_join_failed', { code: e.name || 'unknown' });
       console.warn('[Daily join]', e);
       setRoomExit('Could not join the video room.',
         'Your round is unaffected. The speeches and the decision do not run through the video.');
@@ -11718,40 +11746,60 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     });
   }
   function joinRoomCall(){
-    if (!room.call || room.joined) return;
-    if (room.viewer){
-      setRoomNote('Connecting to the video.');
-      camConv.unified = false;
-      joinWith(false);
-      return;
-    }
+    if (!room.call || room.joined || room.joinPending) return;
+    room.joinPending = true;
+    if (room.fallbackAudioTrack){ room.fallbackAudioTrack.stop(); room.fallbackAudioTrack = null; }
+    liveJourney('call_join_started');
     setRoomNote('Connecting to the video room.');
-    // ONE camera capture for the whole page. Starting the canvas pipeline
-    // BEFORE joining means Daily is handed the canvas as its video source
-    // from the first frame and never acquires a device camera of its own.
-    // Under prebuilt there were always two captures of the same camera,
-    // the iframe's and the parent's, which phones do not reliably allow.
-    // It also means the safety watchdog is reading the exact feed the
-    // room receives from the first frame rather than from a moment later.
-    camConv.unified = true;
-    ensureAvatarCam('camera')
-      .then(function(c){
-        var hasVideo = c.srcStream && c.srcStream.getVideoTracks && c.srcStream.getVideoTracks().length;
-        if (!hasVideo) camJoinNoVideoNotice();
-        return joinWith(hasVideo ? publishTrackFor(c, 'camera') : false);
-      })
-      .catch(function(e){
-        // No camera, or permission denied. Joining audio-only is the
-        // right outcome; the round does not need a picture to run. But
-        // say so: silence here is how someone spends a whole round as a
-        // dark tile without knowing they could fix it (2026-08-31).
-        console.warn('[cam pipeline]', e);
+    var pending;
+    if (room.viewer){
+      camConv.unified = false;
+      pending = joinWith(false);
+    } else {
+      camConv.unified = true;
+      // An unanswered browser permission prompt has no built-in timeout.
+      // Keep it pending, but give the person an explanation after 10s.
+      var permissionHint = setTimeout(function(){
+        if (!room.joined){
+          setRoomNote('Allow microphone access in your browser to join. Camera access is optional.');
+          liveJourney('media_permission_wait');
+        }
+      }, 10000);
+      pending = ensureAvatarCam('camera').then(function(c){
+        clearTimeout(permissionHint);
+        var audio = c.srcStream && c.srcStream.getAudioTracks()[0];
+        var hasVideo = c.srcStream && c.srcStream.getVideoTracks().length;
+        if (!audio || audio.readyState === 'ended') throw new Error('Microphone unavailable');
+        liveJourney('media_ready', { camera: !!hasVideo, microphone: true });
+        // Pass the capture already granted to us. Leaving audioSource out
+        // asks Daily to open the microphone a second time, which can fail
+        // on devices that cannot service two captures at once.
+        return joinWith(hasVideo ? publishTrackFor(c, 'camera') : false, audio).then(function(){
+          if (room.joined && !hasVideo) camJoinNoVideoNotice();
+        });
+      }).catch(function(e){
+        clearTimeout(permissionHint);
         camConv.unified = false;
-        camJoinNoVideoNotice();
-        return joinWith(false);
+        camConv.camP = null;
+        if (e.liveAudio && e.liveAudio.readyState !== 'ended'){
+          room.fallbackAudioTrack = e.liveAudio;
+          liveJourney('media_renderer_failed', { code: e.name || 'unknown' });
+          return joinWith(false, e.liveAudio).then(function(){
+            if (room.joined) camJoinNoVideoNotice();
+            else { e.liveAudio.stop(); room.fallbackAudioTrack = null; }
+          });
+        }
+        liveJourney('call_media_blocked', { code: e.name || 'unknown' });
+        setRoomExit('Your microphone did not start.',
+          'Allow microphone access for this site in your browser, or close another app using it. Then rejoin. Camera access is optional.');
+        room.joined = false;
+        paintTray();
       });
+    }
+    return Promise.resolve(pending).then(function(){ room.joinPending = false; });
   }
   function teardownRoom(){
+    if (room.fallbackAudioTrack){ room.fallbackAudioTrack.stop(); room.fallbackAudioTrack = null; }
     Object.keys(room.tiles).forEach(dropTile);
     Object.keys(room.audios).forEach(function(sid){
       try { room.audios[sid].srcObject = null; room.audios[sid].remove(); } catch(e){}
@@ -11782,6 +11830,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     window.__lrDailyWrapper = true;
     buildRoomUI(shell);
     call.on('joined-meeting', function(){
+      liveJourney('call_joined');
       room.joined = true;
       paintTray();
       setRoomNote('');
@@ -11834,6 +11883,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     });
     call.on('camera-error', function(ev){ console.warn('[Daily camera]', ev && ev.errorMsg); });
     call.on('error', function(ev){
+      liveJourney('call_error', { code: (ev && ev.error && ev.error.type) || 'unknown' });
       console.warn('[Daily]', ev);
       if (room.viewer){
         setRoomExit('The video dropped.',
@@ -13095,6 +13145,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   }
 
   function finishRound(){
+    liveJourney('judging_requested');
     // The recording used to stop dead on the last speech, because the
     // ballot takes minutes to write and nobody wants minutes of an empty
     // room on the end of a replay. So every recording ended before the
@@ -14008,6 +14059,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     return { format: state.formatKey, speeches: state.log };
   }
   function renderUnresolvedBallot(noWinner){
+    liveJourney('result_unresolved', { reason: typeof noWinner === 'string' ? noWinner : ((noWinner && noWinner.resolution) || 'unresolved') });
     clearBallotRecovery();
     if (typeof noWinner === 'string') noWinner = { resolution: noWinner };
     noWinner = noWinner && typeof noWinner === 'object' ? noWinner : {};
@@ -15571,6 +15623,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       renderUnresolvedBallot(RoundEvidence.noContest(localRoundEvidence()));
       return;
     }
+    if (!state.journeyResult){ state.journeyResult = true; liveJourney('result_received'); }
     state.lastBallot = b || null;
     syncPlayBet();
     // Both clients pass through here (the generating debater directly,
@@ -18648,10 +18701,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (state.roundUnsub) return;
     var ref = getRoundDocRef();
     if (!ref) return;
-    state.roundUnsub = ref.onSnapshot(function(doc){
+    state.roundUnsub = DBLiveJourney.watch(ref, { read: function(){ return DBLiveJourney.readDocument(ref, state.user); }, value: function(doc){
       if (!doc || !doc.exists) return;
       onRoundSnapshot(doc.data() || {});
-    }, function(e){ console.warn('[Round sync] snapshot error', e); });
+    }, report: function(stage, info){ liveJourney(stage, info); } });
     startWatchPresence();
     startCommentPops();
     startJoinRequestHost();
@@ -22193,6 +22246,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
 
   var nudgedUnlisted = false;   // one unlisted telling per round, per device
   function onRoundSnapshot(d){
+    if (!state.journeyArrived){ state.journeyArrived = true; liveJourney('room_arrived'); }
     if (window.__lrMergeDraftSnapshot) d = window.__lrMergeDraftSnapshot(d);
     state.lastRoundDoc = d;
     syncPlayBet();
@@ -22855,12 +22909,15 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // tag with a unique seq so two writers can't accidentally collapse
     // each other's pushes.
     var tagged = Object.assign({ seq: state.log.length }, entry);
+    liveJourney('speech_save_requested', { has_text: !!String(entry.text || '').trim() });
+    function saved(){ liveJourney('speech_saved', { has_text: !!String(entry.text || '').trim() }); }
+    function failed(e){ liveJourney('speech_save_failed', { code: (e && e.code) || 'unknown' }); }
     ref.update({
       speeches: firebase.firestore.FieldValue.arrayUnion(tagged),
       speechIdx: state.speechIdx,
       status: 'round',
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    }).catch(function(e){
+    }).then(saved).catch(function(e){
       // If doc doesn't exist (rare race), create it then retry once.
       if (e && /No document to update/i.test(e.message || '')){
         publishRoundInit();
@@ -22869,9 +22926,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
             speeches: firebase.firestore.FieldValue.arrayUnion(tagged),
             speechIdx: state.speechIdx,
             status: 'round',
-          }).catch(function(){});
+          }).then(saved).catch(failed);
         }, 200);
       } else {
+        failed(e);
         console.warn('[Round sync] speech failed', e);
       }
     });
