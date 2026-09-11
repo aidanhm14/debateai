@@ -4,6 +4,7 @@ import vm from 'node:vm';
 const source = readFileSync('app/newvoice.html','utf8');
 let now=5000; const sent=[];
 const context={Date:{now:()=>now},window:{},dc:{readyState:'open',send:v=>sent.push(JSON.parse(v))},
+  liveVoice:null,previewRound:false,
   aiTalking:false,awaitingResponse:false,pendingTurn:false,vadSpeechActive:true,lastActiveAt:3800,
   nudgeFired:false,lastAiDoneAt:0,bargeMs:0,pttMode:false,pttOpen:false,
   userAnalyser:null,userBuf:null,micLive:()=>true,level:()=>0,speechGate:()=>0.5,

@@ -1,4 +1,5 @@
-// OpenAI Realtime session minter.
+// Shared voice admission: GPT-Live WebRTC sessions for /newvoice, and
+// OpenAI Realtime ephemeral sessions for existing callers.
 // Browser POSTs here with {mode, motion, side, format, voice}. We hit
 // OpenAI's /v1/realtime/sessions endpoint with our private API key and
 // return the ephemeral client_secret + session metadata. The browser
@@ -29,6 +30,7 @@
 //
 // Override the realtime model at deploy time with OPENAI_REALTIME_MODEL.
 
+import { LIVE_MODEL, validLiveOffer, liveVoiceConfig, createLiveVoice } from './lib/live-voice.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
 import { checkLayers, callerIp } from './lib/rate-limit.mjs';
@@ -967,6 +969,12 @@ export default async (request, context) => {
   let body = {};
   try { body = await request.json(); } catch (e) { body = {}; }
   if (!body || typeof body !== 'object') body = {};
+  const useLive = body.transport === 'live' && body.mode === 'clash';
+  if (body.transport === 'live' && (!useLive || !validLiveOffer(body.sdp))) {
+    return new Response(JSON.stringify({ error: 'Could not connect your microphone.', code: 'INVALID_LIVE_OFFER' }), {
+      status: 400, headers: { 'Content-Type': 'application/json', ...CORS },
+    });
+  }
   let funding;
   try {
     funding = await realtimeFunding(body, earlyDecoded, {
@@ -1644,7 +1652,16 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
     let model = modelCandidates[0];
     // (endpoint × model) try-matrix. First combination that returns
     // 2xx wins. Auth failures short-circuit the whole thing.
-    outer: for (const ep of endpoints) {
+    if (useLive) {
+      model = LIVE_MODEL;
+      lastLabel = 'Live /sessions';
+      upstream = await createLiveVoice({ apiKey, uid: signedInUid, sdp: body.sdp, config: liveVoiceConfig({
+        instructions, motion, side, voice, language: body.aiLanguage, scoping, difficulty, debateStyle, priorTranscript,
+      }) });
+      if (!upstream.ok) lastErrText = JSON.stringify({ error: { message: 'GPT-Live could not connect. Check OpenAI model access, API balance, and permissions, then try again.' } });
+    }
+    // A Live failure stays a Live failure, including BYOK. No silent model or funding fallback.
+    outer: for (const ep of useLive ? [] : endpoints) {
       for (const candidate of modelCandidates) {
         model = candidate;
         const r = await fetch(ep.url, {
@@ -1691,6 +1708,9 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
     }
 
     const session = await upstream.json();
+    if (useLive && (!session.session?.id || !validLiveOffer(session.transport?.sdp))) {
+      throw new Error('Invalid GPT-Live session response');
+    }
     // Response shapes:
     //   GA /client_secrets → { value, expires_at, session: {...} }
     //   legacy /sessions   → { client_secret: { value, expires_at }, id, ... }
@@ -1763,7 +1783,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
     // client_secret is short-lived and scoped to one session — safe to
     // ship to the page. The raw OPENAI_API_KEY stays here.
     return new Response(JSON.stringify({
-      client_secret: clientSecret,
+      ...(useLive ? { transport: 'live', sdp: session.transport.sdp } : { client_secret: clientSecret }),
       session_id: sessionId,
       model,
       voice,
@@ -1783,8 +1803,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       // so a fallback model never gets a field it would 400 on.
       reasoningEffort: supportsReasoning(model) ? reasoningEffort : null,
       endpoint: lastLabel,
-      sdpUrl,
-      sdpHeaders,
+      ...(useLive ? {} : { sdpUrl, sdpHeaders }),
       byok,
       voiceUsage: byok ? byokVoiceUsage() : signedInUid ? {
         // Minutes. `limit` null only for the owner bypass; a plan has a
@@ -1805,7 +1824,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       } : null,
     }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json', ...CORS },
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS },
     });
   } catch (err) {
     console.error('realtime-session handler error:', byok ? 'BYOK upstream request failed' : err);

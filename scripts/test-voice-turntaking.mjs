@@ -21,6 +21,7 @@ const ctlSrc = slice('function setFloor(open)', "$('floorBtn').addEventListener"
 // Stubs for everything the extracted code touches.
 const harness = `
 let status = 'live', muted = false, micStream = null, dc = { send(){} };
+let liveVoice = null, audioEl = null;
 let aiTalking = false, aiHold = 0, aiTurnAt = 0, bargeMs = 0;
 let pendingTurn = false, awaitingResponse = false, nudgeFired = false;
 let lastActiveAt = 0, userAnalyser = {}, userBuf = new Uint8Array(4);
@@ -145,6 +146,21 @@ api.set('pttOpen', false);
 api.setFloor(true);
 check('the floor cannot open when the round is not live', api.get('pttOpen') === false);
 
+// Live uses microphone gating and local playback suppression for explicit taps.
+api.set('status', 'live'); api.set('pttMode', true);
+const instructions = []; const output = { muted: false };
+api.set('liveVoice', { instruct: text => instructions.push(text) });
+api.set('audioEl', output);
+api.setFloor(true);
+check('Live tap opens the microphone', api.micLive() === true);
+check('Live tap suppresses competing playback', output.muted === true);
+api.setFloor(false);
+check('Live handoff closes the microphone', api.micLive() === false);
+check('Live handoff restores playback', output.muted === false);
+check('Live handoff instructs the model', instructions.at(-1).includes('handed the floor back'));
+api.setFloor(true); api.setMicMode(false);
+check('leaving Live tap mode restores playback', output.muted === false);
+
 // ── shipped-source guards ──────────────────────────────────────────
 check('the tick refuses to hand over while the floor is open',
   /if \(pttMode && pttOpen\) return;/.test(page));
@@ -152,7 +168,7 @@ check('hands-free barge gate is skipped in tap mode',
   /aiTalking && micLive\(\) && !pttMode/.test(page));
 check('the arena meter follows micLive, not muted',
   !/muted \? 0 : level\(userAnalyser/.test(page));
-check('VAD eagerness lowered', /eagerness: 'low'/.test(page));
+check('legacy VAD respects the selected pause', page.includes("eagerness: turnWaitMs() >= 3000 ? 'low' : 'medium'"));
 check('server_vad threshold raised', /threshold: 0\.68/.test(page));
 check('opening turn does not recite the sides',
   /Do not say who is on which side/.test(page));

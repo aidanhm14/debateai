@@ -110,7 +110,7 @@ check('the round starts counting from the lock-in, not the chat', page.includes(
 check('a follow-up response waits for response.done', page.includes('if (afterResponseDone) { const f = afterResponseDone; afterResponseDone = null; setTimeout(f, 80); }'));
 check('a platform-funded voice switch needs the continuation token', page.includes("if (status !== 'live' || switching || (!roundToken && !voiceByok)) return;"));
 check('a voice switch sends the token and the record', page.includes('continuation: roundToken,') && page.includes('priorTranscript: priorTranscriptText(),'));
-check('a voice switch adopts the new server session id so the end call settles the right one', page.includes('if (vu && vu.sessionId) voiceSessionId = vu.sessionId;'));
+check('a voice switch adopts the new server session id so the end call settles the right one', page.includes("voiceSessionId = (u && u.sessionId) || '';") && page.includes('applyVoiceSession(answer);'));
 check('a voice switch keeps the mic (no track stop in switchVoice)', (() => {
   const i = page.indexOf('async function switchVoice');
   const j = page.indexOf('/* ── the leaderboard write', i);

@@ -802,6 +802,24 @@ every beat above was checked without two signed-in humans and a live queue.
 
 ## The AI door: /newvoice (talk it through, spoken voice switch, scored)
 
+**GPT-Live 1, 2026-09-10 (Aidan):** Signed-in `/newvoice` rounds use
+`gpt-live-1`. The page posts `transport: 'live'` plus a completed WebRTC
+SDP offer to `/api/realtime-session`. The same account, funding, continuation
+and minute gates run before `lib/live-voice.mjs` creates `/v1/live/sessions`.
+Only the SDP answer returns to the browser. The short Live conversation
+prompt delegates topic/voice controls and detailed reasoning to
+`gpt-5.6-luna` (`OPENAI_LIVE_BACKEND_MODEL` can override the backend).
+`js/live-voice.js` waits for `session.started`, preserves overlapping timed
+transcript fragments, handles nested Responses tool calls after completion,
+and drains `session.closed` before teardown and judging. Spoken claims pass
+`/api/voice-claim` before locking. Live voice changes still reconnect with
+the original continuation token. Do not send Realtime VAD settings or
+speech `response.create` payloads to Live. The signed-out bounded preview,
+`/voice-debate`, coach and room judge keep their existing Realtime flows.
+Run `scripts/test-live-voice.mjs` and `scripts/test-live-voice-handler.mjs`.
+Official contract: https://developers.openai.com/api/docs/guides/live .
+The Realtime-specific details below still apply to legacy callers.
+
 `/newvoice` is the public "Debate the AI" door. As of 2026-09-03 its setup
 is one choice per screen (how, topic, side, voice, go), and the round can
 start with NO topic: "Talk it through with the AI" opens the room, the

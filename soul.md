@@ -61,6 +61,16 @@ are not consumed. Funding domains are separate for continuation signatures.
 
 ---
 
+**GPT-Live 1 for the AI door (2026-09-10, Aidan):** Signed-in Casual and
+Conversation rounds on `/newvoice` use GPT-Live 1 for speech, with a small
+Responses backend for topic and voice changes and harder reasoning. The
+model listens and speaks concurrently; the browser retains each speaker's
+timed transcript fragments and lets Live handle interruptions. Existing
+account, minute, token and OpenAI BYOK rules stay in force. A voice switch
+continues the same round through a new session. The bounded signed-out
+preview stays on its existing Realtime transport and server hangup policy.
+The post-round judge and rating rules are unchanged.
+
 ## Daily live hours (2026-09-08)
 
 Aidan chose three separate daily sessions: **9 PM New York, 9 PM Berlin,

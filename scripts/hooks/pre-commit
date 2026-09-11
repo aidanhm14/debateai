@@ -52,6 +52,16 @@ if command -v node >/dev/null 2>&1; then
   done
 fi
 
+# Live voice protocol and shared admission gates.
+if command -v node >/dev/null 2>&1; then
+  for check in test-live-voice test-live-voice-handler; do
+    if [ -f "$REPO_ROOT/scripts/$check.mjs" ] && ! (cd "$REPO_ROOT" && node "scripts/$check.mjs"); then
+      echo "[$check] commit blocked" >&2
+      exit 1
+    fi
+  done
+fi
+
 # ──────────────────────────────────────────────────────────────────
 # Service-worker integrity guard. On 2026-08-18 both sw.js files
 # reached origin/main carrying unresolved conflict markers around

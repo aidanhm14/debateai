@@ -1,0 +1,114 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { liveVoiceConfig, createLiveVoice, validLiveOffer } from '../app/netlify/functions/lib/live-voice.mjs';
+const config = liveVoiceConfig({ instructions: 'Private debate rules', motion: 'Cities should make buses free', side: 'gov', voice: 'marin', language: 'en', difficulty: 'standard', priorTranscript: 'USER: Ticket prices limit access.' });
+assert.equal(config.model, 'gpt-live-1');
+assert.equal(config.store, false);
+assert.equal(config.delegation.responses.parallel_tool_calls, false);
+assert.equal(config.delegation.responses.model, 'gpt-5.6-luna');
+assert.match(config.instructions, /person argues for/);
+assert.match(config.instructions, /Backchannel policy:/);
+assert.match(config.instructions, /Interruption policy:/);
+assert.match(config.instructions, /Delegation policy:/);
+assert.doesNotMatch(config.instructions, /Private debate rules/);
+assert.match(config.delegation.responses.instructions, /Private debate rules/);
+assert.equal(config.input[0].role, 'user');
+assert.equal(config.audio.input, undefined);
+assert.equal(config.audio.format, undefined);
+for (const tool of config.delegation.responses.tools) { assert.equal(tool.strict, true); assert.equal(tool.parameters.additionalProperties, false); }
+assert.equal(validLiveOffer('v=0\r\noffer'), true);
+for (const invalid of [null, {}, '', 'https://attacker.invalid', 'v=0'+'x'.repeat(100_000)]) assert.equal(validLiveOffer(invalid), false);
+let request;
+await createLiveVoice({ apiKey: 'secret-test-key', uid: 'person', sdp: 'v=0\r\noffer', config, fetcher: async (url, init) => {
+ request = {url, ...init}; return new Response('{}', {status:201});
+}});
+assert.equal(request.url, 'https://api.openai.com/v1/live/sessions');
+assert.equal(request.headers.Authorization, 'Bearer secret-test-key');
+assert.match(request.headers['OpenAI-Safety-Identifier'], /^[a-f0-9]{64}$/);
+assert.equal(request.body.includes('secret-test-key'), false);
+assert.equal(JSON.parse(request.body).transport.sdp, 'v=0\r\noffer');
+const browser = {};
+vm.runInNewContext(readFileSync('app/js/live-voice.js','utf8'), { window: browser, setTimeout, clearTimeout });
+const sent = [], rows = [], committed = [], executed = [];
+let ready = false, usage = null;
+const adapter = browser.DBLiveVoice.create({
+ send: event => sent.push(event), onReady: () => { ready = true; },
+ onRow: row => rows.push(row), onTranscript: () => {}, onCommit: row => committed.push(row.text),
+ onTool: async call => { executed.push(call.call_id); adapter.toolOutput(call.call_id, {ok:true}); },
+ onUsage: value => { usage = value.seconds; },
+});
+assert.equal(adapter.instruct('too early'), false);
+await adapter.handle({type:'session.started',event_id:'start',session:{id:'live_test'}});
+assert.equal(ready, true);
+assert.equal(adapter.instruct('Greet now'), true);
+assert.equal(sent[0].type, 'session.instructions.append');
+assert.equal(sent[0].delegation_id, null);
+adapter.speak('Greet immediately');
+const greeting = sent.at(-1);
+assert.equal(greeting.type, 'session.instructions.append');
+await adapter.handle({type:'session.instructions.appended',client_event_id:'unrelated'});
+assert.equal(sent.at(-1), greeting);
+await adapter.handle({type:'session.instructions.appended',client_event_id:greeting.event_id});
+assert.equal(sent.at(-1).type, 'session.commentary.append', 'greeting follows the matching instruction acknowledgment');
+const input = (id,delta,start,end) => adapter.handle({event_id:id,type:'session.input_transcript.delta',delta,start_ms:start,end_ms:end});
+const output = (id,delta,start,end) => adapter.handle({event_id:id,type:'session.output_transcript.delta',delta,start_ms:start,end_ms:end});
+await input('u1','Free',100,200);
+await output('a1','Who pays',120,320);
+await input('u2',' buses',210,400);
+await output('a2',' for them?',350,600);
+await input('u2',' buses',210,400);
+assert.equal(rows.length, 2);
+assert.equal(rows[0].text, 'Free buses');
+assert.equal(rows[1].text, 'Who pays for them?');
+assert.equal(rows[0].fragments.length, 2);
+await input('u3','Taxes can cover it.',2400,2900);
+assert.equal(rows.length, 3);
+assert.equal(committed[0], 'Free buses');
+assert.equal(rows[0].start_ms, 100);
+const nested = (event, delegation_id='d1') => adapter.handle({type:'response.event',delegation_id,event});
+await nested({type:'response.created',response:{id:'r1'}});
+await nested({type:'response.function_call_arguments.done',call_id:'ignored',arguments:'{}'});
+assert.equal(executed.length, 0);
+await nested({type:'response.output_item.done',item:{type:'function_call',name:'set_claim',call_id:'c1',arguments:'{}'}});
+await nested({type:'response.output_item.done',item:{type:'function_call',name:'set_claim',call_id:'c1',arguments:'{}'}});
+assert.equal(executed.length, 0, 'no control action before backend completion');
+await nested({type:'response.completed',response:{id:'r1',output:[]}});
+assert.deepEqual(executed, ['c1']);
+assert.equal(sent.at(-2).type, 'response.item.create');
+assert.equal(sent.at(-1).type, 'response.create');
+assert.equal(sent.at(-1).response, undefined);
+await nested({type:'response.completed',response:{id:'r1',output:[]}});
+assert.equal(executed.length,1);
+await adapter.handle({type:'session.usage.updated',usage:{seconds:5}});
+await adapter.handle({type:'session.usage.updated',usage:{seconds:8}});
+assert.equal(usage,8,'usage snapshots are not added together');
+let finalized = false;
+const closing = adapter.close().then(e => { finalized = true; return e; });
+assert.equal(sent.at(-1).type,'session.close');
+assert.equal(adapter.instruct('too late'),false);
+assert.equal(finalized,false);
+await output('last',' Really?',610,800);
+await adapter.handle({type:'session.closed',usage:{seconds:9},reason:'close_requested'});
+assert.equal((await closing).usage.seconds,9);
+assert.equal(finalized,true);
+assert.ok(committed.includes('Who pays for them? Really?'));
+const timed = browser.DBLiveVoice.create({send:()=>{},onReady:()=>{},onRow:()=>{},onTranscript:()=>{}});
+assert.equal((await timed.close(1)).incomplete,true);
+const page = readFileSync('app/newvoice.html','utf8');
+for (const match of page.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)) {
+ if (!match[2].trim() || /ld\+json/.test(match[1])) continue;
+ new vm.Script(match[2]);
+}
+// Exercise the shared hydration used by initial sessions and voice switches.
+const hydration = page.slice(page.indexOf('function applyVoiceSession('),page.indexOf('async function openPeer('));
+const state = vm.createContext({$:()=>({}),voiceKeyBody:()=>({}),HARD_CAP_MS:480000});
+vm.runInContext(hydration,state);
+state.applyVoiceSession({transport:'live',model:'gpt-live-1',session_id:'live_one',voiceUsage:{sessionId:'live_one',minutesLeft:4,reserveMinutes:4},roundToken:'round1',tools:[]});
+assert.equal(state.voiceSessionId,'live_one');
+assert.equal(state.roundCapMs,240000);
+state.applyVoiceSession({transport:'live',model:'gpt-live-1',session_id:'live_two',voiceUsage:{sessionId:'live_two',minutesLeft:2,reserveMinutes:2},roundToken:'round1',tools:[]});
+assert.equal(state.voiceSessionId,'live_two');
+assert.equal(state.roundToken,'round1');
+assert.equal(state.roundCapMs,120000);
+console.log('GPT-Live: config, key isolation, timed overlapping transcripts, tool completion/deduplication, usage, graceful shutdown and reconnect metering passed.');
