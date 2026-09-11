@@ -27,7 +27,7 @@
     if(data.leaderboardError){$('trader-status').textContent='The standings could not load. Refresh to try again.';return;}
     if(!rows.length){$('trader-status').replaceChildren(node('strong','The first calls are still ahead.','empty-board-title'),node('span','Settled bets will put real people on this board. Your name could be first.'));return;}
     rows.forEach(function(r,i){
-      var tr=node('tr');tr.appendChild(node('td',String(i+1).padStart(2,'0')));tr.appendChild(node('td',r.name+(r.me?' (you)':'')));tr.appendChild(node('td',r.wins+' / '+r.bets));tr.appendChild(node('td',Number(r.rating).toLocaleString()));$('trader-rows').appendChild(tr);
+      var tr=node('tr');tr.appendChild(node('td',String(i+1).padStart(2,'0')));tr.appendChild(node('td',r.name+(r.me?' (you)':'')));var calls=node('td'),ratio=node('span',r.wins+' / '+r.bets),bar=node('span',null,'win-rate'),fill=node('i');fill.style.width=Math.min(100,r.wins/r.bets*100)+'%';bar.setAttribute('aria-hidden','true');bar.appendChild(fill);calls.append(ratio,bar);tr.appendChild(calls);tr.appendChild(node('td',Number(r.rating).toLocaleString()));$('trader-rows').appendChild(tr);
     });
   }
   function loadBoard(){
@@ -42,14 +42,14 @@
       });
     }).catch(function(){ $('market-status').hidden=false;$('market-status').textContent='Could not load the rounds. Refresh to try again.';$('trader-status').hidden=false;$('trader-status').textContent='The standings are temporarily unavailable.'; });
   }
-  function openSlip(room,scroll){selectedRoom=room;market=null;pick=null;myBet=null;$('bet-slip').hidden=false;$('slip-motion').textContent='Your round';$('slip-info').textContent='Loading this round…';$('bet-status').textContent='';$('age-confirm').hidden=true;$('age-check').checked=false;$('watch-round').href=watchUrl(room);$('sides').replaceChildren();$('bet-form').hidden=true;if(scroll!==false)$('bet-slip').scrollIntoView({behavior:'smooth',block:'center'});refreshSlip();}
+  function openSlip(room,scroll){selectedRoom=room;market=null;pick=null;myBet=null;$('bet-slip').hidden=false;$('slip-motion').textContent='Your round';$('slip-info').textContent='Loading this round…';$('slip-chart-wrap').hidden=true;$('bet-status').textContent='';$('age-confirm').hidden=true;$('age-check').checked=false;$('watch-round').href=watchUrl(room);$('sides').replaceChildren();$('bet-form').hidden=true;if(scroll!==false)$('bet-slip').scrollIntoView({behavior:'smooth',block:'center'});refreshSlip();}
   function refreshSlip(){
     if(!selectedRoom)return Promise.resolve();var room=selectedRoom,version=++stateVersion;
     return call({action:'round',room:room}).then(function(d){
       if(room!==selectedRoom||version!==stateVersion)return;
       market=d.market;ownSide=d.ownSide;myBet=d.myBet;balance(d.balance);
       if(!market){$('slip-motion').textContent='This round is not open for bets.';$('slip-info').textContent='Bets open when a public one-on-one round starts.';$('bet-form').hidden=true;return;}
-      $('slip-motion').textContent=market.motion;
+      $('slip-motion').textContent=market.motion;$('slip-chart-wrap').hidden=false;if(window.DBBetCharts)window.DBBetCharts.pool($('slip-chart'),market);
       var closed=market.status!=='open'||market.lockAt<=Date.now();
       $('slip-info').textContent=ownSide?'You are in this round. Back your own side.':'Choose who will win the argument.';
       $('sides').replaceChildren();var total=market.poolPro+market.poolCon;

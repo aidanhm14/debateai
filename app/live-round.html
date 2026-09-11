@@ -4096,7 +4096,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       <!-- Audience: the private "where do you stand"
            call. Spectator-only, so the section stays hidden until
            svDock() mounts something into it. -->
-      <div class="self-bet-entry"><a class="viewer-bet-link" href="/bet" target="_blank" rel="noopener">Bet <span aria-hidden="true">↗</span></a></div>
       <details class="round-details" id="audienceTools" hidden>
         <summary><span id="audienceToolsLabel">Your take</span></summary>
         <div class="rd-body" id="audienceToolsBody"></div>
@@ -4187,6 +4186,22 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           <p class="rd-note" id="recordingRoundNote">Nobody is asked to record by default. Press the red Record round bar at the top if you want a replay; it starts only if every seated person agrees.</p>
         </div>
       </details>
+
+      <section class="round-bet" id="roundBet" aria-labelledby="rb-title" hidden>
+        <div class="rb-head"><div><p class="rb-eyebrow">BET · FREE PLAY TOKENS</p><h3 id="rb-title">Who has the better case?</h3></div><span id="rb-balance" class="rb-balance" hidden></span></div>
+        <p id="rb-caption" class="rb-caption">A little conviction. Something on the line.</p>
+        <div id="rb-market" hidden>
+          <div class="rb-plot"><div class="pool-legend"><span>Pro</span><span>Con</span></div><div class="pool-chart" id="rb-chart"></div><p class="pool-chart-note">Share of play tokens. Not a win probability.</p></div>
+          <div class="rb-choices" role="group" aria-label="Who will win?">
+            <button class="rb-choice" id="rb-pick-pro" type="button" aria-pressed="false"><span class="rb-role">PRO</span><b id="rb-name-pro">Pro</b><span id="rb-pool-pro"></span></button>
+            <button class="rb-choice" id="rb-pick-con" type="button" aria-pressed="false"><span class="rb-role">CON</span><b id="rb-name-con">Con</b><span id="rb-pool-con"></span></button>
+          </div>
+          <form id="rb-form" hidden><label class="rb-stake-label" for="rb-stake">Play tokens to bet</label><div class="rb-stake-row"><input id="rb-stake" type="number" inputmode="numeric" min="1" max="5000" step="1" value="50" required><button id="rb-submit" class="rb-submit" type="submit" disabled>Choose a side</button></div></form>
+          <div class="rb-age" id="rb-age" hidden><p>Play-token betting is for people 18 or older in eligible regions.</p><label><input id="rb-age-check" type="checkbox"> I am 18 or older.</label><button class="rb-submit" id="rb-age-confirm" type="button">Confirm and place bet</button><button class="rb-cancel" id="rb-age-cancel" type="button">Cancel</button></div>
+        </div>
+        <p class="rb-status" id="rb-status" role="status">Finding this round's pool…</p>
+        <div class="rb-footer"><a class="round-bet-guide" href="/bet" target="_blank" rel="noopener">How betting works ↗</a><span>18+ · No cash value</span></div>
+      </section>
 
       <!-- 2026-08-29, per the founder: the panel reads resolution, clock,
            notes and fact checks, then the transcript at the dead bottom. The
@@ -13604,9 +13619,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   function updateBetLinks(){
     var href='/bet';
     if(state.room) href+='?room='+encodeURIComponent(state.room)+'&return='+encodeURIComponent(location.pathname+location.search);
-    document.querySelectorAll('.viewer-bet-link').forEach(function(a){a.href=href;});
+    document.querySelectorAll('.viewer-bet-link,.round-bet-guide').forEach(function(a){a.href=href;});
+    var d=state.lastRoundDoc;
+    if(window.DBRoundBet)window.DBRoundBet.update({room:state.room,viewer:isSpectator(),demo:!!window.__lrDesign,enabled:!!(window.__lrDesign&&window.__lrDesign!=='setup')||!!(state.room&&d&&!d.isPrivate&&d.teamSize!==2&&!d.proUid2&&!d.conUid2&&!d.tournamentId&&!d.tournamentRound)});
   }
   var playBetBusy=false, playBetOpened=false, playBetLocked=false, playBetSettled=false;
+  document.addEventListener('round-bet-ready',updateBetLinks);
   function syncPlayBet(){
     updateBetLinks();
     var d=state.lastRoundDoc,u=state.user;
@@ -13627,6 +13645,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         if(action==='open')playBetOpened=true;
         if(action==='lock')playBetLocked=true;
         if(action==='settle')playBetSettled=true;
+        if(window.DBRoundBet)window.DBRoundBet.refresh();
       }).catch(function(){ /* Retry from the next room update; the debate carries on. */ })
       .then(function(){playBetBusy=false;});
   }
@@ -24960,9 +24979,11 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
 }
 .viewer-bet-link:hover{filter:brightness(1.08)}
 .viewer-bet-link:focus-visible{outline:3px solid #72a956;outline-offset:4px}
-.self-bet-entry{padding:10px 22px 4px;text-align:right}
-body.spectator-mode .self-bet-entry,html.stage-mode .self-bet-entry{display:none}
-@media(max-width:760px){.spec-menu{grid-template-columns:repeat(4,minmax(0,1fr))}.spec-menu .sm-btn.viewer-bet-link{padding:6px 8px;gap:5px}.self-bet-entry{padding:8px 16px}}
+@media(max-width:760px){.spec-menu{grid-template-columns:repeat(4,minmax(0,1fr))}.spec-menu .sm-btn.viewer-bet-link{padding:6px 8px;gap:5px}}
 </style>
+<link rel="stylesheet" href="/css/bet-charts.css">
+<link rel="stylesheet" href="/css/round-bet.css">
+<script src="/js/bet-charts.js"></script>
+<script src="/js/round-bet.js"></script>
 </body>
 </html>

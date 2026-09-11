@@ -1,6 +1,6 @@
 # soul.md. Debatable · itsdebatable.com
 
-> **VIEWER BETTING RESTORED (Aidan, 2026-09-10).** The viewer UI has a green Bet button leading to the calm /bet page, which explains backing yourself or others with free play tokens and shows real trader rankings. Only the public 1v1 prediction ledger is restored. Participants may back their own side only. Paid voice tokens stay at /voice-tokens and never enter bets. No cash, purchase, transfer, redemption, or prize conversion. Legacy Floor and credit markets remain paused. Keep age, region, private-round and server-verdict protections.
+> **VIEWER BETTING RESTORED (Aidan, 2026-09-10).** The viewer UI has a green Bet button leading to the green-and-white /bet page with interactive graphs, which explains backing yourself or others with free play tokens and shows real trader rankings. A green betting panel sits below round details for both viewers and seated participants, with real pool-history graphs. Instructional graphs are labeled as illustrations. Only the public 1v1 prediction ledger is restored. Participants may back their own side only. Paid voice tokens stay at /voice-tokens and never enter bets. No cash, purchase, transfer, redemption, or prize conversion. Legacy Floor and credit markets remain paused. Keep age, region, private-round and server-verdict protections.
 
 
 > **BRAND: the product name is "Debatable."** Canonical
