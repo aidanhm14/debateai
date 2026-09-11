@@ -16,7 +16,7 @@ players and recordings. Only conversational mode may display a running
 elapsed clock. Keep elapsed measurements internally for duration, capture
 and existing overtime rules; a display change must not change judging.
 
-> **BETTING PAUSED (Aidan, 2026-09-06).** Remove betting from the site entirely for now, including navigation, audience/debater controls, public market pages, and promotional copy. This supersedes earlier points-only restores and the merge of voice-token purchases into /predict. Voice tokens remain paid AI usage at /voice-tokens. Existing ledgers and settlement/refund logic remain for history; no new markets or stakes may be created.
+> **VIEWER BETTING RESTORED (Aidan, 2026-09-10).** The viewer UI has a green Bet button leading to the calm /bet page, which explains backing yourself or others with free play tokens and shows real trader rankings. Only the public 1v1 prediction ledger is restored. Participants may back their own side only. Paid voice tokens stay at /voice-tokens and never enter bets. No cash, purchase, transfer, redemption, or prize conversion. Legacy Floor and credit markets remain paused. Keep age, region, private-round and server-verdict protections.
 
 
 > Operational manual for AI coding agents working on Debatable (Codex,

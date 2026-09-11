@@ -4,7 +4,7 @@ import { publicName } from '../app/netlify/functions/lib/public-identity.mjs';
 // The double models optimistic retries, query conflicts, read-before-write,
 // and atomic commit failure. It is not a substitute for the Firestore SDK.
 import assert from 'node:assert/strict';
-import { BETTING_LIVE } from '../app/netlify/functions/lib/betting-status.mjs';
+import { BETTING_LIVE, PREDICTION_BETTING_LIVE } from '../app/netlify/functions/lib/betting-status.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -43,8 +43,8 @@ class MemoryDb {
       orderBy: () => this.query(path, filters, maximum),
       limit: (n) => this.query(path, filters, n),
       where: (field, op, value) => {
-        assert.equal(op, '==');
-        return this.query(path, [...filters, [field, value]], maximum);
+        assert.ok(['==','>'].includes(op));
+        return this.query(path, [...filters, [field, value, op]], maximum);
       },
     };
   }
@@ -60,7 +60,7 @@ class MemoryDb {
   }
   members(ref) {
     return [...this.docs.keys()].filter((path) => path.startsWith(`${ref.path}/`) && !path.slice(ref.path.length + 1).includes('/'))
-      .filter((path) => ref.filters.every(([field, value]) => this.docs.get(path)[field] === value)).sort().slice(0, ref.maximum);
+      .filter((path) => ref.filters.every(([field, value, op]) => op==='>' ? this.docs.get(path)[field]>value : this.docs.get(path)[field]===value)).sort().slice(0, ref.maximum);
   }
   version(ref) {
     return ref.isQuery ? this.members(ref).map((path) => `${path}:${this.versions.get(path)}`).join('|') : (this.versions.get(ref.path) || 0);
@@ -317,11 +317,95 @@ test('paused betting still permits settlement of existing stakes', async () => {
   assert.equal(db.data(BALANCE('backer-pro')).balance, 110);
 });
 
+test('only viewer predictions are restored, legacy credit markets stay paused', async () => {
+  assert.equal(PREDICTION_BETTING_LIVE,true);
+  assert.equal(BETTING_LIVE,false);
+});
+
+function liveFixture(overrides={}) {
+  const f=fixture(null,{empty:true,bettingLive:PREDICTION_BETTING_LIVE});
+  f.db.docs.delete(MARKET);
+  f.db.seed('live_rounds/round',{proUid:'participant-a',conUid:'participant-b',status:'round',format:'quick',
+    motion:'Cities should have more parks.',speechIdx:0,currentTimer:{state:'running'},...overrides});
+  return f;
+}
+
+test('restored markets use the real room rather than forged client seats and motion', async () => {
+  const {db,request}=liveFixture();
+  success(await request('open',{proUid:'forged',conUid:'other',motion:'forged'}));
+  const m=db.data(MARKET);
+  assert.equal(m.proUid,'participant-a');assert.equal(m.conUid,'participant-b');
+  assert.equal(m.motion,'Cities should have more parks.');assert.equal(m.viewerBetVersion,1);
+  assert.ok(m.lockAt.getTime()<=Date.now()+240000);
+});
+
+test('a viewer cannot manufacture a market by claiming a participant seat', async () => {
+  const {db,request}=liveFixture();
+  assert.equal((await request('open',{proUid:'stranger',conUid:'participant-b'},'stranger')).status,403);
+  assert.equal(db.data(MARKET),undefined);
+});
+
+for(const [name,change] of Object.entries({private:{isPrivate:true},team:{teamSize:2},partner:{proUid2:'third'},unstarted:{currentTimer:{state:'ready'}},finished:{ballot:{}},draft:{draft:{phase:'strike'}},midpoint:{speechIdx:2}})) {
+  test(name+' rounds do not open restored markets',async()=>{
+    const {db,request}=liveFixture(change);
+    assert.equal((await request('open')).status,400);assert.equal(db.data(MARKET),undefined);
+  });
+}
+
+test('a participant can back themselves but cannot profit from their opponent', async()=>{
+  const {db,request}=liveFixture();success(await request('open'));
+  assert.equal((await request('bet',{pick:'con',stake:20})).status,400);
+  success(await request('bet',{pick:'pro',stake:20}));
+  assert.equal(db.data(BALANCE('participant-a')).balance,980);
+});
+
+test('a room turning private closes betting without debiting the viewer', async()=>{
+  const {db,request}=liveFixture();success(await request('open'));
+  db.seed('live_rounds/round',{...db.data('live_rounds/round'),isPrivate:true});
+  assert.equal((await request('bet',{pick:'pro',stake:20},'viewer')).status,400);
+  assert.equal(db.data(BALANCE('viewer')).balance,1000);
+  assert.equal(db.data(MARKET).poolPro,0);
+});
+
+test('public round read has no guest balance and exposes only the caller bet', async()=>{
+  const {db,request}=liveFixture();success(await request('open'));
+  success(await request('bet',{pick:'pro',stake:20},'viewer'));
+  const guest=await request('round',{},null);success(guest);
+  assert.equal(guest.body.balance,null);assert.equal(guest.body.myBet,null);assert.equal(guest.body.ownSide,null);
+  const own=await request('round',{},'viewer');assert.deepEqual(own.body.myBet,{pick:'pro',stake:20});
+  assert.equal(db.data(BALANCE('null')),undefined);
+});
+
+test('rankings include settled calls only and never reveal saved account names',async()=>{
+  const {db,request}=liveFixture();
+  db.seed(LEADERBOARD('new'),{name:'Private Account Name',rating:1500,bets:0,wins:0});
+  db.seed(LEADERBOARD('winner'),{name:'Another Private Name',rating:1050,bets:2,wins:1});
+  const result=await request('list',{},null);success(result);
+  assert.equal(result.body.leaderboard.length,1);
+  assert.equal(result.body.leaderboard[0].bets,2);
+  assert.notEqual(result.body.leaderboard[0].name,'Another Private Name');
+});
+
+test('a participant cannot refund an active restored market to escape a losing bet',async()=>{
+  const {db,request}=liveFixture();success(await request('open'));
+  success(await request('bet',{pick:'pro',stake:20}));
+  const before=db.snapshot();
+  assert.equal((await request('settle')).status,409);
+  assert.deepEqual(db.snapshot(),before);
+});
+
+test('fractional or oversized stakes are refused without creating a balance',async()=>{
+  const {db,request}=liveFixture();success(await request('open'));
+  for(const stake of [1.5,5001,-1,'12oops'])assert.equal((await request('bet',{pick:'pro',stake},'viewer')).status,400);
+  assert.equal(db.data(BALANCE('viewer')),undefined);
+});
+
 test('a delayed duplicate open cannot overwrite an already settled market', async () => {
   const { db, request } = fixture(serverWinner);
   const path = 'predict_markets/new-round';
   const body = { room: 'new-round', proUid: 'participant-a', conUid: 'participant-b' };
   db.seed('judgments/live_new-round', serverWinner);
+  db.seed('live_rounds/new-round',{proUid:'participant-a',conUid:'participant-b',status:'round',format:'quick',motion:'Cities should have more parks.',speechIdx:0,currentTimer:{state:'running'}});
   const pause = pauseNextRead(db, path);
   const delayedOpen = request('open', body);
   await pause.waiting;

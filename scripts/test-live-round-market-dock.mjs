@@ -38,10 +38,11 @@ check('live header carries spectator context',
   /id="spectatorMatchup"/.test(page)
   && /id="spectatorJudge"/.test(page)
   && /id="spectatorPrep"/.test(page));
-check('audience responses remain available without betting or a balance badge',
+check('audience responses remain separate from the restored Bet page',
   /id="audienceToolsLabel">Your take</.test(page)
   && /function svInitSpectator/.test(page)
-  && !/audienceTokensBalance|pmRenderPanel|pmOpen|pmPlaceBet|data-sm="bet"/.test(page));
+  && /viewer-bet-link/.test(page) && /function syncPlayBet/.test(page)
+  && !/audienceTokensBalance|pmRenderPanel|pmPlaceBet/.test(page));
 check('spectator menu retains transcript, notes, and private responses',
   /data-sm="transcript"/.test(page) && /data-sm="notes"/.test(page)
   && /data-sm="audience"/.test(page));

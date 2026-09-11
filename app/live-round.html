@@ -4095,6 +4095,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       <!-- Audience: the private "where do you stand"
            call. Spectator-only, so the section stays hidden until
            svDock() mounts something into it. -->
+      <div class="self-bet-entry"><a class="viewer-bet-link" href="/bet" target="_blank" rel="noopener">Bet <span aria-hidden="true">↗</span></a></div>
       <details class="round-details" id="audienceTools" hidden>
         <summary><span id="audienceToolsLabel">Your take</span></summary>
         <div class="rd-body" id="audienceToolsBody"></div>
@@ -13548,6 +13549,38 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     });
   }
 
+  // Keep the live room connected while the viewer steps into the Bet page.
+  function updateBetLinks(){
+    var href='/bet';
+    if(state.room) href+='?room='+encodeURIComponent(state.room)+'&return='+encodeURIComponent(location.pathname+location.search);
+    document.querySelectorAll('.viewer-bet-link').forEach(function(a){a.href=href;});
+  }
+  var playBetBusy=false, playBetOpened=false, playBetLocked=false, playBetSettled=false;
+  function syncPlayBet(){
+    updateBetLinks();
+    var d=state.lastRoundDoc,u=state.user;
+    if(playBetBusy||!u||u.isAnonymous||!u.getIdToken||!state.room||!d||window.__lrDesign)return;
+    if(u.uid!==d.proUid&&u.uid!==d.conUid)return;
+    var action='';
+    if(d.ballot||d.ballotUnresolved||state.lastBallot||state.ballotUnresolved){if(!playBetSettled)action='settle';}
+    else if(d.status==='round'&&(!d.draft||d.draft.phase==='done')&&d.currentTimer&&d.currentTimer.state!=='ready'){
+      if(d.teamSize===2||d.proUid2||d.conUid2||d.isPrivate||d.tournamentId||d.tournamentRound)return;
+      if(d.format==='quick'&&Number(d.speechIdx)>=2){if(!playBetLocked)action='lock';}
+      else if(!playBetOpened)action='open';
+    }
+    if(!action)return;
+    playBetBusy=true;
+    u.getIdToken().then(function(tok){return fetch('/.netlify/functions/predict',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},body:JSON.stringify({action:action,room:state.room})});})
+      .then(function(r){if(r.status===404&&action==='settle')playBetSettled=true;return r.json();}).then(function(res){
+        if(!res.ok)return;
+        if(action==='open')playBetOpened=true;
+        if(action==='lock')playBetLocked=true;
+        if(action==='settle')playBetSettled=true;
+      }).catch(function(){ /* Retry from the next room update; the debate carries on. */ })
+      .then(function(){playBetBusy=false;});
+  }
+  setInterval(syncPlayBet,15000);
+
   function svDock(){
     var d = document.getElementById('specDock');
     if (d) return d;
@@ -15539,6 +15572,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       return;
     }
     state.lastBallot = b || null;
+    syncPlayBet();
     // Both clients pass through here (the generating debater directly,
     // the other via the Firestore sync), so this is the one choke point
     // where each side can flush its own consented speeches.
@@ -19841,8 +19875,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     m.id = 'specMenu'; m.className = 'spec-menu';
     m.innerHTML = '<button type="button" class="sm-btn" data-sm="transcript" aria-pressed="false">Transcript</button>'
       + '<button type="button" class="sm-btn" data-sm="notes" aria-pressed="false">Round notes</button>'
-      + '<button type="button" class="sm-btn" data-sm="audience" aria-pressed="false">Your take</button>';
+      + '<button type="button" class="sm-btn" data-sm="audience" aria-pressed="false">Your take</button>'
+      + '<a class="sm-btn viewer-bet-link" href="/bet" target="_blank" rel="noopener">Bet <span aria-hidden="true">↗</span></a>';
     head.insertAdjacentElement('afterend', m);
+    updateBetLinks();
     m.addEventListener('click', function(e){
       var b = e.target && e.target.closest ? e.target.closest('[data-sm]') : null;
       if (!b) return;
@@ -22159,6 +22195,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   function onRoundSnapshot(d){
     if (window.__lrMergeDraftSnapshot) d = window.__lrMergeDraftSnapshot(d);
     state.lastRoundDoc = d;
+    syncPlayBet();
     var priorDuo = state.isDuo, priorPartners = (state.proUid2||'')+'|'+(state.conUid2||'');
     syncTeamSeats(d);
     if (d.teamFinishedAt) state.endingSpeech = false;
@@ -24856,6 +24893,18 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
   body.lr-round-live #audFab{bottom:calc(82px + var(--safe-bottom,env(safe-area-inset-bottom,0px)))!important}
   body.lr-camera-focus .judge-overview{display:none}
 }
+
+/* The viewer's Bet doorway uses its own green in both page themes. */
+.viewer-bet-link,.spec-menu .sm-btn.viewer-bet-link,body.spectator-mode .spec-menu .sm-btn.viewer-bet-link{
+ display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:42px;padding:9px 20px;
+ border:1px solid #81c15d;border-radius:999px;background:linear-gradient(#bce8a5,#98cf7f);color:#172b16;
+ font-family:inherit;font-size:.8rem;font-weight:800;text-decoration:none;box-shadow:inset 0 1px 0 #e2f8d5,0 3px 0 #476e35,0 7px 18px #0c361933;
+}
+.viewer-bet-link:hover{filter:brightness(1.08)}
+.viewer-bet-link:focus-visible{outline:3px solid #72a956;outline-offset:4px}
+.self-bet-entry{padding:10px 22px 4px;text-align:right}
+body.spectator-mode .self-bet-entry,html.stage-mode .self-bet-entry{display:none}
+@media(max-width:760px){.spec-menu{grid-template-columns:repeat(4,minmax(0,1fr))}.spec-menu .sm-btn.viewer-bet-link{padding:6px 8px;gap:5px}.self-bet-entry{padding:8px 16px}}
 </style>
 </body>
 </html>

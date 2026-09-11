@@ -1,5 +1,5 @@
 import { publicName } from './lib/public-identity.mjs';
-import { BETTING_LIVE } from './lib/betting-status.mjs';
+import { PREDICTION_BETTING_LIVE as BETTING_LIVE } from './lib/betting-status.mjs';
 // Prediction market on real human rounds, AI-judged. POINTS ONLY (virtual,
 // non-redeemable). Server-authoritative: the client can NEVER write balances,
 // pools, or payouts. every economy mutation goes through this function with
@@ -35,7 +35,6 @@ import { judgmentId } from './lib/judgment.mjs';
 const START_BALANCE = 1000;          // seed for a new predictor
 const MAX_STAKE = 5000;              // sanity cap per bet
 const DEFAULT_LOCK_SEC = 240;        // fallback "middle of the round" if caller gives none
-const MAX_LOCK_SEC = 1800;           // never hold a market open > 30 min
 const SIDES = { pro: 1, con: 1 };
 
 function tierFor(r){
@@ -115,6 +114,22 @@ function publicMarket(m, id) {
 // job was draining a board of markets nobody had bet on.
 
 
+const traderCache = new WeakMap();
+async function traderRows(db, uid) {
+  const cached=traderCache.get(db);
+  if (cached && cached.until > Date.now()) return cached.rows.map(({uid:id,...row})=>({...row,me:id===uid}));
+  const rows = await db.collection('predict_leaderboard').where('bets', '>', 0).get();
+  const settled = rows.docs.filter(d => Number(d.data().bets) > 0)
+    .sort((a,b) => (Number(b.data().rating) || 1000) - (Number(a.data().rating) || 1000) || a.id.localeCompare(b.id)).slice(0,12);
+  const projected = await Promise.all(settled.map(async d => {
+    const v=d.data();
+    return {uid:d.id,name:await publicName(db,d.id), rating:Number(v.rating)||1000, bets:Number(v.bets)||0,
+      wins:Number(v.wins)||0, tier:tierFor(Number(v.rating)||1000), me:d.id===uid};
+  }));
+  traderCache.set(db,{until:Date.now()+30000,rows:projected});
+  return projected.map(({uid:id,...row})=>({...row,me:id===uid}));
+}
+
 export default async (request, context) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405, request);
@@ -124,20 +139,39 @@ export default async (request, context) => {
   const token = extractBearerToken(request);
   let decoded = null;
   if (token) { try { decoded = await verifyIdToken(token); } catch (e) { decoded = null; } }
-  const uid = decoded ? decoded.sub : null;
-  const name = decoded ? await publicName(getDb(), decoded.sub) : 'Anonymous';
+  const uid = decoded && decoded.firebase?.sign_in_provider !== 'anonymous' ? decoded.sub : null;
+  const name = uid ? await publicName(getDb(),uid) : 'Anonymous';
 
   let body;
   try { body = await request.json(); } catch (e) { return errorResponse('Bad JSON', 400, request); }
   const action = body && body.action;
+  if (body?.room != null && !/^[A-Za-z0-9_-]{1,80}$/.test(String(body.room))) return errorResponse('Invalid round',400,request);
   if (!BETTING_LIVE && !['state', 'lock', 'settle'].includes(action)) {
     return errorResponse('Betting is paused.', 410, request);
   }
   const db = getDb();
   // 'list'/'resolve'/'seed' are public market upkeep (no economy mutation, self-
   // limiting): they keep the board fresh whether or not anyone is signed in.
-  const PUBLIC_ACTIONS = { list: 1 };
+  const PUBLIC_ACTIONS = { list: 1, round: 1 };
   if (!uid && !PUBLIC_ACTIONS[action]) return errorResponse('Sign in to do that', 401, request);
+
+  // The focused page is readable before sign-in. It never seeds a guest balance.
+  if (action === 'round') {
+    const room = String(body.room || '');
+    if (!/^[A-Za-z0-9_-]{1,80}$/.test(room)) return errorResponse('Invalid round',400,request);
+    const roundSnap = await db.collection('live_rounds').doc(room).get();
+    const round = roundSnap.exists ? roundSnap.data() : null;
+    if (!round || round.isPrivate || round.teamSize === 2 || round.proUid2 || round.conUid2) {
+      return jsonResponse({ok:true,market:null},200,request);
+    }
+    const snap = await db.collection('predict_markets').doc(room).get();
+    const m = snap.exists && snap.data().viewerBetVersion === 1 ? snap.data() : null;
+    const bet = uid && m ? await snap.ref.collection('bets').doc(uid).get() : null;
+    return jsonResponse({ok:true,market:publicMarket(m,room),
+      ownSide:uid===round.proUid?'pro':uid===round.conUid?'con':null,
+      balance:uid?await ensureBalance(db,uid):null,
+      myBet:bet&&bet.exists?{pick:bet.data().pick,stake:bet.data().stake}:null},200,request);
+  }
 
   // ── state: my balance + (optional) a market + my bet + top leaderboard ──
   if (action === 'state') {
@@ -152,12 +186,11 @@ export default async (request, context) => {
     }
     // top leaderboard (cheap: a small ordered read)
     try {
-      const lb = await db.collection('predict_leaderboard').orderBy('rating', 'desc').limit(12).get();
-      out.leaderboard = lb.docs.map(d => ({ name: d.data().name || 'Anon', rating: d.data().rating || 1000, tier: tierFor(d.data().rating || 1000), me: d.id === uid }));
+      out.leaderboard = await traderRows(db,uid);
       const meLb = await db.collection('predict_leaderboard').doc(uid).get();
       out.tier = tierFor(meLb.exists ? (meLb.data().rating || 1000) : 1000);
       out.rating = meLb.exists ? (meLb.data().rating || 1000) : 1000;
-    } catch (e) { out.leaderboard = []; }
+    } catch (e) { out.leaderboard = []; out.leaderboardError = true; }
     return jsonResponse(out, 200, request);
   }
 
@@ -165,26 +198,35 @@ export default async (request, context) => {
   if (action === 'open') {
     const room = body.room && String(body.room).slice(0, 80);
     if (!room) return errorResponse('Missing room', 400, request);
-    const proUid = String(body.proUid || ''), conUid = String(body.conUid || '');
-    // only a participant of the round may open its market
-    if (uid !== proUid && uid !== conUid) return errorResponse('Not a participant', 403, request);
+    if (!/^[A-Za-z0-9_-]{1,80}$/.test(room)) return errorResponse('Invalid round',400,request);
+    const rSnap = await db.collection('live_rounds').doc(room).get();
+    const round = rSnap.exists ? rSnap.data() : null;
+    if (!round || !round.proUid || !round.conUid || round.proUid === round.conUid)
+      return errorResponse('No two-person round',400,request);
+    const proUid=round.proUid, conUid=round.conUid;
+    if (uid!==proUid && uid!==conUid) return errorResponse('Not a participant',403,request);
+    if (round.isPrivate || round.teamSize === 2 || round.proUid2 || round.conUid2 || round.tournamentId || round.tournamentRound)
+      return errorResponse('Bets are for public one-on-one rounds.',400,request);
+    if (round.status !== 'round' || round.ballot || round.ballotUnresolved || round.ballotPending || (round.draft && round.draft.phase !== 'done'))
+      return errorResponse('This round is not open for betting.',400,request);
+    if (!round.speechIdx && (!round.currentTimer || round.currentTimer.state === 'ready'))
+      return errorResponse('The round has not started.',400,request);
+    if (round.format === 'quick' && Number(round.speechIdx) >= 2) return errorResponse('Betting is closed',400,request);
+    const lockAt = new Date(Date.now() + DEFAULT_LOCK_SEC * 1000);
     const ref = db.collection('predict_markets').doc(room);
-    let lockSec = parseInt(body.lockInSec, 10);
-    if (!Number.isFinite(lockSec) || lockSec <= 0) lockSec = DEFAULT_LOCK_SEC;
-    lockSec = Math.min(MAX_LOCK_SEC, lockSec);
-    const lockAt = new Date(Date.now() + lockSec * 1000);
+    const proName=await publicName(db,proUid), conName=await publicName(db,conUid);
     const doc = {
-      room, proUid, conUid,
+      room, proUid, conUid, viewerBetVersion:1,
       // The board queries by liveKey. Real markets carry `live_*` and the
       // retired AI ones carried `ai_*`, so the two can never share a board
       // again by accident. Markets opened before 2026-08-25 have no key at
       // all, which is why the board starts empty rather than resurrecting
       // 464 dead countdowns from rounds that ended months ago.
       liveKey: 'live_open',
-      proName: String(body.proName || 'Pro').slice(0, 40),
-      conName: String(body.conName || 'Con').slice(0, 40),
-      motion: String(body.motion || '').slice(0, 300),
-      format: String(body.format || '').slice(0, 40),
+      proName,
+      conName,
+      motion: String(round.motion || '').slice(0, 300),
+      format: String(round.format || '').slice(0, 40),
       status: 'open', lockAt, createdAt: FieldValue.serverTimestamp(),
       poolPro: 0, poolCon: 0, betCount: 0,
       // The client draws market volatility from this server-owned trace.
@@ -197,6 +239,12 @@ export default async (request, context) => {
     const result = await db.runTransaction(async (t) => {
       const existing = await t.get(ref);
       if (existing.exists) return { ok: true, market: publicMarket(existing.data(), room), already: true };
+      const current = await t.get(rSnap.ref);
+      const value = current.data();
+      if (!value || value.proUid !== proUid || value.conUid !== conUid || value.isPrivate
+          || value.teamSize === 2 || value.proUid2 || value.conUid2 || value.status !== 'round'
+          || value.ballot || value.ballotUnresolved || value.ballotPending || (value.draft && value.draft.phase !== 'done'))
+        return {ok:false,error:'The round changed. Refresh and try again.'};
       t.set(ref, doc);
       return { ok: true, market: publicMarket(doc, room) };
     });
@@ -235,11 +283,10 @@ export default async (request, context) => {
   if (action === 'bet') {
     const room = body.room && String(body.room).slice(0, 80);
     const pick = body.pick;
-    let stake = parseInt(body.stake, 10);
+    const stake = Number(body.stake);
     if (!room) return errorResponse('Missing room', 400, request);
     if (!SIDES[pick]) return errorResponse('Bad side', 400, request);
-    if (!Number.isFinite(stake) || stake < 1) return errorResponse('Bad stake', 400, request);
-    stake = Math.min(MAX_STAKE, stake);
+    if (!Number.isInteger(stake) || stake < 1 || stake > MAX_STAKE) return errorResponse('Choose 1 to 5,000 whole play tokens.', 400, request);
 
     // 18+ and jurisdiction, checked before a balance doc is even seeded.
     // Seeding first would hand a minor a 1000-point balance and a
@@ -271,6 +318,13 @@ export default async (request, context) => {
         // the one that throws.
         if (uid === md.proUid && pick !== 'pro') throw new Error('wrong-side');
         if (uid === md.conUid && pick !== 'con') throw new Error('wrong-side');
+        if (md.viewerBetVersion === 1) {
+          const live = await t.get(db.collection('live_rounds').doc(room));
+          const rd=live.data();
+          if (!rd || rd.status !== 'round' || rd.isPrivate || rd.teamSize === 2 || rd.proUid2 || rd.conUid2
+              || rd.proUid !== md.proUid || rd.conUid !== md.conUid || rd.ballot || rd.ballotPending || rd.ballotUnresolved
+              || (rd.format === 'quick' && Number(rd.speechIdx) >= 2)) throw new Error('closed');
+        }
         const existingBet = await t.get(betRef);
         if (existingBet.exists) throw new Error('already-bet');
         const bal = await t.get(balRef);
@@ -303,7 +357,7 @@ export default async (request, context) => {
       return jsonResponse({ ok: true, balance: result.balance }, 200, request);
     } catch (e) {
       const msg = String(e.message || e);
-      const map = { 'no-market': 'No open market', 'closed': 'Betting is closed', 'locked': 'Betting locked at the middle speeches', 'wrong-side': "You're in this round. You can back yourself, not your opponent.", 'already-bet': 'You already bet this round', 'insufficient': 'Not enough points' };
+      const map = { 'no-market': 'No open market', 'closed': 'Betting is closed', 'locked': 'Betting locked at the middle speeches', 'wrong-side': "You're in this round. You can back yourself, not your opponent.", 'already-bet': 'You already bet this round', 'insufficient': 'Not enough play tokens' };
       return errorResponse(map[msg] || 'Could not place bet', 400, request);
     }
   }
@@ -358,6 +412,12 @@ export default async (request, context) => {
           const labels = j.sideLabels || { a: 'pro', b: 'con' };
           const side = labels[j.winner];
           if (side === 'pro' || side === 'con') verdict = side;
+        }
+        if (!verdict && pm.viewerBetVersion === 1) {
+          const live = await t.get(db.collection('live_rounds').doc(room));
+          const rd=live.data();
+          if (!rd || (!rd.ballot && !rd.ballotUnresolved))
+            return {error:'The round is still awaiting its verdict.',status:409};
         }
         const bets = await t.get(mRef.collection('bets'));
 
@@ -435,22 +495,24 @@ export default async (request, context) => {
       const settledSnap = await db.collection('predict_markets').where('liveKey', '==', 'live_settled').get();
       const fresh = openSnap.docs.filter((d) => {
         const at = ms(d.data().createdAt) || ms(d.data().lockAt) || 0;
-        return at && (now - at) < OPEN_TTL_MS;
+        return d.data().viewerBetVersion === 1 && at && (now - at) < OPEN_TTL_MS;
       }).sort((a, b) => (ms(b.data().createdAt) || 0) - (ms(a.data().createdAt) || 0));
-      const settled = settledSnap.docs
+      const settled = settledSnap.docs.filter(d => d.data().viewerBetVersion === 1)
         .sort((a, b) => (ms(b.data().settledAt) || 0) - (ms(a.data().settledAt) || 0))
         .slice(0, 6);
       for (const d of [...fresh, ...settled]) {
+        const live = await db.collection('live_rounds').doc(d.id).get();
+        const rd=live.data();
+        if (!rd || rd.isPrivate || rd.teamSize === 2 || rd.proUid2 || rd.conUid2) continue;
         const pm = publicMarket(d.data(), d.id);
         if (uid) { const bet = await d.ref.collection('bets').doc(uid).get(); pm.myBet = bet.exists ? { pick: bet.data().pick, stake: bet.data().stake } : null; }
         out.markets.push(pm);
       }
-    } catch (e) { out.marketsError = String(e.message || e); }
+    } catch (e) { out.marketsError = true; }
     try {
-      const lb = await db.collection('predict_leaderboard').orderBy('rating', 'desc').limit(12).get();
-      out.leaderboard = lb.docs.map(x => ({ name: x.data().name || 'Anon', rating: x.data().rating || 1000, tier: tierFor(x.data().rating || 1000), me: uid && x.id === uid }));
+      out.leaderboard = await traderRows(db,uid);
       if (uid) { const meLb = await db.collection('predict_leaderboard').doc(uid).get(); out.rating = meLb.exists ? (meLb.data().rating || 1000) : 1000; out.tier = tierFor(out.rating); }
-    } catch (e) { out.leaderboard = []; }
+    } catch (e) { out.leaderboard = []; out.leaderboardError = true; }
     return jsonResponse(out, 200, request);
   }
 
