@@ -14,18 +14,20 @@ function between(source, start, end) {
 async function liveClock(page, open = false) {
   await page.clock.install({ time: new Date('2026-09-07T12:00:00Z') });
   await page.clock.pauseAt(new Date('2026-09-07T12:00:10Z'));
-  await page.setContent('<span id="timerNum"></span><span id="rmbTimerNum"></span>' +
+  await page.setContent('<section class="judge-overview">AI judge</section>' +
+    '<span id="timerNum"></span><span id="rmbTimerNum"></span>' +
     '<div id="timerBar"></div><span id="timerTarget"></span><p id="overtimeNote" hidden></p>' +
     '<textarea id="speechText">The argument before the cutoff.</textarea>' +
     '<div id="rmbRec"><span id="rmbRecLabel"></span><span id="rmbRecElapsed"></span></div>');
   await page.addScriptTag({ content: `
     var $ = id => document.getElementById(id);
-    var state = {formatKey:${JSON.stringify(open ? 'open' : 'quick')}, timerState:'running', timerElapsed:0,
+    var state = {phase:'round', log:[], formatKey:${JSON.stringify(open ? 'open' : 'quick')}, timerState:'running', timerElapsed:0,
       timerStart:Date.now(), timerTotalSec:60, speechIdx:0, overCut:{}, timeExt:{}, proUid:'', conUid:''};
     var FORMATS = {quick:{speeches:[{time:60}]},open:{open:true,speeches:[{time:0}]}};
     function isMyTurn(){return true;} function isSpectator(){return false;}
     ${between(live, '  function openMode(){', '\n')}
     ${between(live, '  function fmtTime(sec){', '  function toast(')}
+    ${between(live, '  var judgeOverviewFadeTimer = 0;', '  function updateRoomStage(){')}
     ${between(live, '  function getElapsed(){', '  function prepareTimer(')}
     ${between(live, '  function fmtElapsed(ms){', '\n  function ')}
     ${between(live, '  function setRecUi(', '\n  // Ask for a display capture')}
@@ -71,6 +73,30 @@ test('conversation keeps counting up beyond a timed allotment without an overtim
   expect(await page.evaluate(() => state.overCut[0])).toBeUndefined();
   await page.evaluate(() => setRecUi(true, 76000));
   await expect(page.locator('#rmbRecElapsed')).toHaveText('1:16');
+});
+
+test('judge introduction fades after a minute of speech, excludes pauses and returns for the decision', async ({ page }) => {
+  await liveClock(page, true);
+  const introduction = page.locator('.judge-overview');
+  await page.clock.runFor(59000);
+  await expect(introduction).toBeVisible();
+  await page.evaluate(() => { state.timerElapsed = getElapsed(); state.timerState = 'paused'; drawTimer(); });
+  await page.clock.runFor(120000);
+  await expect(introduction).toBeVisible();
+  // The same minute may span multiple short speeches.
+  await page.evaluate(() => {
+    state.log = [{durationSec:20}]; state.timerElapsed = 39;
+    state.timerStart = Date.now(); state.timerState = 'running'; drawTimer();
+  });
+  await page.clock.runFor(1000);
+  await expect(introduction).toHaveClass(/is-dismissed/);
+  await page.clock.runFor(300);
+  await expect(introduction).toBeHidden();
+  await page.evaluate(() => { state.phase = 'ballot'; drawTimer(); });
+  await expect(introduction).toBeVisible();
+  await page.evaluate(() => { state.phase = 'setup'; drawTimer(); });
+  await page.clock.runFor(120000);
+  await expect(introduction).toBeVisible();
 });
 
 test('voice speech clocks use their phase countdown and free conversation uses elapsed time', async ({ page }) => {
