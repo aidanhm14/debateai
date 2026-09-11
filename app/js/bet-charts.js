@@ -4,6 +4,9 @@
   function svgNode(tag,attrs,text){var n=document.createElementNS(NS,tag);Object.keys(attrs||{}).forEach(function(k){n.setAttribute(k,attrs[k]);});if(text!=null)n.textContent=text;return n;}
   function poolChart(host,market,options){
     if(!host)return;options=options||{};host.replaceChildren();
+    host._betChartMarket=market;host._betChartOptions=options;
+    host._betChartWidth=Math.round(host.clientWidth);
+    if(window.ResizeObserver&&!host._betChartResize){host._betChartResize=new ResizeObserver(function(entries){var width=Math.round(entries[0].contentRect.width);if(width>0&&width!==host._betChartWidth)poolChart(host,host._betChartMarket,host._betChartOptions);});host._betChartResize.observe(host);}
     var total=Number(market.poolPro)+Number(market.poolCon);
     if(!total){var empty=document.createElement('p');empty.className='pool-chart-empty';empty.textContent='The graph starts with the first bet.';host.appendChild(empty);return;}
     var history=(market.priceHistory||[]).filter(function(p){return Number.isFinite(p.at)&&Number.isFinite(p.proPct);}).slice(-60);
@@ -12,7 +15,7 @@
     // The opening 50/50 entry is a placeholder, not a token-backed observation.
     if(!options.illustration&&history.length>1&&history.length===Number(market.betCount)+1)history=history.slice(1);
     var start=history[0].at,end=history[history.length-1].at,span=Math.max(1,end-start);
-    var W=600,H=232,left=35,right=561,top=20,bottom=187;
+    var W=Math.max(260,host._betChartWidth||600),H=260,left=46,right=W-16,top=24,bottom=207;
     function x(p){return history.length===1?(left+right)/2:left+(p.at-start)/span*(right-left);}
     function y(v){return bottom-Math.max(0,Math.min(100,v))/100*(bottom-top);}
     var svg=svgNode('svg',{viewBox:'0 0 '+W+' '+H,role:'img','aria-label':(options.illustration?'Illustrative':'Recorded')+' play-token pool share. Pro '+latest+' percent, Con '+(100-latest)+' percent. This is not a win probability.'});
@@ -23,14 +26,14 @@
       svg.appendChild(svgNode('polyline',{points:pts.map(function(p){return p.join(',');}).join(' '),class:'pool-line pool-line-'+side}));
       var last=pts[pts.length-1];svg.append(svgNode('circle',{cx:last[0],cy:last[1],r:4,class:'pool-dot pool-dot-'+side}));
     });
-    svg.append(svgNode('text',{x:left,y:220,class:'pool-axis'},options.illustration?'Opening':'First bet'),svgNode('text',{x:right,y:220,'text-anchor':'end',class:'pool-axis'},options.endLabel||(market.status==='open'?'Latest bet':'Final pool')));
+    svg.append(svgNode('text',{x:left,y:245,class:'pool-axis'},options.illustration?'Opening':'First bet'),svgNode('text',{x:right,y:245,'text-anchor':'end',class:'pool-axis'},options.endLabel||(market.status==='open'?'Latest bet':'Final pool')));
     host.appendChild(svg);
   }
   window.DBBetCharts={pool:poolChart};
   var demo=document.getElementById('conviction-chart');
   if(demo){
     var values=[50,46,48,41,39,42,38,40,49,45,53,59,56,63,68,65,72,68];
-    var copy=['A close opening. Both sides have a case.','A strong response. More tokens follow Pro.','Betting closes. The judge still makes the call.'];
+    var copy=['Early bets put 58% of the pool on Con.','After the response, Pro has 59% of the pool.','Betting closes at 68% Pro and 32% Con. The judge then decides who wins.'];
     var stops=[6,12,18];
     function drawDemo(step){
       var points=values.slice(0,stops[step]),pct=points[points.length-1];

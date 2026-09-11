@@ -20,11 +20,11 @@
       if(request!==version||room!==config.room||!config.enabled)return;
       market=d.market;ownSide=d.ownSide||null;myBet=d.myBet||null;
       $('balance').hidden=d.balance==null;$('balance').textContent=d.balance==null?'':Number(d.balance).toLocaleString()+' tokens';
-      $('title').textContent=ownSide?'Back yourself.':'Who has the better case?';
+      $('title').textContent=ownSide?'Bet on yourself.':'Bet on this round.';
       $('market').hidden=!market;
       if(!market){$('status').textContent='Betting opens when this public one-on-one round starts.';return;}
       if(ownSide)pick=ownSide;if(myBet)pick=myBet.pick;
-      $('caption').textContent=ownSide?'Your round. Your side. Free play tokens.':'Back either side with free play tokens.';
+      $('caption').textContent=ownSide?'You can only bet on your own side.':'Back either side with free play tokens.';
       var total=market.poolPro+market.poolCon;
       ['pro','con'].forEach(function(s){var pool=s==='pro'?market.poolPro:market.poolCon;$('name-'+s).textContent=(s==='pro'?market.proName:market.conName);$('pool-'+s).textContent=pool.toLocaleString()+' tokens'+(total?' · '+Math.round(pool/total*100)+'%':'');});
       if(window.DBBetCharts)window.DBBetCharts.pool($('chart'),market);
@@ -60,7 +60,7 @@
     var changed=next.room!==config.room||next.enabled!==config.enabled;config=next;root.hidden=!config.enabled;
     if(changed){++version;market=null;myBet=null;ownSide=null;pick=null;lastRead=0;$('market').hidden=true;$('age').hidden=true;$('age-check').checked=false;$('balance').hidden=true;}
     if(!config.enabled)return;
-    $('title').textContent=ownSide||!config.viewer?'Back yourself.':'Who has the better case?';
+    $('title').textContent=ownSide||!config.viewer?'Bet on yourself.':'Bet on this round.';
     if(config.demo){$('status').textContent='Betting opens when a public one-on-one round starts.';return;}
     if(!authBound){try{firebase.auth().onAuthStateChanged(function(){market=null;myBet=null;ownSide=null;pick=null;refresh(true);});authBound=true;}catch(e){}}
     refresh(false);

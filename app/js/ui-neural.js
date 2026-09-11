@@ -89,9 +89,11 @@
     // Other light pages omit data-lightweb and remain unchanged.
     var lightWeb=isLight&&document.documentElement.getAttribute('data-lightweb')==='web';
     themeActive=!isLight||lightWeb;
-    var R=lightWeb?74:(isLight?100:239),
-        G=lightWeb?64:(isLight?130:68),
-        B=lightWeb?68:(isLight?180:68);
+    // The betting page keeps the same geometry, in its green palette.
+    var isGreen=c.getAttribute('data-palette')==='green';
+    var R=isGreen?22:(lightWeb?74:(isLight?100:239)),
+        G=isGreen?128:(lightWeb?64:(isLight?130:68)),
+        B=isGreen?74:(lightWeb?68:(isLight?180:68));
     var rgb=R+','+G+','+B;
     // Dark carries the same small contrast lift the light arm got: the
     // sharper render alone does not compensate for red-on-near-black,
@@ -105,7 +107,7 @@
     NODE_COLOR='rgba('+rgb+','+(lightWeb?.42:(isLight?.14:.3))+')';
     // Pulses stay brand red on the light arm: the ink carries the
     // structure, the red carries the life.
-    PULSE_COLOR=lightWeb?'rgba(200,60,60,.4)':'rgba('+rgb+','+(isLight?.2:.36)+')';
+    PULSE_COLOR=isGreen?'rgba(22,128,74,.4)':lightWeb?'rgba(200,60,60,.4)':'rgba('+rgb+','+(isLight?.2:.36)+')';
     CDIST=isLight?CONNECT_DIST_LIGHT:CONNECT_DIST_DARK;
     CDIST_SQ=CDIST*CDIST;
     lineW=lightWeb?.5:(isLight?.4:.5);

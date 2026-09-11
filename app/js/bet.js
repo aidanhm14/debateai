@@ -25,7 +25,7 @@
     var rows=(data.leaderboard||[]).filter(function(r){return r.bets>0;});
     $('trader-status').hidden=rows.length>0;
     if(data.leaderboardError){$('trader-status').textContent='The standings could not load. Refresh to try again.';return;}
-    if(!rows.length){$('trader-status').replaceChildren(node('strong','The first calls are still ahead.','empty-board-title'),node('span','Settled bets will put real people on this board. Your name could be first.'));return;}
+    if(!rows.length){$('trader-status').replaceChildren(node('strong','No settled bets yet.','empty-board-title'),node('span','Trader rankings appear after the first bets are settled.'));return;}
     rows.forEach(function(r,i){
       var tr=node('tr');tr.appendChild(node('td',String(i+1).padStart(2,'0')));tr.appendChild(node('td',r.name+(r.me?' (you)':'')));var calls=node('td'),ratio=node('span',r.wins+' / '+r.bets),bar=node('span',null,'win-rate'),fill=node('i');fill.style.width=Math.min(100,r.wins/r.bets*100)+'%';bar.setAttribute('aria-hidden','true');bar.appendChild(fill);calls.append(ratio,bar);tr.appendChild(calls);tr.appendChild(node('td',Number(r.rating).toLocaleString()));$('trader-rows').appendChild(tr);
     });
@@ -36,7 +36,7 @@
       var open=(d.markets||[]).filter(function(m){return m.status==='open'&&m.lockAt>Date.now();});
       $('market-status').hidden=open.length>0;
       if(d.marketsError){$('market-status').textContent='Open rounds could not load. Refresh to try again.';}
-      else if(!open.length){$('market-status').replaceChildren(node('p','No open bets right now. The next public one-on-one round opens a new call.'));var a=node('a','See what is on →');a.href='/watch';$('market-status').appendChild(a);}
+      else if(!open.length){$('market-status').replaceChildren(node('p','No open bets right now. Betting opens when a public one-on-one round starts.'));var a=node('a','Watch a round →');a.href='/watch';$('market-status').appendChild(a);}
       open.forEach(function(m){
         var row=node('article',null,'market'),copy=node('div');copy.appendChild(node('h3',m.motion));copy.appendChild(node('p',m.proName+' · '+m.conName));var b=node('button','Back a side ↗','button primary');b.type='button';b.addEventListener('click',function(){openSlip(m.room);});row.append(copy,b);$('markets').appendChild(row);
       });

@@ -1,13 +1,13 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light" data-lightweb="web">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Bet on your read · Debatable</title>
+<title>Bet on yourself or others · Debatable</title>
 <meta name="description" content="Back yourself or someone you are watching with free play tokens. Learn how bets work and see the best traders on Debatable.">
 <link rel="canonical" href="https://itsdebatable.com/bet">
-<meta property="og:title" content="Bet on your read · Debatable">
-<meta property="og:description" content="Your voice. Your read. Something on the line. Free play tokens, real debates.">
+<meta property="og:title" content="Bet on yourself or others · Debatable">
+<meta property="og:description" content="Bet on your own side or predict the winner as a viewer. Free play tokens, a shared pool, and a judge’s decision.">
 <meta property="og:url" content="https://itsdebatable.com/bet">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://itsdebatable.com/og-image.png">
@@ -19,56 +19,62 @@
 <link rel="stylesheet" href="/css/bet.css">
 <link rel="stylesheet" href="/css/bet-charts.css">
 <script defer src="/js/bet-charts.js"></script>
+<script defer src="/js/ui-neural.js"></script>
+<script defer src="/js/bet-fork.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script defer src="/js/bet.js"></script>
 <script defer src="/js/track.js"></script>
 </head>
 <body>
+<canvas id="uiNeuralCanvas" class="bet-backdrop" data-palette="green" aria-hidden="true"></canvas>
 <a class="skip" href="#main">Skip to content</a>
 <header class="masthead">
   <a class="back" data-return href="/watch"><span aria-hidden="true">←</span> Back to watching</a>
   <a class="wordmark" href="/" aria-label="Debatable, home">Debat<span>able</span><i aria-hidden="true">.</i></a>
-  <a class="rank-link" href="#traders">The traders <span aria-hidden="true">↗</span></a>
+  <a class="rank-link" href="#traders">Trader rankings <span aria-hidden="true">↗</span></a>
 </header>
 <main id="main">
-  <section class="hero" aria-labelledby="hero-title">
-    <div class="coin-scene" aria-hidden="true"><div class="coin-shadow"></div><div class="coin coin-back">d.</div><div class="coin coin-front">d.</div><span class="coin-caption">FREE PLAY TOKENS</span></div>
-    <p class="eyebrow">A little conviction goes a long way</p>
-    <h1 id="hero-title">Have a feeling?<br><em>Back it.</em></h1>
-    <p class="lede">Bet on yourself. Or on the person making the better case.<br class="desktop-break"> Free play tokens. A real round. The judge makes the call.</p>
-    <div class="hero-actions"><a class="button primary" href="#play">Find your next bet <span aria-hidden="true">↗</span></a><a class="text-link" href="#how">How it works <span aria-hidden="true">↓</span></a></div>
-    <p class="fine">No buying in. No cashing out. Just your read on the round.</p>
-  </section>
-  <section class="conviction" aria-labelledby="conviction-title">
-    <div class="conviction-copy"><p class="eyebrow">Follow the argument</p><h2 id="conviction-title">A good case<br>can <em>move a room.</em></h2><p>A reply lands. Someone backs the other side. The pool shifts, and so does the possible return.</p><p class="fine">The graph follows the tokens. The judge decides who wins.</p></div>
-    <div class="conviction-card">
-      <div class="chart-card-head"><span class="eyebrow">The room's read</span><span class="chart-label">ILLUSTRATIVE ROUND</span></div>
-      <div class="chart-totals"><div><span>PRO</span><strong id="conviction-pro">68%</strong></div><div><span>CON</span><strong id="conviction-con">32%</strong></div><p>Share of<br>play tokens</p></div>
-      <div id="conviction-chart" class="pool-chart"></div>
-      <div class="chart-steps" role="group" aria-label="Explore an illustrative round"><button type="button" data-chart-step="0" aria-pressed="false">01 Opening</button><button type="button" data-chart-step="1" aria-pressed="false">02 Response</button><button type="button" data-chart-step="2" aria-pressed="true">03 Close</button></div>
-      <p id="conviction-caption" class="chart-caption" aria-live="polite">Betting closes. The judge still makes the call.</p>
+  <section class="bet-fork" id="bet-fork" aria-labelledby="hero-title">
+    <div class="fork-stage" id="fork-stage">
+      <div class="fork-heading"><p class="eyebrow">Betting on Debatable</p><h1 id="hero-title">Two ways to <em>bet.</em></h1><p>Start with 1,000 free play tokens. Choose your role.</p></div>
+      <div class="fork-triangle" aria-hidden="true"><span></span></div>
+      <div class="fork-choices">
+        <a class="fork-lane fork-self" href="#bet-yourself" data-bet-route="self"><span class="fork-role">01 · IN THE ROUND</span><h2>Bet on<br><em>yourself.</em></h2><p>Put tokens behind your own side. Make the winning case.</p><span class="fork-cta">Your guide <span aria-hidden="true">↙</span></span></a>
+        <a class="fork-lane fork-others" href="#bet-others" data-bet-route="others"><span class="fork-role">02 · IN THE AUDIENCE</span><h2>Bet on<br><em>others.</em></h2><p>Watch the argument. Back the speaker you think will win.</p><span class="fork-cta">Your guide <span aria-hidden="true">↘</span></span></a>
+      </div>
+      <p class="fork-scroll">Scroll to follow each path <span aria-hidden="true">↓</span></p>
     </div>
   </section>
   <section class="ways" id="how" aria-labelledby="ways-title">
-    <div class="section-intro"><p class="eyebrow">Two ways to have a stake</p><h2 id="ways-title">In the room.<br><em>Or reading the room.</em></h2></div>
+    <div class="section-intro"><p class="eyebrow">From a bet to a result</p><h2 id="ways-title">Choose a side.<br><em>Follow the round.</em></h2></div>
     <div class="ways-grid">
-      <article class="way"><div class="way-top"><span class="number">01</span><span class="way-label">THE SPEAKER</span></div><h3>Bet on yourself.</h3><p>Think you can win the argument? Put play tokens behind your own side, then make your case.</p><p class="way-note">In your own round, you can only back yourself.</p><a href="/spar" class="text-link">Take a seat <span aria-hidden="true">↗</span></a></article>
-      <article class="way"><div class="way-top"><span class="number">02</span><span class="way-label">THE VIEWER</span></div><h3>Trust your read.</h3><p>Watch two people argue it out. Back the side you think the judge will choose, before betting closes.</p><p class="way-note">You are calling the winner, not voting for one.</p><a href="#play" class="text-link">Find a round <span aria-hidden="true">↗</span></a></article>
+      <article class="way" id="bet-yourself" tabindex="-1"><div class="way-top"><span class="number">01</span><span class="way-label">BET ON YOURSELF</span></div><h3>Your argument. Your stake.</h3><ol class="guide-steps"><li><strong>Start a public round.</strong><p>Take one side of a one-on-one debate.</p></li><li><strong>Back your own side.</strong><p>Choose a token amount and place your bet before betting closes. You cannot bet on your opponent.</p></li><li><strong>Make your case.</strong><p>If the judge gives you the win, you receive your share of the total pool.</p></li></ol><a href="/spar" class="text-link">Start a round <span aria-hidden="true">↗</span></a></article>
+      <article class="way" id="bet-others" tabindex="-1"><div class="way-top"><span class="number">02</span><span class="way-label">BET ON OTHERS</span></div><h3>Your prediction. Your stake.</h3><ol class="guide-steps"><li><strong>Watch a public round.</strong><p>Listen to the two sides of the argument.</p></li><li><strong>Pick who will win.</strong><p>Choose either speaker and a token amount. Place your bet before betting closes.</p></li><li><strong>Wait for the verdict.</strong><p>If your pick wins, you receive your share of the total pool. Bets do not influence the judge.</p></li></ol><a href="/watch" class="text-link">Watch a round <span aria-hidden="true">↗</span></a></article>
+    </div>
+  </section>
+  <section class="conviction" aria-labelledby="conviction-title">
+    <div class="conviction-copy"><p class="eyebrow">How the pool changes</p><h2 id="conviction-title">The pool changes.<br><em>So does the return.</em></h2><p>Every bet adds tokens to one side’s pool. This graph shows the share of tokens on each side as bets come in.</p><p class="fine">At the close, the side with fewer tokens pays a larger return if it wins. The judge’s verdict decides the result.</p></div>
+    <div class="conviction-card">
+      <div class="chart-card-head"><span class="eyebrow">Where the tokens go</span><span class="chart-label">ILLUSTRATIVE ROUND</span></div>
+      <div class="chart-totals"><div><span>PRO</span><strong id="conviction-pro">68%</strong></div><div><span>CON</span><strong id="conviction-con">32%</strong></div><p>Share of<br>play tokens</p></div>
+      <div id="conviction-chart" class="pool-chart"></div>
+      <div class="chart-steps" role="group" aria-label="Explore an illustrative round"><button type="button" data-chart-step="0" aria-pressed="false">01 Opening</button><button type="button" data-chart-step="1" aria-pressed="false">02 Response</button><button type="button" data-chart-step="2" aria-pressed="true">03 Close</button></div>
+      <p id="conviction-caption" class="chart-caption" aria-live="polite">Betting closes at 68% Pro and 32% Con. The judge then decides who wins.</p>
     </div>
   </section>
   <section class="token-story" aria-labelledby="tokens-title">
-    <div><p class="eyebrow">Small tokens. Real conviction.</p><h2 id="tokens-title">Start with <em>1,000.</em><br>Make them count.</h2><p>Your first play balance is free. Choose an amount, back one side, and let the round unfold. Each round takes one bet.</p><p>If your side wins, you get your share of the whole pool. If it loses, you lose what you put in. A round without a valid winning verdict returns your tokens.</p></div>
-    <div class="example"><p class="eyebrow">Try the pool</p><h3>Same 50 tokens.<br>A different return.</h3><p>Move the slider to see a 1,000-token final pool split between the two sides.</p>
+    <div><p class="eyebrow">How returns work</p><h2 id="tokens-title">Start with 1,000<br><em>free play tokens.</em></h2><p>Choose a stake and back one side. Each round allows one bet. You cannot switch sides after placing it.</p><p>If your side wins, you share the total pool with everyone who backed it. If it loses, you lose your stake. If the round has no valid winning verdict, your stake is returned.</p></div>
+    <div class="example"><p class="eyebrow">Try an example</p><h3>See what 50 tokens<br>could return.</h3><p>This example has 1,000 tokens in the final pool. Move the slider to change how many are on your side.</p>
       <label class="share-label" for="example-share">Your side's share <output id="share-value" for="example-share">50%</output></label>
       <input id="example-share" class="share-slider" type="range" min="10" max="90" step="10" value="50">
       <div class="pool-split" aria-hidden="true"><span id="example-pool-you"></span><span id="example-pool-other"></span></div><p id="example-pool-label" class="pool-split-label">500 on your side · 500 on the other</p>
       <div class="return-bars"><div><span>Your stake</span><i style="width:10%"></i><b>50</b></div><div><span>If you win</span><i id="example-return-bar" style="width:20%"></i><b id="example-payout" aria-live="polite">100</b></div><div class="loss-row"><span>If you lose</span><b>0</b></div></div>
-      <p>Winning returns include your original 50. Backing the less-funded side pays more if it wins.</p><span class="example-label">ILLUSTRATION ONLY · FINAL POOL OF 1,000</span>
+      <p>Your winning return includes your original 50 tokens.</p><span class="example-label">ILLUSTRATION ONLY · FINAL POOL OF 1,000</span>
     </div>
   </section>
   <section class="play-section" id="play" aria-labelledby="play-title">
-    <div class="section-heading"><div><p class="eyebrow">Put your read to work</p><h2 id="play-title">The next <em>call.</em></h2></div><span id="balance" class="balance" hidden></span></div>
+    <div class="section-heading"><div><p class="eyebrow">Open for betting</p><h2 id="play-title">Find a round.<br><em>Place your bet.</em></h2></div><span id="balance" class="balance" hidden></span></div>
     <div id="market-status" class="status" role="status">Finding open rounds…</div>
     <div id="markets" class="markets"></div>
     <div id="bet-slip" class="bet-slip" hidden>
@@ -83,17 +89,17 @@
     <p class="fine">18+. Eligible regions only. Betting closes four minutes after opening or at the middle speech, whichever comes first. Play tokens have no cash value.</p>
   </section>
   <section class="traders" id="traders" aria-labelledby="traders-title">
-    <div class="section-heading"><div><p class="eyebrow">The people with a read</p><h2 id="traders-title">The best <em>traders.</em></h2></div><span class="board-label">ALL TIME</span></div>
-    <p class="section-copy">Good calls add up. Ranked by prediction rating from settled bets, with bigger gains for calling an underdog.</p>
+    <div class="section-heading"><div><p class="eyebrow">Settled bets only</p><h2 id="traders-title">Trader <em>rankings.</em></h2></div><span class="board-label">ALL TIME</span></div>
+    <p class="section-copy">Correct calls increase your prediction rating. Incorrect calls lower it. A correct call earns more points when fewer tokens backed the winning side.</p>
     <div class="board"><table><caption class="sr-only">Trader rankings by prediction rating</caption><thead><tr><th scope="col">Rank</th><th scope="col">Trader</th><th scope="col">Calls won</th><th scope="col">Rating</th></tr></thead><tbody id="trader-rows"></tbody></table><p id="trader-status" class="board-status" role="status">Loading the standings…</p></div>
     <p class="fine">Only settled bets count. Your prediction rating is separate from your debate rating.</p>
   </section>
   <section class="details-section" aria-label="More about betting">
     <details><summary>Where do the winnings come from?</summary><p>From the tokens in that round's pool. The winning side divides the whole pool in proportion to each person's stake. There is no house fee. Returns are rounded down to whole tokens.</p></details>
     <details><summary>Can I buy or withdraw play tokens?</summary><p>No. Play tokens are free, cannot be transferred, and cannot be redeemed for money or prizes. Paid <a href="/voice-tokens">voice tokens</a> cover AI usage only and never enter a bet.</p></details>
-    <details><summary>What does the judge decide?</summary><p>Who made the winning case in the round. Audience bets never decide the ballot. Only the recorded server judgment can settle a bet. Read the <a href="/judge-integrity">judge's published rules</a>.</p></details>
+    <details><summary>What does the judge decide?</summary><p>Who made the winning case in the round. Audience bets never decide the ballot. The recorded judgment settles the bet. Read the <a href="/judge-integrity">judge's published rules</a>.</p></details>
   </section>
-  <footer><p>One round. A little more on the line.</p><a class="button primary" data-return href="/watch">Back to watching <span aria-hidden="true">↗</span></a><span>Debatable · Free play tokens</span></footer>
+  <footer><p>Watch a round. Back your winner.</p><a class="button primary" data-return href="/watch">Back to watching <span aria-hidden="true">↗</span></a><span>Debatable · Free play tokens</span></footer>
 </main>
 </body>
 </html>
