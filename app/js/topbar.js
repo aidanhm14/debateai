@@ -2383,9 +2383,11 @@
     var settings = document.createElement('a');
     settings.href = '/profile#settings';
     settings.className = 'ui-topbar-settings';
+    // Old cached ui.css may predate the gear. Keep its centering with the icon.
+    settings.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;flex:none;width:38px;height:38px;padding:0;line-height:0;vertical-align:middle;box-sizing:border-box';
     settings.setAttribute('aria-label', 'Settings');
-    settings.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-      + '<path d="M9.5 3.5l.7-2h3.6l.7 2 1.5.6 1.9-.9 2.5 2.5-.9 1.9.6 1.5 2 .7v3.6l-2 .7-.6 1.5.9 1.9-2.5 2.5-1.9-.9-1.5.6-.7 2h-3.6l-.7-2-1.5-.6-1.9.9-2.5-2.5.9-1.9-.6-1.5-2-.7v-3.6l2-.7.6-1.5-.9-1.9 2.5-2.5 1.9.9z"/>'
+    settings.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" style="display:block" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + '<path d="M9.5 3.9l.7-2h3.6l.7 2 1.5.6 1.9-.9 2.5 2.5-.9 1.9.6 1.5 2 .7v3.6l-2 .7-.6 1.5.9 1.9-2.5 2.5-1.9-.9-1.5.6-.7 2h-3.6l-.7-2-1.5-.6-1.9.9-2.5-2.5.9-1.9-.6-1.5-2-.7v-3.6l2-.7.6-1.5-.9-1.9 2.5-2.5 1.9.9z"/>'
       + '<circle cx="12" cy="12" r="4"/></svg>';
     settings.title = 'Open account settings';
     slot.appendChild(nameLink);
