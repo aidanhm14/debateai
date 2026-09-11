@@ -95,6 +95,10 @@ someone now shows Watch, a green Bet button, then Debate the AI. Bet opens
 `/bet`. The experimental raised screen and button styling was reverted
 at Aidan's request; preserve the prior surface and transparent chat rail.
 
+**Compact header (2026-09-10, Aidan):** The shared desktop header uses
+an icon-only Friends button and a gear icon for Settings. Keep accessible
+names and the existing destinations. The explanation link reads "How it works."
+
 ## Daily live hours (2026-09-08)
 
 Aidan chose three separate daily sessions: **9 PM New York, 9 PM Berlin,

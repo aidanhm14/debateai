@@ -304,9 +304,9 @@
     // 2026-08-12: `strong` is the new MIDDLE tier in the Explore menu
     // (see ui.css .ui-topbar-more-item.is-strong). The Improve column had
     // no `big` row at all, so it rendered as six identical rows and the
-    // eye had nowhere to land. "How this works" is the first question a
+    // eye had nowhere to land. "How it works" is the first question a
     // stranger asks, so it is the one that gets the weight.
-    { href: '/how-it-works',  label: 'How this works', compactKeep: true, strong: true },
+    { href: '/how-it-works',  label: 'How it works', compactKeep: true, strong: true },
     // 2026-08-27: Bet and Bounties leave the permanent rail for now.
     // Their routes stay live, and both remain discoverable as bold rows
     // in the Debate section of Explore (MORE_GROUPS + columnGroups).
@@ -1111,7 +1111,7 @@
           ['/topics',         ''],
         ]),
         column('Learn & prep', [
-          // How this works already has the prominent top-nav button.
+          // How it works already has the prominent top-nav button.
           // This column is the next step: learn the moves, then build the case.
           ['/learn',          'big'],
           ['/prep',           'strong'],
@@ -1287,7 +1287,7 @@
     // The rail carries Explore only. Every destination remains in Explore
     // and in the mobile sheet below; AI sparring is promoted inside those
     // menus and contextually on /spar, not as a permanent pill.
-    // "How this works" sits directly beside the Explore trigger, as a
+    // "How it works" sits directly beside the Explore trigger, as a
     // button rather than one more text link in a rail of text links.
     // Rationale (the founder, 2026-08-11): a first-time visitor's actual first
     // question is "what is this and what do I do", and the answer was a
@@ -1296,11 +1296,11 @@
     var howBtn = el('a', {
       href: '/how-it-works',
       class: 'ui-topbar-howbtn' + (pathMatches('/how-it-works') ? ' is-active' : ''),
-      'aria-label': 'How this works',
+      'aria-label': 'How it works',
     });
     howBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
       + '<circle cx="8" cy="8" r="6.4"/><path d="M6.2 6.1a1.9 1.9 0 1 1 2.4 2.2c-.5.2-.8.6-.8 1.1v.3"/><path d="M8 12.1h.01"/></svg>'
-      + '<span>How this works</span>';
+      + '<span>How it works</span>';
     howBtn.addEventListener('click', function(){ navTrack('nav_howitworks_click', { from: location.pathname }); });
     // Friends tab (2026-09-01, the founder: "have the friends system more
     // instituted into the design ... add the 'friends' tab for those
@@ -1315,11 +1315,11 @@
       class: 'ui-topbar-howbtn ui-topbar-friendsbtn' + (pathMatches('/friends') ? ' is-active' : ''),
       hidden: 'hidden',
       'aria-label': 'Friends',
+      title: 'Friends',
     });
     friendsBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
       + '<circle cx="5.5" cy="5.6" r="2.3"/><path d="M1.6 13.2c.4-2.3 2-3.6 3.9-3.6s3.5 1.3 3.9 3.6"/>'
-      + '<circle cx="11.4" cy="6.4" r="1.9"/><path d="M10.6 9.9c1.9.1 3.3 1.2 3.7 3.3"/></svg>'
-      + '<span>Friends</span>';
+      + '<circle cx="11.4" cy="6.4" r="1.9"/><path d="M10.6 9.9c1.9.1 3.3 1.2 3.7 3.3"/></svg>';
     friendsBtn.addEventListener('click', function(){ navTrack('nav_friends_click', { from: location.pathname }); });
     right.appendChild(buildExplore());
     right.appendChild(howBtn);
@@ -2392,9 +2392,11 @@
     var settings = document.createElement('a');
     settings.href = '/profile#settings';
     settings.className = 'ui-topbar-settings';
-    settings.textContent = 'Settings';
+    settings.setAttribute('aria-label', 'Settings');
+    settings.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + '<path d="M9.5 3.5l.7-2h3.6l.7 2 1.5.6 1.9-.9 2.5 2.5-.9 1.9.6 1.5 2 .7v3.6l-2 .7-.6 1.5.9 1.9-2.5 2.5-1.9-.9-1.5.6-.7 2h-3.6l-.7-2-1.5-.6-1.9.9-2.5-2.5.9-1.9-.6-1.5-2-.7v-3.6l2-.7.6-1.5-.9-1.9 2.5-2.5 1.9.9z"/>'
+      + '<circle cx="12" cy="12" r="4"/></svg>';
     settings.title = 'Open account settings';
-    settings.style.cssText = 'background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.68rem;padding:0;text-decoration:none';
     slot.appendChild(nameLink);
     slot.appendChild(settings);
   }
