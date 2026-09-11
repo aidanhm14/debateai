@@ -48,6 +48,7 @@
     return call({action:'round',room:room}).then(function(d){
       if(room!==selectedRoom||version!==stateVersion)return;
       market=d.market;ownSide=d.ownSide;myBet=d.myBet;balance(d.balance);
+      if(market&&window.DBBetFork)window.DBBetFork.openRound(ownSide,room);
       if(!market){$('slip-motion').textContent='This round is not open for bets.';$('slip-info').textContent='Bets open when a public one-on-one round starts.';$('bet-form').hidden=true;return;}
       $('slip-motion').textContent=market.motion;$('slip-chart-wrap').hidden=false;if(window.DBBetCharts)window.DBBetCharts.pool($('slip-chart'),market);
       var closed=market.status!=='open'||market.lockAt<=Date.now();

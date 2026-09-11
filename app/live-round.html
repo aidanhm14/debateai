@@ -3722,8 +3722,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         </div>
         <div class="rj-meta">
           <span class="rj-label">AI judge</span>
-          <span class="rj-purpose">Picks the stronger case. Explains why.</span>
-          <span class="rj-status"><i aria-hidden="true"></i><span id="railJudgeStatusText">Ready to judge</span></span>
+          <span class="rj-purpose">Decides the winner.</span>
         </div>
       </div>
       <div class="stage-seat stage-seat--con" id="stageConSeat">
@@ -3736,7 +3735,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       </div>
     </div>
       <details class="round-details" id="judgeAdjudicates">
-        <summary>How the judge decides<span class="rd-status" id="judgeAdjStatus"></span></summary>
+        <summary>Read how it decides</summary>
         <div class="rd-body judge-how-body">
           <p><b>It reads what each side said, and nothing else.</b> The judge works from the transcript of both benches. It does not watch the camera. It never sees the round notes, the fact checks, audience comments, or any report, so none of those can put a thumb on the scale.</p>
           <p><b>It decides on what was argued.</b> An argument counts when it is made and stays standing. A point the other side never answered is taken as conceded, unless it was flatly false. The judge never fills a gap with an argument nobody made and never decides on what it would have argued.</p>
@@ -5365,6 +5364,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   function renderSetupJudgeTypes(){
     var host = $('setupJudgeTypes');
     if (!host) return;
+    host.parentElement.hidden = SINGLE_JUDGE && !tournamentControlsLocked();
     host.classList.toggle('is-fixed', tournamentControlsLocked() || SINGLE_JUDGE);
     if (tournamentControlsLocked()){
       host.innerHTML = '<div class="jd-card setup-judge-fixed is-agreed" aria-label="Three-judge tournament council fixed">' +
@@ -5374,13 +5374,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       return;
     }
     if (SINGLE_JUDGE){
-      var hint = $('setupJudgeHint');
-      if (hint) hint.textContent = '\u00b7 one AI judge, the same for both sides';
-      host.innerHTML = '<div class="jd-card setup-judge-fixed is-agreed" aria-label="AI judge, fixed">' +
-        '<div class="jd-card-name"><span class="jd-dot"></span>The AI judge</div>' +
-        '<div class="jd-card-tag">Decides on what was said and how it was weighed. Nothing to pick.</div>' +
-        judgeHowHtml('Setup') +
-      '</div>';
+      host.innerHTML = '';
       return;
     }
     var current = judgeLockKey() || 'chair';
@@ -5801,7 +5795,30 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
   }
 
+  var judgeOverviewFadeTimer = 0;
+  function updateJudgeOverview(){
+    var overview = document.querySelector('.judge-overview');
+    if (!overview) return;
+    // Use captured speech time, including completed speeches, so setup and
+    // pauses never dismiss the introduction before the conversation starts.
+    var spokenSeconds = (state.log || []).reduce(function(total, speech){
+      return total + (Number(speech.durationSec) || 0);
+    }, 0) + getElapsed();
+    var dismiss = state.phase === 'round' && spokenSeconds >= 60;
+    if (overview.classList.contains('is-dismissed') === dismiss) return;
+    clearTimeout(judgeOverviewFadeTimer);
+    overview.classList.toggle('is-dismissed', dismiss);
+    overview.inert = dismiss;
+    if (dismiss){
+      judgeOverviewFadeTimer = setTimeout(function(){ overview.hidden = true; },
+        window.matchMedia('(prefers-reduced-motion:reduce)').matches ? 0 : 300);
+    } else {
+      overview.hidden = false;
+    }
+  }
+
   function updateRoomStage(){
+    updateJudgeOverview();
     var stage = $('roomStage');
     if (!stage) return;
     var f = FORMATS[state.formatKey] || FORMATS.quick;
@@ -6920,6 +6937,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   }
   function drawTimer(){
     var elapsed = getElapsed();
+    updateJudgeOverview();
     var remaining = state.timerTotalSec - elapsed;
     var num = $('timerNum'), bar = $('timerBar');
     if (!num) return;
@@ -24915,18 +24933,23 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
 
 <style id="round-clarity">
 #panel:has(#ballotView:not(.hidden))>#roundGuide{display:none}
-.judge-overview{scroll-margin-top:calc(12px + var(--safe-top,env(safe-area-inset-top,0px)));margin:14px 22px 0;border:1px solid rgba(217,201,138,.4);border-radius:14px;background:rgba(217,201,138,.06)}
-.judge-overview #roomStage{display:flex;padding:12px 14px 6px}
-.judge-overview .rail-judge{width:100%;justify-content:center;padding:0;border:0;background:none;box-shadow:none}
+.judge-overview{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:0 16px;scroll-margin-top:calc(12px + var(--safe-top,env(safe-area-inset-top,0px)));margin:14px 22px 0;padding:10px 14px;border:1px solid rgba(217,201,138,.4);border-radius:14px;background:rgba(217,201,138,.06);transition:opacity .3s ease}
+.judge-overview[hidden],.setup-judge-block[hidden]{display:none}
+.judge-overview.is-dismissed{opacity:0;pointer-events:none}
+.judge-overview #roomStage{display:flex;padding:0;container-type:normal}
+.judge-overview .rail-judge{width:100%;justify-content:flex-start;padding:0;border:0;background:none;box-shadow:none}
 .judge-overview .rail-judge .rj-meta{display:flex;gap:4px}
-.judge-overview .rj-label{font-size:.88rem;letter-spacing:0;text-transform:none}
+.judge-overview .rj-label{font-size:1.35rem;letter-spacing:0;text-transform:none}
 .judge-overview .rj-purpose{font-size:.82rem;line-height:1.35;color:var(--text);text-wrap:pretty}
-.judge-overview .rail-judge .rj-status{display:flex;font-size:.72rem;color:var(--text-dim)}
 [data-theme="light"] .judge-overview .rj-label{color:#76520a}
 .judge-overview #judgeAdjudicates{margin:0;border:0;background:none}
-.judge-overview #judgeAdjudicates>summary{min-height:44px;justify-content:center;padding:8px 12px;font-size:.74rem}
-.judge-overview #judgeAdjStatus{display:none}
+.judge-overview #judgeAdjudicates[open]{grid-column:1/-1}
+.judge-overview #judgeAdjudicates>summary{min-height:44px;justify-content:flex-end;padding:4px 0;font-size:.74rem}
 .judge-overview .judge-how-body{padding:0 14px 12px}
+@media(max-width:500px){
+  .judge-overview{grid-template-columns:1fr}
+  .judge-overview #judgeAdjudicates>summary{justify-content:flex-start}
+}
 #ballotNotesHost .rn-export{display:none}
 #ballotLoading{padding:24px 18px;min-height:0;text-align:center}
 #ballotLoading .spinner{width:32px;height:32px;margin:0 auto 12px}
@@ -24953,8 +24976,8 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
   #jitsiPane .cv-tray{padding:6px 8px;gap:6px}
   #jitsiPane .cv-tray .cv-btn{min-height:44px;padding:8px 12px;font-size:13px;letter-spacing:0}
   .split #panel{padding-right:0}
-  .judge-overview{margin:12px 14px 0}
-  .judge-overview #roomStage{padding:10px 12px 2px}
+  .judge-overview{margin:12px 14px 0;gap:0 10px;padding:10px 12px}
+  .judge-overview #roomStage{padding:0}
   .judge-overview .rail-judge{gap:12px}
   .judge-overview .rail-judge .rj-avatar{width:34px;height:34px}
   .rec-topbar{padding:10px 14px 0}

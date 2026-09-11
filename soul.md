@@ -10,13 +10,14 @@
 > handles, source labels, the Discord button and the join link inherit this
 > font from `.fs-chats`. This is a local override to the shared type system.
 
-> **VIEWER BETTING RESTORED (Aidan, 2026-09-10).** The viewer UI has a green Bet button leading to the green-and-white /bet page with interactive graphs, which explains backing yourself or others with free play tokens and shows real trader rankings. A green betting panel sits below round details for both viewers and seated participants, with real pool-history graphs. Instructional graphs are labeled as illustrations. The page keeps large, direct copy and the shared animated geometric backdrop tinted green. Its opening splits into Bet on yourself on the left and Bet on others on the right; scrolling opens a triangular divider, and each side links to its own guide. Reduced motion keeps this split static. Only the public 1v1 prediction ledger is restored. Participants may back their own side only. Paid voice tokens stay at /voice-tokens and never enter bets. No cash, purchase, transfer, redemption, or prize conversion. Legacy Floor and credit markets remain paused. Keep age, region, private-round and server-verdict protections.
+> **VIEWER BETTING RESTORED (Aidan, 2026-09-10).** The viewer UI has a green Bet button leading to the green-and-white /bet page with interactive graphs, which explains backing yourself or others with free play tokens and shows real trader rankings. A green betting panel sits below round details for both viewers and seated participants, with real pool-history graphs. Instructional graphs are labeled as illustrations. The page keeps large, direct copy and the shared animated geometric backdrop tinted green. Its opening stays split into Bet on yourself on the left and Bet on others on the right. Choosing a side reveals only that guide; scrolling does not reveal both paths (updated 2026-09-11). Only the public 1v1 prediction ledger is restored. Participants may back their own side only. Paid voice tokens stay at /voice-tokens and never enter bets. No cash, purchase, transfer, redemption, or prize conversion. Legacy Floor and credit markets remain paused. Keep age, region, private-round and server-verdict protections.
 
 
 > **BRAND: the product name is "Debatable."** Canonical
 > domain is **itsdebatable.com** as of 2026-07-22 (aftermarket purchase
-> Aidan actually owns). Legacy domains 301 to it. Wordmark is white
-> "Debat" + red "able" in every theme, including light mode. White letters
+> Aidan actually owns). Legacy domains 301 to it. The homepage wordmark is
+> solid red in both light and dark modes (Aidan, 2026-09-11). Elsewhere,
+> the wordmark is white "Debat" + red "able" in every theme. White letters
 > have a thin red edge for contrast. Never switch "Debat" to dark ink. **Debatable is the only public product name.**
 > Do not preserve retired names in JSON-LD, accessibility text, social
 > metadata, narration, or CTA copy. Use "Start debating" or "Start a
@@ -105,10 +106,25 @@ at Aidan's request; preserve the prior surface and transparent chat rail.
 an icon-only Friends button and a gear icon for Settings. Keep accessible
 names and the existing destinations. The explanation link reads "How it works."
 
-**Wordmark colors (2026-09-10, Aidan):** Use white "Debat" and red "able"
-on all site wordmarks, in light and dark modes. This supersedes the old
-all-red header decision. The shared wordmark component preserves white
-letter fill with a fine red outline on light backgrounds.
+**Wordmark colors (updated 2026-09-11, Aidan):** The homepage uses solid
+red letters in both light and dark modes, with no white fill or outline.
+Other pages retain white "Debat" and red "able", with a fine red outline
+on the white letters. The homepage exception supersedes the September 10
+decision to use white and red everywhere.
+
+**Compact room judge (2026-09-11, Aidan):** The room's judge introduction
+uses a larger "AI judge" label, "Decides the winner." and "Read how it
+decides" for the existing explanation. The duplicate fixed-judge setup
+row is gone. After one minute of speech time, the introduction fades out
+and releases its space; setup and pauses do not count. It returns with
+the decision or a fresh setup.
+
+**Betting paths (2026-09-11, Aidan):** Keep the opening split visible
+and require a choice between Bet on yourself and Bet on others. Show
+only the chosen guide, followed by the shared pool explanation and
+rankings, with a way to choose the other path. Scrolling alone does not
+reveal both guides. A direct link from a round retains its bet slip and
+uses the server-reported membership to choose the appropriate guide.
 
 ## Daily live hours (2026-09-08)
 

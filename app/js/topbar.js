@@ -931,7 +931,7 @@
       ? LINKS.filter(function(L){ return L.href !== '/room-judge'; })
       : LINKS;
 
-    // Keep the same white/red wordmark in every theme and on every page.
+    // Shared markup; wordmark.css keeps the homepage solid red in both themes.
     var left = el('div', { class: 'ui-topbar-left' }, [
       el('a', {
         href: '/',

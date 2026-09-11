@@ -2,18 +2,37 @@
   'use strict';
   var fork=document.getElementById('bet-fork'),stage=document.getElementById('fork-stage');
   if(!fork||!stage)return;
-  var motion=window.matchMedia('(prefers-reduced-motion: reduce)'),frame=0;
-  function paint(){
-    frame=0;var r=fork.getBoundingClientRect(),distance=Math.max(1,r.height-stage.offsetHeight);
-    var progress=motion.matches?1:Math.max(0,Math.min(1,-r.top/distance));
-    fork.style.setProperty('--split',progress.toFixed(3));
+  var content=document.getElementById('bet-content'),heading=document.getElementById('ways-title');
+  var choice='',routedRoom='';
+  function selectGuide(focus){
+    var hash=location.hash;
+    if(hash==='#bet-yourself')choice='self';
+    else if(hash==='#bet-others')choice='others';
+    else if(!hash||hash==='#choose-path')choice='';
+    fork.hidden=!!choice;
+    content.hidden=!choice;
+    document.querySelector('.rank-link').hidden=!choice;
+    document.getElementById('bet-yourself').hidden=choice!=='self';
+    document.getElementById('bet-others').hidden=choice!=='others';
+    heading.textContent=choice==='self'?'Bet on yourself.':'Bet on others.';
+    document.querySelectorAll('[data-bet-route]').forEach(function(a){
+      if(a.dataset.betRoute===choice)a.setAttribute('aria-current','location');
+      else a.removeAttribute('aria-current');
+    });
+    if(focus && (hash==='#bet-yourself'||hash==='#bet-others'||hash==='#choose-path'||!hash)){
+      window.scrollTo({top:0,behavior:'instant'});
+      (choice?heading:fork.querySelector('[data-bet-route]')).focus({preventScroll:true});
+    }
   }
-  function schedule(){if(!frame)frame=requestAnimationFrame(paint);}
-  function selectGuide(){
-    var choice=location.hash==='#bet-yourself'?'self':location.hash==='#bet-others'?'others':'';
-    document.querySelectorAll('[data-bet-route]').forEach(function(a){if(a.dataset.betRoute===choice)a.setAttribute('aria-current','location');else a.removeAttribute('aria-current');});
-  }
-  window.addEventListener('scroll',schedule,{passive:true});window.addEventListener('resize',schedule,{passive:true});window.addEventListener('hashchange',selectGuide);
-  if(motion.addEventListener)motion.addEventListener('change',schedule);
-  paint();selectGuide();
+  window.addEventListener('hashchange',function(){selectGuide(true);});
+  // A link from an existing round already chose a role. Keep its bet slip
+  // reachable using the membership returned by the server, never a URL claim.
+  window.DBBetFork={openRound:function(ownSide,room){
+    if(routedRoom===room)return;
+    routedRoom=room;
+    if(choice)return;
+    history.replaceState(null,'',location.pathname+location.search+(ownSide?'#bet-yourself':'#bet-others'));
+    selectGuide(false);
+  }};
+  selectGuide(false);
 })();
