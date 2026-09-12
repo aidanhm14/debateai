@@ -10,6 +10,8 @@
 > work. This supersedes the September 7 guest lane for new matches while
 > preserving recovery for already-seated rounds.
 
+**Bet results and familiar resolutions (Aidan, 2026-09-11):** The post-round screen shows the person's bet, settled token return and net gain, or an explicit pending, refunded or no-bet state. A round win alone never claims a token payout. The live resolution picker and generated casual/open draft pool now share the SPAR_MOTIONS bank in `app/live-round.html`: direct disagreements about dating, loyalty, drugs, money, work and culture. All drugs being legal and cheating back after a partner cheats are included as contestable claims. The topic judge follows the room's interests and uses similarly direct wording. Existing content boundaries and private-profile protections remain in force.
+
 **Pre-round judge audio recovery (2026-09-11):** An opening counts as delivered when audio starts, so an interruption before sound retries the greeting after the room pauses. An empty completed opening retries once; provider failures and stalled responses end with a retry notice. Both seats have a Hear judge action if local playback is blocked. The listening state no longer claims the connected judge is still joining. A private two-seat Daily/OpenAI check measured nonzero judge audio at both endpoints; microphone capture was synthetic and local speakers were muted.
 
 **Match Desk order (Aidan, 2026-09-11):** Start with “What do you like talking about?”, then ask whose views they agree with and whose views they find interesting to argue about. This moves the former third question to the front and keeps every question. It supersedes the September 4 people-first order. The sign-in gate still follows the third answer.

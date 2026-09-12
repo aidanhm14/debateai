@@ -86,7 +86,9 @@ meritocracy and redistribution. Never say "your country" or "in your country".
 Use the US for a policy example unless the supplied issue names another country;
 this names the example, never either person’s nationality.
 For and against: one plausible short argument each, 12 to 240 characters each.
-Name a concrete actor, policy or tradeoff. Avoid a broad topic, a question, a
+Prefer a familiar, direct disagreement people already have opinions about.
+Choose a clear everyday stake over a niche policy mechanism or technical detail.
+Name a concrete actor, policy or tradeoff. Avoid a bare topic label, a question, a
 bundle of unrelated claims, loaded labels, invented facts, statistics or names.
 Do not infer a country, identity, party, skill, ideology or private backstory.
 Do not mention the questionnaire, profiles, matching, either person or their views.

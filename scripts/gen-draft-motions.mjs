@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // gen-draft-motions.mjs — regenerate app/netlify/functions/lib/draft-motions.mjs
-// from the canonical motion pools in app/practice.html.
+// from practice.html and the casual room bank in app/live-round.html.
 //
 // Why generated and not hand-written: motion-library.mjs already requires
-// every motion it carries to exist VERBATIM in one of practice.html's pools,
+// every legacy motion it carries to exist VERBATIM in practice.html's pools,
 // and the curated case files there key off exact motion text. A paraphrase
 // silently breaks that handoff, so the draft pool is derived rather than
-// retyped. Run this after editing any pool in practice.html:
+// retyped. Casual/open rounds instead share live-round.html's SPAR_MOTIONS.
+// Run this after editing either source:
 //
 //   node scripts/gen-draft-motions.mjs
 //
@@ -18,7 +19,7 @@ import { fileURLToPath } from 'url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = path.join(ROOT, 'app/practice.html');
 const OUT = path.join(ROOT, 'app/netlify/functions/lib/draft-motions.mjs');
-const ORDER = ['quick', 'apda', 'bp', 'worlds', 'asian', 'ld', 'pf', 'policy', 'congress', 'mun'];
+const ORDER = ['casual', 'quick', 'apda', 'bp', 'worlds', 'asian', 'ld', 'pf', 'policy', 'congress', 'mun'];
 const MIN_POOL = 6; // POOL_SIZE + 2: an offer, a send-back and a counter
 
 const src = fs.readFileSync(SRC, 'utf8');
@@ -79,6 +80,12 @@ while ((km = keyRe.exec(mbf))) {
   if (!pools[key] || pools[key].length < MIN_POOL) pools[key] = list;
 }
 
+// Casual rooms share the live resolution picker's familiar claims.
+const live = fs.readFileSync(path.join(ROOT, 'app/live-round.html'), 'utf8');
+const casualStart = live.indexOf('var SPAR_MOTIONS = [');
+if (casualStart < 0) throw new Error('Missing casual room motion bank');
+pools.casual = strings(block(live, live.indexOf('[', casualStart), '[', ']'));
+
 const q = (s) => "'" + s.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
 let bad = 0;
 let body = '';
@@ -93,7 +100,8 @@ if (bad) { console.error('Refusing to write: ' + bad + ' pool(s) under ' + MIN_P
 fs.writeFileSync(OUT, `// draft-motions.mjs — the slate pool for the pre-round motion draft.
 //
 // GENERATED FILE. Do not hand-edit. Source of truth is the canonical motion
-// pools in app/practice.html; regenerate with:
+// pools in app/practice.html and the casual SPAR_MOTIONS bank in
+// app/live-round.html; regenerate with:
 //
 //   node scripts/gen-draft-motions.mjs
 //
@@ -106,11 +114,9 @@ fs.writeFileSync(OUT, `// draft-motions.mjs — the slate pool for the pre-round
 export const DRAFT_MOTIONS = {
 ${body}};
 
-// A format with no pool of its own draws from the plain-language Quick Clash
-// pool. 'casual' is the live case: /debate-chat pairs ride the same queue
-// collection and never opt into a draft, but the fallback keeps a future
-// opt-in from ever drawing an empty slate.
-export const DRAFT_FALLBACK_FORMAT = 'quick';
+// Public open/casual rooms use the same claims as the live room picker.
+// Historic format pools remain available for saved rounds.
+export const DRAFT_FALLBACK_FORMAT = 'casual';
 
 export function draftPoolFor(format) {
   const key = String(format || '').toLowerCase();

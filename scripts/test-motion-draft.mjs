@@ -17,6 +17,8 @@
 //   - a tournament's stamped pool cannot be written around
 //   - every finished draft names two different uids on opposite benches
 import assert from 'assert';
+import fs from 'node:fs';
+import vm from 'node:vm';
 import {
   DRAFT_VERSION, POOL_SIZE, MOTION_MIN, MOTION_MAX, VETOES_PER_ROUND,
   PHASES, RESPONSES, secondsFor,
@@ -50,6 +52,12 @@ Object.keys(DRAFT_MOTIONS).forEach((k) => {
     'pool ' + k + ' motion is real text'));
 });
 ok(draftPoolFor('nonsense-format').length > 0, 'an unknown format still gets a pool');
+
+const liveSource = fs.readFileSync(new URL('../app/live-round.html', import.meta.url), 'utf8');
+const bankStart = liveSource.indexOf('var SPAR_MOTIONS = [');
+const liveBank = vm.runInNewContext(liveSource.slice(bankStart, liveSource.indexOf('\n  ];', bankStart) + 5) + '; SPAR_MOTIONS');
+eq(DRAFT_MOTIONS.casual, Array.from(liveBank), 'casual drafts share the live resolution picker');
+eq(draftPoolFor('open'), DRAFT_MOTIONS.casual, 'open rounds use the casual bank');
 
 const suggested = ['Suggestion one is long enough.', 'Suggestion two is long enough.', 'Suggestion three is long enough.'];
 const personalized = createDraft('suggested-seed', 'quick', A, B, { suggestions: suggested });

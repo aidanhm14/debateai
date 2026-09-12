@@ -1,7 +1,8 @@
 // draft-motions.mjs — the slate pool for the pre-round motion draft.
 //
 // GENERATED FILE. Do not hand-edit. Source of truth is the canonical motion
-// pools in app/practice.html; regenerate with:
+// pools in app/practice.html and the casual SPAR_MOTIONS bank in
+// app/live-round.html; regenerate with:
 //
 //   node scripts/gen-draft-motions.mjs
 //
@@ -12,6 +13,55 @@
 // front of two real people mid-draft rather than as an error anyone sees.
 
 export const DRAFT_MOTIONS = {
+
+  casual: [
+    'All drugs should be legal.',
+    'Cheating on your partner is justified if they cheated on you first.',
+    'You should forgive a partner who cheats once.',
+    'Going through your partner’s phone is justified if you suspect cheating.',
+    'You should tell your friend if their partner is cheating.',
+    'Dating a friend’s ex is fine without asking them first.',
+    'Staying friends with an ex is disrespectful to your current partner.',
+    'Flirting with someone else counts as cheating.',
+    'Couples should share their phone passwords.',
+    'You should break up with someone if your friends dislike them.',
+    'Love matters more than money when choosing a partner.',
+    'Open relationships can work as well as monogamous ones.',
+    'Your partner should come before your friends.',
+    'Both people should split the bill on a first date.',
+    'Ghosting someone after one date is fine.',
+    'You should choose your dream job over your relationship.',
+    'You should always tell a friend when their partner flirts with you.',
+    'Parents should not track their teenager’s location.',
+    'Parents should charge their adult children rent.',
+    'Family deserves loyalty even when you disagree with them.',
+    'You should cut off friends whose political views offend you.',
+    'Friends should pay for what they ordered instead of splitting the bill evenly.',
+    'It is fine to cancel plans because you no longer feel like going.',
+    'You should tell a friend when they are being embarrassing.',
+    'Being rich matters more than being famous.',
+    'Billionaires should not exist.',
+    'Hard work matters more than luck in becoming rich.',
+    'College is no longer worth the money.',
+    'It is fine to use connections to get a job you are less qualified for.',
+    'Employees should be allowed to date their coworkers.',
+    'Tipping should be abolished.',
+    'A four-day workweek should be the norm.',
+    'Using AI for homework should not count as cheating.',
+    'AI-generated music is just as real as music made by people.',
+    'Social media does more harm than good.',
+    'Influencers should have to disclose every beauty filter.',
+    'Cancel culture does more good than harm.',
+    'Religion does more good than harm.',
+    'Voting should be compulsory.',
+    'People should be allowed to sell their organs.',
+    'Eating meat is morally wrong.',
+    'Private schools should be banned.',
+    'Professional athletes should be allowed to use performance-enhancing drugs.',
+    'Keeping wild animals in zoos is wrong.',
+    'It is fine to pirate a film you cannot afford to watch.',
+    'Reality TV stars deserve their money.',
+  ],
 
   quick: [
     'Going through your partner’s phone is justified if you suspect cheating.',
@@ -473,11 +523,9 @@ export const DRAFT_MOTIONS = {
   ],
 };
 
-// A format with no pool of its own draws from the plain-language Quick Clash
-// pool. 'casual' is the live case: /debate-chat pairs ride the same queue
-// collection and never opt into a draft, but the fallback keeps a future
-// opt-in from ever drawing an empty slate.
-export const DRAFT_FALLBACK_FORMAT = 'quick';
+// Public open/casual rooms use the same claims as the live room picker.
+// Historic format pools remain available for saved rounds.
+export const DRAFT_FALLBACK_FORMAT = 'casual';
 
 export function draftPoolFor(format) {
   const key = String(format || '').toLowerCase();
