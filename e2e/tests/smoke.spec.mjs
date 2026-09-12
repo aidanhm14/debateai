@@ -64,7 +64,9 @@ test.describe('public pages', () => {
     const actions = page.locator('#first-screen .fs-actions');
     for (const [selector, href] of [
       ['.fs-cta--primary', '/spar'],
-      ['.fs-cta--watch', '/watch'],
+      // Watch uses the lobby, one room or the active-room list depending on
+      // live traffic. Keep the destination restricted to those valid paths.
+      ['.fs-cta--watch', /^\/(?:watch|spectate|live-round\?room=[^&?#]+&spectate=1)$/],
       ['.fs-cta--bet', '/bet'],
       ['.fs-cta--ai', '/newvoice?handoff=landing-quick-ai'],
     ]) {
