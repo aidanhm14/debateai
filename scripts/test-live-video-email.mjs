@@ -70,6 +70,7 @@ assert.equal(written.authProvider, 'password', 'background queue uses active ema
 
 written = null;
 const foreground = {
+  queueStillCurrent: () => true, queueUser: linked, LIVE_VIDEO_PROVIDERS: providers,
   state: { user: linked }, ref: { set(data) { written = data; return new Promise(() => {}); } },
   shortName: 'Alias', publicUsername: 'alias', currentPublicAvatarIdentity: () => null,
   window: { daAgeBand: () => 'adult' }, formatParam: 'casual', matchProfile: { mode: 'fast' }, blockedUids: [],
@@ -80,4 +81,18 @@ vm.runInContext(functionSource(spar, 'writeQueueDoc'), foreground);
 foreground.writeQueueDoc();
 await Promise.resolve();
 assert.equal(written.authProvider, 'password', 'foreground queue uses active email token for a linked account');
+// A pending token must not write or restart matching after sign-out.
+written = null;
+let resolveToken;
+foreground.queueUser = { ...linked, getIdTokenResult: () => new Promise(resolve => { resolveToken = resolve; }) };
+foreground.writeQueueDoc();
+foreground.queueStillCurrent = () => false;
+resolveToken({ signInProvider: 'password' });
+await Promise.resolve();
+assert.equal(written, null, 'a token resolving after sign-out cannot write a queue entry');
+
+const canQueue = new Function('u', `${spar.match(/var LIVE_VIDEO_PROVIDERS = (\[[^;]+);/)[0]}\n${functionSource(spar, 'liveVideoProvider')}\n${functionSource(spar, 'isLiveVideoUser')}\n${functionSource(spar, 'canQueue')}\nreturn canQueue(u);`);
+assert.equal(canQueue(null), false);
+assert.equal(canQueue({ uid: 'guest', isAnonymous: true, providerData: [] }), false, 'guest storage cannot grant queue access');
+for (const provider of providers) assert.equal(canQueue(account(provider)), true);
 console.log('PASS email live-video admission, spectator gates, server/rule parity, and linked-account queue markers');

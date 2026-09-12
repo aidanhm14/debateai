@@ -145,7 +145,7 @@ test.describe('public pages', () => {
     await expect(page.locator('.gate-guest:visible')).toHaveCount(0);
     await expect(page.locator('#globalDebateMap')).toHaveCount(0);
     await expect(page.locator('#ditAuth')).toBeHidden();
-    expect(anonymousAttempts, 'blocked anonymous auth must not retry forever').toBe(1);
+    expect(anonymousAttempts, 'matchmaking must not mint a guest session').toBe(0);
     expect(errors, 'uncaught exceptions on /spar').toEqual([]);
   });
 

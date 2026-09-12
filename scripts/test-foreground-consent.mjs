@@ -50,6 +50,7 @@ const queue = {
 };
 const entry = {
   console, Promise, Date, JSON, Object, Array,
+  LIVE_VIDEO_PROVIDERS: ['google.com', 'apple.com', 'password'],
   DBLiveJourney: { event() {}, watch(ref, options) { return ref.onSnapshot(options.value); } },
   state: { user: { uid: 'me', getIdTokenResult: async () => ({ signInProvider: 'password' }) }, profileReady: false }, matchProfile: null,
   activeMatchProfileRun: null, shell: { innerHTML: '' },

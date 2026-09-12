@@ -340,147 +340,9 @@ function joinedAtMs(data) {
 // create-daily-room.mjs and isLiveVideoAccount() in firestore.rules.
 const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com', 'password']);
 
-// ── The guest lane ────────────────────────────────────────────────
-//
-// 2026-08-27 (the founder): no anonymous preview for human video pairing;
-// REOPENED 2026-09-04 at one metered round (see GUEST_FREE_ROUNDS below).
-// The /spar door after that round is Google, or Apple in the iOS app (Apple added 2026-09-01
-// because the App Store requires the Apple button and an accepted sign-in
-// that cannot reach the live queue is a dead end on the feature the app is
-// named for). Phone was a third key from 2026-09-01 to 2026-09-03 and was
-// retired on the founder's call. The set is enforced below from the verified
-// token before either queue document can be paired. firestore.rules,
-// create-daily-room.mjs, spar.html, notifications.js, live-popup.js and
-// live-round.html carry the same two-provider set.
-// 2026-09-04, the founder, after watching session replays: the Google-only
-// door "is detering ppl". One anonymous round, metered here, then Google.
-// GUEST_FREE_ROUNDS in the Netlify env moves it with no deploy; 0 closes it.
-//
-// Metered here rather than in the client because the client cannot hold a
-// limit: localStorage clears, and the counter it used to keep was the same
-// counter /practice's free round used to keep, which is why that one moved
-// server-side (e874e61e). The identity metered is the anonymous Firebase
-// uid, which survives a storage clear, and linking it to a real account on
-// sign-in KEEPS the uid, so a guest who converts keeps their record.
-// 2026-09-06: questionnaire first, account before any new human pairing.
-// 2026-09-07, the founder: "first time anonymous users can get to enter
-// rooms with other people but then 20 seconds into the call ... require
-// them to sign in". One guest round is metered here again; the sign-in
-// itself is asked IN THE ROOM by live-round.html twenty seconds after the
-// call joins, and the opponent is told why. `??` so 0 in the env still
-// closes the lane rather than falling back to this default.
-const GUEST_FREE_ROUNDS = Number(process.env.GUEST_FREE_ROUNDS ?? 1);
-
-// One doc per guest uid: { anonymous, rounds, firstSeenAt, lastRoundAt }.
-// `anonymous` is written from the VERIFIED token, never from the queue doc,
-// which is client-written and therefore forgeable. That matters because the
-// side that finalizes a match has to charge the other side too, and the only
-// thing it can trust about them is what the server itself recorded on one of
-// their own authenticated calls. Every guest makes such a call before a room
-// can open: the consent handshake is mandatory (needsConsent is true for all
-// pairs), so both sides POST here with their own token before anyone walks
-// into a round.
-const GUEST_COLLECTION = 'guest_rounds';
-
-function guestRef(db, uid) {
-  return db.collection(GUEST_COLLECTION).doc(uid);
-}
-
-// Rounds this uid has spent as a guest. Returns 0 for a uid with no doc,
-// which is every named account and every guest who has not matched yet.
-// Fails OPEN (0): if Firestore is unreachable the pair should still happen.
-// Undercounting a guest costs us one round; refusing on a read error costs
-// us the visitor.
-async function guestRoundsUsed(db, uid) {
-  if (!uid) return 0;
-  try {
-    const snap = await guestRef(db, uid).get();
-    if (!snap.exists) return 0;
-    return Number(snap.data()?.rounds || 0);
-  } catch (err) {
-    console.warn('[spar-pair] guest read failed:', err?.message || err);
-    return 0;
-  }
-}
-
-// Record that this uid is a guest, so the peer side can find that out later
-// without trusting a client-written field.
-//
-// AWAITED, deliberately. The first version fired this off unawaited on the
-// reasoning that it only had to land before the round opened, and the consent
-// handshake is several round-trips long. That reasoning is wrong on Lambda:
-// the execution context is frozen when the handler returns, so an unawaited
-// write is not deferred, it is abandoned. Observed on the first production
-// guest match, where the doc showed up only because a LATER request happened
-// to rewrite it. A missed mark is a peer that chargeMatchedGuests cannot
-// identify as a guest, which is a free uncharged round.
-//
-// The Set keeps the cost at one write per guest per warm instance rather than
-// one per POST. A cold start re-marks once; the write is a merge, so a repeat
-// is harmless.
-const markedGuests = new Set();
-
-async function markGuest(db, uid) {
-  if (markedGuests.has(uid)) return;
-  try {
-    await guestRef(db, uid).set({
-      anonymous: true,
-      firstSeenAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
-    markedGuests.add(uid);
-    if (markedGuests.size > 5000) markedGuests.clear();
-  } catch (err) {
-    // Fails open: not being able to record the mark must not refuse a round.
-    console.warn('[spar-pair] guest mark failed:', err?.message || err);
-  }
-}
-
-// Charge one round. Called only when a room actually opens, never when a
-// proposal is merely accepted: a guest who accepts and then gets stood up by
-// a no-show peer has not had their round, and burning the allowance on that
-// would spend both free rounds without the guest ever meeting anybody.
-function chargeGuestRound(db, uid) {
-  return guestRef(db, uid).set({
-    anonymous: true,
-    rounds: FieldValue.increment(1),
-    lastRoundAt: FieldValue.serverTimestamp(),
-  }, { merge: true }).catch(function (err) {
-    console.warn('[spar-pair] guest charge failed:', err?.message || err);
-  });
-}
-
-// Charge both sides of a match that just opened a room. My own side is known
-// from the verified token. The peer's side is read from the server's own
-// record, written by markGuest on one of THEIR authenticated calls — never
-// from their queue doc, whose `anonymous` field the client writes and could
-// therefore lie about to buy extra rounds.
-async function chargeMatchedGuests(db, myUid, iAmGuest, peerUid) {
-  const jobs = [];
-  if (iAmGuest) jobs.push(chargeGuestRound(db, myUid));
-  try {
-    const snap = await guestRef(db, peerUid).get();
-    if (snap.exists && snap.data()?.anonymous) jobs.push(chargeGuestRound(db, peerUid));
-  } catch (err) {
-    console.warn('[spar-pair] peer charge lookup failed:', err?.message || err);
-  }
-  await Promise.allSettled(jobs);
-}
-
-// True when the server has recorded this uid as a guest AND their allowance
-// is gone. Used on the PEER side, so it must read the server's own record
-// rather than the peer's queue doc.
-async function guestSpent(db, uid) {
-  if (!uid) return false;
-  try {
-    const snap = await guestRef(db, uid).get();
-    if (!snap.exists) return false;
-    const data = snap.data() || {};
-    return !!data.anonymous && Number(data.rounds || 0) >= GUEST_FREE_ROUNDS;
-  } catch (err) {
-    console.warn('[spar-pair] guest peer read failed:', err?.message || err);
-    return false;
-  }
-}
+// New human matches require an account (2026-09-11). Guest history is
+// retained in storage but never used to reject an account that has linked
+// its old anonymous uid. The verified token and queue provider are the gate.
 
 // Dead-tab detection inside a consent handshake. The DECIDING side's
 // client auto-passes at 20s; if a proposal is older than this and the
@@ -749,17 +611,12 @@ export default async (request) => {
     }, 200, request);
   }
 
-  // Human video pairing takes Google, or Apple in the iOS app
-  // (LIVE_VIDEO_PROVIDERS), or an anonymous GUEST inside the metered
-  // allowance below (2026-09-04). Checked from the verified token, not from
-  // the client-written queue doc, so an email account, old tab, or
-  // handcrafted request cannot bypass the door. A guest past the allowance
-  // is refused a few lines down with SIGN_IN_REQUIRED.
-  // The AI-only draft above remains available because it seats no stranger.
-  if (!iAmGuest && !LIVE_VIDEO_PROVIDERS.has(decoded.firebase?.sign_in_provider)) {
+  // The AI-only draft above seats no stranger. Human pairing requires
+  // a verified account even when an older client still writes guest docs.
+  if (!LIVE_VIDEO_PROVIDERS.has(decoded.firebase?.sign_in_provider)) {
     return jsonResponse({
       error: 'Sign in with Google, Apple, or email to join a live video round.',
-      code: 'GOOGLE_SIGN_IN_REQUIRED',
+      code: iAmGuest ? 'SIGN_IN_REQUIRED' : 'GOOGLE_SIGN_IN_REQUIRED',
     }, 403, request);
   }
 
@@ -767,34 +624,6 @@ export default async (request) => {
     return errorResponse('Invalid peerUid', 400, request);
   }
 
-  // The guest lane (see GUEST_FREE_ROUNDS above). Replaces the flat 403 that
-  // stood here from 2026-08-18 to 2026-08-19. A guest is metered, not
-  // refused, until the allowance is gone; then the refusal is a 403 the
-  // client turns into the sign-in card, tagged so the wall's conversion rate
-  // is measured rather than assumed.
-  //
-  // Placed BELOW the throttle on purpose: this is the one check in the
-  // function that costs a Firestore read, and above the throttle a POST loop
-  // would buy one read per request from an identity that is free to mint.
-  //
-  // 403 and not 429 for the same reason /api/claude's wall is 401 and not
-  // 429: waiting does not clear it. Nothing about tomorrow gives this uid
-  // another free round, so the response has to say "make an account" rather
-  // than imply patience.
-  if (iAmGuest) {
-    // Allowance 0 (env-closed): refuse before the Firestore read, so a
-    // guest POST loop costs the throttle and nothing else.
-    const used = GUEST_FREE_ROUNDS > 0 ? await guestRoundsUsed(db, myUid) : 0;
-    if (used >= GUEST_FREE_ROUNDS) {
-      return jsonResponse({
-        error: 'Live rounds need an account. Sign in to join the queue.',
-        code: 'SIGN_IN_REQUIRED',
-        guestRoundsUsed: used,
-        guestFreeRounds: GUEST_FREE_ROUNDS,
-      }, 403, request);
-    }
-    await markGuest(db, myUid);
-  }
   if (action === 'pair' && Array.isArray(body?.candidateUids)) {
     peerUid = await choosePrivateProfilePeer(db, myUid, peerUid, body.candidateUids);
   }
@@ -1035,12 +864,6 @@ export default async (request) => {
         });
         return { ok: true, matched: true, room: mine.room };
       });
-      // The room just opened, so this is where guest rounds are spent — one
-      // per guest side, charged once. Only the second acceptor's request
-      // reaches this line (the first got pending:'peer' above, and a re-POST
-      // after the flip fails the status guard inside the transaction), so
-      // there is exactly one charge per side per match.
-      if (result?.matched) await chargeMatchedGuests(db, myUid, iAmGuest, peerUid);
       return jsonResponse(result, 200, request);
     } catch (err) {
       console.error('[spar-pair] consent transaction error:', err?.message || err);
@@ -1065,16 +888,6 @@ export default async (request) => {
   // the transaction only writes the room while BOTH docs are still
   // 'waiting' (anything else returns lost_race), so an in-flight
   // consent pair never gets its room renamed underneath it.
-  // Don't propose to a guest whose allowance is gone. Their client should
-  // have stopped queueing, but a doc can outlive the tab that wrote it, and
-  // the cost of not checking is a real debater spending a 20-second consent
-  // window on somebody who cannot be let into a room. `skipPeer` rather than
-  // an error: this is a bad peer, not a bad request, and the caller's polling
-  // loop should move to the next one.
-  if (await guestSpent(db, peerUid)) {
-    return jsonResponse({ ok: false, reason: 'peer_ineligible', skipPeer: peerUid }, 200, request);
-  }
-
   // Age-band gate (see the block above the handler). Both sides need a
   // server-recorded band, and the bands must match, before a pair can
   // even be proposed. Checked from age_bands/{uid}, never the queue doc.
@@ -1176,21 +989,10 @@ export default async (request) => {
       if (mine.status !== 'waiting' || theirs.status !== 'waiting') {
         return { ok: false, reason: 'lost_race' };
       }
-      // The caller's verified token proves MY provider above. The peer has
-      // no token on this request, so require the queue marker that Firestore
-      // rules only let a Google, Apple, or (since 2026-09-04) anonymous
-      // owner write, bound to their own verified provider. This keeps an
-      // email queue doc, or one written before the marker existed, from
-      // becoming the passive seat when a current user initiates the
-      // transaction. A guest peer's ALLOWANCE is checked separately
-      // (guestSpent, above), from the server's own record.
-      // 2026-09-07: an anonymous marker is a legal seat WHILE the guest
-      // lane is open. Without this clause the lane never paired anyone
-      // (GUEST_FREE_ROUNDS > 0 let a guest into the queue and this line
-      // then cancelled every pair they were offered), which is the
-      // "fully built, reachable by nobody" shape this log keeps finding.
-      // The allowance itself is still guestSpent(), from the server record.
-      const seatOk = (p) => LIVE_VIDEO_PROVIDERS.has(p) || (GUEST_FREE_ROUNDS > 0 && p === 'anonymous');
+      // The peer has no token on this request. Firestore binds their
+      // queue provider marker to their verified account; require it on
+      // both seats so stale guest entries cannot become passive peers.
+      const seatOk = (p) => LIVE_VIDEO_PROVIDERS.has(p);
       if (!seatOk(mine.authProvider)) {
         return { ok: false, reason: 'queue_auth_stale' };
       }
@@ -1474,7 +1276,6 @@ export default async (request) => {
     // true for every pair so this path is unreachable today, but it is the
     // branch that opens a room without a second POST, so it has to charge or
     // the lane leaks the day that flag changes.
-    if (result?.ok && !result.pending) await chargeMatchedGuests(db, myUid, iAmGuest, peerUid);
 
     // Web Push, on the PROPOSAL. This used to be gated on
     // `result.ok && !result.pending` — the instant-match branch — and the

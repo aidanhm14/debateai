@@ -48,21 +48,20 @@ const livePopup = read('app/js/live-popup.js');
 const liveRound = read('app/live-round.html');
 const watch = read('app/watch.html');
 
-// 2026-09-07, the founder: one guest round, then the room asks for the
-// account twenty seconds into the call. The lane is metered server-side.
-check(spar.includes('var GUEST_FREE_ROUNDS = 1;'), 'client mirrors the one-round guest lane');
-check(pair.includes('const GUEST_FREE_ROUNDS = Number(process.env.GUEST_FREE_ROUNDS ?? 1);'), 'server meters one guest round, env-overridable, 0 closes it');
-check(pair.includes("const seatOk = (p) => LIVE_VIDEO_PROVIDERS.has(p) || (GUEST_FREE_ROUNDS > 0 && p === 'anonymous');"), 'an anonymous seat marker is legal only while the guest lane is open');
+// 2026-09-11: the account door precedes every new human search.
+check(spar.includes('var GUEST_FREE_ROUNDS = 0;'), 'client closes the guest lane');
+check(!spar.includes('signInAnonymously('), 'matchmaking must not mint anonymous accounts');
+check(!pair.includes('process.env.GUEST_FREE_ROUNDS') && !pair.includes('guestSpent('), 'old environment allowances and guest history cannot override account admission');
+check(pair.includes("const seatOk = (p) => LIVE_VIDEO_PROVIDERS.has(p);"), 'both seat markers must name supported accounts');
 check(liveRound.includes('function armGuestWall(){') && liveRound.includes('var GUEST_WALL_MS = 20000;') && liveRound.includes("locked: true,"), 'the room asks a guest to sign in twenty seconds after the call joins, with a locked chooser');
 check(liveRound.includes('function paintGuestHold(){') && liveRound.includes('id="guestHold"'), 'the opponent is told why the guest went quiet');
 check(spar.includes("var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com', 'password'];"), 'spar must define the three-provider live-video set');
-check(spar.includes('if (isLiveVideoUser(u)) return true;') && spar.includes('return !!(u && u.isAnonymous && guestRoundsLeft() > 0);'), 'foreground queue must take a Google, Apple, or email user, or a guest with a free round left');
+check(spar.includes('return isLiveVideoUser(u);'), 'foreground queue requires Google, Apple, or email');
 check(notifications.includes("var LIVE_VIDEO_PROVIDERS = ['google.com', 'apple.com', 'password'];"), 'background pill must define the same three-provider set');
 check(notifications.includes('return !!liveVideoProvider(u);'), 'background queue must require a Google, Apple, or email user');
 check(pair.includes("const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com', 'password']);"), 'matcher must define the three-provider set');
-check(pair.includes('if (!iAmGuest && !LIVE_VIDEO_PROVIDERS.has(decoded.firebase?.sign_in_provider))'), 'matcher must verify the provider from the token, guests excepted into the metered lane');
-check(pair.includes("const iAmGuest = decoded.firebase?.sign_in_provider === 'anonymous';") && pair.includes('if (used >= GUEST_FREE_ROUNDS) {'), 'matcher must meter guests against the server record before seating them');
-check(pair.includes("code: 'GOOGLE_SIGN_IN_REQUIRED'"), 'matcher must return the labeled gate code clients handle');
+check(pair.includes('if (!LIVE_VIDEO_PROVIDERS.has(decoded.firebase?.sign_in_provider))'), 'matcher must verify the provider from the token');
+check(pair.includes("code: iAmGuest ? 'SIGN_IN_REQUIRED' : 'GOOGLE_SIGN_IN_REQUIRED'"), 'matcher must return the gate codes older clients handle');
 check(pair.includes('if (!seatOk(mine.authProvider))'), 'matcher must reject a stale active seat marker (a guest seat is legal only while the lane is open, pinned above)');
 check(pair.includes('if (!seatOk(theirs.authProvider))'), 'matcher must reject an ineligible passive seat');
 check(dailyRoom.includes("const LIVE_VIDEO_PROVIDERS = new Set(['google.com', 'apple.com', 'password']);"), 'video room minter must define the three-provider set');
@@ -81,7 +80,7 @@ for (const [label, src] of [['rules', rules], ['spar-pair', pair], ['create-dail
 check(!authModal.includes("startWith === 'phone'"), 'shared chooser must not open on a retired phone step');
 check(!authModal.includes('id="daPhone"'), 'shared chooser must not render a phone button');
 check(!authModal.includes('PhoneAuthProvider'), 'shared chooser must not carry the phone provider');
-check(rules.includes('allow create: if (isLiveVideoAccount() || isGuestAccount())'), 'Firestore must accept queue creation only from the set or a guest');
+check(rules.includes('allow create: if isLiveVideoAccount()') && rules.includes('allow update: if isLiveVideoAccount()'), 'Firestore queue creation and updates require supported accounts');
 check(rules.includes("request.auth.token.firebase.sign_in_provider == 'anonymous'"), 'rules must define isGuestAccount as the anonymous provider');
 check(rules.includes("request.resource.data.authProvider == request.auth.token.firebase.sign_in_provider"), 'Firestore must bind the queue marker to the caller\'s own verified provider');
 check(!rules.includes("request.resource.data.authProvider == 'google.com'"), 'rules must not pin the queue marker to Google alone');
@@ -184,6 +183,7 @@ check(spar.includes('queue_waiting: queueWaiting'), 'gate analytics must keep th
 check(!spar.includes('live_display'), 'gate analytics must not report a display figure that no longer exists');
 check(!/setInterval\(refresh, 15000\)/.test(spar), 'the 15s gate poll must stay retired now that no number needs refreshing');
 check(spar.includes('Sign up with Google'), 'signed-out gate must show the Google signup action');
+check(spar.includes('Example invite') && spar.includes('This is a preview. Sign in to get invitations from real people.'), 'fictional invitation must be explicitly labeled beside the profile');
 check(!spar.includes('autoPopAuthModal'), 'signed-out gate must remain the sole sign-in prompt instead of opening a duplicate modal');
 check(!spar.includes('AUTH_POP_DELAY_MS'), 'signed-out gate must not carry a delayed auth-popup timer');
 check(!spar.includes('spar_auth_autopop'), 'signed-out gate must not emit telemetry for a retired automatic popup');
@@ -266,4 +266,5 @@ for (const [label, re] of [
 
 if (failures) process.exit(1);
 await import('./test-live-video-email.mjs');
+await import('./test-spar-signin.mjs');
 console.log('spar live-video account gate: all checks passed');

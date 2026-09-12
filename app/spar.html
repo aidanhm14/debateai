@@ -1821,6 +1821,12 @@ body.draft-live #daExpAsk{display:none !important}
 }
 .gate h2{font-size:1.4rem;font-weight:900;letter-spacing:-.015em;margin-bottom:10px;color:var(--text)}
 .gate p{font-size:.92rem;color:var(--text-dim);line-height:1.55;margin-bottom:18px}
+.gate-invite{display:grid;grid-template-columns:60px minmax(0,1fr);gap:12px;text-align:left;padding:14px;margin:0 0 20px;border:1px solid rgba(239,68,68,.35);border-radius:16px;background:var(--bg-elev)}
+.gate-invite img{width:60px;height:60px;object-fit:cover;border-radius:50%}
+.gate-invite-label{display:block;margin-bottom:4px;color:var(--accent);font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.gate-invite strong{display:block;color:var(--text);font-size:.98rem;line-height:1.35}
+.gate .gate-invite p{font-size:.82rem;line-height:1.45;margin:6px 0 0}
+.gate .gate-invite-note{grid-column:1 / -1;font-size:.73rem;margin:0}
 .gate-cams{position:absolute;inset:0;z-index:1;pointer-events:none}
 .gate-cam{
   position:absolute;width:178px;aspect-ratio:16/9;overflow:hidden;
@@ -3951,7 +3957,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
   // ── State ────────────────────────────────────────────
   var state = {
-    user: null,                    // named OR guest — whoever may queue
+    user: null,                    // current session; canQueue requires a named account
     named: false,                  // real account (DMs, alerts, the record)
     queueDocRef: null,
     queueUnsub: null,
@@ -4357,14 +4363,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     return false;
   }
 
-  // ── Guest rounds ──────────────────────────────────────────────
-  // 2026-09-04 (the founder, after watching session replays: the Google-only
-  // door "is detering ppl"): ONE anonymous round, then Google. The Match Desk
-  // runs first either way, so the profile is saved on the device before the
-  // account exists. spar-pair.mjs meters the allowance against
-  // guest_rounds/{uid} and firestore.rules lets a guest write its own queue
-  // doc; this constant mirrors the server default for paint only.
-  var GUEST_FREE_ROUNDS = 1; // 2026-09-07: one guest round; the room asks for the account 20s in
+  // Retain old guest history for account-linking copy. New searches require
+  // sign-in; neither local storage nor a stale server count can reopen them.
+  var GUEST_FREE_ROUNDS = 0;
   var GUEST_KEY = 'da-guest-rounds';       // uid + count, mirrored for paint
   var guestRounds = { uid: '', used: 0, known: false };
 
@@ -4413,72 +4414,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // The live-video queue takes Google, Apple, or email.
   // Anonymous sessions must sign in before meeting another person.
   function canQueue(u){
-    if (isLiveVideoUser(u)) return true;
-    // The one-round guest lane (2026-09-04). The server is the meter.
-    return !!(u && u.isAnonymous && guestRoundsLeft() > 0);
+    return isLiveVideoUser(u);
   }
 
-  // Nothing on this page's script set mints an anonymous session, and
-  // that is why the guest lane below has never been reachable by the
-  // people it was written for. The 2026-08-19 guest-rounds design rests
-  // on the premise that "js/notifications.js already mints an anonymous
-  // uid on every page"; it does not, and grepping the whole shipped
-  // bundle for signInAnonymously finds it only in practice.html,
-  // live.html, live-round.html and tournament.html. So a visitor who
-  // arrived here first had NO user, fell to the signed-out branch, and
-  // met "Sign in to join the live queue" permanently. The lane worked
-  // only for somebody who happened to load /practice or /live earlier
-  // and picked up a session there, which is nobody's first visit.
-  //
-  // So this page mints its own. A guest is a real, signature-checkable
-  // Firebase identity, which is exactly what the server meters against
-  // in guest_rounds/{uid}; without one there is nothing to meter and no
-  // way to offer the two free rounds at all.
-  //
-  // Deliberately NOT attempted when the visitor came for the inbox
-  // (?dm, ?thread, ?inbox, challenge links). Those surfaces are
-  // named-only by design, so minting a guest there would replace an
-  // honest sign-in ask with a queue nobody asked to join.
-  var guestMintTried = false;
   function wantsInbox(){
     return !!(qs.get('dm') || qs.get('thread') || qs.get('inbox'));
-  }
-  function mintGuestSession(){
-    // Allowance 0 closes the lane: never mint a guest session this page
-    // cannot use. A signed-out visitor goes straight to the gate.
-    if (GUEST_FREE_ROUNDS <= 0) return false;
-    if (guestMintTried || !firebaseAuth || !firebaseAuth.signInAnonymously) return false;
-    if (wantsInbox()) return false;
-    guestMintTried = true;
-    renderGuestBoot();
-    firebaseAuth.signInAnonymously().then(function(){
-      // The auth listener picks it up and routes into the guest branch.
-      try { gtag('event', 'spar_guest_session', { ok: 1 }); } catch(e){}
-    }).catch(function(err){
-      // Anonymous auth blocked or disabled. Fail to the honest ask
-      // rather than leaving a boot state on screen forever.
-      console.warn('[spar] guest session failed:', err && err.message);
-      try { gtag('event', 'spar_guest_session', { ok: 0, code: String(err && err.code || '').slice(0,40) }); } catch(e){}
-      renderSignedOutEntry();
-    });
-    return true;
-  }
-
-  // Shown for the moment between "no session" and "guest session". It is
-  // NOT the searching state: nothing is queued yet, and painting a
-  // search with no queue doc behind it is the failure the auth listener
-  // below already guards against.
-  function renderGuestBoot(){
-    if (document.getElementById('sparGateCard')) {
-      var g = document.getElementById('sparGateCard');
-      if (g) g.remove();
-    }
-    shell.innerHTML =
-      '<div class="gate" id="sparGuestBoot">' +
-        '<div class="eyebrow"><span class="pip"></span>Sparring · Live Humans</div>' +
-        '<h2>Opening the video room.</h2>' +
-        '<p>Sign in to join.</p>' +
-      '</div>';
   }
 
   function guestName(u){
@@ -4570,19 +4510,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   // ── Render: sign-in gate ──────────────────────────
-  // 2026-08-19 (the founder): this is no longer a gate at the door. A visitor with
-  // free guest rounds never sees it; they queue, match, and debate, and the
-  // gate is what greets them on the round AFTER the allowance runs out. So
-  // it has two jobs now and two sets of copy: the spent-guest ask (which can
-  // point at a round they actually played) and the no-session fallback for a
-  // browser where the anonymous session never started.
-  //
-  // Why the spent ask converts better than the door ask: signing in LINKS
-  // the anonymous uid rather than replacing it (auth-modal.js uses
-  // linkWithPopup / linkWithCredential on every provider), so the rounds
-  // they just played, their record, and their messages carry over. The copy
-  // says that, because "keep what you already did" is a different offer from
-  // "register to begin".
+  // Matchmaking requires a real account. The invitation is an explicitly
+  // labeled preview using a supplied fictional profile, never a live alert.
   // The Debatable Open line, self-retiring by the client clock so no
   // dated copy outlives the event (the 2026-08-12 landing lesson).
   // Phase 1 (through Fri Aug 22, 11:59 PM ET): the free-entry hook,
@@ -4703,11 +4632,15 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '</div>' +
         '<div class="gate" id="sparGateCard">' +
         '<div class="eyebrow"><span class="pip"></span>Debate live · Video</div>' +
-        (gateSpent()
-          ? '<h2>That was your free round.</h2>' +
-            '<p>Sign in to keep debating real people on video. One tap, and your matchmaker answers come with you.</p>'
-          : '<h2>Sign in to start debating.</h2>' +
-            '<p>Meet a real person for a casual 1v1 on video. Your matchmaker answers are saved and come with you.</p>') +
+        '<h2>Sign in to meet your match.</h2>' +
+        '<p>Create an account or sign in to join the live queue. Your matchmaker answers come with you.</p>' +
+        '<div class="gate-invite" aria-label="Example debate invitation">' +
+          '<img src="/img/round/faces/fictional-sydney.jpg" alt="Sydney, an example profile" width="60" height="60">' +
+          '<div><span class="gate-invite-label">Example invite</span>' +
+            '<strong>Sydney wants to debate you</strong>' +
+            '<p>Is it ever OK to go through your partner&#39;s phone?</p></div>' +
+          '<p class="gate-invite-note">This is a preview. Sign in to get invitations from real people.</p>' +
+        '</div>' +
         // In-app browsers (TikTok, Instagram, and friends) refuse Google
         // OAuth outright. Email still works here; Copy link also lets a
         // visitor move to a browser where Google can complete.
@@ -5215,7 +5148,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // screen, and the leaderboard rail on the left is the new texture.
       // The avatar promise still gets answered where the choice is made,
       // in the room's own camera bar.
-      guestStripHtml() +
       // 2026-09-04, the founder's own words for the wait, near verbatim:
       // the searching screen says what is actually happening instead of
       // explaining the motion slate to someone who has no opponent yet.
@@ -6830,9 +6762,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   function joinQueue(privateProfileSynced){
     if (!firebaseDb) return;
     if (state.profileFlowOpen) return;
-    // Guests queue too, until their free rounds are spent (see the guest
-    // rounds block). Everyone else — no session at all, or a guest who is
-    // out of rounds — gets the gate.
+    // Sign-in is required before any queue work, including resumed callbacks.
     if (!canQueue(state.user)){ renderGate(); return; }
     // No questionnaire before the queue. Saved answers still help match;
     // a first visit takes the first available person with neutral defaults.
@@ -6887,7 +6817,11 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // pops the match card on whatever page they're on). Cleared by
     // Cancel below; a match consumes the doc through the normal flow.
     try { localStorage.setItem('da-spar-bg', '1'); } catch(e){}
-    var ref = firebaseDb.collection('matchmaking_queue').doc(state.user.uid);
+    var queueUser = state.user;
+    var ref = firebaseDb.collection('matchmaking_queue').doc(queueUser.uid);
+    function queueStillCurrent(){
+      return !state.cancelled && state.user === queueUser && canQueue(state.user) && state.queueDocRef === ref;
+    }
     state.queueDocRef = ref;
     var shortName = shortNameOf(state.user);
     var publicUsername = window.DBIdentity
@@ -6915,6 +6849,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       return !!at && (Date.now() - at) < ADOPT_FRESH_MS;
     }
     ref.get().then(function(snap){
+      if (!queueStillCurrent()) return;
       var cur = snap && snap.exists ? snap.data() : null;
       if (liveHandshake(cur)){
         console.info('[spar] adopting live ' + cur.status + ' doc instead of rewriting it');
@@ -6926,7 +6861,14 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       writeQueueDoc();
     }).catch(function(){ writeQueueDoc(); });
     function writeQueueDoc(){
-    return state.user.getIdTokenResult().then(function(tokenResult){
+    if (!queueStillCurrent()) return Promise.resolve();
+    return queueUser.getIdTokenResult().then(function(tokenResult){
+    if (!queueStillCurrent()) return;
+    if (LIVE_VIDEO_PROVIDERS.indexOf(tokenResult.signInProvider) < 0) {
+      leaveQueueQuietly();
+      renderGate();
+      return;
+    }
     return ref.set({
       uid: state.user.uid,
       // Rules bind this marker to the active token, not the first linked
@@ -6971,6 +6913,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     }).then(function(){
+      if (!queueStillCurrent()) return;
       try { gtag('event', 'spar_queue_join', { format: formatParam }); } catch(e){}
       // Going live: ping everyone who opted into live-round alerts (Web Push,
       // even from another app). Guests broadcast too; the server enforces the
@@ -6998,6 +6941,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         startMatchPolling();
       }
     }).catch(function(err){
+      if (!queueStillCurrent()) return;
       console.warn('[spar] queue join failed:', err);
       // Pattern-match on the error so the user gets a real next step
       // instead of a raw Firebase error code or an internal diagnosis.
@@ -9505,10 +9449,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
   if (firebaseAuth){
     firebaseAuth.onAuthStateChanged(function(user){
-      // 2026-08-19: a guest is a queue-eligible user again, so state.user
-      // holds whoever is here and state.named says whether they have a real
-      // account. Everything named-only (DMs, the inbox, live alerts, the
-      // leaderboard) reads state.named; only queueing reads canQueue().
+      // Stop an old search before changing identity. Pending async queue
+      // work also checks its captured account before writing or subscribing.
+      if (state.user && (!user || user.uid !== state.user.uid || !canQueue(user))) {
+        leaveQueueQuietly();
+        state.inConsent = false;
+      }
       state.user = user || null;
       state.named = isNamedUser(user);
       renderWaitlistContent();
@@ -9517,50 +9463,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // than up to a poll interval later.
       if (state.roomChat && state.roomChat.refresh) state.roomChat.refresh();
       if (state.user && !state.named){
-        // Guest. Paint from the local mirror immediately, then let the
-        // server's count correct it — a guest who cleared storage would
-        // otherwise get a free extra round on screen before spar-pair
-        // refuses them, which is a worse moment than the honest one.
-        loadGuestRounds(state.user.uid);
-        // A returning guest with a saved profile: same rule, the free
-        // round only runs into a queue that has someone in it.
-        if (canQueue(state.user) && !qs.get('dm') && !qs.get('thread') && !qs.get('inbox') && !qs.get('invite')){
-          guestQueueOrGate();
-          return;
-        }
-        var queuedOptimistically = canQueue(state.user);
-        // An anonymous uid is not a signed-in visitor, it is the
-        // "anonymous profile" the Match Desk was reopened for. A previous
-        // visit (or any page that mints one) leaves this branch truthy on
-        // arrival, so sending it straight to renderGate() is what hid the
-        // desk from every returning stranger. Measured live 2026-09-02:
-        // isAnonymous:true, no providers, no stored profile, gate on
-        // screen. Route it through the same entry a sessionless visitor
-        // gets; renderSignedOutEntry falls through to the gate on its own
-        // once a profile exists.
-        if (queuedOptimistically) joinQueue(); else renderSignedOutEntry();
-        fetchGuestRounds(state.user.uid).then(function(){
-          if (!state.user || state.named || state.inConsent) return;
-          if (state.profileFlowOpen) return;
-          var mayQueue = canQueue(state.user);
-          if (queuedOptimistically && !mayQueue){
-            // Mirror was stale in the visitor's favour (another tab spent the
-            // last round). Pull the doc back out and put the gate up.
-            leaveQueueQuietly();
-            renderSignedOutEntry();
-          } else if (!queuedOptimistically && mayQueue){
-            // Mirror was stale against them — a cleared storage reading as
-            // spent, or a count that reset. They have rounds; queue them.
-            // renderSearching alone would paint a search with no queue doc
-            // behind it, which is the worst of both.
-            state.cancelled = false;
-            joinQueue();
-          } else if (mayQueue){
-            // Same verdict, possibly a different number. Repaint so "2 free
-            // rounds" does not outlive the first one.
-            if (!document.getElementById('sparGateCard')) renderSearching();
-          }
-        });
+        renderSignedOutEntry();
         return;
       }
       if (state.user){
@@ -9599,7 +9502,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         var fabBadge = document.getElementById('wlFabBadge');
         if (fabBadge) fabBadge.hidden = true;
         // A first image question precedes the live-video account door.
-        if (!mintGuestSession()) renderSignedOutEntry();
+        renderSignedOutEntry();
       }
     });
   } else {

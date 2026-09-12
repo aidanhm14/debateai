@@ -35,9 +35,8 @@ service cloud.firestore {
         && request.auth.token.firebase.sign_in_provider in ['google.com', 'apple.com', 'password'];
     }
 
-    // A Firebase anonymous session. Used only where a metered guest lane
-    // exists (matchmaking_queue, one free round since 2026-09-04); the
-    // server meters the allowance, this just lets the doc be written.
+    // Legacy anonymous-session helper. New matchmaking requires a named
+    // account; existing anonymous identities can still delete their own doc.
     function isGuestAccount() {
       return isSignedIn()
         && request.auth.token.firebase.sign_in_provider == 'anonymous';
@@ -540,28 +539,16 @@ service cloud.firestore {
     //    there ~1s later), so it was removed as pure attack surface.
     //  - delete: only your own doc (pagehide cleanup, cancel).
     match /matchmaking_queue/{queueUid} {
-      //  - create: Google or Apple-authenticated owners (2026-08-27;
-      //    Apple added 2026-09-01 because the App Store requires the button
-      //    and the iOS app must be able to reach the queue; phone was added
-      //    the same day and retired 2026-09-03), plus an anonymous GUEST
-      //    (2026-09-04: one free round, metered by spar-pair against
-      //    guest_rounds/{uid}; this rule only lets the doc exist). No
-      //    email-only queue lane. The authProvider marker must equal the
-      //    caller's OWN verified provider, so a client cannot stamp a
-      //    provider it does not hold. spar-pair repeats the provider check
-      //    against the verified token, so both the queue write and the
-      //    room-opening chokepoint agree.
-      //
-      //  - update keeps the same door and preserves the provider marker.
-      //    Delete stays signed-in so a stale anonymous doc left by the
-      //    trial era can still be released rather than stranded.
+      // Google, Apple, and email accounts only. Bind the provider marker
+      // to the verified token; clients cannot claim a different provider.
+      // Keep owner deletion available for stale guest entries.
       allow read:   if isSignedIn();
-      allow create: if (isLiveVideoAccount() || isGuestAccount())
+      allow create: if isLiveVideoAccount()
                     && queueUid == request.auth.uid
                     && request.resource.data.uid == request.auth.uid
                     && request.resource.data.authProvider == request.auth.token.firebase.sign_in_provider
                     && request.resource.data.status == 'waiting';
-      allow update: if (isLiveVideoAccount() || isGuestAccount())
+      allow update: if isLiveVideoAccount()
                     && queueUid == request.auth.uid
                     && request.resource.data.authProvider == request.auth.token.firebase.sign_in_provider;
       allow delete: if isSignedIn() && queueUid == request.auth.uid;

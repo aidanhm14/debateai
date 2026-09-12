@@ -59,7 +59,21 @@ back to platform funding. OpenAI bills usage; Debatable minutes and tokens
 are not consumed. Funding domains are separate for continuation signatures.
 
 
-## Sign-in policy (2026-09-07)
+## Sign-in policy (updated 2026-09-11)
+
+**Matchmaking requires sign-in (2026-09-11, Aidan).** No anonymous live
+queue or first guest round. The foreground page, pairing endpoint and
+Firestore queue create/update rules enforce Google, Apple, or email.
+The first three optional Match Desk questions can precede this gate;
+the waiting screen and real invitations require an account. The gate
+shows an “Example invite” with the supplied fictional Sydney profile,
+clearly labeled as a preview. It never claims a real person sent that
+example. Signing in resumes the saved search; signing out cancels it.
+This supersedes the September 7 guest-round allowance and its in-call
+account ask for new matches. Existing seated rounds retain their recovery
+path. The sitewide real waiting-person invitations below still use real
+queue profiles and require sign-in before accepting.
+
 
 **Waiting-person invitations (2026-09-08):** Signed-out and anonymous
 visitors receive the real queued profile's “wants to debate” invitation.
@@ -120,7 +134,7 @@ before sign-in; selecting people then continuing, choosing None, or skipping
 saves local answers and opens the live-video account door. The browsing timer
 does not interrupt this first question. Remaining matching questions are optional
 after sign-in while searching. Existing named accounts are already identified.
-New human matches require Google or Apple sign-in before entering the queue. The Match Desk is optional: first-time visitors search with neutral, first-available preferences after sign-in. Saved preferences still apply, and the waiting screen offers an optional editor. An arriving match saves local answers and closes that editor so the ready check is visible. Both people still confirm before the room opens. Existing live rooms stay uninterrupted, including the site-shell player.
+New human matches require Google, Apple, or email sign-in before entering the queue. The Match Desk is optional: first-time visitors search with neutral, first-available preferences after sign-in. Saved preferences still apply, and the waiting screen offers an optional editor. An arriving match saves local answers and closes that editor so the ready check is visible. Both people still confirm before the room opens. Existing live rooms stay uninterrupted, including the site-shell player.
 A required inline account gate does not get a second dialog over it. Legal text
 stays readable. Apart from the bounded `/newvoice` test described above,
 AI debates require a named account before Start and server-side
