@@ -64,3 +64,20 @@ assert.equal((await propose({claim:'',user_side:'for'})).status,422);
 assert.equal((await propose({claim:'Cities should make buses free',user_side:'anything'})).status,400);
 claimUser=false;assert.equal((await propose({claim:'Cities should make buses free',user_side:'for'})).status,401);
 console.log('Spoken claim gate: named account, valid side, sanitized claim and sensitive-topic refusal passed.');
+
+// A preflight read or post-mint charge failure must never release a session.
+upstreamStatus=201; allowed=true;
+const goodGate=context.voiceGate, goodOpen=context.openVoiceSession;
+context.voiceGate=async()=>null;
+let countBefore=requests.length;result=await call(body);assert.equal(result.status,503);assert.equal(requests.length,countBefore);
+context.voiceGate=goodGate;context.openVoiceSession=async()=>{throw Error('write failed');};
+result=await call(body);assert.equal(result.status,503);assert.equal((await result.json()).sdp,undefined);
+context.openVoiceSession=goodOpen;allowed=false;context.getTokenBalance=async()=>10;
+context.spendTokens=async()=>({ok:false,balance:0});
+result=await call(body);assert.equal(result.status,402);assert.equal((await result.json()).sdp,undefined);
+context.spendTokens=async()=>{throw Error('ledger unavailable');};
+result=await call(body);assert.equal(result.status,503);assert.equal((await result.json()).sdp,undefined);
+context.spendTokens=async()=>({ok:true,balance:0});
+result=await call(body);assert.equal(result.status,200);assert.equal((await result.json()).voiceUsage.tokensSpent,10);
+console.log('Live funding failures: unreadable allowance, failed usage write and token balance race release no session.');
+await import('./test-voice-paywalls.mjs');

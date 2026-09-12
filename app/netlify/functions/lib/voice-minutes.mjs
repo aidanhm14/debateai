@@ -146,9 +146,13 @@ export function evaluate(doc, budget, nowMs) {
  * Open a session on the doc: charge one minute now, record the reserve
  * and the server-stamped start. Returns the doc to write.
  */
-export function applyMint(doc, budget, nowMs, sessionId, { surface = '', anonymous = false, reserve } = {}) {
+export function applyMint(doc, budget, nowMs, sessionId, { surface = '', anonymous = false, reserve, allowOverBudget = false } = {}) {
   const ev = evaluate(doc, budget, nowMs);
-  const r = Math.max(1, Math.min(SESSION_RESERVE_MIN, Number.isFinite(reserve) ? reserve : ev.reserve));
+  if (!ev.allowed && !allowOverBudget) {
+    throw Object.assign(new Error('Your voice allowance has been used. Refresh your allowance before starting another session.'), { code: 'VOICE_ALLOWANCE_EXHAUSTED', status: 402 });
+  }
+  const ceiling = allowOverBudget ? SESSION_RESERVE_MIN : ev.reserve;
+  const r = Math.max(1, Math.min(ceiling, Number.isFinite(reserve) ? reserve : ceiling));
   let d = addMinutes(ev.doc, 1, nowMs);
   d = {
     ...d,

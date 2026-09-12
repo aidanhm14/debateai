@@ -50,7 +50,7 @@
     {
       "@type": "Question",
       "name": "How is an AI debate coach different from a human coach?",
-      "acceptedAnswer": { "@type": "Answer", "text": "A human coach is limited by their schedule. An AI debate coach is available any hour, runs unlimited reps, never tires, and tracks every round you have ever done. It is a complement to a human coach, not a replacement: use it for volume reps between sessions." }
+      "acceptedAnswer": { "@type": "Answer", "text": "A human coach is limited by their schedule. An AI debate coach is available any hour, runs repeat drills, never tires, and tracks every round you have ever done. It is a complement to a human coach, not a replacement: use it for volume reps between sessions." }
     },
     {
       "@type": "Question",
@@ -933,10 +933,10 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
   <p class="faq-a">A voice partner that runs targeted drills, hears your speeches against a clock, and gives instant feedback on structure, reasons, comparison, and delivery. Debatable's coach loads your recent rounds, so it knows the moves you lean on.</p>
 
   <div class="faq-q">How is an AI debate coach different from a human coach?</div>
-  <p class="faq-a">A human coach is limited by their schedule. The AI debate coach is available any hour, runs unlimited reps, and tracks every round you have done. Use it for volume reps between sessions, not instead of a human.</p>
+  <p class="faq-a">A human coach is limited by their schedule. The AI debate coach is available any hour, runs repeat drills, and tracks every round you have done. Use it for volume reps between sessions, not instead of a human.</p>
 
   <div class="faq-q">Is the AI debate coach free?</div>
-  <p class="faq-a">There is a free tier and the coach is in it. Sign in with Google, Apple or email to save your rounds and let the coach learn your style over time. Spoken sessions are the part that costs us real money to run, so past a couple of them the coach is on a paid plan. <span data-native-hide>The <a href="/pricing">pricing page</a> has the plans.</span></p>
+  <p class="faq-a">There is a free tier and the coach is in it. Sign in with Google, Apple or email to save your rounds and let the coach learn your style over time. Spoken sessions are the part that costs us real money to run, so free accounts get 20 voice minutes and paid plans get a monthly allowance. <span data-native-hide>The <a href="/pricing">pricing page</a> has the plans.</span></p>
 
   <div class="faq-q">What kind of rounds does the coach support?</div>
   <p class="faq-a">The coach works with Debatable's casual one-on-one rounds and runs focused drills for rebuttal, comparison, cross-examination, and speaking under pressure.</p>
@@ -1515,6 +1515,20 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
   }
 
   // ── Session timer ───────────────────────────────────────────
+  function reportVoiceEnd() {
+    var session = state.voiceSession;
+    state.voiceSession = null;
+    if (!session || !session.id) return;
+    fetch('/api/voice-session-end', {
+      method: 'POST', keepalive: true,
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.token },
+      body: JSON.stringify({ sessionId: session.id })
+    }).catch(function() {});
+  }
+  function voiceTimeExpired() {
+    return state.voiceSession && Date.now() >= state.voiceSession.endsAt;
+  }
+
   function startTimer() {
     state.startedAt = Date.now();
     // Durable transcript capture, consent-gated. See app/js/voice-transcript.js.
@@ -1531,12 +1545,13 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
     } else { state.vtResolved = true; }
     els.timer.hidden = false;
     function paint() {
+      if (voiceTimeExpired()) { endSession(); return; }
       var s = Math.floor((Date.now() - state.startedAt) / 1000);
       var m = Math.floor(s / 60);
       els.timer.textContent = (m < 10 ? '0' : '') + m + ':' + ((s % 60) < 10 ? '0' : '') + (s % 60);
     }
-    paint();
     state.timerId = setInterval(paint, 1000);
+    paint();
   }
   function stopTimer() { if (state.timerId) clearInterval(state.timerId); state.timerId = 0; }
 
@@ -1578,13 +1593,14 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
     if (!mintRes.ok) {
       if (mintRes.status === 402 && mint.upgrade) {
         // Apple 3.1.1: no pricing pointer inside the native app.
-        throw new Error(window.__DB_NATIVE ? 'Free voice sessions used for now.' : mint.error + ' (Upgrade at /pricing)');
+        throw new Error(window.__DB_NATIVE ? 'Your voice minutes are used for now.' : mint.error + ' (Upgrade at /pricing)');
       }
       var detail = mint.openai || mint.error || raw.slice(0, 200) || ('HTTP ' + mintRes.status);
       throw new Error('Could not start session: ' + detail);
     }
     var ephemeralKey = mint.client_secret && mint.client_secret.value;
     if (!ephemeralKey) throw new Error('Mint response missing client_secret.');
+    state.voiceSession = { id: mint.session_id, token: idToken, endsAt: Date.now() + Math.max(1, Math.min(8, Number(mint.reserveMinutes) || 8)) * 60000 };
 
     // Show the live stage with the chosen drill.
     showLive(drill);
@@ -1695,7 +1711,8 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
     coachState('listening');
     els.liveMeta.textContent = 'Voice: ' + (mint.gender || gender)
       + ' · ' + (mint.model || 'gpt-realtime')
-      + (mint.isPro ? '' : ' · ' + mint.used + ' of ' + mint.limit + ' free sessions');
+      + (mint.isPro ? '' : ' · ' + mint.used + ' of ' + mint.limit + ' voice minutes used');
+    if (voiceTimeExpired()) throw new Error('This session’s reserved voice time has ended. Start a new session to continue.');
     startTimer();
     state.starting = false;
   }
@@ -1757,6 +1774,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
   // teardown closes the live connection but leaves the UI in place so
   // the ended view can show a debrief; resetToSetup returns to the picker.
   function teardown() {
+    reportVoiceEnd();
     state.starting = false;
     stopVisualizer();
     stopTimer();
@@ -1941,6 +1959,7 @@ html.coach-embed .read-line{font-size:.84rem!important;line-height:1.45!importan
   }
 
   window.addEventListener('beforeunload', teardown);
+  window.addEventListener('pagehide', teardown);
 </script>
 
   <script src="/js/home-magnet.js" defer></script>

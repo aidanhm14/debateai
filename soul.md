@@ -10,6 +10,8 @@
 > work. This supersedes the September 7 guest lane for new matches while
 > preserving recovery for already-seated rounds.
 
+**Paywall reliability (2026-09-11):** Paid features share one subscription-status rule. A failed first payment (`incomplete`) and a paused subscription grant no paid access; `past_due` remains the existing retry grace period. Billing events read current Stripe state, preserve subscription linkage, and do not repeatedly refill usage on invoice retries. Voice admission returns a retryable error when allowance or accounting is unavailable, and rechecks the remaining minutes inside the usage transaction. Only a verified continuation or server-approved token funding can pass an exhausted minute budget. Coach and room judge use their actual session IDs for settlement, report session ends, and stop at the returned minute reserve. This supersedes older comments that treated lost voice accounting as an acceptable failure.
+
 > **HOMEPAGE PANEL ALWAYS HAS CONTENT (Aidan, 2026-09-11).** The example
 > board's right panel shows a judge status, a completed decision, or an
 > invitation for an unplayed round. Never leave it blank on challenge cards

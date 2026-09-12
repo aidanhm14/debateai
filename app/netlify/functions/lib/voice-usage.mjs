@@ -104,13 +104,13 @@ export async function readVoiceUsage(db, uid, legacyProfileData) {
  * freezes the context on return; an unawaited write is abandoned).
  * Called only AFTER a successful mint, so a failed mint costs nothing.
  */
-export async function openVoiceSession(db, uid, { named = false, hasPlan = false, sessionId = '', surface = '', anonymous = false, reserve, legacyProfileData = null, nowMs = Date.now() } = {}) {
+export async function openVoiceSession(db, uid, { named = false, hasPlan = false, sessionId = '', surface = '', anonymous = false, reserve, continued = false, tokenFunded = false, legacyProfileData = null, nowMs = Date.now() } = {}) {
   const ref = usageRef(db, uid);
   const budget = budgetFor({ named, hasPlan });
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const doc = withLegacy(snap.exists ? snap.data() : {}, legacyProfileData);
-    const out = applyMint(doc, budget, nowMs, sessionId, { surface, anonymous, reserve });
+    const out = applyMint(doc, budget, nowMs, sessionId, { surface, anonymous, reserve, allowOverBudget: continued || tokenFunded });
     const write = { ...out.doc, updatedAt: FieldValue.serverTimestamp() };
     delete write.legacyRounds;
     tx.set(ref, write, { merge: false });

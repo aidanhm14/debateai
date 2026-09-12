@@ -27,13 +27,6 @@ import { verifyIdToken, extractBearerToken, isOwnerEmail, isNamedAccount } from 
 import { callerIp } from './rate-limit.mjs';
 import { hasActivePaidPlan } from './plans.mjs';
 
-// `voice` ($12/mo) belongs here more than any other plan does: HD voice
-// IS the tier. Leaving it out would have sold someone premium voice and
-// then silently downgraded them to the free OpenAI voice.
-// Only EXPLICIT Stripe-bad statuses revoke. 'past_due' is a grace state Stripe
-// retries through, and null/'inactive' from legacy or race-conditioned writes
-// must not lock out someone who actually paid. Same rule claude.mjs uses.
-
 // A Firestore read per TTS call would be its own cost problem: a single round
 // is dozens of speech chunks. Plans do not change mid-round, so cache the
 // answer per uid. Short enough that an upgrade lands within minutes.

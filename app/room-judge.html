@@ -612,15 +612,30 @@ textarea.ctl{min-height:76px;resize:vertical}
     els.chatTurns.textContent = state.rows.filter(function(r){ return r.kind === 'chat'; }).length;
   }
 
+  function reportVoiceEnd() {
+    var session = state.voiceSession;
+    state.voiceSession = null;
+    if (!session || !session.id) return;
+    fetch('/api/voice-session-end', {
+      method: 'POST', keepalive: true,
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.token },
+      body: JSON.stringify({ sessionId: session.id })
+    }).catch(function() {});
+  }
+  function voiceTimeExpired() {
+    return state.voiceSession && Date.now() >= state.voiceSession.endsAt;
+  }
+
   function startTimer(){
     state.startedAt = Date.now();
     function paint(){
+      if (voiceTimeExpired()) { endAndBallot().catch(function(err){ showError(err.message); }); return; }
       var s = Math.floor((Date.now() - state.startedAt) / 1000);
       var m = Math.floor(s / 60);
       els.timer.textContent = (m < 10 ? '0' : '') + m + ':' + ((s % 60) < 10 ? '0' : '') + (s % 60);
     }
-    paint();
     state.timerId = setInterval(paint, 1000);
+    paint();
   }
   function stopTimer(){ if (state.timerId) clearInterval(state.timerId); state.timerId = 0; }
 
@@ -741,6 +756,7 @@ textarea.ctl{min-height:76px;resize:vertical}
     if (!mintRes.ok) throw new Error(mint.openai || mint.error || raw.slice(0, 200) || ('HTTP ' + mintRes.status));
     var ephemeralKey = mint.client_secret && mint.client_secret.value;
     if (!ephemeralKey) throw new Error('Mint response missing client secret.');
+    state.voiceSession = { id: mint.session_id, token: token, endsAt: Date.now() + Math.max(1, Math.min(8, Number(mint.reserveMinutes) || 8)) * 60000 };
 
     els.stageTitle.textContent = 'Requesting audio...';
     els.stageMeta.textContent = source === 'screen' ? 'Share a tab or window with audio enabled.' : 'Allow microphone access.';
@@ -802,8 +818,9 @@ textarea.ctl{min-height:76px;resize:vertical}
     state.starting = false;
     els.startBtn.textContent = 'Listening';
     els.stageTitle.textContent = 'Judge is flowing.';
-    els.stageMeta.textContent = (mint.model || 'gpt-realtime') + (mint.isPro ? '' : ' · ' + mint.used + ' of ' + mint.limit + ' free live sessions');
+    els.stageMeta.textContent = (mint.model || 'gpt-realtime') + (mint.isPro ? '' : ' · ' + mint.used + ' of ' + mint.limit + ' voice minutes used');
     setStatus('Live', true);
+    if (voiceTimeExpired()) throw new Error('This session’s reserved voice time has ended. Start a new session to continue.');
     startTimer();
     if (getPlatform() === 'twitch') connectTwitch();
     try { window.gtag && gtag('event', 'room_judge_start', { platform:getPlatform(), source:source, format:els.format.value }); } catch(e){}
@@ -930,6 +947,7 @@ textarea.ctl{min-height:76px;resize:vertical}
     if (!state.vtResolved && (state.vtPending || []).length < 40) (state.vtPending = state.vtPending || []).push(turn);
   }
   function teardown(){
+    reportVoiceEnd();
     try { if (state.vt) state.vt.finish({ status:'complete' }); } catch (e) {}
     state.vt = null; state.vtPending = [];
     state.starting = false;
@@ -1093,6 +1111,7 @@ textarea.ctl{min-height:76px;resize:vertical}
   }
 
   window.addEventListener('beforeunload', teardown);
+  window.addEventListener('pagehide', teardown);
 })();
 </script>
 <script defer src="/js/transcript-consent.js"></script>

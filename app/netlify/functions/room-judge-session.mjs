@@ -273,6 +273,7 @@ export default async (request) => {
     // pre-2026-08-26 history carries over (lib/voice-usage.mjs).
   } catch (err) {
     console.warn('[room-judge-session] user profile read failed:', err.message);
+    if (!isOwnerEmail(email)) return new Response(JSON.stringify({ error: 'Could not check your voice allowance. Try again in a moment.', code: 'METERING_UNAVAILABLE' }), { status: 503, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
 
   try {
@@ -283,6 +284,7 @@ export default async (request) => {
     }
   } catch (err) {
     console.warn('[room-judge-session] plan lookup failed:', err.message);
+    if (!isOwnerEmail(email)) return new Response(JSON.stringify({ error: 'Could not check your voice allowance. Try again in a moment.', code: 'METERING_UNAVAILABLE' }), { status: 503, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
   if (isOwnerEmail(email)) isPro = true;
 
@@ -290,7 +292,7 @@ export default async (request) => {
   // AFTER the plan is known so a paid plan is measured against its monthly
   // budget, not the free lifetime taste. The reserve it returns is the
   // session's cap. `gateInfo` is null only when the row could not be read,
-  // and then the round is allowed (a Firestore blip must not wall a user).
+  // and then admission returns a retryable error without minting.
   let gateInfo = null;
   if (!isPro) {
     try {
@@ -298,11 +300,12 @@ export default async (request) => {
       voiceUsedBefore = gateInfo ? gateInfo.used : 0;
     } catch (err) { console.warn('[room-judge] gate read failed:', err.message); }
   }
+  if (!isPro && !gateInfo) return new Response(JSON.stringify({ error: 'Could not check your voice allowance. Try again in a moment.', code: 'METERING_UNAVAILABLE' }), { status: 503, headers: { 'Content-Type': 'application/json', ...CORS } });
   const __limit = gateInfo ? gateInfo.budget.minutes : FREE_ROOM_JUDGE_LIMIT;
 
   if (!isPro && gateInfo && !gateInfo.allowed) {
     return new Response(JSON.stringify({
-      error: 'VOICE_FREE_LIMIT: You have used all ' + FREE_ROOM_JUDGE_LIMIT + ' free live voice sessions. Upgrade to Pro for more.',
+      error: (__hasPlan ? 'Your monthly voice minutes are used. They refill on the 1st.' : 'Your free voice minutes are used. Choose a plan to keep talking.'),
       upgrade: true,
       used: voiceUsedBefore,
       limit: __limit,
@@ -410,24 +413,29 @@ export default async (request) => {
   // The counter lives in voice_usage/, which no client can write; it
   // used to live on the caller's own user_profiles doc, which they
   // could reset. See lib/voice-usage.mjs.
+  const meterSessionId = session.id || session.session?.id || 'room-judge_' + Date.now();
+  let openInfo = null;
   if (!isPro) {
     try {
-      await openVoiceSession(db, uid, { named: true, hasPlan: __hasPlan, sessionId: 'room-judge_' + Date.now(), surface: 'room-judge' });
+      openInfo = await openVoiceSession(db, uid, { named: true, hasPlan: __hasPlan, sessionId: meterSessionId, surface: 'room-judge', legacyProfileData: profile });
     } catch (err) {
       console.warn('[room-judge-session] voice charge failed:', err.message);
+      return new Response(JSON.stringify({ error: err.status === 402 ? err.message : 'Could not record your voice session. Try again in a moment.', code: err.code || 'METERING_UNAVAILABLE', upgrade: err.status === 402 }), { status: err.status === 402 ? 402 : 503, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
   }
 
   return new Response(JSON.stringify({
     client_secret: clientSecret,
-    session_id: session.id || session.session?.id || null,
+    session_id: meterSessionId,
+    reserveMinutes: openInfo ? openInfo.reserve : 8,
+    period: isPro ? null : (__hasPlan ? 'month' : 'lifetime'),
     model,
     voice,
     voiceKey,
     platform,
     format,
     sdpUrl,
-    used: voiceUsedBefore + (isPro ? 0 : 1),
+    used: openInfo ? openInfo.used : voiceUsedBefore,
     limit: isPro ? null : __limit,
     isPro,
   }), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });

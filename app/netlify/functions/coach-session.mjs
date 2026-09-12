@@ -306,13 +306,13 @@ export default async (request) => {
     // pre-2026-08-26 history carries over (lib/voice-usage.mjs).
   } catch (err) {
     console.warn('[coach-session] user_profiles read failed:', err.message);
+    if (!isOwnerEmail(email)) return new Response(JSON.stringify({ error: 'Could not check your voice allowance. Try again in a moment.', code: 'METERING_UNAVAILABLE' }), { status: 503, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
   // Plan state lives on the TEAMS collection (written by stripe-webhook /
   // razorpay-activate) — user_profiles never gets plan/isPro. Resolve via
   // getUserTeam the way the brain endpoints do (see claude.mjs): paid
   // plans are individual/lifetime/team/byok; subscriptions only lose
-  // access on EXPLICIT Stripe-bad statuses. Lookup failure degrades to
-  // free (the cap still applies).
+  // access on EXPLICIT Stripe-bad statuses. Unavailable plan reads retry.
   try {
     const teamResult = await getUserTeam(uid);
     const team = teamResult && teamResult.team;
@@ -321,6 +321,7 @@ export default async (request) => {
     }
   } catch (err) {
     console.warn('[coach-session] plan lookup failed:', err.message);
+    if (!isOwnerEmail(email)) return new Response(JSON.stringify({ error: 'Could not check your voice allowance. Try again in a moment.', code: 'METERING_UNAVAILABLE' }), { status: 503, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
   if (isOwnerEmail(email)) isPro = true;
 
@@ -328,7 +329,7 @@ export default async (request) => {
   // AFTER the plan is known so a paid plan is measured against its monthly
   // budget, not the free lifetime taste. The reserve it returns is the
   // session's cap. `gateInfo` is null only when the row could not be read,
-  // and then the round is allowed (a Firestore blip must not wall a user).
+  // and then admission returns a retryable error without minting.
   let gateInfo = null;
   if (!isPro) {
     try {
@@ -336,11 +337,12 @@ export default async (request) => {
       voiceUsedBefore = gateInfo ? gateInfo.used : 0;
     } catch (err) { console.warn('[coach] gate read failed:', err.message); }
   }
+  if (!isPro && !gateInfo) return new Response(JSON.stringify({ error: 'Could not check your voice allowance. Try again in a moment.', code: 'METERING_UNAVAILABLE' }), { status: 503, headers: { 'Content-Type': 'application/json', ...CORS } });
   const __limit = gateInfo ? gateInfo.budget.minutes : FREE_VOICE_LIFETIME_LIMIT;
 
   if (!isPro && gateInfo && !gateInfo.allowed) {
     return new Response(JSON.stringify({
-      error: 'VOICE_FREE_LIMIT: You\'ve used all ' + FREE_VOICE_LIFETIME_LIMIT + ' free voice sessions (shared with voice rounds). Upgrade to Pro for unlimited.',
+      error: (__hasPlan ? 'Your monthly voice minutes are used. They refill on the 1st.' : 'Your free voice minutes are used. Choose a plan to keep talking.'),
       upgrade: true, period: __hasPlan ? 'month' : 'lifetime', used: voiceUsedBefore, limit: __limit,
     }), { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } });
   }
@@ -449,30 +451,34 @@ export default async (request) => {
     ? 'https://api.openai.com/v1/realtime/calls'
     : 'https://api.openai.com/v1/realtime?model=' + encodeURIComponent(model);
 
-  // Increment the shared voice quota counter (best-effort, non-blocking).
   // Charge the shared voice allowance. AWAITED: Lambda freezes the
   // execution context on return, so the old non-blocking write was
   // abandoned rather than deferred (the spar-pair lesson, 2026-08-19).
   // The counter lives in voice_usage/, which no client can write; it
   // used to live on the caller's own user_profiles doc, which they
   // could reset. See lib/voice-usage.mjs.
+  const meterSessionId = session.id || session.session?.id || 'coach_' + Date.now();
+  let openInfo = null;
   if (!isPro) {
     try {
-      await openVoiceSession(db, uid, { named: true, hasPlan: __hasPlan, sessionId: 'coach_' + Date.now(), surface: 'coach' });
+      openInfo = await openVoiceSession(db, uid, { named: true, hasPlan: __hasPlan, sessionId: meterSessionId, surface: 'coach', legacyProfileData: profile });
     } catch (err) {
       console.warn('[coach-session] voice charge failed:', err.message);
+      return new Response(JSON.stringify({ error: err.status === 402 ? err.message : 'Could not record your voice session. Try again in a moment.', code: err.code || 'METERING_UNAVAILABLE', upgrade: err.status === 402 }), { status: err.status === 402 ? 402 : 503, headers: { 'Content-Type': 'application/json', ...CORS } });
     }
   }
 
   return new Response(JSON.stringify({
     client_secret: clientSecret,
-    session_id: session.id || session.session?.id || null,
+    session_id: meterSessionId,
+    reserveMinutes: openInfo ? openInfo.reserve : 8,
+    period: isPro ? null : (__hasPlan ? 'month' : 'lifetime'),
     model,
     voice,
     gender,
     drill,
     sdpUrl,
-    used: voiceUsedBefore + (isPro ? 0 : 1),
+    used: openInfo ? openInfo.used : voiceUsedBefore,
     limit: isPro ? null : __limit,
     isPro,
   }), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } });

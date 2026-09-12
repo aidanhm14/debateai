@@ -1066,6 +1066,7 @@ export default async (request, context) => {
   let gate = null;
   let reserveMinutes = SESSION_RESERVE_MIN;
   let hasPlan = false;
+  let legacyProfile = null;
   // Which allowance applies. A named account gets the free taste; an
   // anonymous uid gets less, because minting one is free and unlimited,
   // so its allowance is a courtesy to a first-time visitor rather than a
@@ -1083,32 +1084,26 @@ export default async (request, context) => {
       const db = getDb();
       const profileSnap = await withTimeout(
         db.collection('user_profiles').doc(signedInUid).get(), 1500, 'voice-cap read'
-      ).catch(err => { console.warn('[realtime-session] cap read soft-failed:', err.message); return null; });
+      );
       // The counter itself lives in voice_usage/{uid}, which no client
       // can write. The profile doc is passed in only so a user who
       // spent rounds before 2026-08-26 keeps that history; see the
       // migration note in lib/voice-usage.mjs.
-      const legacyProfile = (profileSnap && profileSnap.exists) ? profileSnap.data() : null;
+      legacyProfile = (profileSnap && profileSnap.exists) ? profileSnap.data() : null;
       // Plan state lives on the TEAMS collection (written by
       // stripe-webhook / razorpay-activate) — user_profiles never gets
       // plan/isPro. Resolve via getUserTeam the way the brain endpoints
       // do (see claude.mjs): paid plans are individual/lifetime/team/byok;
       // subscriptions only lose access on EXPLICIT Stripe-bad statuses.
-      // Lookup failure degrades to free (the cap still applies).
-      try {
-        const teamResult = await withTimeout(getUserTeam(signedInUid), 1500, 'plan read');
-        const team = teamResult && teamResult.team;
-        if (team){
-          hasPlan = planBypassesVoiceCap(team);
-        }
-      } catch(planErr){
-        console.warn('[realtime-session] plan lookup failed:', planErr && planErr.message);
-      }
+      // An unavailable plan is a retryable error, not a different allowance.
+      const teamResult = await withTimeout(getUserTeam(signedInUid), 1500, 'plan read');
+      hasPlan = planBypassesVoiceCap(teamResult && teamResult.team);
       // The gate reads the minutes row and settles any orphan in memory.
       gate = await withTimeout(
         voiceGate(db, signedInUid, { named: callerIsNamed, hasPlan, legacyProfileData: legacyProfile }), 1500, 'voice gate read'
       ).catch((err) => { console.warn('[realtime-session] gate read soft-failed:', err.message); return null; });
-      voiceUsedBefore = gate ? gate.used : 0;
+      if (!gate) throw new Error('Voice usage unavailable');
+      voiceUsedBefore = gate.used;
       reserveMinutes = gate ? gate.reserve : SESSION_RESERVE_MIN;
       } // end non-owner cap reads
       // An anonymous visitor past their taste is asked to sign in, not
@@ -1165,9 +1160,10 @@ export default async (request, context) => {
       }
     }
   } catch(authErr){
-    // Token present but invalid → treat as anon. The IP rate limit
-    // above already throttled abuse; no further action needed here.
-    console.warn('[realtime-session] auth check soft-failed:', authErr && authErr.message);
+    console.warn('[realtime-session] metering unavailable:', authErr && authErr.message);
+    return new Response(JSON.stringify({ error: 'Could not check your voice allowance. Try again in a moment.', code: 'METERING_UNAVAILABLE' }), {
+      status: 503, headers: { 'Content-Type': 'application/json', ...CORS },
+    });
   }
 
   try {
@@ -1748,20 +1744,22 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       try {
         openInfo = await withTimeout(openVoiceSession(getDb(), signedInUid, {
           named: callerIsNamed, hasPlan, sessionId: sessionId || '',
-          surface: 'realtime', anonymous: !callerIsNamed,
+          surface: 'realtime', anonymous: !callerIsNamed, continued, tokenFunded, legacyProfileData: legacyProfile,
           reserve: tokenFunded ? SESSION_RESERVE_MIN : reserveMinutes,
         }), 2000, 'voice charge');
         if (openInfo && openInfo.reserve) reserveMinutes = openInfo.reserve;
       } catch(e){
         console.warn('[realtime-session] voice charge failed:', e && e.message);
+        return new Response(JSON.stringify({ error: e.status === 402 ? e.message : 'Could not record your voice session. Try again in a moment.', code: e.code || 'METERING_UNAVAILABLE', upgrade: e.status === 402 }), {
+          status: e.status === 402 ? 402 : 503, headers: { 'Content-Type': 'application/json', ...CORS },
+        });
       }
     }
 
     // Token-funded round: spend after the successful mint, idempotent
     // on the session id so a retried mint can't double-charge. Bounded
-    // so a Firestore stall never delays the WebRTC handshake; on
-    // timeout the round goes unspent (logged, acceptable failure mode,
-    // mirrors the usage-counter contract above).
+    // so a Firestore stall returns a retryable error without releasing
+    // credentials for an unfunded session.
     let tokensAfter = null;
     if (tokenFunded && signedInUid && !continued && !byok){
       try {
@@ -1773,9 +1771,14 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
           reason: 'Voice round',
         }), 2500, 'token spend');
         if (spendRes.ok) tokensAfter = spendRes.balance;
-        else console.warn('[realtime-session] token spend insufficient at spend time for', signedInUid);
+        else return new Response(JSON.stringify({ error: 'Your token balance changed. Refresh your allowance before starting another round.', code: 'TOKEN_BALANCE_INSUFFICIENT', upgrade: true }), {
+          status: 402, headers: { 'Content-Type': 'application/json', ...CORS },
+        });
       } catch(e){
         console.warn('[realtime-session] token spend failed:', e && e.message);
+        return new Response(JSON.stringify({ error: 'Could not confirm the token payment. Try again in a moment.', code: 'METERING_UNAVAILABLE' }), {
+          status: 503, headers: { 'Content-Type': 'application/json', ...CORS },
+        });
       }
     }
 
