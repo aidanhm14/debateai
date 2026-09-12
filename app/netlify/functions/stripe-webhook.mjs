@@ -362,8 +362,11 @@ export default async (request) => {
         const teamDoc = await teamRef.get();
         if (!teamDoc.exists) { console.error('Team not found:', teamId); break; }
         const teamData = teamDoc.data();
+        // Cancelling an unlinked duplicate leaves it active until period end.
+        // Its cancellation update must not replace the subscription we keep.
         if (teamData.stripeSubscriptionId && teamData.stripeSubscriptionId !== subscription.id
-          && ['canceled', 'unpaid', 'incomplete_expired'].includes(subscription.status)) break;
+          && (subscription.cancel_at_period_end
+            || ['canceled', 'unpaid', 'incomplete_expired'].includes(subscription.status))) break;
 
         // Reset usage if new billing period (only if we have a period to compare against).
         const oldPeriodStart = teamData.currentPeriodStart?.toDate?.()

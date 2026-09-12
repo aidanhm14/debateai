@@ -91,6 +91,18 @@ await check('old subscription cancellation cannot revoke the replacement', async
   assert.equal(team.plan, 'voice'); assert.equal(team.stripeSubscriptionId, 'sub_new');
   current = old; await deliver(old); assert.equal(team.status, 'active');
 });
+await check('scheduling an unlinked duplicate cancellation cannot replace the kept subscription', async () => {
+  team = { plan: 'voice', status: 'active', stripeSubscriptionId: 'sub_keep', cancelAtPeriodEnd: false, cancelAt: null, usageThisPeriod: 8 };
+  const before = { ...team };
+  current = { ...subscription(), cancel_at_period_end: true, cancel_at: 1790812800 };
+  assert.equal((await deliver(current)).status, 200);
+  assert.deepEqual(team, before);
+  current.id = 'sub_keep';
+  assert.equal((await deliver(current)).status, 200);
+  assert.equal(team.stripeSubscriptionId, 'sub_keep');
+  assert.equal(team.cancelAtPeriodEnd, true);
+  assert.equal(team.cancelAt.toISOString(), '2026-10-01T00:00:00.000Z');
+});
 await check('invoice retries and proration invoices cannot repeatedly refill usage', async () => {
   current = subscription(); team = { plan: 'voice', status: 'active', stripeSubscriptionId: current.id, usageThisPeriod: 8 };
   const invoice = { id: 'in_cycle', subscription: current.id, billing_reason: 'subscription_cycle' };
