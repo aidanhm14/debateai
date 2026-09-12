@@ -7,7 +7,11 @@ import { fileURLToPath } from 'node:url';
 // excluded; fixture accounts/inventory never join a real queue or sign in.
 const app = fileURLToPath(new URL('../../app/', import.meta.url));
 const markup = fs.readFileSync(path.join(app, 'leaderboard.html'), 'utf8')
-  .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+  .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+  // The fixture clock controls invitation delays, not Chromium's document
+  // transitions. Keep navigation real without racing their native animation
+  // promises against a frozen clock ("Transition was skipped" in Linux CI).
+  .replace('</head>', '<style>@view-transition { navigation: none; }</style></head>');
 const named = { uid: 'test-self', isAnonymous: false, providerData: [{ providerId: 'google.com' }] };
 const guest = { uid: 'test-guest', isAnonymous: true, providerData: [] };
 const noPopup = '.da-wait-invite, .da-livepop';
