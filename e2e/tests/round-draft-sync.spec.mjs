@@ -53,7 +53,7 @@ async function world(browser, { signals = true } = {}) {
       function mySide(){ return state.user.uid === state.proUid ? 'pro' : 'con'; }
       function escHtml(s){ return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
       function toast(s){ window.lastToast = s; }
-      function gtag(){} function renderHouseGloss(){} function renderRound(){}
+      function liveJourney(){} function syncPlayBet(){} function syncTeamSeats(){} function gtag(){} function renderHouseGloss(){} function renderRound(){}
       function updateRoomStage(){} function syncJudgeLock(){} function enterAudienceMode(){}
       function tournamentControlsLocked(){ return false; } function tournamentDraftMotion(){ return ''; }
       ${draft}

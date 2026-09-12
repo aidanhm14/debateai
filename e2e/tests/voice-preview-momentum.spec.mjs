@@ -4,9 +4,9 @@ const read = name => readFileSync(new URL('../../app/' + name, import.meta.url),
 const html = read('newvoice.html');
 const between = (a, b) => html.slice(html.indexOf(a), html.indexOf(b, html.indexOf(a)));
 const preview = between('let previewRound = false', '\n\nfunction show(name)');
-const opening = between('let openingSent = false;', '/* ── audio plumbing');
+const opening = between('function sendVoiceEvent(event){', '/* ── audio plumbing');
 const handler = between('function handleEvent(e){', 'function setSpeaking(who, on){');
-const cleanup = between('function cleanup(){', 'function endRound(){');
+const cleanup = between('function cleanup(){', 'async function endRound(){');
 async function boot(page) {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await page.route('**/*', r => r.request().isNavigationRequest()
@@ -15,6 +15,7 @@ async function boot(page) {
   await page.addScriptTag({ content: read('js/voice-preview-momentum.js') });
   await page.addScriptTag({ content: `
     var $=id=>document.getElementById(id);
+    var liveVoice=null;
     var status='live', currentMotion='Public transport should be free', scopingRound=false, autoStartPending=false;
     var turns=[{who:'you',text:'Buses help everyone reach work.'},{who:'ai',text:'But who should pay for the service?'}];
     var startBtn=$('startBtn'),startLabel=$('startLabel'),statusText=$('statusText'),capYouText=$('capYouText'),capAiText=$('capAiText');
