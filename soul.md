@@ -10,6 +10,10 @@
 > work. This supersedes the September 7 guest lane for new matches while
 > preserving recovery for already-seated rounds.
 
+**Pre-round judge audio recovery (2026-09-11):** An opening counts as delivered when audio starts, so an interruption before sound retries the greeting after the room pauses. An empty completed opening retries once; provider failures and stalled responses end with a retry notice. Both seats have a Hear judge action if local playback is blocked. The listening state no longer claims the connected judge is still joining. A private two-seat Daily/OpenAI check measured nonzero judge audio at both endpoints; microphone capture was synthetic and local speakers were muted.
+
+**Match Desk order (Aidan, 2026-09-11):** Start with “What do you like talking about?”, then ask whose views they agree with and whose views they find interesting to argue about. This moves the former third question to the front and keeps every question. It supersedes the September 4 people-first order. The sign-in gate still follows the third answer.
+
 **Paywall reliability (2026-09-11):** Paid features share one subscription-status rule. A failed first payment (`incomplete`) and a paused subscription grant no paid access; `past_due` remains the existing retry grace period. Billing events read current Stripe state, preserve subscription linkage, and do not repeatedly refill usage on invoice retries. Voice admission returns a retryable error when allowance or accounting is unavailable, and rechecks the remaining minutes inside the usage transaction. Only a verified continuation or server-approved token funding can pass an exhausted minute budget. Coach and room judge use their actual session IDs for settlement, report session ends, and stop at the returned minute reserve. This supersedes older comments that treated lost voice accounting as an acceptable failure.
 
 > **HOMEPAGE PANEL ALWAYS HAS CONTENT (Aidan, 2026-09-11).** The example

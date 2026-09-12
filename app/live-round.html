@@ -11307,7 +11307,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // Assign only when the underlying track actually changed. Re-setting
   // srcObject on every repaint restarts decode and makes the tile blink
   // on every participant-updated event, which fire several a second.
-  function attachTrack(el, track){
+  function attachTrack(el, track, play){
     if (!track){
       if (el.srcObject) el.srcObject = null;
       return;
@@ -11315,6 +11315,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var cur = el.srcObject && el.srcObject.getTracks && el.srcObject.getTracks()[0];
     if (cur && cur.id === track.id) return;
     el.srcObject = new MediaStream([track]);
+    if (play) { play(el); return; }
     var p = el.play && el.play();
     if (p && p.catch) p.catch(function(){});
   }
@@ -11537,7 +11538,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           room.audioHost.appendChild(a);
           room.audios[key] = a;
         }
-        attachTrack(a, track);
+        attachTrack(a, track, pair[0] === 'judge' && window.RoomTopic ? window.RoomTopic.playRemote : null);
         if (room.viewer){
           // Start immediately. Some browsers may still enforce their own
           // autoplay policy, but the spectator surface never interrupts the

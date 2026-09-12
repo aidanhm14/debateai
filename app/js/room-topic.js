@@ -17,6 +17,7 @@
   if (window.RoomTopic) return;
   var talk = null, strip = null, signature = '', busy = false, opening = false;
   var voice = null, warm = null, lifecycle = 0, dismissedId = '';
+  var blockedSound = null, soundButton = null;
   var caption = { text: '', item: '', status: 'Connecting', seq: 0 }, captionText = null, captionStatus = null;
   // VAD commits room audio after one second; the client then waits another
   // four uninterrupted seconds. Every speaker gets the same right to the floor.
@@ -78,24 +79,44 @@
   function send(msg) { try { if (voice && voice.dc && voice.dc.readyState === 'open') voice.dc.send(JSON.stringify(msg)); } catch (_) {} }
   function currentVoice(v) { return voice === v && !v.stopped && ctx().canChoose && active(talk) && talk.id === v.talkId; }
   function paintCaption() {
-    if (captionText) { captionText.textContent = caption.text || 'The judge is joining…'; captionText.scrollTop = captionText.scrollHeight; }
+    if (captionText) { captionText.textContent = caption.text || (caption.status === 'Listening' ? 'The judge is listening. Pause for a moment to let it speak.' : caption.status === 'Thinking' ? 'The judge is getting ready to speak.' : 'The judge is joining…'); captionText.scrollTop = captionText.scrollHeight; }
     if (captionStatus) captionStatus.textContent = caption.status;
   }
   function shareCaption(v) {
     if (!currentVoice(v) || !v.shared || !v.call) return;
     try { v.call.sendAppMessage({ t: 'topic-caption', id: v.talkId, seq: ++caption.seq, text: caption.text, status: caption.status }, '*'); } catch (_) {}
   }
-  function playVoice(v) {
-    var p = v.audio.play();
-    if (p && p.catch) p.catch(function() {
-      if (!currentVoice(v) || v.soundButton) return;
-      v.soundButton = button('Hear judge', function() {
-        v.ac.resume();
-        v.audio.play().then(function() { if (v.soundButton) v.soundButton.remove(); v.soundButton = null; }).catch(function() {});
-      }, 'topic-strip-primary');
-      mount().appendChild(v.soundButton);
+  function clearSoundButton() {
+    if (soundButton) soundButton.remove();
+    soundButton = null; blockedSound = null;
+  }
+  function soundIsCurrent(s) {
+    return ctx().canChoose && active(talk) && talk.id !== dismissedId
+      && (!s.id || s.id === talk.id) && s.audio.srcObject === s.stream && s.audio.isConnected;
+  }
+  function paintSoundButton() {
+    if (!blockedSound || !soundIsCurrent(blockedSound)) { clearSoundButton(); return; }
+    if (!soundButton) soundButton = button('Hear judge', function() {
+      var s = blockedSound;
+      if (!s || !soundIsCurrent(s)) { clearSoundButton(); return; }
+      // Both calls happen inside the gesture, before waiting on either one.
+      playSound(s.audio, s.ac);
+    }, 'topic-strip-primary');
+    mount().appendChild(soundButton);
+  }
+  function playSound(audio, ac) {
+    var s = { audio: audio, ac: ac, stream: audio.srcObject, id: talk && talk.id };
+    var resume, play;
+    try { resume = ac ? ac.resume() : null; play = audio.play(); }
+    catch (e) { play = Promise.reject(e); }
+    Promise.all([resume, play]).then(function() {
+      if (blockedSound && blockedSound.audio === audio && blockedSound.stream === s.stream) clearSoundButton();
+    }).catch(function() {
+      if (!soundIsCurrent(s)) return;
+      blockedSound = s; paintSoundButton();
     });
   }
+  function playVoice(v) { playSound(v.audio, v.ac); }
   function updateCaption(v, status) {
     if (!currentVoice(v)) return;
     if (status) caption.status = status;
@@ -109,9 +130,13 @@
     var wait = v.quietUntil - Date.now();
     if (wait > 0) { v.replyTimer = setTimeout(function() { pump(v); }, wait); return; }
     var next = v.pending; v.pending = null;
-    if (next.kind === 'greeting') v.greeted = true;
+    // A request can be cancelled before it makes a sound. Count the
+    // greeting only when its audio starts, so a first interruption retries it.
+    v.responseKind = next.kind;
     v.responding = true; v.interrupted = false;
     updateCaption(v, 'Thinking');
+    clearTimeout(v.responseTimer);
+    v.responseTimer = setTimeout(function() { failVoice(v, 'The judge did not respond. Tap Ask the judge to retry.'); }, 20000);
     // response.instructions overrides the session brief. Keep the complete
     // listening/content rules even for a reminder or a tool follow-up.
     send({ type: 'response.create', response: v.instructions
@@ -183,7 +208,15 @@
   function handleEvent(v, ev) {
     if (!currentVoice(v)) return;
     var msg; try { msg = JSON.parse(ev.data); } catch (_) { return; }
-    if (msg.type === 'error') { console.warn('[room-topic] realtime error', msg.error); return; }
+    if (msg.type === 'error') {
+      var code = msg.error && msg.error.code || '';
+      // Barge-in can race the server's own cancellation. An already-ended
+      // response is harmless; an actual provider failure must be visible.
+      if (code === 'response_cancel_not_active' || code === 'output_audio_buffer_clear_empty') return;
+      console.warn('[room-topic] realtime error', code);
+      failVoice(v, 'The judge could not speak. Tap Ask the judge to retry.');
+      return;
+    }
     if (msg.type === 'response.output_audio_transcript.delta' || msg.type === 'response.audio_transcript.delta'
         || msg.type === 'response.output_audio_transcript.done' || msg.type === 'response.audio_transcript.done') {
       if (v.interrupted) return;
@@ -216,9 +249,29 @@
       }
       return;
     }
-    if (msg.type === 'response.done') { v.responding = false; pump(v); return; }
+    if (msg.type === 'response.done') {
+      clearTimeout(v.responseTimer);
+      v.responding = false;
+      if (msg.response && msg.response.status === 'failed') {
+        failVoice(v, 'The judge could not speak. Tap Ask the judge to retry.'); return;
+      }
+      // Occasionally the provider completes the opening with no audio at
+      // all. Retry that empty turn once instead of waiting silently forever.
+      var output = msg.response && msg.response.output;
+      var hasAudio = Array.isArray(output) && output.some(function(item) {
+        return (item.content || []).some(function(part) { return part.type === 'audio' || part.type === 'output_audio'; });
+      });
+      if (v.responseKind === 'greeting' && !v.greeted && !v.interrupted && !v.speaking
+          && msg.response && msg.response.status === 'completed' && Array.isArray(output) && !hasAudio) {
+        if (v.greetingRetries) { failVoice(v, 'The judge could not speak. Tap Ask the judge to retry.'); return; }
+        v.greetingRetries = 1; say(v.greeting, 'greeting'); return;
+      }
+      if (!v.playing) updateCaption(v, 'Listening');
+      pump(v); return;
+    }
     if (msg.type === 'output_audio_buffer.started') {
       v.playing = true;
+      if (v.responseKind === 'greeting' && !v.speaking && !v.interrupted) v.greeted = true;
       updateCaption(v, 'Speaking');
       if (v.speaking || v.interrupted) send({ type: 'output_audio_buffer.clear' });
       return;
@@ -363,7 +416,7 @@
     v.stopped = true;
     if (voice === v) voice = null;
     clearTimeout(v.replyTimer); v.pending = null;
-    clearTimeout(v.connectTimer);
+    clearTimeout(v.connectTimer); clearTimeout(v.responseTimer);
     clearTimeout(v.warmTimer); clearTimeout(v.captionTimer);
     clearInterval(v.poll);
     if (v.publishedTrack) { try { v.publishedTrack.stop(); } catch (_) {} }
@@ -397,6 +450,7 @@
     return strip;
   }
   function close() {
+    clearSoundButton();
     if (strip) { strip.remove(); strip = null; }
     captionText = null; captionStatus = null;
     signature = '';
@@ -448,7 +502,7 @@
       if (theirs && !mine) row.appendChild(el('span', otherName() + ' is in.', 'topic-strip-wait'));
     }
     row.appendChild(button(talk.phase === 'proposed' ? 'Keep ours' : 'Stop', function() { ga('live_topic_voice_cancel', { phase: talk.phase }); act('cancel'); }, 'topic-strip-quiet'));
-    if (voice && voice.soundButton) s.appendChild(voice.soundButton);
+    paintSoundButton();
     paintCaption();
   }
   function dismiss() {
@@ -462,6 +516,7 @@
     dismiss: dismiss,
     isPending: function() { return opening || !!voice || active(talk || window.__lrTopicSnapshot); },
     prepare: prepareVoice,
+    playRemote: function(audio) { playSound(audio, null); },
     receive: function(data, senderUid) {
       if (!talk || talk.id === dismissedId || !active(talk) || !ctx().canChoose || (voice && voice.talkId === talk.id)
           || senderUid !== talk.host || data.id !== talk.id || !Number.isFinite(data.seq) || data.seq <= caption.seq) return;

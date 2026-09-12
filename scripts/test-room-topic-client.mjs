@@ -17,12 +17,12 @@ function fixture({ uid = 'a', holdOpen = false, holdSdp = false, holdResponses =
   class Element {
     constructor(tag) { this.tagName = tag; this.children = []; this.style = {}; this.classList = { toggle() {} }; elements.push(this); }
     setAttribute() {}
-    addEventListener() {}
+    addEventListener(type, handler) { (this.handlers ||= {})[type] = handler; }
     appendChild(child) { this.children.push(child); child.isConnected = true; child.parentNode = this; return child; }
     insertBefore(child) { return this.appendChild(child); }
     replaceChildren() { this.children = []; }
     remove() { this.isConnected = false; }
-    play() { return Promise.resolve(); }
+    play() { this.playCalls = (this.playCalls || 0) + 1; return this.blocked ? Promise.reject(Error('Autoplay blocked')) : Promise.resolve(); }
   }
   const body = new Element('body'), anchor = new Element('details'); anchor.parentNode = body;
   const stage = new Element('div'); body.appendChild(stage);
@@ -49,7 +49,9 @@ function fixture({ uid = 'a', holdOpen = false, holdSdp = false, holdResponses =
         const message = JSON.parse(data); messages.push({ at: now, ...message });
         if (message.type === 'response.create' && !holdResponses) schedule(() => {
           this.dc.onmessage({ data: JSON.stringify({ type: 'response.created' }) });
-          this.dc.onmessage({ data: JSON.stringify({ type: 'response.done' }) });
+          this.dc.onmessage({ data: JSON.stringify({ type: 'output_audio_buffer.started' }) });
+          this.dc.onmessage({ data: JSON.stringify({ type: 'response.done', response: { status: 'completed' } }) });
+          this.dc.onmessage({ data: JSON.stringify({ type: 'output_audio_buffer.stopped' }) });
         }, 0);
       }, close() { this.readyState = 'closed'; } };
       return this.dc;
@@ -297,7 +299,7 @@ test('repeated taps never create a second session or greeting', async () => {
 });
 
 test('judge transcript appears over the cameras and is relayed to the other seat', async () => {
-  const f = fixture(); await f.open();
+  const f = fixture({ holdResponses: true }); await f.open();
   const overlay = f.elements.find(e => e.id === 'topicJudgeStrip' && e.isConnected);
   assert.equal(overlay.parentNode, f.context.stage);
   await f.event('response.output_audio_transcript.delta', { item_id: 'intro', delta: "Hi, I'm " });
@@ -343,7 +345,9 @@ test('barge-in clears playback and cancels a request crossing speech on the wire
 
 const motionCall = { name: 'propose_motion', call_id: 'call-1', arguments: JSON.stringify({ motion: 'Shared experiences matter more than owning nice things.' }) };
 async function proposalTurn(f) {
-  await f.open(); await f.tick(4000); await f.event('response.done');
+  await f.open(); await f.tick(4000);
+  await f.event('output_audio_buffer.started'); await f.event('response.done');
+  await f.event('output_audio_buffer.stopped');
   await f.event('input_audio_buffer.speech_started'); await f.event('input_audio_buffer.speech_stopped');
   await f.tick(4000); await f.event('response.created');
 }
@@ -394,4 +398,68 @@ test('a proposal completing after dismiss cannot talk into a newer session', asy
   assert.equal(f.messages.length, count, 'no old tool output or spoken follow-up reaches the new data channel');
   await f.event('response.function_call_arguments.done', motionCall, f.pcs[0]);
   assert.equal(f.requests.filter(r => r.action === 'propose').length, 1);
+});
+
+
+test('an opening interrupted before audio retries the greeting after the room pauses', async () => {
+  const f = fixture({ holdResponses: true }); await f.open();
+  await f.event('input_audio_buffer.speech_started');
+  await f.event('response.created');
+  await f.event('response.done', { response: { status: 'cancelled' } });
+  await f.event('output_audio_buffer.cleared');
+  const caption = f.elements.filter(e => e.className === 'topic-strip-transcript').at(-1);
+  assert.doesNotMatch(caption.textContent, /joining/);
+  await f.event('input_audio_buffer.speech_stopped'); await f.tick(4000);
+  assert.equal(f.replies().length, 2);
+  assert.equal(f.replies()[1].response.instructions, f.replies()[0].response.instructions,
+    'a request that never produced audio does not count as a delivered greeting');
+  await f.event('output_audio_buffer.started');
+  await f.event('response.done'); await f.event('output_audio_buffer.stopped');
+  await f.event('input_audio_buffer.speech_started');
+  await f.event('input_audio_buffer.speech_stopped'); await f.tick(4000);
+  assert.doesNotMatch(f.replies().at(-1).response.instructions, /Say exactly this/);
+});
+
+test('provider failures and requests that never finish cannot leave a silent judge', async () => {
+  for (const event of ['error', 'response.done', 'timeout']) {
+    const f = fixture({ holdResponses: true }); await f.open();
+    if (event === 'error') await f.event('error', { error: { code: 'server_error', message: 'Failed to create response' } });
+    if (event === 'response.done') await f.event('response.done', { response: { status: 'failed', status_details: { error: { code: 'server_error' } } } });
+    if (event === 'timeout') await f.tick(20000);
+    assert.equal(f.pcs[0].closed, true, event);
+    assert.equal(f.strip(), false, event);
+    assert.equal(f.requests.at(-1).action, 'cancel', event);
+  }
+});
+
+test('an obsolete cancellation error does not disconnect a healthy judge', async () => {
+  const f = fixture(); await f.open(); await f.tick(1);
+  await f.event('error', { error: { code: 'response_cancel_not_active' } });
+  assert.notEqual(f.pcs[0].closed, true);
+});
+
+test('the other seat can unblock judge playback and stale tracks cannot restore the button', async () => {
+  const f = fixture({ uid: 'b' }); f.render({});
+  const audio = f.elements.find(e => e.tagName === 'body').appendChild(new (f.elements[0].constructor)('audio'));
+  audio.srcObject = {}; audio.blocked = true;
+  f.topic.playRemote(audio); await flush();
+  let button = f.elements.find(e => e.textContent === 'Hear judge' && e.isConnected);
+  assert.ok(button);
+  f.render({ phase: 'proposed', proposals: 1, proposal: 'Cities should build more homes.' });
+  audio.blocked = false; button.handlers.click(); await flush();
+  assert.equal(button.isConnected, false);
+  assert.equal(audio.playCalls, 2);
+  audio.blocked = true; f.topic.playRemote(audio); f.topic.dismiss(); await flush();
+  assert.equal(f.elements.some(e => e.textContent === 'Hear judge' && e.isConnected), false);
+});
+
+
+test('an empty completed greeting retries once without minting another voice', async () => {
+  const f = fixture({ holdResponses: true }); await f.open();
+  await f.event('response.done', { response: { status: 'completed', output: [] } });
+  assert.equal(f.replies().length, 2);
+  assert.equal(f.requests.filter(r => r.action === 'open').length, 1);
+  await f.event('response.done', { response: { status: 'completed', output: [] } });
+  assert.equal(f.pcs[0].closed, true);
+  assert.equal(f.replies().length, 2);
 });
