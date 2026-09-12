@@ -2,6 +2,7 @@ import { guardPrivateJudgeProxy } from './lib/private-judging.mjs';
 // Claude API proxy — strips _feature before forwarding to Anthropic
 import { verifyIdToken, extractBearerToken, isOwnerEmail, isNamedAccount } from './lib/auth.mjs';
 import { getUserTeam, logUsage, PLANS, withDeadline } from './lib/firestore.mjs';
+import { hasActivePaidPlan } from './lib/plans.mjs';
 import { PROMPT_LIBRARY, applyPromptLibrary } from './lib/prompts.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { buildVoiceSegments, pickSpice } from './lib/voice-guidelines.mjs';
@@ -456,7 +457,7 @@ export default async (request, context) => {
       } else {
         const { team } = result;
         teamId = team.id;
-        callerPaid = TYPED_ROUND_PLANS.has(team.plan) && !new Set(['canceled','cancelled','incomplete_expired','unpaid']).has(team.status);
+        callerPaid = hasActivePaidPlan(team);
 
         // Subscription gate. Lifetime is paid-once-active-forever; trial is
         // the free tier. Both bypass the status check entirely and rely on
@@ -467,8 +468,7 @@ export default async (request, context) => {
         // logic requiring 'active' | 'trialing' was a fake paywall hitting
         // paying customers.
         const SUB_PLANS = new Set(['byok', 'individual', 'team', 'voice']);
-        const KNOWN_INACTIVE = new Set(['canceled','cancelled','incomplete_expired','unpaid']);
-        if (SUB_PLANS.has(team.plan) && KNOWN_INACTIVE.has(team.status)) {
+        if (SUB_PLANS.has(team.plan) && !callerPaid) {
           return new Response(
             JSON.stringify({ error: 'Subscription inactive. Please update your billing.', code: 'SUBSCRIPTION_INACTIVE' }),
             { status: 402, headers: { 'Content-Type': 'application/json', ...CORS } }

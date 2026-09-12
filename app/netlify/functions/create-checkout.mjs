@@ -154,7 +154,8 @@ export default async (request) => {
 const priceCache = new Map();
 
 async function verifyPrice(stripe, plan, priceId) {
-  const hit = priceCache.get(priceId);
+  const cacheKey = plan + ':' + priceId;
+  const hit = priceCache.get(cacheKey);
   if (hit) return hit;
   let price;
   try {
@@ -167,7 +168,7 @@ async function verifyPrice(stripe, plan, priceId) {
   const verdict = priceMatchesCanonical(plan, price);
   // Only a PASS is cached. Caching a failure would keep checkout dark
   // on that instance after the operator has already fixed the env var.
-  if (verdict.ok) priceCache.set(priceId, verdict);
+  if (verdict.ok) priceCache.set(cacheKey, verdict);
   return verdict;
 }
 

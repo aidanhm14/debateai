@@ -1,5 +1,6 @@
 // Firebase ID token verification using Google's JWK keys.
 // Uses crypto.subtle for signature verification.
+import { hasActivePaidPlan } from './plans.mjs';
 
 let cachedKeys = null;
 let cachedKeysExpiry = 0;
@@ -226,12 +227,7 @@ export async function requirePaidPlan(request, featureName) {
     };
   }
   const plan = result?.team?.plan;
-  const status = result?.team?.status;
-  const isPaid =
-    plan &&
-    plan !== 'trial' &&
-    ['individual', 'team', 'lifetime', 'byok', 'voice'].includes(plan) &&
-    (!status || status === 'active' || status === 'trialing');
+  const isPaid = hasActivePaidPlan(result?.team);
 
   if (!isPaid) {
     return {

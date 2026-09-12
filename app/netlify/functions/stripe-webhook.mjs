@@ -314,6 +314,9 @@ export default async (request) => {
         const planDef = PLANS[plan] || PLANS.individual;
         await db.collection('teams').doc(teamId).update({
           stripeSubscriptionId: subscriptionId,
+          stripeCustomerId: typeof session.customer === 'string' ? session.customer : session.customer?.id || null,
+          cancelAtPeriodEnd: !!subscription.cancel_at_period_end,
+          cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
           plan,
           status: mapStripeStatus(subscription.status),
           usageLimit: planDef.requests,
@@ -336,7 +339,7 @@ export default async (request) => {
       // do a conditional update on teams/{teamId}.
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
-        const subscription = event.data.object;
+        const subscription = await stripe.subscriptions.retrieve(event.data.object.id);
 
         const tokensUid = tokensUidFromSubscription(subscription);
         if (tokensUid) {
@@ -359,6 +362,8 @@ export default async (request) => {
         const teamDoc = await teamRef.get();
         if (!teamDoc.exists) { console.error('Team not found:', teamId); break; }
         const teamData = teamDoc.data();
+        if (teamData.stripeSubscriptionId && teamData.stripeSubscriptionId !== subscription.id
+          && ['canceled', 'unpaid', 'incomplete_expired'].includes(subscription.status)) break;
 
         // Reset usage if new billing period (only if we have a period to compare against).
         const oldPeriodStart = teamData.currentPeriodStart?.toDate?.()
@@ -368,6 +373,10 @@ export default async (request) => {
 
         const planDef = PLANS[plan] || PLANS.individual;
         const updates = {
+          stripeSubscriptionId: subscription.id,
+          stripeCustomerId: typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id || teamData.stripeCustomerId || null,
+          cancelAtPeriodEnd: !!subscription.cancel_at_period_end,
+          cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
           plan,
           status: mapStripeStatus(subscription.status),
           usageLimit: planDef.requests,
@@ -404,13 +413,21 @@ export default async (request) => {
         const teamId = subscription.metadata?.teamId;
         if (!teamId) break;
 
-        await db.collection('teams').doc(teamId).update({
-          status: 'canceled',
-          plan: 'trial',
-          usageLimit: PLANS.trial.requests,
-          maxMembers: PLANS.trial.members,
-          stripeSubscriptionId: null,
-          updatedAt: FieldValue.serverTimestamp(),
+        const teamRef = db.collection('teams').doc(teamId);
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(teamRef);
+          // A delayed cancellation of an old subscription must not revoke its replacement.
+          if (!snap.exists || snap.data().stripeSubscriptionId !== subscription.id) return;
+          tx.update(teamRef, {
+            status: 'canceled',
+            plan: 'trial',
+            usageLimit: PLANS.trial.requests,
+            maxMembers: PLANS.trial.members,
+            stripeSubscriptionId: null,
+            cancelAtPeriodEnd: false,
+            cancelAt: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
         });
 
         console.log(`Team ${teamId} subscription canceled`);
@@ -451,10 +468,16 @@ export default async (request) => {
         if (teamsSnap.empty) break;
 
         const teamDoc = teamsSnap.docs[0];
-        await teamDoc.ref.update({
-          status: 'active',
-          usageThisPeriod: 0,
-          updatedAt: FieldValue.serverTimestamp(),
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(teamDoc.ref);
+          if (!snap.exists || snap.data().stripeSubscriptionId !== subscriptionId) return;
+          const reset = invoice.billing_reason === 'subscription_cycle'
+            && snap.data().lastUsageResetInvoiceId !== invoice.id;
+          tx.update(teamDoc.ref, {
+            status: mapStripeStatus(subscription.status),
+            ...(reset ? { usageThisPeriod: 0, lastUsageResetInvoiceId: invoice.id } : {}),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
         });
 
         console.log(`Team ${teamDoc.id} payment succeeded, usage reset`);
@@ -483,7 +506,7 @@ export default async (request) => {
 
         const teamDoc = teamsSnap.docs[0];
         await teamDoc.ref.update({
-          status: 'past_due',
+          status: mapStripeStatus(failedSub.status),
           updatedAt: FieldValue.serverTimestamp(),
         });
 
@@ -519,10 +542,10 @@ function getPlanFromPrice(priceId) {
   const voicePrice = process.env.STRIPE_PRICE_VOICE;
   const teamPrice = process.env.STRIPE_PRICE_TEAM;
 
-  if (priceId === byokPrice) return 'byok';
-  if (priceId === individualPrice) return 'individual';
-  if (priceId === voicePrice) return 'voice';
-  if (priceId === teamPrice) return 'team';
+  if (priceId && priceId === byokPrice) return 'byok';
+  if (priceId && priceId === individualPrice) return 'individual';
+  if (priceId && priceId === voicePrice) return 'voice';
+  if (priceId && priceId === teamPrice) return 'team';
 
   // A subscription created before a repricing keeps billing against the
   // price it was created with, forever, because Stripe never re-prices
@@ -539,11 +562,8 @@ function getPlanFromPrice(priceId) {
     return legacy.plan;
   }
 
-  // Genuinely unknown. Still defaults rather than throwing, because a
-  // throw here drops the webhook and Stripe retries it forever, but the
-  // log says loudly that somebody was granted a plan we did not sell.
-  console.error('UNKNOWN price ID:', priceId, '— granting individual. Add it to LEGACY_PRICE_PLANS in lib/plans.mjs.');
-  return 'individual';
+  // Retry after configuration is repaired instead of inventing an entitlement.
+  throw new Error('Unknown subscription price: ' + String(priceId));
 }
 
 /**
@@ -556,9 +576,9 @@ function mapStripeStatus(stripeStatus) {
     past_due: 'past_due',
     canceled: 'canceled',
     unpaid: 'unpaid',
-    incomplete: 'past_due',
+    incomplete: 'incomplete',
     incomplete_expired: 'canceled',
-    paused: 'canceled',
+    paused: 'paused',
   };
   return statusMap[stripeStatus] || 'active';
 }

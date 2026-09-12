@@ -134,7 +134,7 @@ function fmt(cents, currency) {
 // unrecognised string is the wrong way to be wrong.
 export const VOICE_PRO_PLANS = ['individual', 'lifetime', 'team', 'byok', 'voice'];
 const VOICE_SUB_PLANS = new Set(['byok', 'individual', 'team', 'voice']);
-const KNOWN_INACTIVE = new Set(['canceled', 'cancelled', 'incomplete_expired', 'unpaid']);
+const KNOWN_INACTIVE = new Set(['canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'unpaid', 'paused']);
 
 export function planBypassesVoiceCap(team) {
   return hasActivePaidPlan(team);

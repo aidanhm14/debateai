@@ -25,15 +25,14 @@
 
 import { verifyIdToken, extractBearerToken, isOwnerEmail, isNamedAccount } from './auth.mjs';
 import { callerIp } from './rate-limit.mjs';
+import { hasActivePaidPlan } from './plans.mjs';
 
 // `voice` ($12/mo) belongs here more than any other plan does: HD voice
 // IS the tier. Leaving it out would have sold someone premium voice and
 // then silently downgraded them to the free OpenAI voice.
-const PAID_PLANS = new Set(['individual', 'team', 'lifetime', 'byok', 'voice']);
 // Only EXPLICIT Stripe-bad statuses revoke. 'past_due' is a grace state Stripe
 // retries through, and null/'inactive' from legacy or race-conditioned writes
 // must not lock out someone who actually paid. Same rule claude.mjs uses.
-const DEAD_STATUSES = new Set(['canceled', 'cancelled', 'incomplete_expired', 'unpaid']);
 
 // A Firestore read per TTS call would be its own cost problem: a single round
 // is dozens of speech chunks. Plans do not change mid-round, so cache the
@@ -54,7 +53,7 @@ async function resolvePaid(uid, email) {
     const { getUserTeam, withDeadline } = await import('./firestore.mjs');
     const result = await withDeadline(getUserTeam(uid), 2500);
     const team = result && result.team;
-    paid = !!(team && PAID_PLANS.has(team.plan) && !DEAD_STATUSES.has(team.status));
+    paid = hasActivePaidPlan(team);
   } catch (err) {
     // Firestore down or over quota. Fail to the FREE tier, not an error:
     // the caller still gets their round, just on the cheaper provider. A

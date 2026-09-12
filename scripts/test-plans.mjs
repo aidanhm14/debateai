@@ -194,3 +194,5 @@ if (fails) {
   process.exit(1);
 }
 console.log(`[plan-guard] ${checks} checks passed.`);
+
+await import('./test-paywall-billing.mjs');
