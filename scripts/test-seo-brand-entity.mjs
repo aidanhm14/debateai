@@ -138,8 +138,8 @@ check('robots policy leaves public facts crawlable',
   /User-agent: \*\s+Allow: \//.test(robots)
   && !/Disallow: \/(?:llms\.txt|debatable)(?:\s|$)/.test(robots));
 check('sitemap marks changed brand surfaces fresh',
-  /path: '\/'[\s\S]{0,100}lastmod: '2026-08-29'/.test(sitemap)
-  && /path: '\/debatable'[\s\S]{0,120}lastmod: '2026-08-29'/.test(sitemap));
+  /path: '\/'[\s\S]{0,100}lastmod: '2026-09-13'/.test(sitemap)
+  && /path: '\/debatable'[\s\S]{0,120}lastmod: '2026-09-13'/.test(sitemap));
 check('sitemap submits the canonical AI and learn entry pages',
   /path: '\/practice'/.test(sitemap)
   && !/path: '\/debate-an-ai'/.test(sitemap)

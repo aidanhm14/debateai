@@ -112,9 +112,9 @@ check(
 
 const communityJoinLinks = landing.match(/<a[^>]+data-community-join[^>]*>/g) || [];
 check(
-  communityJoinLinks.length === 2
+  communityJoinLinks.length === 1
     && communityJoinLinks.every((link) => /href="\/community"/.test(link)),
-  'landing community join CTAs are marked for the sign-in gate',
+  'the remaining homepage community link keeps its sign-in gate',
 );
 check(
   landing.includes("closest('[data-community-join]')")

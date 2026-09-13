@@ -301,9 +301,9 @@ test('unauthorized and missing-market requests cannot mutate balances', async ()
 
 test('paused betting refuses new stakes and markets without touching the ledger', async () => {
   assert.equal(BETTING_LIVE, false);
-  const { db, request } = fixture(serverWinner, { bettingLive: BETTING_LIVE });
+  const { db, request } = fixture(serverWinner, { bettingLive: PREDICTION_BETTING_LIVE });
   const before = db.snapshot();
-  for (const action of ['open', 'bet', 'attest', 'list']) {
+  for (const action of ['open', 'bet', 'attest', 'list', 'round', 'rankings', 'seed', 'resolve']) {
     assert.equal((await request(action, { pick: 'pro', stake: 10 })).status, 410);
   }
   assert.deepEqual(db.snapshot(), before);
@@ -311,19 +311,19 @@ test('paused betting refuses new stakes and markets without touching the ledger'
 });
 
 test('paused betting still permits settlement of existing stakes', async () => {
-  const { db, request } = fixture(serverWinner, { bettingLive: BETTING_LIVE });
+  const { db, request } = fixture(serverWinner, { bettingLive: PREDICTION_BETTING_LIVE });
   success(await request('settle'));
   assert.equal(db.data(MARKET).status, 'settled');
   assert.equal(db.data(BALANCE('backer-pro')).balance, 110);
 });
 
-test('only viewer predictions are restored, legacy credit markets stay paused', async () => {
-  assert.equal(PREDICTION_BETTING_LIVE,true);
+test('viewer predictions and legacy credit markets are retired', async () => {
+  assert.equal(PREDICTION_BETTING_LIVE,false);
   assert.equal(BETTING_LIVE,false);
 });
 
 function liveFixture(overrides={}) {
-  const f=fixture(null,{empty:true,bettingLive:PREDICTION_BETTING_LIVE});
+  const f=fixture(null,{empty:true,bettingLive:true});
   f.db.docs.delete(MARKET);
   f.db.seed('live_rounds/round',{proUid:'participant-a',conUid:'participant-b',status:'round',format:'quick',
     motion:'Cities should have more parks.',speechIdx:0,currentTimer:{state:'running'},...overrides});

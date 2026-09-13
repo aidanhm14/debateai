@@ -54,14 +54,14 @@ const URLS = [
   // cannot win that query with 10 words. /ai-vs-ai-debate is 1,318 words
   // and already ranks position 7 for it, so the two were competing and
   // the thin one was holding the higher priority.
-  { path: '/',                changefreq: 'daily',   priority: '1.0', lastmod: '2026-08-29' },
+  { path: '/',                changefreq: 'daily',   priority: '1.0', lastmod: '2026-09-13' },
   { path: '/practice',       changefreq: 'weekly',  priority: '0.95' },
   { path: '/flow',           changefreq: 'weekly',  priority: '0.93', lastmod: '2026-08-10' },
   { path: '/newvoice',        changefreq: 'weekly',  priority: '0.93', lastmod: '2026-07-25' },
   { path: '/voice-debate',    changefreq: 'weekly',  priority: '0.92' },
   // Product-loop explainer (opponent → timed round → AI ballot). Target
   // of the hero "How it works" link; HowTo + FAQPage schema on-page.
-  { path: '/how-it-works',    changefreq: 'monthly', priority: '0.88', lastmod: '2026-09-02' },
+  { path: '/how-it-works',    changefreq: 'monthly', priority: '0.88', lastmod: '2026-09-13' },
   { path: '/learn',           changefreq: 'weekly',  priority: '0.85', lastmod: '2026-08-28' },
   // /today is a moving alias whose response canonicalizes to the dated
   // /today/YYYY-MM-DD page. The dated canonical for today already leads
@@ -76,16 +76,16 @@ const URLS = [
   // sitemap for a day because this comment still described the old
   // occupant of the URL. Relisted 2026-07-23. The individual round
   // corpus is still sitemap-rounds.xml; this is the surface page.
-  { path: '/rounds',          changefreq: 'weekly',  priority: '0.80', lastmod: '2026-07-22' },
+  { path: '/rounds',          changefreq: 'weekly',  priority: '0.80', lastmod: '2026-09-13' },
   // Standalone live-lobby experience. Added 2026-07-27.
   // Watch hub: live stream band, published replays, clips. Added 2026-08-10.
   // /replays serves the same document, so it is deliberately NOT listed;
   // submitting both would be two URLs for one page against one canonical.
-  { path: '/watch',           changefreq: 'daily',   priority: '0.84', lastmod: '2026-08-27' },
+  { path: '/watch',           changefreq: 'daily',   priority: '0.84', lastmod: '2026-09-13' },
   { path: '/champions',       changefreq: 'weekly',  priority: '0.80' },
   // /debate-an-ai now redirects to /practice, which is listed above.
   // Submit only the canonical destination of each acquisition page.
-  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-08-28' },
+  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-09-13' },
   // Politics acquisition cluster. /political-debate is the product-intent
   // landing page; /political-debate-topics is the distinct browsable index.
   // /contested was delisted as a 142-word shell on 2026-08-24 and returns
@@ -106,15 +106,15 @@ const URLS = [
   // "debate people online" / "debate strangers" / "omegle for debate"
   // query cluster. Sister to /debate-online, focused on the random-human
   // /spar path (which is noindex itself, so this is the indexable doorway).
-  { path: '/debate-strangers',                        changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-28' },
+  { path: '/debate-strangers',                        changefreq: 'weekly',  priority: '0.90', lastmod: '2026-09-13' },
   // 2026-07-27 doorway pack. /omegle-alternative targets the huge
   // "omegle alternative" / "new omegle" cluster (Omegle died Nov 2023;
   // the query volume did not). /bet-on-your-words left the sitemap
   // 2026-08-22 when the betting cluster was removed (it 301s to /watch).
-  { path: '/omegle-alternative',                      changefreq: 'weekly',  priority: '0.90', lastmod: '2026-08-28' },
+  { path: '/omegle-alternative',                      changefreq: 'weekly',  priority: '0.90', lastmod: '2026-09-13' },
   // 2026-09-02: the disagreement cluster ("debate someone who disagrees",
   // "argue with someone who disagrees with me") plus the Policon comparison.
-  { path: '/debate-someone-who-disagrees',            changefreq: 'weekly',  priority: '0.90', lastmod: '2026-09-02' },
+  { path: '/debate-someone-who-disagrees',            changefreq: 'weekly',  priority: '0.90', lastmod: '2026-09-13' },
   { path: '/vs/policon',                              changefreq: 'monthly', priority: '0.86', lastmod: '2026-09-02' },
   // 2026-08-11: was '/everyone-has-an-opinion', which netlify.toml 301s
   // to '/argue-online' with force=true. Submitting the redirecting URL
@@ -185,23 +185,22 @@ const URLS = [
   // every vote. Not in DYNAMIC: an empty board does not change daily, so
   // claiming today's date on every crawl would be the exact lastmod lie
   // the header warns about. Bump this date when the board has real traffic.
-  { path: '/leaderboard',     changefreq: 'daily',   priority: '0.85' },
+  { path: '/leaderboard',     changefreq: 'daily',   priority: '0.85', lastmod: '2026-09-13' },
   // Record import: the arrival door for debaters with a Tabroom history.
   { path: '/claim',           changefreq: 'weekly',  priority: '0.84', lastmod: '2026-08-19' },
-  { path: '/debate-rating',   changefreq: 'monthly', priority: '0.80', lastmod: '2026-08-19' },
-  { path: '/live',            changefreq: 'daily',   priority: '0.90' },
-  { path: '/livedebates',     changefreq: 'weekly',  priority: '0.86', lastmod: '2026-08-10' },
-  { path: '/tournaments',     changefreq: 'daily',   priority: '0.90', lastmod: '2026-08-11' },
+  { path: '/debate-rating',   changefreq: 'monthly', priority: '0.80', lastmod: '2026-09-13' },
+  { path: '/live',            changefreq: 'daily',   priority: '0.90', lastmod: '2026-09-13' },
+  { path: '/livedebates',     changefreq: 'weekly',  priority: '0.86', lastmod: '2026-09-13' },
+  { path: '/tournaments',     changefreq: 'daily',   priority: '0.90', lastmod: '2026-09-13' },
   { path: '/safety',           changefreq: 'monthly', priority: '0.60', lastmod: '2026-08-22' },
   { path: '/tournament-rules', changefreq: 'weekly',  priority: '0.70', lastmod: '2026-08-11' },
   { path: '/coach',           changefreq: 'weekly',  priority: '0.88', lastmod: '2026-07-25' },
-  { path: '/pricing',         changefreq: 'monthly', priority: '0.90' },
+  { path: '/pricing',         changefreq: 'monthly', priority: '0.90', lastmod: '2026-09-13' },
   // 2026-07-22: these carried explicit 07-14 dates, which now predate the
   // domain cutover that rewrote their canonical URL. Left as-is they would
   // signal "older than the rest of the site" on the exact crawl where we
   // want Google to re-fetch everything under the new origin.
-  { path: '/ambassadors',     changefreq: 'weekly',  priority: '0.75', lastmod: '2026-07-22' },
-  { path: '/why-debatable',    changefreq: 'monthly', priority: '0.80', lastmod: '2026-07-22' },
+  { path: '/ambassadors',     changefreq: 'weekly',  priority: '0.75', lastmod: '2026-09-13' },
   // 2026-07-22: '/topics' -> '/topics/'. app/topics/ is a directory and
   // Netlify's automatic pretty-URL normalization 301s the slashless form
   // to the trailing-slash one (verified live 2026-08-10; it outranks the
@@ -211,7 +210,7 @@ const URLS = [
   { path: '/topics/',         changefreq: 'weekly',  priority: '0.85' },
   // Interactive evergreen acquisition tool. Users can filter 57 reviewed
   // motions by subject, age, and format, then start a prefilled round.
-  { path: '/debate-topic-generator', changefreq: 'monthly', priority: '0.88', lastmod: '2026-08-27' },
+  { path: '/debate-topic-generator', changefreq: 'monthly', priority: '0.88', lastmod: '2026-09-13' },
   { path: '/schools',         changefreq: 'monthly', priority: '0.80' },
   // Network-access page for school IT. Indexable on purpose: when a
   // district's filter blocks the domain, the coach's first move is a
@@ -221,7 +220,7 @@ const URLS = [
   // debate coach reported the domain blocked at the school firewall.
   { path: '/unblock',         changefreq: 'monthly', priority: '0.70', lastmod: '2026-08-19' },
   { path: '/professionals',   changefreq: 'monthly', priority: '0.78', lastmod: '2026-07-25' },
-  { path: '/credentials',     changefreq: 'monthly', priority: '0.76', lastmod: '2026-07-25' },
+  { path: '/credentials',     changefreq: 'monthly', priority: '0.76', lastmod: '2026-09-13' },
   // Company context. /investors distinguishes current product status
   // from the longer vision board; /future carries the full philosophy.
   { path: '/investors',       changefreq: 'monthly', priority: '0.60', lastmod: '2026-07-25' },
@@ -236,13 +235,13 @@ const URLS = [
   // stranger-matching page is /debate-strangers, already listed below.
   { path: '/counter',         changefreq: 'monthly', priority: '0.82' },
   { path: '/changelog',       changefreq: 'weekly',  priority: '0.50' },
-  { path: '/debatable',       changefreq: 'monthly', priority: '0.84', lastmod: '2026-08-29' },
+  { path: '/debatable',       changefreq: 'monthly', priority: '0.84', lastmod: '2026-09-13' },
   { path: '/reviews',         changefreq: 'monthly', priority: '0.76', lastmod: '2026-07-25' },
   { path: '/research',        changefreq: 'monthly', priority: '0.66', lastmod: '2026-08-28' },
   // Verified facts, founder background, reporting angles, and official
   // assets for journalists and resource editors. The page exists to make
   // earned coverage easier to fact-check and link to.
-  { path: '/press',           changefreq: 'monthly', priority: '0.64', lastmod: '2026-08-28' },
+  { path: '/press',           changefreq: 'monthly', priority: '0.64', lastmod: '2026-09-13' },
   // Weekly rather than monthly: the splits on this page move as answers
   // land, so the content genuinely changes without the markup changing.
   { path: '/debate-shows',    changefreq: 'weekly',  priority: '0.70', lastmod: '2026-08-10' },
@@ -260,7 +259,7 @@ const URLS = [
   // Per-question dossier URLs are generated from the rendering bank below.
   { path: '/debate',          changefreq: 'weekly',  priority: '0.86' },
   { path: '/india',           changefreq: 'monthly', priority: '0.90', lastmod: '2026-08-10' },
-  { path: '/us',              changefreq: 'monthly', priority: '0.85' },
+  { path: '/us',              changefreq: 'monthly', priority: '0.85', lastmod: '2026-09-13' },
   { path: '/report',          changefreq: 'monthly', priority: '0.60', lastmod: '2026-08-10' },
   // The prep page. Listed as a path on the canonical host, not as the
   // cross-host debateprep.com URL the 2026-07-23 note staged below.

@@ -17,5 +17,5 @@ assert.match(copy(market,null,true).detail,/No bet placed/);
 assert.doesNotMatch(copy(market,null,true).title,/tokens/);
 assert.match(copy({...market,poolPro:150,poolCon:50},bet,true).detail,/received 66 tokens/,'fractional returns use the settlement floor');
 const live=fs.readFileSync(new URL('../app/live-round.html',import.meta.url),'utf8');
-assert.ok(live.includes('id="ballotBetSlot"'),'the result lives in the visible ballot, outside the hidden live betting panel');
+assert.ok(!live.includes('id="ballotBetSlot"'),'retired betting results stay off the public ballot');
 console.log('Bet result: settled returns, net profit, rounding, no bet, pending, loss and refunds passed.');

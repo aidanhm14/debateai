@@ -2,6 +2,5 @@
 // decision; old ledger reads and settlement must remain available.
 export const BETTING_LIVE = false;
 
-// Aidan restored free play-token betting for public 1v1 viewers, 2026-09-10.
-// The legacy Floor and credit markets remain paused.
-export const PREDICTION_BETTING_LIVE = true;
+// Betting removed by Aidan, 2026-09-13. Existing stakes may still settle.
+export const PREDICTION_BETTING_LIVE = false;

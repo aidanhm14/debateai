@@ -31,6 +31,10 @@ the newer layout adjusted around it.
 
 ## Index
 
+- [2026-09-13 — shorter public site](2026-09-13-public-site.md): retired homepage chapters, repeated doors, and long tour.
+
+- [2026-09-13 — betting removed again](2026-09-13-betting.md): public page and round controls removed; new bets disabled.
+
 - [2026-09-07 — chat highlight times](2026-09-07-chat-highlight-times.md): removed the relative-time labels from the homepage chat column.
 
 - [2026-09-07 — FAQ slogan](2026-09-07-faq-slogan.md): the oversized two-color introduction, replaced with a smaller descriptive heading.

@@ -1,5 +1,7 @@
 # soul.md. Debatable · itsdebatable.com
 
+> **Public product simplification (Aidan, 2026-09-13).** Remove betting entirely from public pages, navigation and round controls. Disable new stakes and markets, retain settlement and ledger history for existing stakes, and keep paid voice tokens separate. This supersedes every September 10–11 betting restoration instruction below. Lead with live debates between people, rankings and watching rounds. Keep AI disclosure where it identifies an opponent or explains judging, but remove repeated AI pitches, provider jargon and competing product theses.
+
 > **SIGN IN BEFORE MATCHMAKING (Aidan, 2026-09-11).** The waiting screen
 > requires Google, Apple, or email sign-in. The old first guest round is
 > closed in the page, server matcher and Firestore queue permissions. The

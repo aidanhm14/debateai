@@ -317,8 +317,7 @@
     // moves; Prep turns them into a case for the next round. Keep them
     // adjacent anywhere LINKS feeds the mobile sheet or Explore menu.
     { href: '/learn',         label: 'Learn'        },
-    { href: '/prep',          label: 'Prep a round' },
-    { href: '/newvoice?handoff=topbar-ai', label: 'Debate the AI', strong: true },
+    { href: '/newvoice?handoff=topbar-ai', label: 'Solo practice', strong: true },
     // 2026-06-27: /judge (paste a round, get a real ballot) surfaced from
     // deep-link-only. /float and /exhibition were removed from the bar per
     // the founder (still reachable at /float and /exhibition directly).
@@ -487,7 +486,6 @@
       // 2026-09-03: one door for the paired challenge/schedule surface.
       // Challenges is the primary page; its in-page switch reaches the
       // calendar without making the choice look larger than it is.
-      { href: '/challenges',  label: 'Claims & challenges', big: true },
       // 2v2 partner matching retired 2026-08-27. Public rounds are 1v1.
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
@@ -523,14 +521,13 @@
       // debater who plays a round before finding it is locked out for
       // good. `strong` because that ordering constraint makes discovery
       // time-critical in a way no other row here is.
-      { href: '/claim',       label: 'Import your record', plain: 'Bring your past results', strong: true },
       // 2026-09-03: the politics acquisition hub. This is a first-class
       // browse path into casual rounds, not a competitive-format guide.
       { href: '/political-debate', label: 'Political debates', plain: 'Political debates', strong: true },
       // Moved here 2026-09-02 from the one-row 'Practice' group (see the note
       // there). Picking what to argue is a pre-round act, so it sits with the
       // other ways into a round rather than under a header of its own.
-      { href: '/topics',      label: 'Browse motions', plain: 'Browse topics' },
+      { href: '/topics',      label: 'Browse topics', plain: 'Browse topics' },
     // 2026-08-24: removed from Explore per the founder (declutter pass).
     // Page stays live; restore = uncomment the line below.
       // { href: '/debate-rating', label: 'How rating works' },
@@ -609,18 +606,17 @@
     // and /coach, which are LINKS rows: the panel composes columns by
     // intent rather than by which array owns a row (see the column() block
     // in render), so they appear here without leaving LINKS.
-    { head: 'Learn', links: [
+    { head: 'Judging', links: [
       // 2026-08-29: removed from the menu per the founder ("get rid of ...
       // coaches"). Page stays live; restore = uncomment the line below.
       // { href: '/coaches',      label: 'Coaches', wip: true },
       // 2026-08-19: the coach's own surface, not the directory next to
       // it. A roster joined by code, each member's judged rounds, and
       // private rounds the coach sets for pairs.
-      { href: '/squad',        label: 'Coach a squad', plain: 'Coach a team' },
       // 2026-08-19: indexed, live, and reachable from no nav surface.
       // Sits here rather than in Practice because it is prep reading
       // (what a judge rewards before you speak), not the /judge tool.
-      { href: '/judge-integrity', label: 'Judge integrity', plain: 'How judging is checked' },
+      { href: '/judge-integrity', label: 'How judging works', plain: 'How judging works' },
     ]},
     // The other half of the old "Watch & compete". Spectating and
     // finding people are the same visit: someone here is not trying to
@@ -718,10 +714,9 @@
     // { href: '/chat',        label: 'Chat and DMs' },
     ]},
     { head: 'Site', links: [
-      { href: '/pricing', label: 'Free vs Paid' },
-      { href: '/schools', label: 'For schools' },
-      { href: '/story',   label: 'Story' },
-      { href: '/future',  label: 'Vision' },
+      { href: '/pricing', label: 'Plans' },
+      { href: '/debatable', label: 'About' },
+      { href: '/support', label: 'Help' },
       // 2026-08-26: the privacy policy had no nav entry anywhere, so the
       // only way to it was the landing footer. It belongs in this strip
       // for the same reason the rest of it does: chrome a visitor goes
@@ -808,7 +803,7 @@
   var MENU_META = {
     '/home':           { desc: 'What is happening right now', icon: '<path d="M4.4 10.6L12 4.4l7.6 6.2M6.2 9.2v9.2a1.4 1.4 0 0 0 1.4 1.4h8.8a1.4 1.4 0 0 0 1.4-1.4V9.2M9.8 19.8v-5.4h4.4v5.4"/>' },
     '/spar':           { desc: 'Get paired with a real person right now', icon: '<circle cx="12" cy="12" r="2.1"/><path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.4 5.4a9.3 9.3 0 0 0 0 13.2M18.6 5.4a9.3 9.3 0 0 1 0 13.2"/>' },
-    '/debate-online':  { desc: 'Live, AI, and scheduled rounds', icon: '<circle cx="12" cy="12" r="8.4"/><path d="M7.8 9.3h8.4M7.8 12h5.8M7.8 14.7h4.2"/>' },
+    '/debate-online':  { desc: 'Live debates and scheduled rounds', icon: '<circle cx="12" cy="12" r="8.4"/><path d="M7.8 9.3h8.4M7.8 12h5.8M7.8 14.7h4.2"/>' },
     '/how-it-works':   { desc: 'Your first round, explained', icon: '<circle cx="12" cy="12" r="8.6"/><path d="M15.4 8.6l-2.1 4.7-4.7 2.1 2.1-4.7z"/>' },
     '/learn':          { desc: 'Make a point, answer one, show why yours matters', icon: '<path d="M12 6.6C10.4 5.1 8.2 4.6 5.6 4.6c-.9 0-1.6.6-1.6 1.4v10.3c0 .9.7 1.5 1.6 1.5 2.6 0 4.8.5 6.4 2 1.6-1.5 3.8-2 6.4-2 .9 0 1.6-.6 1.6-1.5V6c0-.8-.7-1.4-1.6-1.4-2.6 0-4.8.5-6.4 2zM12 6.6v13.2"/>' },
     '/prep':           { desc: 'Get your side ready before a round', icon: '<path d="M6 4.8h9.2l2.8 2.8v11.6H6zM15.2 4.8v3h2.8M9 11h6M9 14.2h6M9 17.4h3.8"/>' },
@@ -816,7 +811,7 @@
     '/live':           { desc: 'Put a live round on the calendar', icon: '<rect x="4" y="6" width="16" height="14" rx="2.2"/><path d="M4 10.6h16M8.5 3.8v3.6M15.5 3.8v3.6"/>' },
     '/credentials':    { desc: 'Proof of your record', plain: 'A shareable record of your rounds', icon: '<circle cx="12" cy="9.4" r="4.8"/><path d="M9.1 13.4L7.6 20l4.4-2.3L16.4 20l-1.5-6.6"/>' },
     '/coach':          { desc: 'Personal drills, tuned to you', icon: '<path d="M4.6 14v-2.4a7.4 7.4 0 0 1 14.8 0V14"/><rect x="3.6" y="13" width="4" height="5.8" rx="1.8"/><rect x="16.4" y="13" width="4" height="5.8" rx="1.8"/>' },
-    '/room-judge':     { desc: 'AI judge for your video call', icon: '<rect x="3.6" y="5" width="16.8" height="11.8" rx="2"/><path d="M9 20.4h6M12 16.8v3.6"/>' },
+    '/room-judge':     { desc: 'Judging for your video call', icon: '<rect x="3.6" y="5" width="16.8" height="11.8" rx="2"/><path d="M9 20.4h6M12 16.8v3.6"/>' },
     '/bounties':       { desc: 'Fund a round you want to see', icon: '<path d="M12 3.8v16.4M16.1 7.1c-.9-1-2.2-1.5-4-1.5-2.1 0-3.6 1.1-3.6 2.8 0 3.8 7.1 2 7.1 5.8 0 1.8-1.5 3-3.8 3-1.8 0-3.2-.6-4.2-1.7"/>' },
     // 2026-07-30: these two moved off the rail into the menu, so they now
     // need the icon + one-line description every menu row carries. The
@@ -1032,7 +1027,7 @@
           '<img src="/img/round/faces/face07.jpg" alt="" loading="lazy" decoding="async">' +
           '<img src="/img/round/faces/face10.jpg" alt="" loading="lazy" decoding="async">' +
           '<img src="/img/round/faces/face01.jpg" alt="" loading="lazy" decoding="async">' +
-          '<span>Real people first. An AI steps in if nobody is waiting.</span>' +
+          '<span>Meet someone with a different take and talk it out.</span>' +
         '</span>' +
         '<span class="ui-topbar-more-spot-cta">Debate live' +
           '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>' +
@@ -1097,7 +1092,7 @@
       // live, interruptible room and is the flagship below.
       var columnGroups = [
         column('Practice', [
-          ['/newvoice?handoff=topbar-ai', 'big'],
+          ['/newvoice?handoff=topbar-ai', ''],
           ['/flow',           ''],
           ['/topics',         ''],
         ]),

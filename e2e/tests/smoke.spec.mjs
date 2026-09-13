@@ -56,7 +56,7 @@ test.describe('public pages', () => {
     expect(errors, 'uncaught exceptions on the landing').toEqual([]);
   });
 
-  test('landing keeps all four doors visible for a returning claim-arm visitor', async ({ page }) => {
+  test('landing keeps the live debate and Watch doors for a returning claim-arm visitor', async ({ page }) => {
     const errors = trackErrors(page);
     await page.addInitScript(() => localStorage.setItem('da-fsclaim-ab', 'claim'));
     await page.goto('/?fsclaim=claim');
@@ -67,13 +67,13 @@ test.describe('public pages', () => {
       // Watch uses the lobby, one room or the active-room list depending on
       // live traffic. Keep the destination restricted to those valid paths.
       ['.fs-cta--watch', /^\/(?:watch|spectate|live-round\?room=[^&?#]+&spectate=1)$/],
-      ['.fs-cta--bet', '/bet'],
-      ['.fs-cta--ai', '/newvoice?handoff=landing-quick-ai'],
     ]) {
       const cta = actions.locator(selector);
       await expect(cta).toBeVisible();
       await expect(cta).toHaveAttribute('href', href);
     }
+    await expect(actions.locator('.fs-cta--bet, .fs-cta--ai')).toHaveCount(0);
+    await expect(page.getByRole('heading', {name:'Debate someone live.',exact:true})).toBeVisible();
     expect(errors, 'uncaught exceptions on the landing').toEqual([]);
   });
 

@@ -118,9 +118,9 @@ check(
 check(!landing.includes('class="fb-floating"'), 'landing keeps the floating feedback button retired');
 check(
   landing.includes('href="https://discord.gg/WMHZW9BKvJ"')
-    && landing.includes('data-cta="landing-quick-discord"')
-    && landing.includes('/img/landing/discord-community-800.jpg'),
-  'landing quick row uses the large Discord community card',
+    && landing.includes('data-community-join')
+    && !landing.includes('id="lmQuick"'),
+  'homepage keeps its community path without repeating the large door cards',
 );
 check(!landing.includes('data-cta="landing-quick-board"'), 'landing quick row does not duplicate the leaderboard below it');
 
@@ -325,7 +325,7 @@ check(
     const boardAt = landing.indexOf('<div class="fs-board" id="fsBoard">', wrapAt);
     if (wrapAt < 0 || boardAt < 0) return false;
     const above = landing.slice(wrapAt, boardAt).replace(/<!--[\s\S]*?-->/g, '');
-    return /^<div class="fs-board-wrap">\s*<div class="fs-live-line" data-live-now-wrap>/.test(above);
+    return /^<div class="fs-board-wrap">\s*<header class="home-intro">[\s\S]*?<\/header>\s*<div class="fs-live-line" data-live-now-wrap>/.test(above);
   })()
     && !landing.includes('class="fs-pitch"')
     && !landing.includes('fs-live-now--signed')
@@ -336,12 +336,13 @@ check(
 // sit under it (wide red Join a debate, then Watch and Debate the AI), and
 // the headline column is off the desktop first screen.
 check(
-  /<div class="fs-board" id="fsBoard">[\s\S]*?<div class="fs-actions">\s*<a class="fs-cta fs-cta--primary" href="\/spar"[\s\S]*?<div class="fs-actions-row">[\s\S]*?fs-cta--watch[\s\S]*?fs-cta--ai[\s\S]*?<\/div><!-- \/\.fs-board-wrap -->/.test(landing)
+  /<div class="fs-board" id="fsBoard">[\s\S]*?<div class="fs-actions">\s*<a class="fs-cta fs-cta--primary" href="\/spar"[\s\S]*?<div class="fs-actions-row">[\s\S]*?fs-cta--watch[\s\S]*?<\/div><!-- \/\.fs-board-wrap -->/.test(landing)
     && !landing.includes('<div class="fs-ctas">')
     && landing.includes('.fscreen-copy{display:none}')
-    && /<h1 class="fs-h1--sr">[\s\S]*?<div class="fscreen-wrap">/.test(landing)
+    && landing.includes('<h1>Debate someone live.</h1>')
+    && !/data-cta="first-screen-(bet|ai)"/.test(landing)
     && !landing.includes('mh-pitch'),
-  'landing desktop first screen is board, doors under it, no headline column (2026-09-07: the one-hour pitch block is gone, per the founder)',
+  'homepage leads with a plain headline, live debate and Watch',
 );
 
 const topbar = read('app/js/topbar.js');
@@ -400,11 +401,11 @@ check(
   'native tabs expose Home, People, Watch, You, then Leaderboard with social pages connected',
 );
 check(
-  topbar.includes("{ href: '/challenges',  label: 'Claims & challenges', big: true }")
-    && topbar.includes("['/challenges',     'big']")
+  topbar.includes("label: 'Debate live'")
+    && topbar.includes("{ href: '/leaderboard', label: 'Leaderboard'")
     && !topbar.includes("['/live',           'big']")
     && !topbar.includes("{ href: '/live',          label: 'Schedule', strong: true }"),
-  'navigation renders Claims & challenges as the Debate flagship',
+  'navigation keeps live debate and rankings as core destinations',
 );
 check(
   topbar.includes("var AB_KEY = 'da-dark-nudge-ab-v2'")
