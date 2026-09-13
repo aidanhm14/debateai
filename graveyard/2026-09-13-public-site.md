@@ -5079,6 +5079,8 @@ Aidan: "srsly reduce the AI wording across the website. simplify sites." The hom
   </nav>
 ````
 
+The See more control was restored later the same day at Aidan's request. It now expands the short FAQ. The old long tour and audience-choice prompt remain retired.
+
 ## Long tour toggle {'class': 'landing-more', 'id': 'landing-more'}
 
 ````html
