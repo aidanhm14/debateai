@@ -31,6 +31,8 @@ the newer layout adjusted around it.
 
 ## Index
 
+- [2026-09-13 — mobile leaderboard card](2026-09-13-mobile-leaderboard-card.md): temporary card replaced by the restored Debate the AI button.
+
 - [2026-09-13 — homepage steps](2026-09-13-home-steps.md): removed the three-step explainer; retained See more for the short FAQ.
 
 - [2026-09-13 — shorter public site](2026-09-13-public-site.md): retired homepage chapters, repeated doors, and long tour.

@@ -340,9 +340,11 @@ check(
     && !landing.includes('<div class="fs-ctas">')
     && landing.includes('.fscreen-copy{display:none}')
     && landing.includes('<h1>Debate someone live.</h1>')
-    && !/data-cta="first-screen-(bet|ai)"/.test(landing)
+    && !/data-cta="first-screen-bet"/.test(landing)
+    && /href="\/newvoice\?handoff=landing-quick-ai" data-cta="first-screen-ai">Debate the AI<\/a>/.test(landing)
+    && /href="\/newvoice\?handoff=landing-mobile-ai" data-cta="mhome-ai"/.test(landing)
     && !landing.includes('mh-pitch'),
-  'homepage leads with a plain headline, live debate and Watch',
+  'homepage keeps live debate, Watch and the explicit AI choice',
 );
 
 const topbar = read('app/js/topbar.js');
