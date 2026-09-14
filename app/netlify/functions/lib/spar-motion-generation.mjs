@@ -87,6 +87,9 @@ Use the US for a policy example unless the supplied issue names another country;
 this names the example, never either person’s nationality.
 For and against: one plausible short argument each, 12 to 240 characters each.
 Prefer a familiar, direct disagreement people already have opinions about.
+Make it understandable from everyday experience without specialist knowledge,
+fictional characters, franchise lore, celebrity comparisons, sports trivia or gaming knowledge.
+Choose a conflict between values, costs, responsibilities or freedoms, not a taste-only comparison.
 Choose a clear everyday stake over a niche policy mechanism or technical detail.
 Name a concrete actor, policy or tradeoff. Avoid a bare topic label, a question, a
 bundle of unrelated claims, loaded labels, invented facts, statistics or names.
