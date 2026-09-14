@@ -325,7 +325,7 @@ check(
     const boardAt = landing.indexOf('<div class="fs-board" id="fsBoard">', wrapAt);
     if (wrapAt < 0 || boardAt < 0) return false;
     const above = landing.slice(wrapAt, boardAt).replace(/<!--[\s\S]*?-->/g, '');
-    return /^<div class="fs-board-wrap">\s*<header class="home-intro">[\s\S]*?<\/header>\s*<div class="fs-live-line" data-live-now-wrap>/.test(above);
+    return /^<div class="fs-board-wrap">\s*<div class="fs-live-line" data-live-now-wrap>/.test(above);
   })()
     && !landing.includes('class="fs-pitch"')
     && !landing.includes('fs-live-now--signed')
@@ -339,7 +339,8 @@ check(
   /<div class="fs-board" id="fsBoard">[\s\S]*?<div class="fs-actions">\s*<a class="fs-cta fs-cta--primary" href="\/spar"[\s\S]*?<div class="fs-actions-row">[\s\S]*?fs-cta--watch[\s\S]*?<\/div><!-- \/\.fs-board-wrap -->/.test(landing)
     && !landing.includes('<div class="fs-ctas">')
     && landing.includes('.fscreen-copy{display:none}')
-    && landing.includes('<h1>Debate someone live.</h1>')
+    && !landing.includes('class="home-intro"')
+    && landing.includes('<h1 class="fs-h1--sr">Debatable</h1>')
     && !/data-cta="first-screen-bet"/.test(landing)
     && /href="\/newvoice\?handoff=landing-quick-ai" data-cta="first-screen-ai" data-ai-invite><span class="ai-invite-label">Debate the AI<\/span><\/a>/.test(landing)
     && /href="\/newvoice\?handoff=landing-mobile-ai" data-cta="mhome-ai" data-ai-invite/.test(landing)
