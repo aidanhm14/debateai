@@ -96,7 +96,7 @@ hooks.deregister(); globalThis.fetch = originalFetch; delete globalThis.__chatPr
 // Exercise the shipped renderer through loading, failure, populated and
 // empty polls. The whole panel stays blank until real messages render.
 const landing = readFileSync('app/landing.html', 'utf8');
-assert.match(landing, /\.fs-chats:not\(\.is-live\)\{visibility:hidden\}/, 'The panel and its controls are invisible before messages render, without changing the grid');
+assert.match(landing, /\.fs-chats:not\(\.is-live\):not\(\.is-member\)\{visibility:hidden\}/, 'An empty panel stays hidden for guests while members can start the chat');
 assert.doesNotMatch(landing, /fs-chats-rooms|fs-chats-skel|__fsChatsRooms/, 'No fallback card or skeleton can return');
 const renderer = landing.slice(landing.indexOf('  /* fsChats:'), landing.indexOf("    var canvas = document.getElementById('heroGlobeCanvas');"));
 const code = renderer.slice(renderer.indexOf('(function(){'), renderer.lastIndexOf('  (function(){'));

@@ -877,6 +877,8 @@
      loader handles the rare-path Firestore need on demand. -->
 <script defer src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
 <script defer src="/js/app-check.js"></script>
+<script defer src="/js/public-identity.js"></script>
+<script defer src="/js/landing-chat.js"></script>
 <!-- Shared /api/watch-live reader. Three separate blocks on this page
      wanted the live-round list; each one used to run its own poller, so a
      single visitor opened three requests a minute for one 12s-cached
@@ -8487,7 +8489,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   /* Real chat highlights flow over the right edge of the first screen.
      Keep the board's clearance stable while loading; an empty feed stays blank. */
   .fs-chats{display:none;font-family:Arial,Helvetica,sans-serif}
-  .fs-chats:not(.is-live){visibility:hidden}
+  .fs-chats:not(.is-live):not(.is-member){visibility:hidden}
   /* 2026-09-08, the founder: the three-line answer to "what is this" sits
      ABOVE the highlights and pushes them down. It is a SIBLING of the feed,
      never a child, because `.fs-chats:not(.is-live)` hides the whole panel
@@ -8590,6 +8592,23 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
   .fs-chats-cta{margin-top:12px;align-self:flex-start;flex:none;font-size:.75rem;font-weight:700;
     text-decoration:none;color:inherit;pointer-events:auto}
   .fs-chats-cta:hover{text-decoration:underline;text-underline-offset:3px}
+  .fs-chats-cta[hidden],.fs-chat-compose[hidden]{display:none}
+  .fs-chat-compose{flex:none;margin-top:12px;pointer-events:auto;font:inherit}
+  .fs-chat-compose label{display:block;margin-bottom:8px;font-size:.75rem;font-weight:700}
+  .fs-chat-row{display:flex;align-items:stretch;gap:7px}
+  .fs-chat-input{flex:1;min-width:0;min-height:42px;max-height:100px;resize:vertical;
+    box-sizing:border-box;padding:11px 12px;border:1px solid rgba(245,239,231,.25);
+    border-radius:12px;background:rgba(255,255,255,.06);color:inherit;font:inherit;font-size:.85rem;line-height:1.35}
+  .fs-chat-input::placeholder{color:inherit;opacity:.6}
+  .fs-chat-send{flex:none;padding:0 13px;border:0;border-radius:12px;
+    background:#dc2626;color:#fff;font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
+  .fs-chat-send:hover:not(:disabled){background:#b91c1c}
+  .fs-chat-send:disabled{opacity:.5;cursor:default}
+  .fs-chat-input:focus-visible,.fs-chat-send:focus-visible{outline:2px solid #dc2626;outline-offset:2px}
+  [data-theme="light"] .fs-chat-input{border-color:rgba(26,26,31,.2);background:rgba(255,255,255,.7)}
+  .fs-chat-status{margin:6px 0 0;font-size:.65rem;line-height:1.4;overflow-wrap:anywhere;opacity:.8}
+  .fs-chat-status.is-error{color:#f87171;opacity:1}
+  [data-theme="light"] .fs-chat-status.is-error{color:#b91c1c}
   @media(prefers-reduced-motion:reduce){
     .fs-chats-track{animation:none}
     .fs-chats-copy{display:none}
@@ -8911,8 +8930,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          on the action and then shows a real round underneath it as the
          proof. The desktop first screen keeps its own headline; this cut
          is the mobile home only. -->
-    <a class="mh-primary" href="/spar" data-cta="mhome-join" aria-label="Start debating live">
-      <span class="mh-primary-top"><span class="mh-primary-label">Start debating</span><span class="mh-arrow" aria-hidden="true">&rarr;</span></span>
+    <a class="mh-primary" href="/spar" data-cta="mhome-join" aria-label="Meet someone">
+      <span class="mh-primary-top"><span class="mh-primary-label">Meet someone</span><span class="mh-arrow" aria-hidden="true">&rarr;</span></span>
       <span class="mh-primary-meta">
         <span><span class="mh-live-dot" aria-hidden="true"></span>people <b>LIVE</b> right now</span>
         <span class="mh-wave" aria-hidden="true">
@@ -9310,12 +9329,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       </div>
     </div>
     <!-- 2026-09-03, the founder's desktop sketch: the doors sit UNDER the
-         board. One wide red Start debating, then Watch and Debate the AI
+         board. One wide red Meet someone, then Watch and Debate the AI
          below. Existing hrefs, data-cta and A/B tags
          are preserved; the watch-live poll still finds
          the Watch door through data-fs-watch-live. -->
     <div class="fs-actions">
-      <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Start debating <span aria-hidden="true">&rarr;</span></a>
+      <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Meet someone <span aria-hidden="true">&rarr;</span></a>
       <div class="fs-actions-row">
         <a class="fs-cta fs-cta--ghost fs-cta--watch" href="/watch" data-fs-watch-live data-cta="first-screen-watch"><span class="fs-watch-dot" aria-hidden="true"></span><span data-fs-watch-label>Watch</span></a>
         <a class="fs-cta fs-cta--ghost fs-cta--ai" href="/newvoice?handoff=landing-quick-ai" data-cta="first-screen-ai" data-ai-invite><span class="ai-invite-label">Debate the AI</span></a>
@@ -9431,7 +9450,15 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
              feed keeps scrolling with no control to stop it. -->
       </div>
       <div class="fs-chats-list" id="fsChatsList" aria-live="off"></div>
-      <a class="fs-chats-cta" href="/community" data-community-join data-cta="first-screen-chats-join">Join the conversation</a>
+      <a class="fs-chats-cta" id="fsChatsJoin" href="/community" data-community-join data-cta="first-screen-chats-join">Join the conversation</a>
+      <form class="fs-chat-compose" id="fsChatCompose" hidden>
+        <label for="fsChatInput">Join the conversation</label>
+        <div class="fs-chat-row">
+          <textarea class="fs-chat-input" id="fsChatInput" rows="1" maxlength="280" placeholder="Add to chat" aria-label="Message The Commons" aria-describedby="fsChatStatus" required></textarea>
+          <button class="fs-chat-send" id="fsChatSend" type="submit" disabled>Send</button>
+        </div>
+        <p class="fs-chat-status" id="fsChatStatus" role="status" aria-live="polite"></p>
+      </form>
     </aside>
     </div>
     <script>
@@ -17628,8 +17655,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
      REAL ONLY (2026-08-31, founder: "get rid of the bots on the open
      group chat"). The 2026-08-29 ambient scripted-persona layer is
      RETIRED on his newer explicit instruction; do not restore it.
-     With no real messages the entire panel stays blank, including
-     its header and buttons. There is no loading or failure card.
+     With no real messages the panel stays blank for signed-out visitors.
+     Signed-in people keep the composer so they can start the chat.
      The real highlights repeat in a continuous loop; an unchanged poll
      keeps its place. All text lands via textContent, never innerHTML. The panel is
      display:none under 1360px, so nothing fetches until that layout
@@ -19595,6 +19622,7 @@ window.addEventListener('load', function(){
   // vanishes" bug). Fixed 2026-06.
   auth.onAuthStateChanged(function(user){
     var realUser = user && !user.isAnonymous ? user : null;
+    if (window.DBLandingChat) window.DBLandingChat.setUser(realUser);
     // Same rule for the hero account button: signed-in
     // visitors don't need a sign-in CTA in the hero (it'd just loop them
     // back to /app#chat), so hide it and let the topbar user chip stand.
