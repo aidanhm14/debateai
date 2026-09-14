@@ -2,6 +2,8 @@
 
 Aidan: "srsly reduce the AI wording across the website. simplify sites." The homepage now leads with live debate, watching and rankings. Repeated pitches, company theses, provider selectors and the hidden long tour were removed. Restore only after a new product decision. Exact removed sections follow.
 
+**Later correction, September 13:** Aidan requested the original content under See more. The originally visible walkthrough, product demo, judging section, reviews, trust strip, grouped FAQ and footer are restored. The earlier parked sections and repeated doors below remain archived. This correction supersedes the short-FAQ-only restoration note below.
+
 ## Homepage section {'class': 'founder-line-band', 'aria-label': 'Who built this'}
 
 ````html

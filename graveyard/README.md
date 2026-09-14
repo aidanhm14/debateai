@@ -31,6 +31,8 @@ the newer layout adjusted around it.
 
 ## Index
 
+- [2026-09-13 — temporary short FAQ](2026-09-13-short-faq.md): removed when Aidan clarified that See more must restore the original expanded homepage.
+
 - [2026-09-13 — mobile leaderboard card](2026-09-13-mobile-leaderboard-card.md): temporary card replaced by the restored Debate the AI button.
 
 - [2026-09-13 — homepage steps](2026-09-13-home-steps.md): removed the three-step explainer; retained See more for the short FAQ.
