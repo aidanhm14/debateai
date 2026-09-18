@@ -18,10 +18,12 @@ export function safeIdentity(value) {
   }
   if (value.kind === 'live' && value.design && typeof value.design === 'object') {
     const d = value.design;
-    return { kind: 'live', design: {
-      style: IDENTITY_STR(d.style), scene: IDENTITY_STR(d.scene), accent: IDENTITY_STR(d.accent),
-      outfit: IDENTITY_STR(d.outfit), mask: IDENTITY_STR(d.mask), eyes: IDENTITY_STR(d.eyes),
-    } };
+    const design = {};
+    for (const key of ['style', 'scene', 'accent', 'outfit', 'mask', 'eyes']) {
+      const value = IDENTITY_STR(d[key]);
+      if (value !== undefined) design[key] = value;
+    }
+    return { kind: 'live', design };
   }
   // A picked tile from the drawn set (js/pfp-set.js). Shape-checked here,
   // membership-checked on the client: the set is a client asset, and

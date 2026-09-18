@@ -36,10 +36,12 @@ async function post(uid,body){const response=await handler(new Request('https://
 async function get(id,uid){const response=await handler(new Request('https://itsdebatable.com/api/challenge?id='+id,{headers:uid?{Authorization:'Bearer '+uid}:{}}));return {status:response.status,...await response.json()};}
 for(const uid of ['host','guest','third']){rows.set('age_bands/'+uid,{band:'adult'});rows.set('user_profiles/'+uid,{displayNameOverride:uid+' alias',usernameOverride:uid+'-handle'});}
 rows.set('user_ratings/host',{rating:1427,rd:90,games:5});
+rows.get('user_profiles/host').avatarIdentity={kind:'live',design:{style:'mask'}};
 let made=await post('host',{action:'create',claim:'Employers should publish everyone’s salary.',side:'b',mode:'live'});
 assert.equal(made.status,201);let id=made.challenge.id;
 assert.equal(made.challenge.creator.name,'host alias');assert.equal(made.challenge.creator.photo,'','auth photo is not silently published');
 assert.equal(made.challenge.creator.rating,1427);assert.equal(made.challenge.accepted[0].side,'b');
+assert.deepEqual(rows.get('challenges/'+id).creator.avatarIdentity,{kind:'live',design:{style:'mask'}},'stored avatars omit undefined Firestore fields');
 assert.equal((await post('host',{action:'accept',id})).status,409,'self acceptance fails');
 assert.equal((await post('guest:anonymous',{action:'accept',id})).status,401,'anonymous acceptance fails');
 assert.equal((await post('guest:phone',{action:'accept',id})).status,403,'provider blocked before reserving a video seat');

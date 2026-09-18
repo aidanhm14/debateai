@@ -83,6 +83,7 @@ export async function syncChallengeRoom(db, ref, now = Date.now()) {
     const status = done ? 'completed' : ['cancelled', 'forfeit'].includes(d.status) ? 'cancelled' : c.status;
     // A room made private after opening stops exposing its result publicly.
     const result = done && d.isPrivate !== true ? {
+      motion: String(d.motion || c.claim).slice(0, 300),
       winner: ballot.winner,
       winnerUid: ballot.winner === 'pro' ? d.proUid : ballot.winner === 'con' ? d.conUid : '',
       winnerName: ballot.winner === 'pro' ? d.proName : ballot.winner === 'con' ? d.conName : '',
