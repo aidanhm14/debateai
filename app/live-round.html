@@ -22939,6 +22939,19 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       ballot: b,
       status: 'ballot',
       completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).then(function(){
+      if (!/^Challenge-/.test(state.room) || !state.user || state.user.isAnonymous) return;
+      return state.user.getIdToken().then(function(token){
+        return fetch('/api/challenge', { method:'POST',
+          headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+          body:JSON.stringify({action:'sync',id:state.room.slice('Challenge-'.length)}) });
+      }).then(function(r){ if (!r || !r.ok) return; return r.json(); }).then(function(result){
+        if (result && result.challenge && result.challenge.status === 'completed' && window.gtag) {
+          var key = 'da-challenge-completed-' + state.room;
+          try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch(e){}
+          gtag('event','challenge_completed',{challenge_id:state.room.slice('Challenge-'.length)});
+        }
+      });
     }).catch(function(e){ console.warn('[Round sync] ballot failed', e); });
   }
 

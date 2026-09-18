@@ -113,7 +113,7 @@
           'View and accept: https://itsdebatable.com/c/' + encodeURIComponent(challenge.slug);
         var sent = failedId ? await dm.retry(failedId) : await dm.send(text, { preview:'Debate challenge: ' + challenge.claim });
         thread.lastMessage = sent && sent.preview || 'Debate challenge: ' + challenge.claim;
-        if (window.gtag) window.gtag('event', 'challenge_create', { source:opts.source, directed:1, mode:'live' });
+        if (window.gtag) window.gtag('event', 'challenge_created', { source:opts.source, directed:1, mode:'live' });
         busy = false; dialog.close();
         if (opts.onSent) opts.onSent(thread.id, thread);
       } catch(err){
@@ -148,7 +148,7 @@
   }
 
   function challengeSlug(text){
-    var matches = String(text || '').match(/https:\/\/itsdebatable\.com\/c\/([a-z0-9-]+)(?=[\s/?#).,;:!?]|$)/i);
+    var matches = String(text || '').match(/https:\/\/itsdebatable\.com\/(?:c|challenge)\/([a-z0-9-]+)(?=[\s/?#).,;:!?]|$)/i);
     return matches ? matches[1] : '';
   }
 
@@ -263,5 +263,5 @@
       close:function(){ stopped = true; revision++; clearInterval(timer); document.removeEventListener('visibilitychange', resume); host.hidden = true; host.innerHTML = ''; }
     };
   }
-  window.DBChatChallenge = { open:open, people:people, challengeSlug:challengeSlug, mount:mount, enter:enter };
+  window.DBChatChallenge = { ensureAge:ensureAge, open:open, people:people, challengeSlug:challengeSlug, mount:mount, enter:enter };
 })();

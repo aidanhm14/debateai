@@ -39,6 +39,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="/js/chat-challenge.js"></script>
+<script defer src="/js/auth-modal.js"></script>
 <script defer src="/js/avatar.js"></script>
 <style>
 /* ── Neural constellation on this surface (2026-08-18 sitewide sweep;
@@ -217,6 +218,40 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     .hero .btn{width:100%}
     .hero h1{font-size:clamp(2.25rem,13vw,3.2rem)}
   }
+
+  *{box-sizing:border-box}
+  .card{border-top:4px solid var(--red);padding:24px;gap:22px;overflow-wrap:anywhere}
+  .card .claim{font-size:1.45rem;letter-spacing:-.035em;line-height:1.14}
+  .card .faceoff{gap:10px}.card .who,.card .open-seat{font-size:.82rem}
+  .faceoff{display:flex;align-items:center;gap:20px;margin:12px 0 22px;flex-wrap:wrap}
+  .faceoff .who,.faceoff .open-seat{flex:1;min-width:110px;align-items:center}
+  .who small,.open-seat small{display:block;color:var(--ink-soft);font-size:.76rem;margin-top:3px}
+  .ava,.empty-ava{width:42px;height:42px;border-radius:50%;flex:none;font-size:1.05rem}
+  .empty-ava{border:1px dashed var(--line-strong);display:grid;place-items:center;color:var(--ink-soft)}
+  .open-seat{display:flex;gap:10px;color:var(--ink-soft)}
+  .versus{font:700 .75rem 'Geist Mono',monospace;color:var(--red)}
+  .profile-link{text-decoration:none}.profile-link:hover{text-decoration:underline}
+  .fight-detail{max-width:860px;margin:0 auto;padding:clamp(24px,5vw,56px);border-top:6px solid var(--red)}
+  .fight-detail .claim{font-size:clamp(2rem,5vw,3.6rem);line-height:1.04;letter-spacing:-.045em;margin:24px 0 32px;overflow-wrap:anywhere}
+  .fight-detail .desc{font-size:1.12rem;line-height:1.6}
+  .share-row{display:flex;align-items:center;gap:18px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:22px;margin-top:28px}
+  .watch-count{font-size:.85rem;color:var(--ink-soft)}
+  .notify-box{padding:20px;background:var(--paper);border:1px solid var(--line);border-radius:12px;margin-top:24px}
+  .notify-box p{margin:6px 0 16px;color:var(--ink-soft)}
+  .result{margin-top:28px;border-top:1px solid var(--line);padding-top:24px}
+  .result h2{font-size:2rem;line-height:1.1;margin:10px 0 22px}
+  .ballot-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7}
+  .notice{min-height:1.5em;color:var(--green);font-size:.9rem}
+  .compose-page{max-width:660px;margin:0 auto;padding:clamp(22px,5vw,40px)}
+  .compose-page h1{font-size:2.2rem;line-height:1.05;letter-spacing:-.04em;margin:0 0 16px}
+  .compose-page .sub{color:var(--ink-soft);margin-bottom:28px}
+  .field{margin-bottom:22px}.field label{color:var(--ink-soft)}
+  .field small{display:block;font-size:.8rem;color:var(--ink-soft);margin-top:6px}
+  .field[hidden]{display:none}
+  .btn:focus-visible,.link-quiet:focus-visible,.tab:focus-visible{outline:3px solid var(--red);outline-offset:4px}
+  .card-foot{gap:14px}.card-foot .meta{width:100%}
+  @media(max-width:480px){.fight-detail .faceoff{gap:10px}.fight-detail .detail-acts .btn{width:100%}.share-row{gap:16px}.ava,.empty-ava{width:34px;height:34px}.who,.open-seat{font-size:.86rem}.fight-detail .claim{font-size:2.3rem}}
+  @media(prefers-reduced-motion:reduce){.skel{animation:none}.btn{transition:none}}
 </style>
 <script defer src="/js/track.js"></script>
 </head>
@@ -248,8 +283,9 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   // what is open.
   var TABS = [
     { key:'open-public',     label:'Open',    note:'Pick a motion and take the open side, or start a challenge of your own.' },
-    { key:'upcoming-public', label:'Matched', note:'Both sides are in. Open a challenge to follow what happens next.' },
-    { key:'done-public',     label:'Settled', note:'Finished challenges and their decisions.' }
+    { key:'live-public', label:'Live', note:'Join the audience for a challenge in progress.' },
+    { key:'upcoming-public', label:'Accepted', note:'Both sides are in. Open a challenge to follow what happens next.' },
+    { key:'done-public',     label:'Completed', note:'Finished challenges and their decisions.' }
   ];
 
   // Seeds for the empty state. A blank board with a blank compose box is
@@ -257,15 +293,15 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   // claim to argue rather than asking them to invent one.
   var SEED_CLAIMS = [
     'Social media has done more harm than good to democratic debate.',
-    'This House would abolish legacy preference in college admissions.',
+    'Employers should publish everyone’s salary.',
     'Schools should ban phones during the school day.',
     'AI art should be eligible for copyright.',
     'Cities should make public transit free.',
-    'This House believes exams reward the wrong skills.'
+    'Friends should split the bill equally.'
   ];
 
   function blankPrefill(){
-    return { claim:'', context:'', sideA:'For', sideB:'Against', side:'a', topic:'', category:'', lane:'' };
+    return { claim:'', context:'', sideA:'For', sideB:'Against', side:'a', topic:'', category:'', lane:'', timing:'now', scheduled:'', opponent:'' };
   }
   function queryText(value, max, fallback){
     var out = String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
@@ -275,7 +311,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   var state = {
     user:null, tab:'open-public', slug:null,
     feed:null, one:null, loading:true, err:'',
-    compose:false, busy:false,
+    compose:false, busy:false, notice:'', viewed:{}, request:0,
     // A directed challenge, arrived at from a "Challenge them" button. The
     // uid is what the server enforces; the name here is only what the
     // compose card prints while you write, and it is re-resolved server-side
@@ -302,6 +338,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       // Claim any side picked while signed out, then repaint.
       if (u && !u.isAnonymous && wasSignedOut) flushPendingSides();
       render();
+      if (state.slug && !state.busy) load(true);
     });
   } catch(e){ console.warn('firebase init failed', e); }
 
@@ -384,7 +421,8 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     // One challenge gets the short shareable permalink; the board keeps
     // its tab in a query param. Both are served by /challenges.html (see
     // the /c/* redirect in netlify.toml).
-    var url = state.slug ? '/c/' + encodeURIComponent(state.slug)
+    state.compose = false; state.notice = '';
+    var url = state.slug ? '/challenge/' + encodeURIComponent(state.slug)
       : ('/challenges' + (state.tab !== 'open-public' ? '?t=' + state.tab : ''));
     if (push !== false) { try{ history.pushState({}, '', url); }catch(e){} }
     load();
@@ -401,8 +439,10 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     state.prefill = blankPrefill(); state.source = '';
     // /c/<slug> is the permalink; ?c=<slug> stays readable so an older
     // link or a hand-typed URL still resolves.
-    var fromPath = /^\/c\/(.+)$/.exec(location.pathname);
-    var c = fromPath ? decodeURIComponent(fromPath[1]) : q.get('c');
+    var fromPath = /^\/(?:c|challenge)\/([^/]+)\/?$/.exec(location.pathname);
+    var isNew = /^\/challenge\/new\/?$/.test(location.pathname);
+    if (isNew) state.compose = true;
+    var c = isNew ? null : fromPath ? decodeURIComponent(fromPath[1]) : q.get('c');
     var t = q.get('t');
     // ?to=<uid>&name=<label> arrives from a "Challenge them" button on the
     // leaderboard. It opens the composer aimed at that person rather than
@@ -437,18 +477,29 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   }
 
   /* ── data ── */
-  async function load(){
-    state.loading = true; state.err = ''; render();
+  async function load(quiet){
+    var version = ++state.request, previous = JSON.stringify(state.one);
+    if (state.compose) { state.loading = false; render(); return; }
+    if (!quiet) { state.loading = true; state.err = ''; state.one = null; render(); }
     try {
       if (state.slug){
-        var one = await api('/api/challenge?slug=' + encodeURIComponent(state.slug));
+        var one = await api('/api/challenge?slug=' + encodeURIComponent(state.slug), {cache:'no-store'}, signedIn());
+        if (version !== state.request) return;
         state.one = one.challenge;
+        if (!state.viewed[state.one.id]) {
+          state.viewed[state.one.id] = true;
+          track('challenge_viewed', { challenge_id:state.one.id, status:state.one.status });
+        }
+        document.title = state.one.claim + ' · Debatable';
+        var canonical = document.querySelector('link[rel="canonical"]');
+        if (canonical) canonical.href = shareUrl(state.one);
       } else {
         // This surface owns challenge records only. Scheduled rounds live
         // on the adjacent Schedule tab, and recorded rounds live on /rounds.
         // Mixing all three made the page look busy and obscured what an
         // action would actually open.
         var f = await api('/api/challenge?feed=' + encodeURIComponent(state.tab) + '&limit=40');
+        if (version !== state.request) return;
         state.feed = f.challenges || [];
         // The endpoint answers 200 with degraded:true rather than 502 when
         // the board query fails, so say the true thing instead of showing
@@ -456,9 +507,12 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         if (f.degraded) state.err = 'The board is having trouble loading. Try again in a moment.';
       }
     } catch(e){
-      state.err = e.message || 'Could not load the board.';
+      if (version !== state.request) return;
+      if (!quiet) state.err = e.message || 'Could not load the board.';
     }
-    state.loading = false; render();
+    if (version !== state.request) return;
+    state.loading = false;
+    if (!state.busy && (!quiet || previous !== JSON.stringify(state.one) || (state.one && state.one.scheduledAt && state.one.scheduledAt <= Date.now() && document.querySelector('[data-join][disabled]')))) render();
   }
 
   /* ── actions ── */
@@ -491,31 +545,32 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
 
   async function accept(c){
     if (state.busy) return;
-    state.busy = true; render();
+    state.busy = true; state.err = ''; render();
     try {
       await ensureAuth();
-      if (c.mode === 'live' && c.challengedUid){
-        var room = await DBChatChallenge.enter(c, state.user, true);
+      if (c.mode === 'live') await DBChatChallenge.ensureAge();
+      var r = await post({ action:'accept', id:c.id });
+      track('challenge_accepted', { challenge_id:c.id, mode:c.mode });
+      sfx('confirm');
+      if (c.mode === 'live' && (!c.scheduledAt || c.scheduledAt <= Date.now())) {
+        var room = await post({action:'join', id:c.id});
         location.href = room.url;
         return;
       }
-      var r = await post({ action:'accept', id:c.id });
-      sfx('confirm'); track('challenge_accept', { format:c.format, mode:c.mode });
       state.busy = false;
-      // Straight into the round rather than back to a board. Async rounds
-      // are recorded at /rounds; a live one is organised on /spar.
-      var next = c.mode === 'live' ? '/spar?challenge=1' : '/rounds';
-      alert('You are in, on ' + (r.side === 'a' ? c.sides.a : c.sides.b) + '.');
-      location.href = next;
+      if (c.mode !== 'live') { location.href = '/rounds'; return; }
+      nav({ slug:c.slug });
+      state.notice = c.mode === 'live' ? 'You’re in. Your side is reserved for the scheduled time.' : 'Your side is reserved.';
     } catch(e){
-      if (c.mode === 'live' && c.challengedUid) await load();
-      state.busy = false; state.err = e.message; render();
+      state.busy = false;
+      if (state.slug) await load(true);
+      state.err = e.message; render();
     }
   }
 
   async function join(c){
     if (state.busy) return;
-    state.busy = true; render();
+    state.busy = true; state.err = ''; render();
     try {
       await ensureAuth();
       var room = await DBChatChallenge.enter(c, state.user, false);
@@ -524,13 +579,75 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   }
 
   async function follow(c){
+    if (state.busy) return;
+    state.busy = true;
     try {
       await ensureAuth();
-      var r = await post({ action:'follow', id:c.id });
-      c.crowd.followers += r.following ? 1 : -1;
-      c.__following = r.following;
-      sfx('click'); render();
-    } catch(e){ state.err = e.message; render(); }
+      var r = await post({ action:'follow', id:c.id, following:!c.following });
+      c.crowd.followers = r.followers;
+      c.following = r.following;
+      state.notice = r.following ? 'You’re on the watch list. Keep this link for the round.' : 'Removed from your watch list.';
+    } catch(e){ state.err = e.message; }
+    state.busy = false; render();
+  }
+
+  function roomUrl(c){
+    return '/live-round?' + new URLSearchParams({room:c.eventId, spectate:'1', source:'challenge'}).toString();
+  }
+  function watch(c){
+    track('challenge_watch_clicked', {challenge_id:c.id, status:c.status});
+    if (c.replayUrl) { location.href = c.replayUrl; return; }
+    if (c.eventId && !c.roomPrivate && c.status === 'live') { location.href = roomUrl(c); return; }
+    if (c.status === 'completed') return;
+    follow(c);
+  }
+  function shareUrl(c){ return 'https://itsdebatable.com/challenge/' + encodeURIComponent(c.slug); }
+  async function share(c, channel){
+    var url = shareUrl(c), text = c.claim + ' Take the other side on Debatable.';
+    try {
+      if (channel === 'copy') {
+        await navigator.clipboard.writeText(url);
+        state.notice = 'Link copied.';
+      } else if (channel === 'native') {
+        if (navigator.share) await navigator.share({title:c.claim, text:text, url:url});
+        else { await navigator.clipboard.writeText(url); state.notice = 'Link copied.'; }
+      } else if (channel === 'card') {
+        downloadCard(c);
+      }
+      track('challenge_shared', {challenge_id:c.id, channel:channel});
+      render();
+    } catch(e){ if (e.name !== 'AbortError') { state.err = 'Could not share. Copy this link: ' + url; render(); } }
+  }
+  async function notify(){
+    if (!signedIn()) { await ensureAuth(); render(); return; }
+    try {
+      if (!window.daEnableMessageAlerts) throw new Error('Notification controls are still loading. Try again.');
+      var ok = await window.daEnableMessageAlerts();
+      state.notice = ok ? 'Notifications are on for this device. We’ll tell you when someone accepts.' : '';
+      state.err = ok ? '' : (window.daMessageAlertsHelp ? window.daMessageAlertsHelp() : 'Enable notifications in your browser settings.');
+    } catch(e){ state.err = e.message; }
+    render();
+  }
+  function downloadCard(c){
+    var canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 630;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#faf8f3'; ctx.fillRect(0,0,1200,630);
+    ctx.fillStyle = '#bc2025'; ctx.fillRect(0,0,16,630);
+    ctx.font = 'bold 32px Arial'; ctx.fillText('DEBATABLE',56,66);
+    ctx.fillStyle = '#17171b'; ctx.font = 'bold 28px Arial';
+    ctx.fillText(c.status === 'completed' ? 'THE RESULT IS IN.' : 'TAKE THE OTHER SIDE.',56,125);
+    var words = c.claim.split(/\s+/), lines = [], line = '';
+    ctx.font = 'bold 52px Arial';
+    words.forEach(function(w){ if (ctx.measureText(line + ' ' + w).width > 1070 && line) { lines.push(line); line = w; } else line += (line ? ' ' : '') + w; });
+    if (line) lines.push(line);
+    if (lines.length > 5) { ctx.font = 'bold 40px Arial'; lines = []; line = ''; words.forEach(function(w){ if (ctx.measureText(line + ' ' + w).width > 1070 && line) { lines.push(line); line = w; } else line += (line ? ' ' : '') + w; }); if (line) lines.push(line); }
+    lines.slice(0,6).forEach(function(l,i){ ctx.fillText(l,56,205+i*57); });
+    ctx.font = 'bold 24px Arial';
+    var creator = c.creator || {}, seat = (c.accepted || []).filter(function(p){return p.uid === creator.uid;})[0] || {};
+    var result = c.result;
+    ctx.fillText(result ? (result.winner ? result.winnerName + ' wins' : 'No winner') : (creator.name || 'Someone') + ' · ' + (c.sides[seat.side] || 'For') + (creator.rating != null ? ' · ' + creator.rating : ''),56,560);
+    ctx.fillStyle = '#bc2025'; ctx.font = '22px Arial'; ctx.fillText('itsdebatable.com/challenge/' + c.slug,56,602);
+    var a = document.createElement('a'); a.download = 'debatable-' + c.slug + '.png'; a.href = canvas.toDataURL('image/png'); a.click();
   }
 
   async function cancel(c){
@@ -542,6 +659,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   }
 
   async function create(){
+    if (state.busy) return;
     var claim = ($('cClaim').value || '').trim();
     if (!claim) { state.err = 'Write the motion you are willing to defend.'; return render(); }
     // Capture the editable draft before repainting the modal into its busy
@@ -556,9 +674,14 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     state.prefill.claim = claim;
     state.prefill.context = description;
     state.prefill.side = chosenSide;
+    state.prefill.timing = $('cTiming').value;
+    state.prefill.scheduled = $('cWhen').value;
+    state.prefill.opponent = $('cOpponent') ? $('cOpponent').value.trim() : '';
+    if (state.prefill.timing === 'scheduled' && !state.prefill.scheduled) { state.err = 'Choose a date and time.'; render(); return; }
     state.busy = true; state.err = ''; render();
     try {
       await ensureAuth();
+      await DBChatChallenge.ensureAge();
       var r = await post({
         action:'create',
         claim: claim,
@@ -569,11 +692,15 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         topic: topic,
         category: category,
         format: 'quick',
-        mode: 'async',
+        mode: 'live',
+        timing: state.prefill.timing,
+        scheduledAt: state.prefill.timing === 'scheduled' ? new Date(state.prefill.scheduled).getTime() : 0,
+        opponentUsername: state.prefill.opponent || '',
         side: chosenSide
       });
       sfx('confirm');
-      track('challenge_create', {
+      track('challenge_created', {
+        challenge_id:r.challenge.id,
         format:r.challenge.format, mode:r.challenge.mode,
         directed: r.challenge.challengedUid ? 1 : 0,
         source: state.source || 'challenge-board'
@@ -592,31 +719,27 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     if (c.status === 'live') return '<span class="pill pill-live">Live now</span>';
     if (c.status === 'open' || c.status === 'applications_open') return '<span class="pill pill-open">Open</span>';
     if (c.status === 'scheduled') return '<span class="pill pill-next">Scheduled</span>';
-    if (c.status === 'accepted') return '<span class="pill pill-next">Matched</span>';
+    if (c.status === 'accepted') return '<span class="pill pill-next">Accepted</span>';
     if (c.status === 'judging') return '<span class="pill">Judging</span>';
-    if (c.status === 'completed') return '<span class="pill">Settled</span>';
-    return '';
+    if (c.status === 'completed') return '<span class="pill">Completed</span>';
+    return '<span class="pill">'+esc(c.status)+'</span>';
   }
 
   // The line the founder asked for: who challenged whom, stated plainly.
+  function person(p, side){
+    var rating = p.rating == null ? 'Unrated' : p.rating + ' rating' + (p.provisional ? ' · provisional' : '');
+    return '<div class="who">' + avatar(p) + '<span><a class="profile-link" href="/users?uid='+encodeURIComponent(p.uid || '')+'"><b>'+esc(p.name || 'Someone')+'</b></a><small>'+esc(side)+' · '+esc(rating)+'</small></span></div>';
+  }
   function whoLine(c){
-    var seats = c.accepted || [];
-    var a = seats.filter(function(p){ return p.side === 'a'; })[0];
-    var b = seats.filter(function(p){ return p.side === 'b'; })[0];
-    if (a && b){
-      return '<div class="vs">' + avatar(a) + '<b>' + esc(a.name || 'A debater') + '</b>' +
-        '<span class="sep">vs</span>' + avatar(b) + '<b>' + esc(b.name || 'A debater') + '</b></div>';
-    }
-    var solo = a || b || c.creator;
-    if (!solo) return '';
-    var side = solo.side === 'b' ? c.sides.b : c.sides.a;
-    // A directed challenge leads with the callout, because who it is aimed
-    // at is the fact that makes it worth reading.
-    var what = (c.challengedUid && c.challengedName)
-      ? 'called out ' + esc(c.challengedName)
-      : 'is defending ' + esc(side);
-    return '<div class="who">' + avatar(solo) + '<span><b>' + esc(solo.name || 'A debater') +
-      '</b> ' + what + '</span></div>';
+    var creator = c.creator || {}, seats = c.accepted || [];
+    var own = seats.filter(function(p){return p.uid === creator.uid;})[0] || {};
+    var peer = seats.filter(function(p){return p.uid !== creator.uid;})[0];
+    var out = '<div class="faceoff">'+person(Object.assign({},creator,own),c.sides[own.side] || c.sides.a);
+    out += '<span class="versus">VS</span>' + (peer ? person(peer,c.sides[peer.side]) : '<div class="open-seat"><span class="empty-ava">?</span><span>'+esc(c.challengedName || 'Your name here')+'<small>'+esc(own.side === 'b' ? c.sides.a : c.sides.b)+'</small></span></div>');
+    return out + '</div>';
+  }
+  function timing(c){
+    return c.scheduledAt ? new Date(c.scheduledAt).toLocaleString([], {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}) : c.status === 'open' ? 'Ready now' : '';
   }
 
   function leanBlock(c, interactive){
@@ -642,7 +765,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
   // "Take the other side" to everyone else would offer an action the server
   // refuses, which reads as a broken button rather than as a rule.
   function aimState(c){
-    if (!c.challengedUid) return 'open';
+    if (!c.challengedUid || !signedIn()) return 'open';
     if (state.user && c.challengedUid === state.user.uid) return 'mine';
     return 'theirs';
   }
@@ -672,11 +795,11 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         // wide and the card top does not wrap onto a second row.
         (c.challengedUid ? '<span class="pill pill-aim">' +
           (aim === 'mine' ? 'For you' : 'Called out') + '</span>' : '') +
-        '<span class="meta card-time">' + esc(fmtWhen(c.status === 'completed' ? c.updatedAt : c.createdAt)) + '</span>' +
+        '<span class="meta card-time">' + esc(c.scheduledAt ? timing(c) : c.mode === 'live' && c.status === 'open' ? 'Ready now' : fmtWhen(c.status === 'completed' ? c.updatedAt : c.createdAt)) + '</span>' +
       '</div>' +
-      '<h3 class="claim"><a href="/challenges?c='+encodeURIComponent(c.slug)+'" data-open="'+esc(c.slug)+'">' + esc(c.claim) + '</a></h3>' +
+      '<h3 class="claim"><a href="/challenge/'+encodeURIComponent(c.slug)+'" data-open="'+esc(c.slug)+'">' + esc(c.claim) + '</a></h3>' +
       whoLine(c) +
-      '<div class="card-foot">' + cta + '</div>' +
+      '<div class="card-foot">' + cta + '<span class="meta">'+(c.crowd.followers || 0)+' watching this challenge</span></div>' +
     '</article>';
   }
 
@@ -688,9 +811,9 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     var politicalLane = draft.lane === 'partisan' ? 'Democrats vs Republicans'
       : (draft.lane === 'independent' ? 'Independent politics' : 'Political challenge');
     var chosenLabel = draft.side === 'b' ? draft.sideB : draft.sideA;
-    return '<div class="modal-bg" id="composeBg"><div class="modal">' +
+    return '<a class="back" href="/challenges">← All challenges</a><form class="detail compose-page" id="challengeForm">' +
       (political ? '<div class="modal-k">'+esc(politicalLane)+'</div>' : '') +
-      '<h2>' + (aimed ? 'Challenge ' + esc(who) : (political ? 'Post this political challenge' : 'Start a challenge')) + '</h2>' +
+      '<h1>' + (aimed ? 'Challenge ' + esc(who) : (political ? 'Post this political challenge' : 'I’ll defend this.')) + '</h1>' +
       '<p class="sub">' + (aimed
         // Shortened names already end in a period ("Priya R."), so the name
         // is trimmed before a sentence-ending one rather than doubling it.
@@ -700,28 +823,31 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
             ? 'Review the question, choose your side, then put it on the board for someone willing to defend the other side.'
             : 'You chose the ' + esc(chosenLabel) + '. Review the framing, then put it on the board for someone willing to defend the other side.')
           : 'Put one clear motion on the board. Someone else takes the open side.')) + '</p>' +
-      (state.err ? '<div class="err">'+esc(state.err)+'</div>' : '') +
+      (state.err ? '<div class="err" role="alert">'+esc(state.err)+'</div>' : '') +
       '<div class="field"><label for="cClaim">Motion</label>' +
-        '<textarea id="cClaim" maxlength="300" placeholder="This House would abolish legacy preference in college admissions.">'+esc(draft.claim)+'</textarea></div>' +
+        '<textarea id="cClaim" maxlength="300" placeholder="Employers should publish everyone’s salary." required minlength="8">'+esc(draft.claim)+'</textarea></div>' +
       '<div class="field"><label for="cSide">Your side</label><select id="cSide">' +
         '<option value="a"'+(draft.side==='a'?' selected':'')+'>'+esc(draft.sideA)+'</option>' +
         '<option value="b"'+(draft.side==='b'?' selected':'')+'>'+esc(draft.sideB)+'</option></select></div>' +
-      '<div class="field"><label for="cDesc">Context (optional)</label>' +
-        '<textarea id="cDesc" maxlength="2000" placeholder="What you mean by the motion, or where you think the real clash is.">'+esc(draft.context)+'</textarea></div>' +
-      '<p class="hint">Need a date and time? Use the <a href="/live">Schedule tab</a> instead.</p>' +
+      '<div class="field"><label for="cDesc">Why I’m taking this side (optional)</label>' +
+        '<textarea id="cDesc" maxlength="280" placeholder="Make someone want to answer you.">'+esc(draft.context)+'</textarea></div>' +
+      '<div class="field"><label for="cTiming">When</label><select id="cTiming"><option value="now"'+(draft.timing!=='scheduled'?' selected':'')+'>I’m live now</option><option value="scheduled"'+(draft.timing==='scheduled'?' selected':'')+'>Schedule a time</option></select></div>' +
+      '<div class="field" id="whenField"'+(draft.timing==='scheduled'?'':' hidden')+'><label for="cWhen">Date and time</label><input id="cWhen" type="datetime-local" value="'+esc(draft.scheduled || '')+'"><small>Shown in your local time. Everyone sees their own time zone.</small></div>' +
+      (!aimed ? '<div class="field"><label for="cOpponent">Opponent username (optional)</label><input id="cOpponent" maxlength="40" placeholder="@username, or leave open to everyone" value="'+esc(draft.opponent || '')+'" autocomplete="off"></div>' : '') +
+      '<p class="hint">A public 1v1 video debate. Both people choose whether to record in the room.</p>' +
       '<div class="modal-foot">' +
-        '<button class="btn btn-red" id="cGo"'+(state.busy?' disabled':'')+'>'+
+        '<button type="submit" class="btn btn-red" id="cGo"'+(state.busy?' disabled':'')+'>'+
           (state.busy ? 'Posting...' : 'Post challenge')+'</button>' +
-        '<button class="btn btn-ghost" id="cCancel">Cancel</button>' +
+        '<button type="button" class="btn btn-ghost" id="cCancel">Cancel</button>' +
       '</div>' +
-    '</div></div>';
+    '</form>';
   }
 
   function bandHtml(){
     return '<section class="band"><h2>How a challenge works</h2><div class="steps">' +
       '<div class="step"><span class="n">1</span><p><b>Post a motion</b> and choose For or Against.</p></div>' +
       '<div class="step"><span class="n">2</span><p><b>Someone accepts the open side.</b> A directed challenge waits only for that person.</p></div>' +
-      '<div class="step"><span class="n">3</span><p><b>Both sides go on the record.</b> Finished challenges move to Settled with the decision.</p></div>' +
+      '<div class="step"><span class="n">3</span><p><b>Both sides go on the record.</b> The decision stays on your challenge. Share it again.</p></div>' +
     '</div></section>';
   }
 
@@ -761,74 +887,68 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         '<a class="pair-link" href="/live">Schedule</a>' +
       '</nav>' +
       '<div class="hero">' +
-        '<div class="hero-copy"><div class="hero-eyebrow">Challenges</div><h1>Put your argument on the line.</h1>' +
-        '<p>Post a motion you are willing to defend, or take the open side on someone else\'s challenge. Need a set time? Use <a href="/live">Schedule</a>.</p></div>' +
+        '<div class="hero-copy"><div class="hero-eyebrow">Open challenges</div><h1>One claim.<br>Who’s taking the other side?</h1>' +
+        '<p>Pick your side. Put it out there. Settle it face to face.</p></div>' +
         '<span class="spacer"></span>' +
         '<button class="btn btn-red" id="postBtn">Start a challenge</button>' +
       '</div>' +
       '<div class="board-head"><div><div class="tabs">' + tabs + '</div>' +
       '<p class="tab-note">' + esc(note) + '</p></div></div>' +
-      (state.err ? '<div class="err">'+esc(state.err)+'</div>' : '') +
+      (state.err ? '<div class="err" role="alert">'+esc(state.err)+'</div>' : '') +
       body +
       bandHtml() +
       (state.compose ? composeHtml() : '');
     wire();
   }
 
+  function shareHtml(c){
+    var url = encodeURIComponent(shareUrl(c)), text = encodeURIComponent(c.claim + ' Take the other side on Debatable.');
+    return '<div class="share-row" aria-label="Share challenge">' +
+      '<button class="btn btn-ghost btn-sm" data-share="copy">Copy link</button>' +
+      '<a class="link-quiet" data-share="x" target="_blank" rel="noopener noreferrer" href="https://twitter.com/intent/tweet?text='+text+'&url='+url+'">X</a>' +
+      '<a class="link-quiet" data-share="whatsapp" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text='+text+'%20'+url+'">WhatsApp</a>' +
+      '<a class="link-quiet" data-share="imessage" href="sms:&body='+text+'%20'+url+'">Messages</a>' +
+      '<button class="link-quiet" data-share="native">Share…</button>' +
+      '<button class="link-quiet" data-share="card">Save share card</button></div>';
+  }
   function renderOne(){
     var c = state.one;
-    if (state.loading){ $('app').innerHTML = '<div class="skel" style="max-width:720px"></div>'; return; }
+    if (state.loading){ $('app').innerHTML = '<div class="skel" style="max-width:800px"></div>'; return; }
     if (!c){
-      $('app').innerHTML = '<button class="back" data-back="1">Back to the board</button>' +
-        '<div class="empty"><h3>Not found.</h3><p>' + esc(state.err || 'That challenge is gone.') + '</p></div>';
+      $('app').innerHTML = '<button class="back" data-back="1">Back to the board</button><div class="empty"><h1>Challenge unavailable</h1><p>'+esc(state.err || 'That challenge was not found.')+'</p><button class="btn btn-ghost" id="retryLoad">Try again</button></div>';
       return wire();
     }
-    var seats = (c.accepted || []).length;
     var mine = state.user && (c.accepted || []).some(function(p){ return p.uid === state.user.uid; });
-    var aim = aimState(c);
-    var acts = '';
-    if (c.status === 'open' && seats < 2 && !mine && aim !== 'theirs'){
-      acts += '<button class="btn btn-red" data-accept="'+esc(c.id)+'"'+(state.busy?' disabled':'')+'>'+
-        (state.busy ? 'Opening...' : (c.mode === 'live' && c.challengedUid ? 'Accept and join' : aim === 'mine' ? 'Answer it' : 'Take the other side'))+'</button>';
-    } else if (c.status === 'open' && aim === 'theirs'){
-      acts += '<span class="meta">This one is aimed at ' + esc(c.challengedName || 'a specific debater') +
-        '. Only they can take it.</span>';
+    var creator = state.user && c.creator && c.creator.uid === state.user.uid;
+    var aim = aimState(c), acts = '', result = '', future = c.scheduledAt > Date.now();
+    if (c.status === 'open' && !mine && aim !== 'theirs') acts += '<button class="btn btn-red" data-accept="'+esc(c.id)+'"'+(state.busy?' disabled':'')+'>'+(state.busy?'Opening…':'Take the other side')+'</button>';
+    if (c.status === 'applications_open' && !mine) acts += '<button class="btn btn-red" data-apply="'+esc(c.id)+'">Apply to take it</button>';
+    if (c.status === 'open' && aim === 'theirs') acts += '<p>Waiting for '+esc(c.challengedName || 'the invited person')+'. Only they can accept.</p>';
+    if (mine && c.mode === 'live' && ['accepted','live'].indexOf(c.status)>=0) acts += '<button class="btn btn-red" data-join="'+esc(c.id)+'"'+(future || state.busy?' disabled':'')+'>'+(future?'Side reserved':'Join debate')+'</button>';
+    if (c.status !== 'cancelled' && !c.roomPrivate && (c.status !== 'completed' || c.replayUrl)) acts += '<button class="btn btn-ghost" data-watch="'+esc(c.id)+'"'+(state.busy?' disabled':'')+'>'+(c.status === 'completed'?'Watch replay':c.following && c.status !== 'live'?'On your watch list':'Watch')+'</button>';
+    if (creator && c.status === 'open') acts += '<button class="link-quiet" data-cancel="'+esc(c.id)+'">Cancel challenge</button>';
+    if (c.status === 'completed') {
+      var b = c.result;
+      result = '<section class="result"><div class="hero-eyebrow">The result</div><h2>'+(b ? b.winner ? esc(b.winnerName || (b.winner === 'pro'?'For':'Against'))+' wins.' : 'No winner.' : 'Round completed.')+'</h2>'+
+        (b ? '<details open><summary>Read the ballot</summary><p class="ballot-text">'+esc(b.rfd || 'The round has ended.')+'</p></details>' : '<p>The ballot is not public.</p>')+
+        (!c.replayUrl?'<p class="meta">No published replay. Recording and publication require the room’s consent.</p>':'')+'</section>';
     }
-    if (c.status === 'applications_open' && !mine){
-      acts += '<button class="btn btn-red" data-apply="'+esc(c.id)+'">Apply to take it</button>';
-    }
-    acts += '<button class="btn btn-ghost" data-follow="'+esc(c.id)+'">' +
-      (c.__following ? 'Following' : 'Follow') + ' (' + (c.crowd.followers||0) + ')</button>';
-    if (state.user && c.creator && c.creator.uid === state.user.uid && seats < 2){
-      acts += '<button class="btn btn-ghost" data-cancel="'+esc(c.id)+'">Cancel</button>';
-    }
-    if (mine && c.mode === 'live' && c.challengedUid && ['accepted','live'].indexOf(c.status) >= 0){
-      var peer = (c.accepted || []).filter(function(p){ return p.uid !== state.user.uid; })[0];
-      if (peer){
-        acts += '<p>Challenge accepted. You and ' + esc(peer.name || 'your opponent') + ' have the same room.</p>' +
-          '<button class="btn btn-red" data-join="' + esc(c.id) + '"' + (state.busy ? ' disabled' : '') + '>Join debate</button>';
-      }
-    }
-
-    $('app').innerHTML =
-      '<button class="back" data-back="1">Back to the board</button>' +
-      (state.err ? '<div class="err">'+esc(state.err)+'</div>' : '') +
-      '<article class="detail">' +
-        '<div class="card-top">' + statusPill(c) + '</div>' +
-        '<h1 class="claim">' + esc(c.claim) + '</h1>' +
-        whoLine(c) +
-        (c.description ? '<p class="desc">' + esc(c.description) + '</p>' : '') +
-        (c.evidence && c.evidence.length ? '<ul class="ev">' + c.evidence.map(function(e){
-          return '<li><a href="'+esc(e.url)+'" target="_blank" rel="noopener nofollow">'+
-            esc(e.title || e.url)+'</a></li>'; }).join('') + '</ul>' : '') +
-        '<h2 class="sec-h" style="font-size:.72rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-ghost);margin:22px 0 10px">Which way the room leans</h2>' +
-        leanBlock(c, true) +
-        '<div class="detail-acts">' + acts + '</div>' +
-      '</article>';
+    $('app').innerHTML = '<button class="back" data-back="1">← All challenges</button>'+
+      (state.err?'<div class="err" role="alert">'+esc(state.err)+'</div>':'')+
+      '<article class="detail fight-detail"><div class="card-top">'+statusPill(c)+'<span class="meta">'+esc(timing(c))+'</span></div>'+
+      '<h1 class="claim">'+esc(c.claim)+'</h1>'+whoLine(c)+
+      (c.description?'<p class="desc">'+esc(c.description)+'</p>':'')+
+      (c.evidence && c.evidence.length ? '<ul class="ev">'+c.evidence.map(function(e){return '<li><a href="'+esc(e.url)+'" target="_blank" rel="noopener nofollow">'+esc(e.title || e.url)+'</a></li>';}).join('')+'</ul>' : '')+
+      '<div class="detail-acts">'+acts+'</div><p class="watch-count">'+(c.crowd.followers || 0)+' '+(c.crowd.followers===1?'person wants':'people want')+' to watch</p>'+
+      (creator && c.status === 'open'?'<div class="notify-box"><b>Give them a reason to show up.</b><p>Share your challenge. Get a notification when someone takes the other side.</p><button class="btn btn-ghost btn-sm" id="notifyChallenge">Notify me when someone accepts</button></div>':'')+
+      (mine && future && ['accepted','live'].indexOf(c.status)>=0?'<p>Your side is reserved. Come back at '+esc(timing(c))+'.</p>':'')+
+      result+shareHtml(c)+'<p role="status" class="notice">'+esc(state.notice)+'</p></article>';
     wire();
   }
-
-  function render(){ if (state.slug) renderOne(); else renderBoard(); }
+  function render(){
+    if (state.compose) { $('app').innerHTML = composeHtml(); wire(); }
+    else if (state.slug) renderOne(); else renderBoard();
+  }
 
   /* ── wiring ── */
   function on(sel, fn){
@@ -862,14 +982,31 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
     // The board's own compose button always opens an OPEN challenge, even if
     // the visitor arrived on a ?to= link, so the aimed-at state cannot leak
     // into a claim they meant for everyone.
-    function openCompose(){ sfx('click'); state.err=''; state.toUid=''; state.toName=''; state.prefill=blankPrefill(); state.source=''; state.compose = true; render(); }
+    function openCompose(){
+      history.pushState({}, '', '/challenge/new');
+      state.slug = null; state.request++;  sfx('click'); state.err=''; state.toUid=''; state.toName=''; state.prefill=blankPrefill(); state.source=''; state.compose = true; render(); }
     var pb = $('postBtn'); if (pb) pb.onclick = openCompose;
     var eb = $('emptyPost'); if (eb) eb.onclick = openCompose;
     on('[data-seed]', function(b){ b.onclick = function(){
-      state.err=''; state.toUid=''; state.toName=''; state.prefill=blankPrefill(); state.source=''; state.compose = true; render();
+      openCompose();
       var f = $('cClaim'); if (f){ f.value = b.getAttribute('data-seed'); f.focus(); } }; });
 
-    var go = $('cGo'); if (go) go.onclick = create;
+    var form = $('challengeForm');
+    if (form) {
+      form.onsubmit = function(e){ e.preventDefault(); create(); };
+      form.oninput = function(){
+        state.prefill.claim = $('cClaim').value; state.prefill.context = $('cDesc').value;
+        state.prefill.side = $('cSide').value; state.prefill.timing = $('cTiming').value;
+        state.prefill.scheduled = $('cWhen').value; state.prefill.opponent = $('cOpponent') ? $('cOpponent').value : '';
+        $('whenField').hidden = $('cTiming').value !== 'scheduled';
+        $('cWhen').required = ! $('whenField').hidden;
+      };
+      form.querySelectorAll('input,textarea,select,button').forEach(function(control){control.disabled=state.busy;});
+    }
+    on('[data-watch]', function(b){b.onclick=function(){var c=byId(b.getAttribute('data-watch'));if(c)watch(c);};});
+    on('[data-share]', function(b){b.onclick=function(){if(state.one)share(state.one,b.getAttribute('data-share'));};});
+    var notifyButton = $('notifyChallenge'); if(notifyButton)notifyButton.onclick=notify;
+    var retry = $('retryLoad'); if(retry)retry.onclick=function(){load();};
     function closeCompose(){
       state.compose=false; state.err=''; state.toUid=''; state.toName='';
       state.prefill=blankPrefill(); state.source='';
@@ -883,7 +1020,10 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       if (ev.target === bg) closeCompose(); };
   }
 
+  window.addEventListener('debatable-avatar-change', function(){ if (!state.busy && !state.compose) render(); });
   routeFromUrl(false);
+  setInterval(function(){ if (!document.hidden && state.slug && !state.busy && !state.compose) load(true); }, 10000);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden && state.slug && !state.busy) load(true); });
 })();
 </script>
 <!-- Shared neural-constellation background. Animates on this light

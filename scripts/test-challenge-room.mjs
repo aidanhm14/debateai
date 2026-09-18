@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { joinChallengeRoom } from '../app/netlify/functions/lib/challenge-room.mjs';
+import { joinChallengeRoom, syncChallengeRoom, challengeRoomAdmission } from '../app/netlify/functions/lib/challenge-room.mjs';
 
 const initial = {
   mode:'live', challengedUid:'guest', creator:{uid:'host', name:'Host alias'},
@@ -14,7 +14,7 @@ function fixture(challenge = initial) {
   const writes = [];
   let queue = Promise.resolve();
   const db = {
-    collection:name => ({doc:id => ({id,path:name+'/'+id})}),
+    collection:name => ({doc:id => ({id,path:name+'/'+id,get:async()=>({exists:rows.has(name+'/'+id),data:()=>structuredClone(rows.get(name+'/'+id))})})}),
     runTransaction:fn => {
       const run = queue.then(async () => {
         const pending = [];
@@ -24,6 +24,7 @@ function fixture(challenge = initial) {
             return {exists:rows.has(ref.path),data:()=>structuredClone(rows.get(ref.path))};
           },
           set:(ref,data) => pending.push([ref.path, structuredClone(data)]),
+          update:(ref,data) => pending.push([ref.path, {...rows.get(ref.path),...structuredClone(data)}]),
         });
         pending.forEach(([path,data]) => {rows.set(path,data); writes.push(path);});
         return result;
@@ -39,7 +40,7 @@ const [host,guest] = await Promise.all([
   joinChallengeRoom(f.db,f.ref,'host'),joinChallengeRoom(f.db,f.ref,'guest')
 ]);
 assert.equal(host.url,guest.url,'both people get the same room and agreed seats');
-assert.equal(f.writes.length,1,'simultaneous joins create exactly one round');
+assert.equal(f.writes.filter(p=>p.startsWith('live_rounds/')).length,1,'simultaneous joins create exactly one round');
 const url = new URL(host.url,'https://itsdebatable.com');
 assert.equal(url.pathname,'/live-round');
 assert.equal(url.searchParams.get('proUid'),'guest');
@@ -57,7 +58,7 @@ assert.equal(rejoin.searchParams.get('motion'),live.motion,'rejoin preserves the
 assert.equal(rejoin.searchParams.get('proUid'),'host','rejoin preserves an agreed side swap');
 assert.equal(rejoin.searchParams.get('private'),'1');
 assert.equal(live.speechIdx,3);
-assert.equal(f.writes.length,1,'rejoin never rewrites a running round');
+assert.equal(f.writes.filter(p=>p.startsWith('live_rounds/')).length,1,'rejoin never rewrites a running round');
 await assert.rejects(joinChallengeRoom(f.db,f.ref,'stranger'),/Only the two/);
 for (const status of ['open','cancelled','completed']) {
   const closed = fixture({...initial,status});
@@ -87,4 +88,28 @@ const fresh = fixture();
 fresh.ref = fresh.db.collection('challenges').doc('two');
 fresh.rows.set('challenges/two',structuredClone(initial));
 assert.notEqual((await joinChallengeRoom(fresh.db,fresh.ref,'host')).room,host.room,'a new challenge between the same people gets a fresh room');
+const open = fixture({...initial, challengedUid:''});
+await joinChallengeRoom(open.db,open.ref,'guest');
+assert.equal(open.rows.get('challenges/one').status,'live');
+assert.equal(await challengeRoomAdmission(open.db,'Challenge-one','host',false),true);
+assert.equal(await challengeRoomAdmission(open.db,'Challenge-one','audience',true),true);
+await assert.rejects(challengeRoomAdmission(open.db,'Challenge-one','audience',false),/Only the two/);
+const scheduled = fixture({...initial, scheduledAt:Date.now()+3600000});
+await assert.rejects(joinChallengeRoom(scheduled.db,scheduled.ref,'host'),/scheduled time/);
+assert.equal(scheduled.writes.length,0);
+await joinChallengeRoom(scheduled.db,scheduled.ref,'host',Date.now()+3600001);
+const complete = open.rows.get('live_rounds/Challenge-one');
+complete.status='ballot'; complete.ballot={winner:'pro',rfd:'The case for public access carried the round.',proPoints:78,conPoints:75};
+const synced = await syncChallengeRoom(open.db,open.ref);
+assert.equal(synced.completed,true);
+assert.equal(synced.data.status,'completed');
+assert.equal(synced.data.feedKey,'done-public');
+assert.equal(synced.data.result.winnerUid,'guest');
+assert.equal((await syncChallengeRoom(open.db,open.ref)).changed,false,'completion retries are idempotent');
+await assert.rejects(challengeRoomAdmission(open.db,'Challenge-one','host',false),/not open/);
+complete.isPrivate = true;
+assert.equal((await syncChallengeRoom(open.db,open.ref)).data.result,null,'private ballot stays out of public projection');
+complete.isPrivate = false;
+complete.ballot={winner:null,resolution:'unresolved',rfd:'The full panel tied.'};
+assert.equal((await syncChallengeRoom(open.db,open.ref)).data.result.winner,null,'no manufactured winner');
 console.log('challenge room: convergence, retries, topic/side preservation, completed rounds, participant admission, age groups and content checks passed');

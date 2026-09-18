@@ -15,6 +15,7 @@
 // migrates. `fromLiveChallenge` below maps one into this shape.
 // ─────────────────────────────────────────────────────────────
 import { checkContent } from './content-guard.mjs';
+import { safeIdentity } from './public-avatar.mjs';
 
 // ── Status machine ──────────────────────────────────────────────────
 // Status is server-owned. Clients never write it directly; they call an
@@ -147,6 +148,9 @@ export function validateChallengeInput(input = {}) {
     .filter((e) => e.url);
 
   let scheduledAt = Number(input.scheduledAt) || 0;
+  if (input.timing === 'scheduled' && (!Number.isFinite(scheduledAt) || scheduledAt < Date.now() + 60_000 || scheduledAt > Date.now() + 90 * 86400000)) {
+    return { ok: false, reason: 'Choose a time at least a minute ahead and within the next 90 days.', field: 'scheduledAt' };
+  }
   // A schedule in the past is a client clock problem, not an intent.
   if (scheduledAt && scheduledAt < Date.now() - 60_000) scheduledAt = 0;
 
@@ -186,7 +190,10 @@ export function makeChallengeData(valid, creator, opts = {}) {
       uid: creator.uid,
       name: String(creator.name || '').slice(0, 60),
       photo: String(creator.photo || '').slice(0, 300),
+      avatarIdentity: safeIdentity(creator.avatarIdentity),
       handle: String(creator.handle || '').slice(0, 40),
+      rating: Number.isFinite(creator.rating) ? creator.rating : null,
+      provisional: creator.provisional === true,
     },
     challengedUid: opts.challengedUid || '',
     // Display label for a directed challenge. Resolved server-side at create
@@ -253,6 +260,9 @@ export function publicChallenge(id, d) {
     applicantCount: (d.applicants || []).length,
     accepted: (d.accepted || []).map((p) => ({
       uid: p.uid, name: p.name || '', photo: p.photo || '', side: p.side,
+      avatarIdentity: safeIdentity(p.avatarIdentity),
+      rating: Number.isFinite(p.rating) ? p.rating : null,
+      provisional: p.provisional === true,
     })),
     scheduledAt: d.scheduledAt || 0,
     prediction: {
@@ -272,6 +282,8 @@ export function publicChallenge(id, d) {
     prize: d.prize || null,
     visibility: d.visibility || 'public',
     eventId: d.eventId || '',
+    roomPrivate: d.roomPrivate === true,
+    result: d.roomPrivate ? null : d.result || null,
     createdAt: d.createdAt || 0,
     updatedAt: d.updatedAt || 0,
   };

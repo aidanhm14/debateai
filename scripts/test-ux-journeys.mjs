@@ -466,8 +466,10 @@ check(
     && !challenges.includes("fetch('/api/async/feed'")
     && !challenges.includes("fetch('/api/recent-activity'")
     && challenges.includes("format: 'quick'")
-    && challenges.includes('Need a date and time? Use the <a href="/live">Schedule tab</a> instead.'),
-  'Challenges is a focused casual challenge board and Schedule owns dated rounds',
+    && challenges.includes("mode: 'live'")
+    && challenges.includes('id="cTiming"')
+    && challenges.includes('id="cWhen"'),
+  'Challenges keeps a casual board with live or scheduled 1v1 creation',
 );
 check(
   challenges.includes('.field input,.field textarea,.field select{font-size:16px}')

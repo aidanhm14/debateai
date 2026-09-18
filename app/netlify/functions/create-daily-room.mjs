@@ -38,6 +38,7 @@ import { verifyIdToken } from './lib/auth.mjs';
 import { checkLayers } from './lib/rate-limit.mjs';
 import { parseTournamentRoom } from './lib/tournament-round.mjs';
 import Teams from '../../js/room-teams.js';
+import { challengeRoomAdmission } from './lib/challenge-room.mjs';
 
 // Providers that may hold a SEAT in a live video room. Keep in sync with
 // spar-pair.mjs and isLiveVideoAccount() in firestore.rules.
@@ -210,7 +211,10 @@ export default async (req) => {
   } catch(e) {
     return jsonResponse(503,{error:'Could not verify the room seats. Try again.'});
   }
-  const secureRoom = admission.tournament || !!teamRound;
+  let challengeRoom = false;
+  try { if (name.startsWith('Challenge-')) challengeRoom = await challengeRoomAdmission(getDb(), name, who.uid, receiveOnly); }
+  catch (e) { return jsonResponse(403, { error: e.message || 'Could not verify the challenge seats.' }); }
+  const secureRoom = admission.tournament || !!teamRound || challengeRoom;
   if (teamRound && !receiveOnly && !Teams.keyForUid(teamRound,who.uid)) {
     return jsonResponse(403,{rosterOnly:true,error:'The host must approve your team seat before you can join as a participant.'});
   }
@@ -345,7 +349,7 @@ export default async (req) => {
   }
 
   const room = await resp.json();
-  if (teamRound && room.privacy !== 'private') {
+  if ((teamRound || challengeRoom) && room.privacy !== 'private') {
     const locked = await fetch(DAILY_API+'/rooms/'+encodeURIComponent(name),{
       method:'POST',headers,body:JSON.stringify({privacy:'private'}),
     });
