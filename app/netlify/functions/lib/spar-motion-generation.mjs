@@ -86,6 +86,9 @@ meritocracy and redistribution. Never say "your country" or "in your country".
 Use the US for a policy example unless the supplied issue names another country;
 this names the example, never either person’s nationality.
 For and against: one plausible short argument each, 12 to 240 characters each.
+Both arguments must answer the exact motion under the same stated facts. Do not
+change a premise or redefine a word just to manufacture an opposing side. If either argument needs that, rewrite the motion before returning it.
+A label such as rude or disrespectful is not a substitute for a clear choice and conflict.
 Prefer a familiar, direct disagreement people already have opinions about.
 Make it understandable from everyday experience without specialist knowledge,
 fictional characters, franchise lore, celebrity comparisons, sports trivia or gaming knowledge.
