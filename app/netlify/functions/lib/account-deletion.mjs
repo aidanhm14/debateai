@@ -102,6 +102,7 @@ export const BULK_QUERIES = [
   { collection: 'room_topic_talks', field: 'uids', op: 'array-contains' },
   { collection: 'private_judge_receipts', field: 'uids', op: 'array-contains' },
   { collection: 'judge_explanation_sources', field: 'uids', op: 'array-contains' },
+  { collection: 'round_finishes', field: 'uids', op: 'array-contains' },
 ];
 
 // Direct message threads. A thread is a two-author object, so this is

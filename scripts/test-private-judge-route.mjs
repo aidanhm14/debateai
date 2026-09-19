@@ -90,6 +90,13 @@ const {default:liveJudge}=await import('../app/netlify/functions/live-judge.mjs'
 const {privateJudgeKey,guardPrivateJudgeProxy}=await import('../app/netlify/functions/lib/private-judging.mjs');
 const round=(uid,other='victim')=>({isPrivate:true,format:'quick',ballotDetail:'extensive',motion:'Remote work should be the default',proUid:uid,conUid:other,proName:'Pro',conName:'Con',speeches:[{side:'pro',text:'Remote work gives people time back and lets companies hire from more places.'},{side:'con',text:'Working together makes questions and collaboration easier when people share a place.'}],ballotPending:true,ballotPendingAt:Date.now()-100000});
 const liveCall=(uid,room,internal=false)=>liveJudge(new Request('https://itsdebatable.com/api/live-judge',{method:'POST',headers:{'content-type':'application/json',...(uid?{authorization:'Bearer '+uid}:{}),...(internal?{'x-internal-judge-key':'test-internal-judge-key-long'}:{})},body:JSON.stringify({room})}),{});
+values.set('live_rounds/Private-finishing',{...round('finishing-user'),format:'open',conversationFinish:{phase:'completed'}});
+values.set('round_finishes/Private-finishing',{phase:'flushing'});
+const beforeEarlyPanel=panelCalls;
+const early=await liveCall('finishing-user','Private-finishing');
+assert.equal(early.status,409);assert.equal((await early.json()).code,'round_not_finished');
+assert.equal(panelCalls,beforeEarlyPanel,'a forged UI projection cannot start the panel');
+assert.equal(used('finishing-user'),0,'unfinished conversations never consume judging allowance');
 values.set('live_rounds/Spar-public',{...round('public-user','public-peer'),isPrivate:false});
 const publicJudgment=await liveCall('public-user','Spar-public');assert.equal(publicJudgment.status,200);assert.equal((await publicJudgment.json()).ballot.rfd,'Original live verdict');assert.equal(used('public-user'),0,'public ballot still commits without private usage');
 values.set('live_rounds/Private-attacker',round('attacker'));

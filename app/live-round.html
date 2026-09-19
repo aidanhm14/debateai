@@ -119,6 +119,7 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
 <script src="/js/live-journey.js"></script>
 <script src="/js/room-teams.js"></script>
 <script src="/js/team-seats.js"></script>
+<script src="/js/conversation-finish.js"></script>
 <script defer src="/js/age-gate.js"></script>
 <link rel="stylesheet" href="/css/team-seats.css">
 <!-- On-device NSFW watchdog over the outgoing camera + the report →
@@ -3583,6 +3584,26 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
 <script src="/js/room-clock.js"></script>
 <link rel="stylesheet" href="/css/room-conversation.css">
 <link rel="stylesheet" href="/css/wordmark.css">
+
+<style id="round-clarity-style">
+.round-own-side{display:flex;align-items:baseline;flex-wrap:wrap;gap:5px 12px;margin-top:10px;font-size:.85rem;line-height:1.45;color:var(--text)}
+.round-own-side strong{border:1px solid currentColor;border-radius:5px;padding:3px 8px;color:var(--accent);font-size:.78rem;letter-spacing:.03em}
+.round-own-side span{color:var(--text-dim)}
+.round-own-side[hidden]{display:none}
+body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
+.round-plan,.conversation-finish{grid-column:1/-1;width:100%;margin:12px 0 4px;color:var(--text);font-size:.78rem;line-height:1.45}
+.round-plan p{margin:0 0 7px;color:var(--text-dim)}
+.round-plan ol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:0;padding:0;list-style:none}
+.round-plan li{border:1px solid var(--border);border-radius:7px;padding:8px 10px;min-width:0}
+.round-plan li b,.round-plan li span{display:block}
+.round-plan li span{color:var(--text-dim);margin-top:2px}
+.round-plan li[aria-current]{border-color:var(--accent);box-shadow:inset 0 2px var(--accent)}
+.conversation-finish{border:1px solid var(--accent);border-radius:8px;padding:12px}
+.conversation-finish p{margin:0 0 9px}
+.conversation-finish .row{gap:8px}
+.conversation-finish .btn{white-space:normal}
+@media(max-width:600px){.round-plan ol{grid-template-columns:repeat(2,minmax(0,1fr))}.round-plan li{padding:4px 8px}.round-own-side{font-size:.78rem}.round-plan{margin-top:9px}.speech-header #startConvoBtn .md-sub{display:block!important;font-size:.65rem;line-height:1.2;margin-top:2px}}
+</style>
 </head>
 <body class="lr-setup">
 
@@ -3912,6 +3933,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
               <span class="rmb-lock-note" id="rmbLockNote" hidden>Topic locked once the round starts</span>
             </span>
             <div class="rmb-motion" id="rmbMotion">&#8212;</div>
+            <div class="round-own-side" id="roundOwnSide" aria-live="polite" hidden></div>
+            <div class="round-plan" id="roundPlan" aria-label="Speaking order"></div>
             <!-- 2026-09-07: the "What This House means" link rides the
                  resolution it explains. renderHouseGloss() fills this and
                  #rmbHouse; #rmbHouse is hidden by CSS whenever this one
@@ -3985,6 +4008,14 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
              gate. Filled by window.__lrRenderReady from the round
              snapshot; hidden on every path that does not need it. -->
         <div class="ready-beat" id="readyBeat" hidden></div>
+        <div class="conversation-finish" id="conversationFinish" hidden>
+          <p id="conversationFinishText" role="status"></p>
+          <div class="row">
+            <button class="btn btn-end" id="conversationFinishAccept" type="button" hidden>Finish together</button>
+            <button class="btn" id="conversationFinishCancel" type="button" hidden>Keep talking</button>
+            <button class="btn" id="conversationFinishRetry" type="button" hidden>Retry saving</button>
+          </div>
+        </div>
         <!-- The primary action sits beside the clock it drives. Moved out
              of the transcript block; ids and handlers are unchanged. -->
         <!-- 2026-09-03, per the founder ("start conversation or start
@@ -5406,7 +5437,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       (state.formatKey === 'quick'
         ? '<div class="setup-format-copy"><strong>The judge follows every response and scores both sides out of 100.</strong> One person argues each side.</div>'
         : (f.open
-          ? '<div class="setup-format-copy"><strong>Both mics stay on, there is no clock to beat, and either of you ends it.</strong> The judge reads the whole exchange and decides.</div>'
+          ? '<div class="setup-format-copy"><strong>Both mics stay on. No time limit. Both people agree before the decision.</strong> The judge reads the whole exchange and decides.</div>'
           : '')) +
       // Agreed judge paradigm from /spar's consent handshake — both
       // debaters signed off on it, so keep it visible in the room.
@@ -5453,7 +5484,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       return '<span class="tag tag-' + who + '" style="margin:2px 4px 2px 0">' + escHtml(sp.code) + ' · ' + Math.round(sp.time/60*10)/10 + 'm</span>';
     }).join('');
     $('sequencePreview').innerHTML = f.open
-      ? '<div style="color:var(--text-ghost)">No speech order. One open conversation, as long as it takes; End whenever.</div>'
+      ? '<div style="color:var(--text-ghost)">No speech order or time limit. Both people agree to finish, then the judge decides.</div>'
       : seq + '<div style="margin-top:8px;color:var(--text-ghost)">Total: ~' + totalMin + ' minutes</div>';
 
     updateStartBtn();
@@ -5593,6 +5624,113 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       generateBallot();
     }catch(e){state.endingSpeech=false;var end=$('endSpeechBtn');if(end)end.disabled=false;toast(e.message);}
     finally{state.teamFinishPending=false;}
+  }
+
+  function sharedConversationFinish(){
+    return openMode() && !state.isDuo && !!state.proUid && !!state.conUid && state.proUid !== state.conUid;
+  }
+  function conversationIsFinishing(){
+    var f = state.conversationFinish;
+    return sharedConversationFinish() && f && (f.phase === 'flushing' || f.phase === 'completed');
+  }
+  function holdConversationCapture(){
+    stopTimer(); openSegStop(); setMicActive(false);
+    document.body.classList.remove('speech-live','round-running');
+  }
+  async function flushConversationCapture(){
+    state.endingSpeech = true;
+    if (mic.timer){clearInterval(mic.timer);mic.timer=0;}
+    stopTimer(); openSegStop();
+    // A rejoining device may have no new local words. Preserve the stream
+    // it already saved before disconnecting instead of overwriting it.
+    var saved = state.lastRoundDoc && state.lastRoundDoc.openSegs;
+    if (!openSeg.segs.length && !$('speechText').value.trim() && saved && saved[mySide()]){
+      openSeg.segs = saved[mySide()].slice();
+    }
+    await finishPendingTranscription(true);
+    openSegTick(true);
+    setMicActive(false);
+    await openPublishSegs(true);
+    if (firebaseDb && firebaseDb.waitForPendingWrites) await firebaseDb.waitForPendingWrites();
+    try { maybeAskRoundConsent(); capPushSpeech({code:'TALK',name:'Open conversation',side:capMySideKey(),open:true,text:openMyText()}); } catch(e){}
+  }
+  var conversationFinishControls = null;
+  function paintConversationFinish(f, ui){
+    var panel = $('conversationFinish'); if (!panel) return;
+    var eligible = (sharedConversationFinish() || ui.preview) && state.phase === 'round' && !isSpectator();
+    var now = window.DBRoomClock ? DBRoomClock.now() : Date.now();
+    var expired = f && f.phase === 'requested' && now >= f.expiresAt;
+    var requested = f && f.phase === 'requested' && !expired;
+    var finishing = f && (f.phase === 'flushing' || f.phase === 'completed');
+    panel.hidden = !eligible || !(requested || finishing || ui.error);
+    var mine = f && state.user && f.by === state.user.uid;
+    var message = requested ? (mine
+      ? 'Waiting for the other person to agree. You can both keep talking.'
+      : 'The other person wants to finish. Are you done speaking?') : '';
+    if (finishing) message = f.ready && f.ready[mySide()]
+      ? 'Your words are saved. Waiting for the other person’s final transcript. No decision yet.'
+      : 'You both agreed to finish. Saving the final words before judging.';
+    $('conversationFinishText').textContent = ui.error || message;
+    $('conversationFinishAccept').hidden = !requested || mine;
+    $('conversationFinishCancel').hidden = !requested;
+    $('conversationFinishRetry').hidden = !finishing || !ui.error;
+    ['conversationFinishAccept','conversationFinishCancel','conversationFinishRetry'].forEach(function(id){$(id).disabled=ui.busy||ui.flushing;});
+    if (eligible){
+      var end = $('endSpeechBtn'); end.disabled = !!(ui.busy || requested || finishing);
+      end.textContent = requested ? 'Finish requested' : finishing ? 'Saving final words…' : 'Ask to finish →';
+      $('playPauseBtn').disabled = !!finishing;
+      if (finishing) {
+        $('playPauseBtn').textContent='Conversation finished'; $('speechText').disabled=true;
+        var label=document.querySelector('.now-speaking-label');if(label)label.textContent='Conversation finished';
+        $('roundPlan').innerHTML='<p>Conversation finished. Saving both transcripts before the decision.</p>';
+      }
+      $('micBtn').disabled=!!finishing;
+    }
+  }
+  function syncConversationFinish(d){
+    if (!window.DBConversationFinish) return;
+    if (!conversationFinishControls) conversationFinishControls = DBConversationFinish.attach({
+      room:function(){return state.room;}, user:function(){return state.user;}, side:mySide,
+      seated:function(){return sharedConversationFinish() && !isSpectator();},
+      paint:function(f,ui){state.conversationFinish=f;paintConversationFinish(f,ui);},
+      flush:flushConversationCapture, hold:holdConversationCapture,
+      complete:async function(){
+        holdConversationCapture(); state.endingSpeech=false;
+        var ref=getRoundDocRef(); if(!ref)return;
+        var snap=await ref.get({source:'server'});
+        onRoundSnapshot(snap.data());
+        generateBallot();
+      }
+    });
+    if (d && d.conversationFinish) conversationFinishControls.sync(d.conversationFinish);
+    else conversationFinishControls.paint();
+  }
+  function requestConversationFinish(action){
+    syncConversationFinish(state.lastRoundDoc);
+    if (conversationFinishControls) conversationFinishControls.act(action);
+  }
+  $('conversationFinishAccept').addEventListener('click',function(){requestConversationFinish('accept');});
+  $('conversationFinishCancel').addEventListener('click',function(){requestConversationFinish('cancel');});
+  $('conversationFinishRetry').addEventListener('click',function(){requestConversationFinish('retry');});
+  setInterval(function(){if(conversationFinishControls)conversationFinishControls.paint();},1000);
+
+  function paintRoundPlan(){
+    var own=$('roundOwnSide'), plan=$('roundPlan'), f=FORMATS[state.formatKey], side=mySide();
+    if(!own||!plan||!f)return;
+    own.hidden=isSpectator()||!side;
+    own.setAttribute('data-side',side||'');
+    own.innerHTML=side ? '<strong>You argue '+(side==='pro'?'FOR':'AGAINST')+'</strong><span>'+(side==='pro'?'Defend this claim.':'Challenge this claim.')+'</span>' : '';
+    var choosing=state.speechIdx===0&&state.timerState==='ready'&&!isSpectator();
+    if(f.open&&!choosing){
+      plan.innerHTML='<p>Open conversation. Both mics on. '+(state.isDuo?'Finish when the group is done.':'Both people agree before the decision.')+'</p>';
+      return;
+    }
+    var speeches=f.open?FORMATS.quick.speeches:f.speeches;
+    plan.innerHTML='<p><strong>'+(choosing?'Timed option: ':'')+speeches.length+' speeches'+(state.formatKey==='quick'||f.open?' · 16 minutes':'')+'</strong>'+(choosing?'':' · Then the decision')+'</p><ol>'+speeches.map(function(sp,i){
+      var active=!choosing&&!f.open&&i===state.speechIdx;
+      var label=sp.side==='pro'?'For':'Against';
+      return '<li'+(active?' aria-current="step"':'')+'><b>'+(i+1)+'. '+label+(side===sp.side&&!isSpectator()?' (you)':'')+'</b><span>'+escHtml(fmtTime(sp.time))+' · '+(i<2?'Opening':'Closing')+'</span></li>';
+    }).join('')+'</ol>';
   }
 
   // Which seat speaks a given speech. Speeches alternate between
@@ -6061,7 +6199,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       // "1 of 4" already says how many are left; keep the tail to the
       // one fact the count doesn't carry (the ballot comes next).
       prog.textContent = f.open
-        ? 'Just argue · end it whenever you are done, the judge decides'
+        ? 'Open conversation · finish together, then the decision'
         : 'Speech ' + cur1 + ' of ' + total +
           (remaining === 0 ? ' · decision next' : ' · then the decision');
     }
@@ -6148,7 +6286,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           modeSub.textContent = '4 speeches, then the decision.';
         } else if (f.open){
           modeName.textContent = 'Just argue';
-          modeSub.textContent = 'No speeches. Talk it out, then end it for the decision.';
+          modeSub.textContent = 'No speeches. Both people agree to finish before the decision.';
         } else {
           modeName.textContent = f.name;
           modeSub.textContent = f.speeches.length + ' speeches, then the decision.';
@@ -6372,8 +6510,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         // a line under the one-word header.
         micHint.hidden = !noMic;
       }
-      if (skipBtn){ skipBtn.disabled = false; skipBtn.style.display = ''; }
-      if (endBtn){ endBtn.disabled = false; endBtn.style.display = ''; endBtn.textContent = openMode() ? 'End and get the decision →' : 'End speech →'; endBtn.className = 'btn btn-end'; }
+      if (skipBtn){ skipBtn.disabled = false; skipBtn.style.display = openMode() ? 'none' : ''; }
+      if (endBtn){ endBtn.disabled = false; endBtn.style.display = ''; endBtn.textContent = openMode() ? (sharedConversationFinish() ? 'Ask to finish →' : 'Finish conversation →') : (state.speechIdx === f.speeches.length - 1 ? 'Finish round →' : 'End my speech →'); endBtn.className = 'btn btn-end'; }
       if (openMode() && ta && !noMic) ta.placeholder = 'Your words appear here as you talk. Type instead if you would rather.';
       var pp = $('playPauseBtn'); if (pp){ pp.disabled = false; pp.style.display = ''; }
       if (hint){
@@ -6449,6 +6587,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     }
     var motionState = $('rmbTimerState');
     if (motionState) motionState.textContent = word;
+    var speakerLabel=document.querySelector('.now-speaking-label');
+    if(speakerLabel) speakerLabel.textContent=openMode()
+      ? (state.timerState==='running'?'Both mics live':'Open conversation')
+      : (state.timerState==='ready'?'Up next':state.timerState==='paused'?'Paused':'Now speaking');
   }
 
   // A collapsed section that never says what is inside it reads as
@@ -6988,6 +7130,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     DBLiveJourney.event(stage, Object.assign({ surface: 'live', room: state.room, round_started_at: state.roundStartedAt || 0, format: state.formatKey, speech: state.speechIdx, role: isSpectator() ? 'viewer' : 'participant' }, detail || {}));
   }
   function startSpeechTimer(){
+    if (conversationIsFinishing()) return;
     liveJourney('speech_start_requested', { timer: state.timerState });
     if (state.isDuo && state.lastRoundDoc && state.lastRoundDoc.teamEnding) return;
     if (state.isDuo && !state.teamLockedAt){
@@ -7210,7 +7353,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var convo = $('startConvoBtn'), formal = $('startFormalBtn');
     if (convo){
       convo.classList.toggle('is-current', open);
-      convo.innerHTML = '\u25b6 Start conversation<span class="md-sub">No speeches. Both mics on, talk it out.</span>';
+      convo.innerHTML = '\u25b6 Start conversation<span class="md-sub">Both mics on. No time limit. Finish together.</span>';
     }
     if (formal){
       formal.classList.toggle('is-current', !open);
@@ -7221,8 +7364,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       var firstName = (sp && sideBench(f, sp.side) === 'gov')
         ? (state.proName || 'For') : (state.conName || 'Against');
       formal.innerHTML = firstIsMine
-        ? '\u25b6 Start timed speeches<span class="md-sub">Back and forth. You speak first.</span>'
-        : '\u25b6 Switch to timed speeches<span class="md-sub">Back and forth. ' + escHtml(firstName) + ' speaks first.</span>';
+        ? '\u25b6 Start timed speeches<span class="md-sub">4 speeches. You speak first.</span>'
+        : '\u25b6 Choose timed speeches<span class="md-sub">4 speeches. ' + escHtml(firstName) + ' speaks first.</span>';
     }
   }
   // The round type, to the round doc, so the other screen follows. Narrow
@@ -7503,6 +7646,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     paintConversationFlow();
   }
   function openAdoptRemoteTimer(t){
+    if (conversationIsFinishing()) return;
     if (state.isDuo && state.lastRoundDoc && state.lastRoundDoc.teamEnding) return;
     if (!t || t.speechIdx !== state.speechIdx) return;
     if (t.state === state.timerState) return;
@@ -7613,6 +7757,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   // Mini-player / hidden-video transitions happen outside the speech renderer.
   new MutationObserver(updateRoundFocus).observe(document.body, { attributes:true, attributeFilter:['class'] });
   function updatePlayPauseBtn(){
+    paintRoundPlan();
+    // Both seats can choose the mode before the first speech. Paint the
+    // choice before returning through the waiting-speaker branch.
+    try { paintModeDoors(); } catch(e){}
     updatePlayPauseBtnCore();
     updateRoundFocus();
     // After the core, never before: the core rewrites btn.className
@@ -7663,7 +7811,6 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     var open = openMode();
     // The two doors own the ready beat at Speech 1; the single Start owns
     // every other ready state (a later speech in a formal round).
-    try { paintModeDoors(); } catch(e){}
     if (state.timerState === 'ready'){
       actionState('start');
       btn.textContent = open ? '▶ Start the conversation' : (ms ? '▶ Start my speech' : '▶ Start speech');
@@ -8224,7 +8371,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     return true;
   }
   function micRestart(){
-    if (!state.micActive || !state.recognition) return;
+    if (!state.micActive || !state.recognition || state.endingSpeech) return;
     try {
       state.recognition.start();
     } catch(err){
@@ -8280,6 +8427,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     }
   }
   function micWatch(){
+    if (state.endingSpeech) return;
     if (!state.micActive) { micQuality(''); return; }
     // Both engines can stop without saying so, and they stop differently,
     // so the liveness half branches while the silence half does not.
@@ -8488,6 +8636,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       .catch(function(){
         if (!current()) return;
         if ((attempt || 0) < 1) return srvUpload(blob, mySeq, (attempt || 0) + 1, heard, capture);
+        if (state.endingSpeech) {
+          srv.finishFailures = srv.finishFailures || [];
+          srv.finishFailures.push({blob:blob,seq:mySeq,heard:heard,capture:capture});
+        }
         mic.finals[mySeq] = '';        // a 10s hole beats stalling the speech
         // Two dead segments with nothing heard yet means the service is
         // down, not that the room is quiet. Say so while the round can
@@ -8581,7 +8733,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     }
     srv.borrowed = false;
   }
-  function finishPendingTranscription(){
+  function finishPendingTranscription(strict){
     srv.on = false;
     if (srv.timer){clearTimeout(srv.timer);srv.timer=0;}
     var stopped = new Promise(function(resolve){
@@ -8590,11 +8742,25 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       recorder.addEventListener('stop', resolve, {once:true});
       try {recorder.stop();} catch(e){resolve();}
     });
+    var browserStopped = Promise.resolve();
+    if (strict && state.micActive && state.recognition && mic.running && state.micSupport.engine !== 'server'){
+      browserStopped = new Promise(function(resolve){
+        state.recognition.addEventListener('end',resolve,{once:true});
+        try {state.recognition.stop();} catch(e){resolve();}
+      });
+    }
+    var retry = strict ? (srv.finishFailures || []).splice(0) : [];
+    retry.forEach(function(f){srvUpload(f.blob,f.seq,0,f.heard,f.capture);});
     var timer;
     return Promise.race([
-      stopped.then(function(){return Promise.all(srv.pending || []);}),
-      new Promise(function(resolve){timer=setTimeout(resolve,6000);})
-    ]).then(function(){clearTimeout(timer);});
+      Promise.all([stopped,browserStopped]).then(function(){return Promise.all(srv.pending || []);}),
+      new Promise(function(resolve,reject){timer=setTimeout(function(){
+        if(strict)reject(new Error('The final words are still saving. Retry saving before the decision.'));
+        else resolve();
+      },strict?15000:6000);})
+    ]).then(function(){
+      if(strict && (srv.finishFailures || []).length)throw new Error('The final words could not be transcribed. Retry saving.');
+    }).finally(function(){clearTimeout(timer);});
   }
 
   // ── Backstop transcription: the ROOM's audio, heard by the other side
@@ -8989,6 +9155,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   }
 
   function setMicActive(on){
+    if (on && conversationIsFinishing()) return;
     if (on && !state.micActive && openMode()) { try { openSegTick(true); } catch(e){} }
     if (on !== state.micActive) mic.generation++;
     // The room already captures an echo-cancelled local microphone. In a
@@ -13040,8 +13207,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
 
   function endSpeech(opts){
     opts = opts || {};
-    if (isSpectator()) return; // spectators can't advance the round
+    if (state.phase !== 'round' || isSpectator() || !isMyTurn()) return;
     if (state.isDuo && openMode()){finishTeamConversation();return;}
+    if (sharedConversationFinish()){requestConversationFinish('request');return;}
     if (state.endingSpeech) return;
     // Finish the captured tail before freezing this speech for the judge.
     // Generation fencing still drops anything that arrives after the cap
@@ -13157,6 +13325,9 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   }
 
   function finishRound(){
+    if (sharedConversationFinish() && (!state.conversationFinish || state.conversationFinish.phase !== 'completed')){
+      requestConversationFinish('request');return;
+    }
     liveJourney('judging_requested');
     // The recording used to stop dead on the last speech, because the
     // ballot takes minutes to write and nobody wants minutes of an empty
@@ -14201,7 +14372,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
         );
         return;
       }
-      if (handlePrivateJudgeAccess(res)) return;
+      if (res && res.code === 'round_not_finished'){
+          state.serverJudgeTried=false;clearBallotRecovery();
+          ballotStatus('The conversation is still finishing. Both people must agree and save their final words before judging.');
+          return;
+        }
+        if (handlePrivateJudgeAccess(res)) return;
       if (res && res.code === 'missing_participant'){
         // Permanent, not a stall: this round never had both seats
         // filled, so the server panel can NEVER judge it and every
@@ -14663,6 +14839,11 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           body: JSON.stringify({ room: state.room }),
         });
       }).then(function(r){ return r.json(); }).then(function(res){
+        if (res && res.code === 'round_not_finished'){
+          state.serverJudgeTried=false;clearBallotRecovery();
+          ballotStatus('The conversation is still finishing. Both people must agree and save their final words before judging.');
+          return;
+        }
         if (handlePrivateJudgeAccess(res)) return;
         if (res && (res.code === 'judge_in_progress' || res.code === 'recovery_not_ready')){
           state.serverJudgeTried = false;
@@ -21878,7 +22059,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     if (!m) return;
     var scene = m[1] || 'speaking';
     if (scene === '1' || scene === 'on') scene = 'speaking';
-    if (['setup','ready','readyset','speaking','waiting','spectator','ballot','deciding','silent'].indexOf(scene) < 0) scene = 'speaking';
+    if (['setup','ready','readyset','speaking','waiting','spectator','ballot','deciding','silent','finish','closing'].indexOf(scene) < 0) scene = 'speaking';
     window.__lrDesign = scene;
     document.documentElement.setAttribute('data-lr-design', scene);
 
@@ -21899,6 +22080,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       quiet(function(){ publishRoundInit = noop; });
       quiet(function(){ publishSpeech = noop; });
       quiet(function(){ publishBallotPending = noop; });
+      quiet(function(){ requestConversationFinish = noop; });
       quiet(function(){ startJoinRequestHost = noop; });
       quiet(function(){ subscribeRound = noop; });
       quiet(function(){ startWatchPresence = noop; });
@@ -21971,7 +22153,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
       // No uids on the seats, so mySide() answers from the hint whoever is
       // signed in on the editor: a real uid would classify the editor as a
       // spectator of their own design.
-      state.mySideHint = scene === 'spectator' ? '' : 'pro';
+      state.mySideHint = scene === 'spectator' ? '' : (prefill.mySide === 'con' ? 'con' : 'pro');
       state.forceSpectate = scene === 'spectator';
       state.roundDocRef = null;
       state.roundStartedAt = Date.now() - 7 * 60 * 1000;
@@ -22009,9 +22191,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
           '<div class="cv-plate"><b>' + escHtml(label) + '</b><span>' + (side === 'pro' ? 'For' : 'Against') + '</span></div>' +
         '</div>';
       }
+      var selfSide=state.mySideHint==='con'?'con':'pro', peerSide=selfSide==='pro'?'con':'pro';
       var stage = spectator
         ? '<div class="cv-stage" data-n="2">' + tile('pro', state.proName) + tile('con', state.conName) + '</div>'
-        : '<div class="cv-stage self-mini" data-n="1">' + tile('con', state.conName) + tile('pro', state.proName + ' (you)', ' is-self is-mirror') + '</div>';
+        : '<div class="cv-stage self-mini" data-n="1">' + tile(peerSide, state[peerSide+'Name']) + tile(selfSide, state[selfSide+'Name'] + ' (you)', ' is-self is-mirror') + '</div>';
       var tray = spectator ? '' :
         '<div class="cv-tray" role="group" aria-label="Room controls">' +
           '<button type="button" class="cv-btn">Mute</button>' +
@@ -22131,6 +22314,19 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     function run(){
       silence();
       seed();
+      if (scene === 'finish'){
+        state.formatKey='open';
+        enterRound(0,{text:P1,watching:3,clock:240});
+        var saving=/[?&]saving=1/.test(location.search);
+        var finish={id:'design',revision:1,phase:saving?'flushing':'requested',by:'design-other',expiresAt:Date.now()+60000,ready:{}};
+        state.conversationFinish=finish;
+        paintConversationFinish(finish,{busy:false,flushing:saving,error:'',preview:true});
+        return;
+      }
+      if (scene === 'closing'){
+        state.mySideHint='con';state.log=[logEntry(0,P1,287),logEntry(1,C1,296),logEntry(2,P2,171)];
+        enterRound(3,{text:C1,watching:3,clock:60});return;
+      }
       if (scene === 'setup'){
         var md = $('motionDisplay'); if (md) md.textContent = MOTION;
         var pn = $('proName'); if (pn) pn.value = state.proName;
@@ -22517,6 +22713,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     }
 
     // Speech reconciliation
+    syncConversationFinish(d);
     if (Array.isArray(d.speeches) && d.speeches.length > state.log.length){
       var newOnes = d.speeches.slice(state.log.length);
       newOnes.forEach(function(sp){ state.log.push(sp); });
@@ -22682,6 +22879,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
     // moment the active speaker hits End on the last speech, instead
     // of waiting until the final ballot lands.
     if (d.ballotPending && !d.ballot && state.phase !== 'ballot' && state.phase !== 'ballot-rendered'){
+      stopTimer(); setMicActive(false); openSegStop();
       state.phase = 'ballot';
       updateRoundGuide();
       // This branch is the off-side's finishRound: the last speech has
@@ -22722,6 +22920,7 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
 
     // Ballot landing, show it on both screens
     if (d.ballot && state.phase !== 'ballot-rendered'){
+      stopTimer(); setMicActive(false); openSegStop();
       clearBallotRecovery();
       state.phase = 'ballot-rendered';
       updateRoundGuide();
@@ -22959,6 +23158,10 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
   $('playPauseBtn').addEventListener('click', togglePlayPause);
   try { initStartCueWatch(); } catch(e){}
   $('endSpeechBtn').addEventListener('click', function(){
+    if (state.phase !== 'round' || isSpectator() || !isMyTurn()) return;
+    if (sharedConversationFinish()){requestConversationFinish('request');return;}
+    if (!openMode() && state.speechIdx === FORMATS[state.formatKey].speeches.length - 1
+        && !confirm('Finish your closing speech and send the full round to the judge?')) return;
     // Confirm-out if the timer was never started (likely accidental click).
     if (state.timerState === 'ready'){
       if (!confirm(openMode()

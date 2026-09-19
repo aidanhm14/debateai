@@ -1,4 +1,5 @@
 import { isPrivateJudgingRound, privateJudgeKey, privateJudgeAccounts, reservePrivateJudgment, finishPrivateJudgment } from './lib/private-judging.mjs';
+import { conversationFinishBlocksJudging } from './lib/conversation-finish.mjs';
 // ─────────────────────────────────────────────────────────────
 // Server-side ballot for a LIVE human-vs-human round.
 //
@@ -616,6 +617,8 @@ export default async (request, context) => {
     const freshSnap = await tx.get(ref);
     if (!freshSnap.exists) return { kind: 'missing' };
     const fresh = freshSnap.data();
+    const finishReceipt = await tx.get(db.collection('round_finishes').doc(room));
+    if (conversationFinishBlocksJudging(finishReceipt.exists ? finishReceipt.data() : null)) return {kind:'round_not_finished'};
     if (fresh.ballot && fresh.ballot.panel) return { kind: 'done', ballot: fresh.ballot };
     if (fresh.ballotUnresolved && fresh.serverJudgeState === 'unresolved') {
       return { kind: 'unresolved', noWinner: fresh.ballotUnresolved, round: fresh };
@@ -661,6 +664,7 @@ export default async (request, context) => {
   });
 
   if (claim.kind === 'private_complete') return restorePrivateResult(claim.output);
+  if (claim.kind === 'round_not_finished') return jsonResponse({ok:false, code:'round_not_finished', error:'Both people must finish and save their final words before judging.'},409,request);
   if (claim.kind === 'plan_retry') return jsonResponse({ code: 'PLAN_CHECK_UNAVAILABLE', error: 'Private judging access changed. Retry this round.' }, 503, request);
   if (claim.kind === 'private_blocked') return jsonResponse(claim.access, claim.access.status || 402, request);
   if (claim.kind === 'missing') return errorResponse('No such round', 404, request);

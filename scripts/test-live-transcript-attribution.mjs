@@ -29,7 +29,7 @@ console.log('Live attribution: delayed speech responses, microphone restarts, id
 // Finishing the speech waits for the recorder's final upload, before the
 // generation changes and the next speaker's transcript becomes active.
 Object.assign(ctx,{setTimeout,clearTimeout});
-vm.runInContext(source.slice(source.indexOf('  function finishPendingTranscription(){'),source.indexOf('  // ── Backstop transcription:')),ctx);
+vm.runInContext(source.slice(source.indexOf('  function finishPendingTranscription('),source.indexOf('  // ── Backstop transcription:')),ctx);
 let stopped;
 ctx.srv.rec={state:'recording',addEventListener(type,cb){stopped=cb},stop(){ctx.srvUpload({size:3000},2,0,true);stopped();}};
 ctx.srv.on=true;
