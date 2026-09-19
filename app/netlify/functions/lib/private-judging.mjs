@@ -13,7 +13,7 @@ const authorized = new WeakSet();
 export function authorizePrivateJudgeRequest(request) { authorized.add(request); return request; }
 export function privateJudgeKey(value) { return createHash('sha256').update(String(value)).digest('hex'); }
 export function isPrivateJudgingRound(room, round) {
-  return round?.isPrivate === true || ['private', 'squad'].includes(round?.source)
+  return ['private', 'squad'].includes(round?.source)
     || /^(Private-|Squad-)/i.test(String(room));
 }
 export async function privateJudgeAccounts(uids, decoded = null) {

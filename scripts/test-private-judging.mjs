@@ -88,7 +88,7 @@ assert.equal(planBypassesVoiceCap({plan:'trial',status:'active'}),false);
 assert.equal(planBypassesVoiceCap({plan:'individual',status:'canceled'}),false);
 assert.equal(isPrivateJudgingRound('Private-a',{isPrivate:false}),true);
 assert.equal(isPrivateJudgingRound('Squad-a',{}),true);
-assert.equal(isPrivateJudgingRound('Spar-a',{isPrivate:true}),true);
+assert.equal(isPrivateJudgingRound('Spar-a',{isPrivate:true}),false);
 assert.equal(isPrivateJudgingRound('Spar-a',{isPrivate:false}),false);
 const arbitrary=new Request('https://itsdebatable.com/api/claude',{method:'POST'});
 assert.equal((await guardPrivateJudgeProxy(arbitrary,{_feature:'live-round'})).code,'PRIVATE_JUDGE_ROUTE_REQUIRED');

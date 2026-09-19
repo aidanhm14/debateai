@@ -17,7 +17,7 @@ assert.ok(result.ok,JSON.stringify(compile));
 assert.ok(!(compile.issues||[]).some(i=>i.severity==='ERROR'),JSON.stringify(compile));
 const stamp=Date.now(),room='teams-test-'+stamp;
 const ref=db.collection('live_rounds').doc(room);
-const initial={proUid:'team-a',conUid:'team-b',posterUid:'team-a',proName:'For person',conName:'Against person',format:'open',motion:'More public parks',speechIdx:0};
+const initial={proUid:'team-a',conUid:'team-b',posterUid:'team-a',proName:'For person',conName:'Against person',isPrivate:true,format:'open',motion:'More public parks',speechIdx:0};
 await ref.set(initial);
 const ids=['team-a','team-b','team-c','team-d','team-e'];
 for(const uid of ids)await db.collection('age_bands').doc(uid).set({band:'adult'});

@@ -216,6 +216,7 @@ export default async (request) => {
     if (!snap.exists) return errorResponse('Round not found', 404, request);
     roundData = snap.data() || {};
   } catch (e) { return errorResponse('Round lookup failed', 503, request); }
+  if (roundData.isPrivate === true) return errorResponse('This round is private.', 403, request);
   if (roundData.allowAudienceCams === false) {
     return jsonResponse({ error: 'The debaters turned audience cameras off for this round.', disabled: true }, 403, request);
   }

@@ -5477,18 +5477,12 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
   function pollWatchPanel(){
     if (!firebaseDb || state.cancelled) return;
-    firebaseDb.collection('live_rounds').orderBy('createdAt', 'desc').limit(30).get()
-      .then(function(snap){
-        var mine = state.user ? state.user.uid : null;
-        var rounds = [];
-        snap.forEach(function(doc){
-          var d = doc.data();
-          if (!watchRoundIsLive(d)) return;
-          if (mine && (d.proUid === mine || d.conUid === mine)) return; // don't offer your own round
-          rounds.push({ id: doc.id, d: d });
-        });
-        paintWatchPanel(rounds);
-      })
+    fetch('/api/watch-live').then(function(response){
+      if (!response.ok) throw new Error('Could not load live rounds');
+      return response.json();
+    }).then(function(data){
+      paintWatchPanel((data.rounds || []).map(function(round){ return { id: round.room, d: round }; }));
+    })
       .catch(function(err){ console.warn('[spar] watch poll failed', err && err.message); });
   }
   function mountWatchPanel(){

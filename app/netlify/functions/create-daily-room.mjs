@@ -16,11 +16,9 @@
 // (uid, or a salted IP hash for tokenless guests) as user_id. That
 // attribution is what lets peer reports turn into strikes, and lets
 // eject use Daily's ban:true so removed users can't rejoin the live
-// session. Casual rooms stay public and the token is OPTIONAL on join,
-// so stale cached clients keep working. Their safety checks fail OPEN: a
-// Firestore outage must never take casual video down. Tournament rooms
-// are the deliberate exception. They are private, the server admission
-// record decides participant vs viewer, and missing admission fails closed.
+// session. Every saved live round requires a token. Private rounds admit
+// only participants; public rounds also issue receive-only viewer tokens.
+// Admission reads fail closed, including the stage/OBS path.
 //
 // Env vars (set in Netlify):
 //   DAILY_API_KEY  — Bearer token from daily.co (Developers section)
@@ -205,8 +203,10 @@ export default async (req) => {
   // A viewer's URL is never a team-seat grant. Approved rosters are read
   // before a sending token is minted; secure rooms have no tokenless path.
   let teamRound = null;
+  let roundData = null;
   try {
     const snap = await withDeadline(getDb().collection('live_rounds').doc(name).get(), 3000);
+    if (snap.exists) roundData = snap.data();
     if (snap.exists && (snap.data().teamHostUid || Teams.enabled(snap.data()))) teamRound = snap.data();
   } catch(e) {
     return jsonResponse(503,{error:'Could not verify the room seats. Try again.'});
@@ -214,7 +214,18 @@ export default async (req) => {
   let challengeRoom = false;
   try { if (name.startsWith('Challenge-')) challengeRoom = await challengeRoomAdmission(getDb(), name, who.uid, receiveOnly); }
   catch (e) { return jsonResponse(403, { error: e.message || 'Could not verify the challenge seats.' }); }
-  const secureRoom = admission.tournament || !!teamRound || challengeRoom;
+  const secureRoom = admission.tournament || !!roundData || challengeRoom;
+  const seated = !!(who.uid && roundData &&
+    [roundData.proUid, roundData.conUid, roundData.proUid2, roundData.conUid2, roundData.posterUid].includes(who.uid));
+  if (roundData?.isPrivate === true && (receiveOnly || !seated)) {
+    return jsonResponse(403, { code: 'ROUND_PRIVATE', error: 'This round is private. Only participants can enter.' });
+  }
+  if (!roundData && !admission.tournament) {
+    return jsonResponse(409, { error: 'The round is still opening. Try again.' });
+  }
+  if (!receiveOnly && roundData?.proUid && roundData?.conUid && !seated) {
+    return jsonResponse(403, { error: 'Only participants can join this round with a microphone.' });
+  }
   if (teamRound && !receiveOnly && !Teams.keyForUid(teamRound,who.uid)) {
     return jsonResponse(403,{rosterOnly:true,error:'The host must approve your team seat before you can join as a participant.'});
   }
@@ -349,11 +360,11 @@ export default async (req) => {
   }
 
   const room = await resp.json();
-  if ((teamRound || challengeRoom) && room.privacy !== 'private') {
+  if (secureRoom && room.privacy !== 'private') {
     const locked = await fetch(DAILY_API+'/rooms/'+encodeURIComponent(name),{
       method:'POST',headers,body:JSON.stringify({privacy:'private'}),
     });
-    if (!locked.ok) return jsonResponse(503,{error:'Could not secure the team room. Try again.'});
+    if (!locked.ok) return jsonResponse(503,{error:'Could not secure the room. Try again.'});
   }
 
   // Create-or-fetch means an EXISTING room keeps the properties it was
@@ -382,13 +393,13 @@ export default async (req) => {
   // Mint a meeting token attributing this caller's identity to their
   // participant record (presence.userId). user_id caps at 36 chars —
   // a Firebase uid (28) and our 'ip:'+24-hex key both fit. Failure
-  // here never blocks the room.
+  // blocks entry when the room requires a token.
   //
   // Spectators (role:'viewer' from the client) join HIDDEN via the
   // token's `permissions`: no name tile in the grid, no people-list
   // row, and no send path even if the iframe's AV gate is stripped.
   // The page's own "N watching" pill is the audience count. Casual-room
-  // roles remain client hints. Tournament roles were checked against the
+  // roles are checked against the saved round. Tournament roles also use the
   // server-written admission record above, and those rooms require tokens.
   // `permissions` is a documented MEETING-TOKEN property — this block
   // deliberately does NOT touch the room create body (see the loud

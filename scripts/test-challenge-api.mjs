@@ -63,7 +63,7 @@ assert.equal((await get(id)).challenge.following,false);
 await Promise.all(Array.from({length:8},()=>post('third',{action:'follow',id,following:false})));
 assert.equal(rows.get('challenges/'+id).crowd.followers,0,'unfollow never underflows');
 assert.equal((await post('third',{action:'sync',id,result:{winner:'con'}})).status,403);
-const saved=rows.get('live_rounds/'+joined.room);saved.ballot={winner:'pro',rfd:'Access wins.',proPoints:80,conPoints:77};saved.status='ballot';
+const saved=rows.get('live_rounds/'+joined.room);assert.equal(saved.isPrivate,true,'new live challenge stays private');saved.isPrivate=false;saved.ballot={winner:'pro',rfd:'Access wins.',proPoints:80,conPoints:77};saved.status='ballot';
 const sync=await post('host',{action:'sync',id,result:{winner:'con'}});assert.equal(sync.challenge.result.winner,'pro','client cannot choose winner');assert.equal(sync.completed,true);
 assert.equal((await post('guest',{action:'sync',id})).completed,false,'completion is idempotent');
 rows.set('recordings/private',{roomName:joined.room,published:false});
@@ -94,6 +94,8 @@ async function video(uid,role){return dailyHandler(new Request('https://itsdebat
 assert.equal((await video('third','debater')).status,403,'outsider cannot mint a sending token');
 assert.equal((await video('host','debater')).status,200);
 assert.equal(roomRequest.privacy,'private');
+assert.equal((await video('third','viewer')).status,403,'private challenge blocks viewers');
+rows.get('live_rounds/'+directRoom.room).isPrivate=false;
 assert.equal((await video('third','viewer')).status,200);
 assert.equal(tokenRequest.properties.permissions.canSend,false);
 tokenFailure=true;assert.equal((await video('third','viewer')).status,503,'challenge viewer cannot fall back to a sending token');
