@@ -220,7 +220,7 @@ export default async (req) => {
   if (roundData?.isPrivate === true && (receiveOnly || !seated)) {
     return jsonResponse(403, { code: 'ROUND_PRIVATE', error: 'This round is private. Only participants can enter.' });
   }
-  if (!roundData && !admission.tournament) {
+  if (!roundData) {
     return jsonResponse(409, { error: 'The round is still opening. Try again.' });
   }
   if (!receiveOnly && roundData?.proUid && roundData?.conUid && !seated) {

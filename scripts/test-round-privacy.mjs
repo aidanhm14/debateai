@@ -53,3 +53,12 @@ failToken=true;assert.equal((await join('outsider','viewer')).status,503,'no tok
 failRead=true;assert.equal((await join('a','debater')).status,503);failRead=false;
 round=null;assert.equal((await join('outsider','viewer')).status,409,'no view of a not-yet-initialized round');
 console.log('Round privacy: private creation, saved visibility on both reload paths, seat-only admission, direct Daily protection, public receive-only access and closed failure paths passed.');
+
+const { draftFixture } = await import('./test-support/draft-fixture.mjs');
+const early = draftFixture();early.rows.delete('live_rounds/room');
+await early.action('a','open');
+assert.equal(early.round().isPrivate,true,'draft-created rooms start private too');
+assert.deepEqual([early.round().proUid,early.round().conUid].sort(),['a','b'],'both assigned seats can read the private draft');
+const published = draftFixture();published.rows.get('live_rounds/room').isPrivate=false;
+await published.action('a','open');assert.equal(published.round().isPrivate,false,'draft does not change existing visibility');
+console.log('Round privacy: draft-first creation and saved public draft visibility passed.');
