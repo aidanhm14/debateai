@@ -304,7 +304,7 @@ check(
 // 2026-09-03, the founder: "now add the 'watch' button". The first-screen
 // Watch doors are always rendered (no [hidden]); the poll only upgrades them.
 check(
-  (landing.match(/<a class="fs-cta fs-cta--ghost fs-cta--watch" href="\/watch" data-fs-watch-live/g) || []).length === 1
+  (landing.match(/<a class="fs-cta fs-cta--ghost fs-cta--watch"[^>]* href="\/watch" data-fs-watch-live/g) || []).length === 1
     && !/data-fs-watch-live[^>]*\shidden/.test(landing)
     && landing.includes("b.classList.remove('is-live')"),
   'landing keeps a Watch door beside Join a debate',
@@ -322,10 +322,10 @@ check(
   // hung every commit on the site.
   (function () {
     const wrapAt = landing.indexOf('<div class="fs-board-wrap">');
-    const boardAt = landing.indexOf('<div class="fs-board" id="fsBoard">', wrapAt);
+    const boardAt = landing.indexOf('<div class="fs-board" id="fsBoard"', wrapAt);
     if (wrapAt < 0 || boardAt < 0) return false;
     const above = landing.slice(wrapAt, boardAt).replace(/<!--[\s\S]*?-->/g, '');
-    return /^<div class="fs-board-wrap">\s*<div class="fs-live-line" data-live-now-wrap>/.test(above);
+    return /^<div class="fs-board-wrap">\s*<div class="fs-live-line"[^>]* data-live-now-wrap>/.test(above);
   })()
     && !landing.includes('class="fs-pitch"')
     && !landing.includes('fs-live-now--signed')
@@ -336,7 +336,7 @@ check(
 // sit under it (wide red Join a debate, then Watch and Debate the AI), and
 // the headline column is off the desktop first screen.
 check(
-  /<div class="fs-board" id="fsBoard">[\s\S]*?<div class="fs-actions">\s*<a class="fs-cta fs-cta--primary" href="\/spar"[\s\S]*?<div class="fs-actions-row">[\s\S]*?fs-cta--watch[\s\S]*?<\/div><!-- \/\.fs-board-wrap -->/.test(landing)
+  /<div class="fs-board" id="fsBoard"[^>]*>[\s\S]*?<div class="fs-actions">\s*<a class="fs-cta fs-cta--primary"[^>]* href="\/spar"[\s\S]*?<div class="fs-actions-row">[\s\S]*?fs-cta--watch[\s\S]*?<\/div><!-- \/\.fs-board-wrap -->/.test(landing)
     && !landing.includes('<div class="fs-ctas">')
     && landing.includes('.fscreen-copy{display:none}')
     && !landing.includes('class="home-intro"')

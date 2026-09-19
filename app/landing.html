@@ -5793,6 +5793,46 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
 <script src="/js/standings-refresh.js"></script>
 <link rel="stylesheet" href="/css/wordmark.css">
 <link rel="stylesheet" href="/css/home-simple.css">
+<!-- One finite entrance. The preparation guard expires even if the deferred
+     module fails to load. Base markup stays visible with JavaScript off. -->
+<style id="landing-entry-guard">
+@media(prefers-reduced-motion:no-preference){
+  html[data-landing-entry="pending"] [data-landing-piece],
+  html[data-landing-entry="pending"] #daTopbar .ui-topbar-left,
+  html[data-landing-entry="pending"] #daTopbar .ui-topbar-right > *{opacity:0}
+}
+</style>
+<script id="landing-entry-boot">
+(function(){
+  var root = document.documentElement;
+  var navigation = window.performance && performance.getEntriesByType ? performance.getEntriesByType('navigation')[0] : null;
+  if (!window.matchMedia || window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+      !window.Element || !Element.prototype.animate || document.hidden || location.hash ||
+      (navigation && navigation.type === 'back_forward') || root.getAttribute('data-first-screen') !== 'ticker') return;
+  var state = window.__dbLandingEntry = { cancelled: false };
+  var events = ['pointerdown', 'keydown', 'focusin', 'pagehide', 'pageshow', 'visibilitychange', 'scroll'];
+  state.stop = function(){
+    if (state.cancelled) return;
+    state.cancelled = true;
+    clearTimeout(state.timer);
+    root.removeAttribute('data-landing-entry');
+    events.forEach(function(name){ window.removeEventListener(name, interrupt, true); });
+    if (state.finish) state.finish();
+    if (window.__dbLandingEntry === state) delete window.__dbLandingEntry;
+  };
+  function interrupt(event){
+    if (event.type === 'pageshow' && !event.persisted) return;
+    if (event.type === 'visibilitychange' && !document.hidden) return;
+    if (event.type === 'scroll' && window.scrollY < 8) return;
+    state.stop();
+  }
+  events.forEach(function(name){ window.addEventListener(name, interrupt, {capture:true, passive:true}); });
+  root.setAttribute('data-landing-entry', 'pending');
+  state.timer = setTimeout(state.stop, 2200);
+})();
+</script>
+<script defer src="/js/landing-entry.js"></script>
+
 </head>
 <body class="homepage-red-wordmark">
 
@@ -8930,7 +8970,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          on the action and then shows a real round underneath it as the
          proof. The desktop first screen keeps its own headline; this cut
          is the mobile home only. -->
-    <a class="mh-primary" href="/spar" data-cta="mhome-join" aria-label="Meet someone">
+    <a class="mh-primary" data-landing-piece="mobile-primary" href="/spar" data-cta="mhome-join" aria-label="Meet someone">
       <span class="mh-primary-top"><span class="mh-primary-label">Meet someone</span><span class="mh-arrow" aria-hidden="true">&rarr;</span></span>
       <span class="mh-primary-meta">
         <span><span class="mh-live-dot" aria-hidden="true"></span>people <b>LIVE</b> right now</span>
@@ -8948,11 +8988,11 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
     <div id="mhBoardSlot"></div>
 
     <div class="mh-row">
-      <a class="mh-card" href="/newvoice?handoff=landing-mobile-ai" data-cta="mhome-ai" data-ai-invite>
+      <a class="mh-card" data-landing-piece="mobile-ai" href="/newvoice?handoff=landing-mobile-ai" data-cta="mhome-ai" data-ai-invite>
         <span class="mh-card-top"><span class="mh-card-label">Debate the AI</span><span class="mh-card-arrow" aria-hidden="true">&rarr;</span></span>
         <span class="mh-card-sub">Voice round. Starts right away.</span>
       </a>
-      <a class="mh-card" href="/watch" data-cta="mhome-watch">
+      <a class="mh-card" data-landing-piece="mobile-watch" href="/watch" data-cta="mhome-watch">
         <span class="mh-card-top"><span class="mh-card-label">Watch</span><span class="mh-card-arrow" aria-hidden="true">&rarr;</span></span>
         <span class="mh-card-sub" id="mhWatchMeta">Live rounds and replays</span>
       </a>
@@ -8975,12 +9015,12 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <span class="mh-board-row" id="mhBoardRow"></span>
     </a>
 
-    <div class="mh-signin">
+    <div class="mh-signin" data-landing-piece="mobile-signin">
       <button type="button" class="mh-signin-btn" data-fs-signin data-cta="mhome-signin">Sign in or create account</button>
       <p class="mh-signin-why">Keep your rounds and climb the leaderboard.</p>
     </div>
 
-    <nav class="mh-more" aria-label="More">
+    <nav class="mh-more" data-landing-piece="mobile-links" aria-label="More">
       <a href="/leaderboard">Leaderboard</a>
       <a href="/political-debate">Politics</a>
       <a href="/how-it-works">How it works</a>
@@ -9226,8 +9266,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          number is gone from both copies of this line, which also retires the
          founder-called floor of 3 that used to be added to the measured count.
          The attribute hook stays so restoring a number is re-adding one span. -->
-    <div class="fs-live-line" data-live-now-wrap><span class="fs-live-dot" aria-hidden="true"></span><span>people <b>LIVE</b> right now</span></div>
-    <div class="fs-board" id="fsBoard">
+    <div class="fs-live-line" data-landing-piece="live" data-live-now-wrap><span class="fs-live-dot" aria-hidden="true"></span><span>people <b>LIVE</b> right now</span></div>
+    <div class="fs-board" id="fsBoard" data-landing-piece="board">
       <!-- 2026-08-31 per the founder: pressing the card goes to /spar, the
            live debating page, not /spectate ("pressing this should not go to
            spectate"). The Spectate ghost CTA above stays the spectate door. -->
@@ -9255,13 +9295,13 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       <button type="button" class="fs-nav fs-nav--prev" id="fsPrev" aria-label="Previous example round"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
       <button type="button" class="fs-nav fs-nav--next" id="fsNext" aria-label="Next example round"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <div class="fs-stage" aria-hidden="true">
-        <div class="fs-tile fs-tile--speaking">
+        <div class="fs-tile fs-tile--speaking" data-landing-piece="camera-a">
           <img class="fs-fade" id="fsFaceA" src="/img/round/faces/face46.jpg" alt="" decoding="async">
           <video class="fs-vid" id="fsVidA" muted loop playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>
           <span class="fs-tile-nm"><i></i><b id="fsNameA"></b> &middot; <span id="fsSideA">Pro</span></span>
           <span class="fs-clock" id="fsClock">01:42</span>
         </div>
-        <div class="fs-tile">
+        <div class="fs-tile" data-landing-piece="camera-b">
           <img class="fs-fade" id="fsFaceB" src="/img/round/faces/face52.jpg" alt="" decoding="async">
           <video class="fs-vid" id="fsVidB" muted loop playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>
           <span class="fs-open-fig" id="fsOpenFig" aria-hidden="true"></span>
@@ -9270,8 +9310,8 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         </div>
       </div>
 
-      <span class="fs-title" id="fsTitle" hidden></span>
-      <h2 class="fs-motion fs-fade" id="fsMotion"></h2>
+      <span class="fs-title" id="fsTitle" data-landing-piece="topic" hidden></span>
+      <h2 class="fs-motion fs-fade" id="fsMotion" data-landing-piece="topic"></h2>
 
       <!-- The payoff. Holds a placeholder while the round runs, then the
            AI judge's decision lands: winner plus one plain sentence of why.
@@ -9281,7 +9321,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            justification"), with the market framing gone around it. The
            word "ballot" stays out of the visible copy on his call; this
            is the AI judge's decision, said in those words. -->
-      <div class="fs-ballot" id="fsBallot">
+      <div class="fs-ballot" id="fsBallot" data-landing-piece="decision">
         <div class="fs-ballot-wait" id="fsWait"><span class="fs-wait-label" id="fsWaitLabel">Judge</span><b class="fs-wait-copy" id="fsWaitCopy">The judge is deciding</b> <span class="fs-wait-dot d1"></span><span class="fs-wait-dot d2"></span><span class="fs-wait-dot d3"></span></div>
         <div class="fs-ballot-card fs-fade" id="fsBallotCard">
           <span class="fs-ballot-k" id="fsBallotK">Decision</span>
@@ -9319,7 +9359,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
            has taken, and the affiliation line in the same words the
            watchlist band uses. No verdict, no points, no viewer read,
            because none of those exist for a round that has not happened. -->
-      <div class="fs-chal" id="fsChal">
+      <div class="fs-chal" id="fsChal" data-landing-piece="decision">
         <p class="fs-chal-line" id="fsChalLine">Nobody has taken the other seat yet. Win rounds and it could be you.</p>
         <div class="fs-chal-row">
           <a class="fs-chal-cta" href="/spar" data-cta="first-screen-challenge-start">Start a round</a>
@@ -9334,10 +9374,10 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          are preserved; the watch-live poll still finds
          the Watch door through data-fs-watch-live. -->
     <div class="fs-actions">
-      <a class="fs-cta fs-cta--primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Meet someone <span aria-hidden="true">&rarr;</span></a>
+      <a class="fs-cta fs-cta--primary" data-landing-piece="primary" href="/spar" data-cta="first-screen-spar" data-ab-test="first_screen_copy_v1" data-ab-target="primary">Meet someone <span aria-hidden="true">&rarr;</span></a>
       <div class="fs-actions-row">
-        <a class="fs-cta fs-cta--ghost fs-cta--watch" href="/watch" data-fs-watch-live data-cta="first-screen-watch"><span class="fs-watch-dot" aria-hidden="true"></span><span data-fs-watch-label>Watch</span></a>
-        <a class="fs-cta fs-cta--ghost fs-cta--ai" href="/newvoice?handoff=landing-quick-ai" data-cta="first-screen-ai" data-ai-invite><span class="ai-invite-label">Debate the AI</span></a>
+        <a class="fs-cta fs-cta--ghost fs-cta--watch" data-landing-piece="watch" href="/watch" data-fs-watch-live data-cta="first-screen-watch"><span class="fs-watch-dot" aria-hidden="true"></span><span data-fs-watch-label>Watch</span></a>
+        <a class="fs-cta fs-cta--ghost fs-cta--ai" data-landing-piece="ai" href="/newvoice?handoff=landing-quick-ai" data-cta="first-screen-ai" data-ai-invite><span class="ai-invite-label">Debate the AI</span></a>
       </div>
     </div>
     </div><!-- /.fs-board-wrap -->
@@ -9381,7 +9421,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          on every width. Clicks ride the same delegated [data-fs-signin]
          handler; the copy arms' own sign-in rows are hidden at every
          width now, so exactly one is ever visible. -->
-    <div class="fs-signin fs-signin--side">
+    <div class="fs-signin fs-signin--side" data-landing-piece="signin">
       <!-- Live "right now" nudge above the guest Google button.
            FOUNDER-CALLED DISPLAY FLOOR (2026-09-01, Aidan: "say the
            number of live right now (always have 2 minimum) and add the
@@ -9422,7 +9462,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
          beats. It sits outside the feed so a quiet site never takes the
          explanation down with the messages. The heading came off 2026-09-08;
          the numbered steps are the whole block now. -->
-    <div class="fs-what">
+    <div class="fs-what" data-landing-piece="help">
       <a class="fs-what-btn" href="/how-it-works" data-cta="first-screen-how-it-works" aria-describedby="fsWhatSteps">How it works<span class="fs-what-arrow" aria-hidden="true">&rarr;</span></a>
       <div class="fs-what-pop" id="fsWhatSteps">
         <ol class="fs-what-list" aria-label="How Debatable works">
@@ -9432,7 +9472,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
         </ol>
       </div>
     </div>
-    <aside class="fs-chats" id="fsChats" aria-label="Community chat highlights">
+    <aside class="fs-chats" data-landing-piece="chat" id="fsChats" aria-label="Community chat highlights">
       <div class="fs-chats-top">
         <span class="fs-chats-dot" aria-hidden="true"></span>
         <span class="fs-chats-title">Highlights</span>
@@ -10461,7 +10501,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
       }
     </style>
     <div class="rb-wrap">
-      <header class="rb-head">
+      <header class="rb-head" data-landing-piece="standings">
         <div class="rb-head-copy">
           <h2 class="rb-title" id="rbTitle">The leaderboard.</h2>
         </div>
@@ -10470,7 +10510,7 @@ body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
           <a class="rb-action" href="/leaderboard" data-rb="all-standings">View all standings</a>
         </div>
       </header>
-      <div class="rb-main">
+      <div class="rb-main" data-landing-piece="standings">
         <div class="rb-stage">
           <div id="rbBoard" aria-live="polite" aria-busy="true"></div>
         </div>
