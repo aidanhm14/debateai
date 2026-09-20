@@ -179,6 +179,10 @@ ul.plain{margin:10px 0 0;padding-left:18px;color:var(--dim);font-size:15px;line-
 </div>
 
 <script defer src="/js/track.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="/js/private-invite.js"></script>
+<script defer src="/js/auth-modal.js"></script>
 <script src="/js/topbar.js" defer></script>
 <canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
 <script defer src="/js/ui-neural.js"></script>
@@ -186,6 +190,14 @@ ul.plain{margin:10px 0 0;padding-left:18px;color:var(--dim);font-size:15px;line-
 <script>
 (function(){
   'use strict';
+  if (!firebase.apps.length) firebase.initializeApp({
+    apiKey:["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
+    authDomain:'debateos-78ac5.firebaseapp.com',projectId:'debateos-78ac5',
+    appId:'1:860359449192:web:f5dc0060dbd50d6c4fb9dd'
+  });
+  var authReady=new Promise(function(resolve){
+    var off=firebase.auth().onAuthStateChanged(function(user){off();resolve(user);});
+  });
   var FORMATS = [['quick', 'Casual 1v1']];
   var MOTIONS = [
     'This House would ban targeted advertising to minors',
@@ -220,22 +232,6 @@ ul.plain{margin:10px 0 0;padding-left:18px;color:var(--dim);font-size:15px;line-
     return 'Private-' + out;
   }
 
-  function build(cfg, mySide){
-    var q = new URLSearchParams();
-    q.set('room', cfg.room);
-    q.set('motion', cfg.motion);
-    q.set('format', cfg.format);
-    q.set('pro', cfg.pro);
-    q.set('con', cfg.con);
-    q.set('mySide', mySide);
-    if (cfg.note) q.set('paradigm', cfg.note);
-    // Both links carry it: each client writes the round init, so a link
-    // without it would flip the round public on arrival.
-    q.set('private', '1');
-    q.set('source', 'private');
-    return location.origin + '/live-round?' + q.toString();
-  }
-
   function copy(text, el, done){
     if (navigator.clipboard && navigator.clipboard.writeText){
       navigator.clipboard.writeText(text).then(function(){
@@ -251,7 +247,7 @@ ul.plain{margin:10px 0 0;padding-left:18px;color:var(--dim);font-size:15px;line-
     $('motionIn').value = MOTIONS[Math.floor(Math.random() * MOTIONS.length)];
   });
 
-  $('makeBtn').addEventListener('click', function(){
+  async function makePrivateLinks(user){
     var motion = $('motionIn').value.trim();
     if (!motion){ say($('setupMsg'), 'Set a motion first, or roll a random one.', 'err'); return; }
     var me = $('meIn').value.trim() || 'You';
@@ -267,8 +263,19 @@ ul.plain{margin:10px 0 0;padding-left:18px;color:var(--dim);font-size:15px;line-
     };
     try { localStorage.setItem('debateos-display-name', me); } catch(e){}
 
-    var mine = build(cfg, mySide);
-    var theirs = build(cfg, mySide === 'pro' ? 'con' : 'pro');
+    $('makeBtn').disabled=true;
+    say($('setupMsg'),'Creating your private room…');
+    var result;
+    try {
+      result=await DBPrivateInvite.request(user,{action:'open',room:cfg.room,motion:cfg.motion,format:cfg.format,mySide:mySide,hostName:$('meIn').value.trim(),guestName:$('themIn').value.trim()});
+    } catch(e){
+      say($('setupMsg'),e.message || 'Could not create the room. Try again.','err');
+      $('makeBtn').disabled=false;return;
+    }
+    $('makeBtn').disabled=false;
+    var mine = location.origin + result.ownUrl;
+    var theirs = location.origin + result.inviteUrl;
+    if (cfg.note){var mineUrl=new URL(mine),theirUrl=new URL(theirs);mineUrl.searchParams.set('paradigm',cfg.note);theirUrl.searchParams.set('paradigm',cfg.note);mine=mineUrl.href;theirs=theirUrl.href;}
     $('meLink').textContent = mine;
     $('themLink').textContent = theirs;
     $('openMe').onclick = function(){ location.href = mine; };
@@ -285,6 +292,14 @@ ul.plain{margin:10px 0 0;padding-left:18px;color:var(--dim);font-size:15px;line-
     say($('setupMsg'), '');
     try { gtag('event', 'private_round_created', { format: cfg.format }); } catch(e){}
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  $('makeBtn').addEventListener('click',function(){
+    authReady.then(function(){
+      var user=firebase.auth().currentUser;
+      if(user && !user.isAnonymous)return makePrivateLinks(user);
+      if(window.openAuthModal)window.openAuthModal('signin',{liveVideo:true,headline:'Sign in to create a private round',onDone:function(signedIn){if(signedIn)makePrivateLinks(signedIn);}});
+      else say($('setupMsg'),'Sign-in is loading. Try again in a moment.','err');
+    });
   });
 
   $('againBtn').addEventListener('click', function(){

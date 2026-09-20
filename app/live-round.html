@@ -2,6 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<script>
+(function(){
+  // Remove the invitation before analytics and third-party assets load.
+  var url=new URL(location.href),room=url.searchParams.get('room')||'';
+  var fragment=new URLSearchParams(url.hash.slice(1));
+  var token=fragment.get('invite')||url.searchParams.get('invite');
+  if(!/^Private-/.test(room))return;
+  try{
+    if(/^[a-f0-9]{64}$/.test(token||''))sessionStorage.setItem('db-private-invite:'+room,token);
+    window.__dbPrivateInviteToken=sessionStorage.getItem('db-private-invite:'+room)||'';
+  }catch(e){window.__dbPrivateInviteToken=token||'';}
+  if(token){url.searchParams.delete('invite');if(fragment.has('invite'))url.hash='';history.replaceState(history.state,'',url.pathname+url.search+url.hash);}
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <script src="/js/native-bridge.js"></script>
 <script src="/js/public-identity.js"></script>
@@ -117,6 +131,7 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
 <script defer src="/js/cam-avatar.js"></script>
 <script src="/js/room-snapshot.js"></script>
 <script src="/js/live-journey.js"></script>
+<script src="/js/private-invite.js"></script>
 <script src="/js/room-teams.js"></script>
 <script src="/js/team-seats.js"></script>
 <script src="/js/conversation-finish.js"></script>
@@ -4898,6 +4913,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     isPrivate: true,
     room:   qs.get('room')   || ('Debatable-Round-' + Math.random().toString(36).slice(2,10)),
     source: qs.get('source') || '',
+    invite: window.__dbPrivateInviteToken || '',
     // Tournament key, set by /tournament's roomUrl. It is the ONLY way
     // back to the drop-in queue from here: this page knows nothing
     // about tournaments and the queue lives on that one. Slugs and doc
@@ -12275,6 +12291,10 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
 
   // ── Phase transitions
   function startRound(){
+    if (/^Private-/.test(state.room) && !isLiveVideoUser(state.user)){
+      showAuthGate();
+      return;
+    }
     // Motion is editable in the setup box (contenteditable). Read it
     // straight from there so a revised motion is what the round uses.
     if (!tournamentControlsLocked()) state.motion = ($('motionDisplay').textContent || '').trim();
@@ -12326,7 +12346,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     // Persist privacy and seats before issuing any video credential.
     Promise.resolve(publishRoundInit()).then(mountDaily).catch(function(e){
       console.warn('[Round sync] init failed', e);
-      setCallStatus('Could not save the round. Reload to reconnect.', 'closed');
+      setCallStatus(/^Private-/.test(state.room) && e && e.message ? e.message : 'Could not save the round. Reload to reconnect.', 'closed');
     });
     startJoinRequestHost();   // now a participant + room doc exists
     renderRound();
@@ -18284,9 +18304,12 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // Daily iframe replacing the popup, opening is implicit on Start.
   var copyBtn = $('copyRoomBtn');
   if (copyBtn) copyBtn.addEventListener('click', function(){
-    var url = location.href;
-    try { navigator.clipboard.writeText(url); toast('Page link copied, share it with your opponent.'); }
-    catch(e){ toast('Copy failed, link is: ' + url); }
+    var link = /^Private-/.test(state.room)
+      ? openPrivateRoundInvite().then(function(result){ return new URL(result.inviteUrl || result.ownUrl,location.origin).href; })
+      : Promise.resolve(location.href);
+    link.then(function(url){ return navigator.clipboard.writeText(url); })
+      .then(function(){ toast('Invite link copied. Send it to your opponent.'); })
+      .catch(function(e){ toast(e.message || 'Could not copy the invite. Try again.'); });
     try { gtag('event', 'live_round_page_link_copy'); } catch(e){}
   });
 
@@ -22311,9 +22334,10 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     // off only ?room=…). Only visitors with no seat claim adopt, and a
     // real participant's own uid matches one of the adopted values
     // anyway — so this can only flip genuine third parties into
-    // audience mode. Direct-entry rounds never write UIDs, so
-    // shared-URL opponents are untouched.
-    if (d.proUid && d.conUid && !state.proUid && !state.conUid && !prefill.mySide){
+    // audience mode. A private invitation can initially have only the
+    // host's UID; fill the complete roster when the other seat joins.
+    if (d.proUid && d.conUid && ((!state.proUid && !state.conUid && !prefill.mySide)
+        || (/^Private-/.test(state.room) && (!state.proUid || !state.conUid) && state.user && [d.proUid,d.conUid].indexOf(state.user.uid)!==-1))){
       state.proUid = d.proUid;
       state.conUid = d.conUid;
       if (isSpectator()) enterAudienceMode();
@@ -22848,8 +22872,25 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     }
   }
 
+  function openPrivateRoundInvite(){
+    if (state.privateInvitePromise) return state.privateInvitePromise;
+    var user=state.user;
+    var body={action:prefill.invite?'join':'open',room:state.room,invite:prefill.invite,
+      mySide:state.mySideHint || 'pro',motion:state.motion,format:state.formatKey,background:state.background};
+    state.privateInvitePromise=DBPrivateInvite.request(user,body).then(function(result){
+      if (!state.user || state.user.uid!==user.uid) throw new Error('Your account changed. Reload to join with your current account.');
+      state.proUid=result.proUid;state.conUid=result.conUid;state.mySideHint=result.mySide;
+      state.privateInviteReady=user.uid;
+      return result;
+    });
+    return state.privateInvitePromise.then(function(result){state.privateInvitePromise=null;return result;},function(error){state.privateInvitePromise=null;throw error;});
+  }
+
   function publishRoundInit(){
     if (isSpectator()) return; // spectators don't seed round state
+    if (/^Private-/.test(state.room) && state.privateInviteReady!==(state.user && state.user.uid)){
+      return openPrivateRoundInvite().then(publishRoundInit);
+    }
     var ref = getRoundDocRef();
     if (!ref) return;
     var payload = {
@@ -22904,7 +22945,12 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       return firebase.firestore().runTransaction(function(tx){
         return tx.get(ref).then(function(snap){
           var d = snap && snap.exists ? (snap.data() || {}) : null;
-          if (d) delete payload.isPrivate;
+          if (d){
+            delete payload.isPrivate;
+            delete payload.posterUid;
+            delete payload.posterName;
+            delete payload.createdAt;
+          }
           var live = d && (DBRoomTeams.enabled(d) || ((d.speechIdx | 0) > 0) || (d.speeches && d.speeches.length));
           if (live){
             var safe = {};
@@ -23400,9 +23446,17 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     renderUserChip();
     var googleBtn = $('signInGoogleBtn');
     if (googleBtn) googleBtn.addEventListener('click', doGoogleSignIn);
-    firebaseAuth.onAuthStateChanged(function(user){
+    function useRoundUser(user){
       state.user = user || null;
       if (user){
+        if (/^Private-/.test(state.room) && prefill.invite && state.privateInviteReady!==user.uid){
+          if (!isLiveVideoUser(user)){showAuthGate();renderUserChip();return;}
+          setCallStatus('Joining your private round…','waiting');
+          openPrivateRoundInvite().then(function(){if (state.user && state.user.uid===user.uid) useRoundUser(user);}).catch(function(e){
+            setCallStatus(e.message || 'Could not join this private round. Try again.','closed');
+          });
+          return;
+        }
         // A persisted anonymous uid, or a retired email-only account, is
         // still truthy. Do not let that truthiness reopen spectator mode.
         if (isSpectator() && !prefill.stage && !isLiveVideoUser(user)){
@@ -23505,7 +23559,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         else if (prefill.stage && !prefill.mySide) subscribeRound();
         else ensureGuestAuth().catch(function(){});
       }
-    });
+    }
+    firebaseAuth.onAuthStateChanged(useRoundUser);
   } else {
     // A missing auth SDK cannot become a side door into live video.
     // The stage renderer stays available because it is a non-person feed.
