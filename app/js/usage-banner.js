@@ -227,7 +227,7 @@
     const lede = document.createElement('p');
     lede.id = 'da-cap-description';
     lede.className = 'da-cap-lede';
-    lede.textContent = 'Individual gives you 250 requests every month, all 6 brains, and the tools to build the next case.';
+    lede.textContent = 'Individual includes 250 typed requests each month, six AI models, and case-writing tools.';
     content.appendChild(lede);
 
     const offer = document.createElement('div');
@@ -244,7 +244,7 @@
 
     const benefits = document.createElement('ul');
     benefits.className = 'da-cap-benefits';
-    ['250 requests each month', 'All 6 AI brains', 'Competition depth and memory'].forEach((text) => {
+    ['250 requests each month', 'Six AI models', 'Detailed feedback and saved context'].forEach((text) => {
       const item = document.createElement('li');
       const check = document.createElement('span');
       check.className = 'da-cap-check';

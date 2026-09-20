@@ -134,7 +134,7 @@
     sub.style.cssText = 'font-size:.72rem;opacity:.85;font-weight:500';
     sub.textContent = state === 'capped'
       ? 'Individual is $10 a year for 250 requests a month.'
-      : 'Keep rounds, ballots, and team access tied to your account.';
+      : 'Save your rounds, decisions, and team access to your account.';
     body.appendChild(title);
     body.appendChild(sub);
     card.appendChild(body);

@@ -27,54 +27,51 @@
   var FIRESTORE_SDK = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js';
   var VERSION = 4;
 
-  // Copy rule for this card (2026-09-05, Aidan: "more hysterical, not about
-  // formats of debate"): the jokes are about arguing as a human habit,
-  // never about debate formats, circuits, or jargon. The `v` values are
-  // load-bearing (audience-mode, matching, admin analytics) and must not
-  // change; only the words around them may.
+  // Keep answers literal: these values inform audience mode and matching.
+  // Copy may change, but stored `v` values must remain compatible.
   var STEPS = [
-    { key: 'debateExperience', title: 'Be honest. How often do you pick a fight?',
-      sub: 'Verbally. This is not a gym.',
+    { key: 'debateExperience', title: 'Have you debated before?',
+      sub: 'This helps us explain the round at the right level.',
       options: [
-        { v: 'competitive', label: 'Constantly. My family has a group chat about it' },
-        { v: 'new', label: 'Never. I am mostly here by accident' },
-        { v: 'unsure', label: 'Depends who started it' },
+        { v: 'competitive', label: 'I have competed in debates' },
+        { v: 'new', label: 'I am new to debate' },
+        { v: 'unsure', label: 'A little, informally' },
       ] },
     // Asked only of someone who does not compete. "New to debate" says how
     // much vocabulary to use; it does not say whether they want to be
     // taught any, and the two answers want opposite things from a word
     // like "warrant". `when` is what keeps it off a competitor's screen.
-    { key: 'debateIntent', title: 'What are we doing here?',
-      sub: 'No wrong answer. Well, one wrong answer.',
+    { key: 'debateIntent', title: 'What would you like to do?',
+      sub: 'Choose what interests you most.',
       when: function (a) { return a.debateExperience && a.debateExperience !== 'competitive' && !a.debateIntent; },
       options: [
-        { v: 'learn', label: 'Get braver at saying things out loud' },
-        { v: 'argue', label: 'Just let me at somebody' },
+        { v: 'learn', label: 'Learn to explain my ideas' },
+        { v: 'argue', label: 'Find someone to debate' },
       ] },
     { key: 'ageRange', title: 'How old are you, roughly?',
-      sub: 'So we never match a 14 year old with a random dad. Used for age-appropriate matching.',
+      sub: 'Used for age-appropriate matching.',
       options: [
         { v: '13-15', label: '13 to 15' },
         { v: '16-18', label: '16 to 18' },
         { v: '19-24', label: '19 to 24' },
-        { v: '25+', label: '25 or older. My back hurts' },
+        { v: '25+', label: '25 or older' },
         { v: 'na', label: 'Prefer not to say' },
       ] },
-    { key: 'role', title: 'Where does most of your arguing happen?',
+    { key: 'role', title: 'Which best describes you?',
       options: [
-        { v: 'hs_debater', label: 'High school hallways' },
-        { v: 'college_debater', label: 'College, usually at 2am' },
-        { v: 'coach', label: 'I coach or teach. Pray for me' },
-        { v: 'professional', label: 'Meetings. So many meetings' },
-        { v: 'new', label: 'The comments section, until now' },
+        { v: 'hs_debater', label: 'High school student' },
+        { v: 'college_debater', label: 'College student' },
+        { v: 'coach', label: 'Coach or teacher' },
+        { v: 'professional', label: 'Working professional' },
+        { v: 'new', label: 'None of these' },
       ] },
-    { key: 'source', title: 'Who is responsible for you being here?',
+    { key: 'source', title: 'How did you find Debatable?',
       options: [
-        { v: 'friend', label: 'A friend who owes me an apology' },
-        { v: 'coach_school', label: 'A coach or teacher made me' },
-        { v: 'search', label: 'I typed something weird into Google' },
-        { v: 'social', label: 'The algorithm knows too much' },
-        { v: 'other', label: 'Honestly, no idea' },
+        { v: 'friend', label: 'A friend' },
+        { v: 'coach_school', label: 'A coach or teacher' },
+        { v: 'search', label: 'Web search' },
+        { v: 'social', label: 'Social media' },
+        { v: 'other', label: 'Something else' },
       ] },
     // The face step. `kind:'profile'` is the one step that is not a chip
     // list, so renderStep() branches on it. It is LAST on purpose: the
