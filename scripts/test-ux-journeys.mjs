@@ -301,13 +301,11 @@ check(
     && landing.includes('function manual(dir)'),
   'landing steps the example rounds with on-tile arrows and no counter',
 );
-// 2026-09-03, the founder: "now add the 'watch' button". The first-screen
-// Watch doors are always rendered (no [hidden]); the poll only upgrades them.
+// Watch stays in the top menu, leaving the AI door beneath Meet someone.
 check(
-  (landing.match(/<a class="fs-cta fs-cta--ghost fs-cta--watch"[^>]* href="\/watch" data-fs-watch-live/g) || []).length === 1
-    && !/data-fs-watch-live[^>]*\shidden/.test(landing)
-    && landing.includes("b.classList.remove('is-live')"),
-  'landing keeps a Watch door beside Join a debate',
+  !/<a\b[^>]*data-cta="(?:first-screen-watch|mhome-watch)"/.test(landing)
+    && read('app/js/topbar.js').includes("{ href: '/watch',         label: 'Watch & clips', big: true }"),
+  'landing keeps Watch in the top menu instead of the action rows',
 );
 // 2026-09-03, the founder: the live-right-now count is one plain red line
 // with a blinking dot directly above the example board, not a pill in the
@@ -332,11 +330,9 @@ check(
     && !landing.includes('class="fs-live-now"'),
   'landing puts the live count above the example board as a plain red line',
 );
-// 2026-09-03, the founder's desktop sketch: the board leads, the three doors
-// sit under it (wide red Join a debate, then Watch and Debate the AI), and
-// the headline column is off the desktop first screen.
+// The board leads, with Meet someone and Debate the AI below it.
 check(
-  /<div class="fs-board" id="fsBoard"[^>]*>[\s\S]*?<div class="fs-actions">\s*<a class="fs-cta fs-cta--primary"[^>]* href="\/spar"[\s\S]*?<div class="fs-actions-row">[\s\S]*?fs-cta--watch[\s\S]*?<\/div><!-- \/\.fs-board-wrap -->/.test(landing)
+  /<div class="fs-board" id="fsBoard"[^>]*>[\s\S]*?<div class="fs-actions">\s*<a class="fs-cta fs-cta--primary"[^>]* href="\/spar"[\s\S]*?<div class="fs-actions-row">[\s\S]*?fs-cta--ai[\s\S]*?<\/div><!-- \/\.fs-board-wrap -->/.test(landing)
     && !landing.includes('<div class="fs-ctas">')
     && landing.includes('.fscreen-copy{display:none}')
     && !landing.includes('class="home-intro"')
@@ -347,7 +343,7 @@ check(
     && landing.includes('<link rel="stylesheet" href="/css/ai-invite.css">')
     && landing.includes('<script defer src="/js/ai-invite.js"></script>')
     && !landing.includes('mh-pitch'),
-  'homepage keeps live debate, Watch and the original animated AI invitation',
+  'homepage keeps live debate and the original animated AI invitation',
 );
 
 const topbar = read('app/js/topbar.js');

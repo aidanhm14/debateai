@@ -31,6 +31,8 @@ the newer layout adjusted around it.
 
 ## Index
 
+- [2026-09-20: homepage Watch buttons](2026-09-20-homepage-watch-buttons.md): duplicate desktop and mobile actions removed; Watch stays in the top menu.
+
 - [2026-09-20 — wordy discovery pages](2026-09-20-wordy-discovery-pages.md): Topics, How it works, and topic generator before the action-first redesign.
 
 - [2026-09-20: Debate online long page](2026-09-20-debate-online-long-page.md): demonstrations, FAQ and extra navigation replaced by a single screen and Meet someone.
