@@ -44,6 +44,8 @@
    Read them against each other, and against organic dwell. */
 (function () {
   'use strict';
+  // The single-action entry page leaves all account choices to /spar.
+  if (document.documentElement.dataset.entry === 'meet') return;
   if (window.__ditSigninWall) return;
   window.__ditSigninWall = true;
   if (window.__DB_NATIVE) return;

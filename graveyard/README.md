@@ -31,6 +31,8 @@ the newer layout adjusted around it.
 
 ## Index
 
+- [2026-09-20: Debate online long page](2026-09-20-debate-online-long-page.md): demonstrations, FAQ and extra navigation replaced by a single screen and Meet someone.
+
 - [2026-09-14 — AI button audio](2026-09-14-ai-button-audio.md): recorded hover and automatic invitations with a floating caption, replaced by a silent moving line inside the button.
 
 - [2026-09-13 — added homepage introduction](2026-09-13-home-intro.md): removed the added headline and tagline above the existing board and actions.

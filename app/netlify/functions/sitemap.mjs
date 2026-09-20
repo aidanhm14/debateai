@@ -85,7 +85,7 @@ const URLS = [
   { path: '/champions',       changefreq: 'weekly',  priority: '0.80' },
   // /debate-an-ai now redirects to /practice, which is listed above.
   // Submit only the canonical destination of each acquisition page.
-  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-09-13' },
+  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-09-20' },
   // Politics acquisition cluster. /political-debate is the product-intent
   // landing page; /political-debate-topics is the distinct browsable index.
   // /contested was delisted as a 142-word shell on 2026-08-24 and returns

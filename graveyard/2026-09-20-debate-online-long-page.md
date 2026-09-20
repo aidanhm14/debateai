@@ -1,0 +1,991 @@
+# Debate online: the long landing page
+
+Removed from `app/debate-online.html` on 2026-09-20.
+
+Aidan asked for “an incredibly simple page that animates the 'meet someone' button”, with no explanation and no scrolling. The old demonstrations, explanations, FAQ, activity strip, navigation and styles are preserved below. They are not served.
+
+To restore a section, take its markup and matching CSS from this snapshot. Do not restore the page wholesale: the new page has a standalone viewport layout, current metadata and one route to `/spar`. Reconcile sign-in, private-round and public-copy policies before restoring old descriptions or FAQ schema.
+
+## Previous page
+
+```html
+<!DOCTYPE html>
+<html lang="en" data-lightweb="web">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script src="/js/native-bridge.js"></script>
+<title>Debate Online and Climb the Leaderboard | Debatable</title>
+<meta name="description" content="Watch live arguments or take a seat against a real person. Get a written decision, earn a rating, and climb Debatable's public leaderboard." />
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="canonical" href="https://itsdebatable.com/debate-online">
+<link rel="alternate" hreflang="en" href="https://itsdebatable.com/debate-online">
+<link rel="alternate" hreflang="x-default" href="https://itsdebatable.com/debate-online">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://itsdebatable.com/debate-online">
+<meta property="og:title" content="Debate Online and Climb the Leaderboard | Debatable">
+<meta property="og:description" content="Debate real people online, get scored, climb the public leaderboard, and compete in cash prize events.">
+<meta property="og:image" content="https://itsdebatable.com/og-image.png?v=floor1">
+<meta property="og:image:alt" content="Debatable online debate platform">
+<meta property="og:site_name" content="Debatable">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Debate Online and Climb the Leaderboard | Debatable">
+<meta name="twitter:description" content="Debate real people online, get scored, climb the public leaderboard, and compete in cash prize events.">
+<meta name="twitter:image" content="https://itsdebatable.com/og-image.png?v=floor1">
+<meta name="twitter:image:alt" content="Debatable online debate platform">
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0V4R5MY3BT"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-0V4R5MY3BT');</script>
+
+
+
+<script>
+/* Theme: honor the visitor's saved `da-theme` so the sitewide dark
+   toggle reaches this page. Light stays the default for anyone who has
+   not picked. Runs before first paint, so neither theme flashes. This
+   page carries a full dual palette (dark tokens at :root, light
+   override under [data-theme="light"]), which is why it no longer
+   pins itself with data-force-theme. */
+(function(){
+  var t = 'light';
+  try { t = localStorage.getItem('da-theme') || 'light'; } catch(e){}
+  if (t !== 'light') t = 'crimson';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-lighting', t === 'light' ? 'light' : 'dark');
+})();
+</script>
+
+<link rel="stylesheet" href="/css/ui.css">
+<style>
+/* 2026-08-24: a short, self-contained answer to "where can I debate
+   online" placed high in the raw HTML. AI answer engines quote passages,
+   not pages, so this block states the four ways to debate online and
+   names who does which, in one place, without JavaScript. */
+.answer-band{margin:26px 0;padding:20px 22px;border:1px solid var(--border,rgba(128,128,140,.28));border-radius:16px;background:var(--surf-1,rgba(128,128,140,.06))}
+.answer-band h2{font-size:1.15rem;margin:0 0 8px}
+.answer-band p{margin:0 0 10px;line-height:1.65}
+.answer-band p:last-child{margin-bottom:0}
+.answer-band .ab-links{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:.9rem;font-weight:600}
+.hero-ctas .btn-secondary{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;box-sizing:border-box;min-height:64px;padding:18px 24px;border:2px solid var(--text,#202020);border-radius:18px;font-size:17px;font-weight:800;text-decoration:none}
+.hero-ctas .btn-secondary:hover{background:rgba(127,127,127,.08);text-decoration:none}
+</style>
+
+<style>
+/* ── Neural constellation on this surface (2026-08-18 sitewide sweep;
+   same recipe as /pricing and /schools, per the founder: "it adds a nice
+   depth"). The shared canvas is position:fixed; painted late at
+   z-index 0 it would sit ON TOP of static content, so the page
+   background moves to <html>, <body> goes transparent, and the canvas
+   drops to z-index -1: behind every element, in front of the paper.
+   Dark themes keep ui.css's own opacity; only the light arm is lifted,
+   because red-on-cream at .45 is close to invisible. */
+html[data-lightweb="web"]{background:var(--bg)}
+html[data-lightweb="web"] body{background:transparent}
+html[data-lightweb="web"] .ui-neural-canvas{z-index:-1}
+html[data-lightweb="web"][data-theme="light"] .ui-neural-canvas{opacity:1}
+html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root,[data-theme="grey"]{
+  --deep-red:#fca5a5;
+  /* Paper literals from the light-only era, restated for dark. */
+  --surf-1:#191920;--surf-rgb-2:25,25,32;--surf-rgb-3:25,25,32;--surf-4:#141419;--surf-5:#191920;--surf-6:#141419;--surf-7:#141419;--ink-rgb:232,232,240;
+
+  --bg:#0a0a0c;--bg-elev:#101014;--bg-card:#15151a;
+  --border:rgba(255,255,255,.18);--border-strong:rgba(255,255,255,.32);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.4);
+  --green:#22c55e;
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(255,255,255,.68);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.55);
+}
+[data-theme="crimson"]{
+  --bg:#000;--bg-elev:#0c0306;--bg-card:#13070a;
+  --border:rgba(239,68,68,.22);--border-strong:rgba(239,68,68,.45);
+  --accent:#ef4444;--accent-glow:rgba(239,68,68,.55);
+  --green:#22c55e;
+  --text:#fff;--text-dim:rgba(255,255,255,.85);--text-ghost:rgba(255,255,255,.68);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.6);
+}
+[data-theme="light"]{
+  --deep-red:#541212;
+  --surf-1:#fff;--surf-rgb-2:255,255,255;--surf-rgb-3:248,247,243;--surf-4:#ecece8;--surf-5:#f8f8f4;--surf-6:#ecece7;--surf-7:#fff0f0;--ink-rgb:20,20,30;
+
+  --bg:#fafaf7;--bg-elev:#fff;--bg-card:#fff;
+  --border:rgba(0,0,0,.10);--border-strong:rgba(0,0,0,.22);
+  --accent:#b91c1c;--accent-glow:rgba(220,38,38,.22);
+  --green:#166534;
+  --text:#1a1a1f;--text-dim:rgba(0,0,0,.7);--text-ghost:rgba(0,0,0,.64);
+  --shadow-lg:0 18px 60px rgba(0,0,0,.10);
+}
+body{
+  font-family:'Archivo','Fraunces',Georgia,"Times New Roman",serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;display:flex;flex-direction:column;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+main{flex:1}
+/* Top padding clears the fixed .ui-topbar (52px). */
+.wrap{max-width:1160px;margin:0 auto;padding:76px 22px 80px}
+@media (max-width:880px){.wrap{padding-top:86px}}
+
+.eyebrow{
+  display:inline-flex;align-items:center;gap:9px;
+  font-size:.76rem;font-weight:600;letter-spacing:.005em;
+  color:var(--text-ghost);margin-bottom:22px;
+}
+.eyebrow .pip{width:6px;height:6px;border-radius:50%;background:var(--green);flex:none}
+@keyframes pulse{0%,100%{opacity:.55;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+
+/* ── One-decision hero ───────────────────────────── */
+.hero{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(330px,.78fr);align-items:center;gap:52px;padding:24px 0 42px}
+.hero-copy{min-width:0}
+/* One-decision means ONE big door (the founder, 2026-08-22: too many
+   equal options for first-timers; this page wins "debate omegle" so
+   the stranger round must be unmissable). Primary is a large block,
+   the AI option is a text link, Google keeps its quieter white row. */
+.hero-ctas{
+  display:flex;flex-direction:column;align-items:flex-start;gap:14px;
+  margin:0 0 18px;
+}
+.btn-primary{
+  display:flex;align-items:center;gap:16px;width:100%;
+  min-height:88px;padding:20px 26px;border-radius:18px;
+  font-size:1rem;font-weight:750;letter-spacing:-.003em;
+  text-decoration:none;cursor:pointer;
+  transition:transform .15s,box-shadow .15s,background .15s,border-color .15s,color .15s;
+}
+.btn-primary{
+  background:var(--accent-solid,#b91c1c);color:#fff;
+  box-shadow:0 18px 42px -14px var(--accent-glow);
+}
+.btn-primary:hover{
+  background:#dc2626;
+  transform:translateY(-1px);
+  box-shadow:0 24px 50px -14px var(--accent-glow);
+}
+.btn-primary-copy{display:grid;gap:3px;min-width:0}
+.btn-primary-kicker{font-size:.82rem;line-height:1.15;font-weight:550;letter-spacing:.005em;color:rgba(255,255,255,.85)}
+.btn-primary-title{font-family:DM Sans,Archivo,Georgia,serif;font-size:1.42rem;line-height:1.15;font-weight:800;letter-spacing:-.018em}
+.btn-primary-arrow{margin-left:auto;font-size:2rem;line-height:1;transition:transform .15s}
+.btn-primary:hover .btn-primary-arrow{transform:translateX(4px)}
+/* 2026-08-22: the page had no sign-in control at all, while taking ~62%
+   of the site's organic clicks. Google now leads the hero. It is NOT a
+   wall: the button signs you in and drops you straight into /spar, so it
+   is the fast lane into the round rather than a gate in front of it, and
+   the guest path stays one line below it. */
+.btn-google{
+  display:flex;align-items:center;gap:14px;width:100%;
+  min-height:62px;padding:14px 22px;border-radius:14px;
+  border:1px solid var(--border-strong);background:var(--surf-0,#fff);color:var(--text);
+  font-size:1rem;font-weight:750;letter-spacing:-.003em;
+  text-decoration:none;cursor:pointer;text-align:left;
+  box-shadow:0 10px 26px -20px rgba(20,20,30,.45);
+  transition:transform .15s,box-shadow .15s,border-color .15s,background .15s;
+}
+.btn-google:hover{transform:translateY(-1px);border-color:rgba(220,38,38,.45);
+  box-shadow:0 16px 30px -20px rgba(20,20,30,.5)}
+.btn-google-mark{flex:none;width:26px;height:26px;display:block}
+.btn-google-copy{display:grid;gap:2px;min-width:0}
+.btn-google-kicker{font-size:.7rem;line-height:1.1;font-weight:500;letter-spacing:.005em;color:var(--text-ghost)}
+.btn-google-title{font-family:DM Sans,Archivo,Georgia,serif;font-size:1.08rem;line-height:1.2;font-weight:750;letter-spacing:-.014em}
+.btn-google-arrow{margin-left:auto;font-size:1.5rem;line-height:1;transition:transform .15s;color:var(--text-dim)}
+.btn-google:hover .btn-google-arrow{transform:translateX(4px)}
+.hero-guest{margin:0 0 16px;font-size:.88rem;color:var(--text-dim)}
+.hero-guest a{color:var(--text);text-decoration:underline;text-decoration-color:var(--border-strong);text-underline-offset:3px;font-weight:650}
+.end-cta-google{display:inline-flex;align-items:center;gap:10px;background:#fff;color:#1f2328;border:1px solid rgba(20,20,30,.18)}
+.end-cta-google .btn-google-mark{width:20px;height:20px}
+.btn-secondary{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:2px 0;border:none;background:transparent;color:var(--text-dim);
+  font-size:.92rem;font-weight:650;letter-spacing:-.003em;
+  text-decoration:underline;text-underline-offset:4px;
+  text-decoration-color:var(--border-strong);cursor:pointer;
+  transition:color .15s,text-decoration-color .15s;
+}
+.btn-secondary:hover{
+  color:var(--accent);text-decoration-color:var(--accent);
+}
+.btn-live-dot{
+  width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.92);flex:none;
+  animation:pulse 2s ease-in-out infinite;
+}
+.hero-note{margin:14px 0 0;font-size:.84rem;color:var(--text-ghost);max-width:560px}
+.hero-note a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.hero-proof{display:flex;flex-wrap:wrap;gap:6px 26px;list-style:none;margin:0;padding:0;color:var(--text-ghost)}
+.hero-proof li{font-size:.84rem;font-weight:500;letter-spacing:.01em}
+.hero-shot{margin:0;position:relative;min-width:0}
+.hero-shot-media{position:relative;z-index:1;overflow:hidden;border-radius:16px;border:1px solid var(--border);background:rgba(var(--surf-rgb-2),.6)}
+.hero-shot figcaption{position:relative;z-index:2;display:flex;align-items:center;gap:8px;margin:12px 2px 0;font-size:.78rem;color:var(--text-ghost)}
+.human-live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(22,163,74,.1)}
+
+/* ── Face-wall hero ─────────────────────────────────
+   Many small tiles, deliberately too small to study one by one:
+   the effect is a crowd of people, not a portrait gallery. A red
+   ring pair rotates through the wall so it reads as rounds. */
+.face-wall{padding:12px;color:var(--text);isolation:isolate}
+.face-wall-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.round-live{display:flex;align-items:center;gap:7px;font-size:.74rem;font-weight:600;letter-spacing:.005em;color:var(--text-ghost)}
+.round-live .human-live-dot{background:#35d472;box-shadow:0 0 0 4px rgba(53,212,114,.1)}
+.face-wall-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.face-tile{position:relative;aspect-ratio:1/1;overflow:hidden;border-radius:9px;border:1px solid rgba(var(--ink-rgb),.12);background:var(--surf-4)}
+.face-tile img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.85)}
+.face-tile::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.2),transparent 55%);pointer-events:none}
+.face-tile.in-round{border-color:rgba(220,38,38,.65);box-shadow:0 0 0 2px rgba(220,38,38,.28)}
+.face-tile.in-round img{filter:saturate(1)}
+.face-side{position:absolute;z-index:1;left:4px;bottom:4px;padding:2px 6px;border-radius:999px;background:rgba(0,0,0,.72);font-size:.55rem;font-weight:700;letter-spacing:.03em;color:#fff;opacity:0;transition:opacity .25s}
+.face-tile.in-round .face-side{opacity:1}
+@media(prefers-reduced-motion:reduce){
+  .face-side{transition:none}
+}
+
+h1{font-size:clamp(2.5rem,5.4vw,3.85rem);font-family:DM Sans,Archivo,Georgia,serif;font-weight:700;letter-spacing:-.028em;line-height:1.04;margin-bottom:18px;color:var(--text)}
+h1 em{color:var(--text);font-style:normal}
+.lede{font-size:1.08rem;color:var(--text-dim);line-height:1.6;max-width:660px;margin-bottom:26px;font-weight:450}
+
+@media(max-width:920px){
+  .hero{grid-template-columns:1fr;gap:30px}
+  .hero-shot{max-width:650px}
+}
+
+h2{font-size:clamp(1.35rem,2.5vw,1.75rem);font-family:DM Sans,Archivo,Georgia,serif;font-weight:600;letter-spacing:-.018em;line-height:1.2;margin:64px 0 14px;color:var(--text)}
+h3{font-size:1.05rem;font-weight:800;color:var(--text);margin:0 0 6px}
+
+p{font-size:.98rem;color:var(--text-dim);line-height:1.6;margin-bottom:14px;max-width:760px}
+p a{color:var(--accent);text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
+p.muted{color:var(--text-ghost);font-size:.86rem}
+
+/* ── Path cards (top of fold) ─────────────────────────── */
+.paths{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:8px 0 24px}
+.path{
+  display:flex;flex-direction:column;gap:8px;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:16px;
+  padding:20px 18px 18px;color:inherit;text-decoration:none;
+  transition:border-color .15s,transform .15s,box-shadow .15s;
+}
+.path:hover{border-color:var(--border-strong);transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+[data-theme="light"] .path:hover{box-shadow:0 18px 50px -10px rgba(0,0,0,.18)}
+.path .icon{
+  display:inline-flex;align-items:center;gap:8px;align-self:flex-start;
+  font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent);
+  padding:5px 11px;border-radius:999px;
+  background:rgba(239,68,68,.08);
+  border:1px solid rgba(239,68,68,.22);
+}
+/* Card visuals: mini round tiles / AI orb / avatar cluster. Faces come
+   from the shared /img/round/faces bank (same as landing + /spar +
+   /debate-strangers). Decorative — every .path-viz is aria-hidden. */
+.path-viz{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:-4px 0 6px}
+.pv-tile{
+  position:relative;aspect-ratio:16/10;border-radius:10px;overflow:hidden;
+  background:rgba(20,20,30,.06);border:1px solid rgba(var(--ink-rgb),.10);
+}
+.pv-tile img{width:100%;height:100%;object-fit:cover;display:block}
+.pv-tile--speaking{border-color:rgba(220,38,38,.5);box-shadow:0 0 0 2px rgba(220,38,38,.16)}
+.pv-tile--ai{display:flex;align-items:center;justify-content:center;background:#101014}
+.pv-orb{
+  width:34%;aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle at 34% 30%,#ff8a8a,#ef4444 55%,#7f1d1d);
+  box-shadow:0 0 22px rgba(239,68,68,.55);
+  animation:pulse 1.8s ease-in-out infinite;
+}
+.path-viz--cluster{display:flex;align-items:center;gap:0;margin:-2px 0 6px}
+.pv-head{
+  width:44px;height:44px;border-radius:50%;overflow:hidden;flex:none;
+  border:2px solid #fff;box-shadow:0 1px 4px rgba(20,20,30,.18);
+}
+.pv-head img{width:100%;height:100%;object-fit:cover;display:block}
+.path-viz--cluster .pv-head+.pv-head{margin-left:-12px}
+.pv-cluster-note{
+  margin-left:10px;font-size:.66rem;font-weight:800;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--text-ghost);
+}
+.round-photo{margin:22px 0 6px;max-width:680px}
+.round-photo img{
+  width:100%;display:block;border-radius:14px;
+  border:1px solid var(--border);
+}
+.round-photo figcaption{margin-top:9px;font-size:.8rem;color:var(--text-ghost)}
+.path h3{font-size:1.12rem;font-weight:800;letter-spacing:-.012em;line-height:1.2;margin-top:4px}
+.path p{font-size:.86rem;color:var(--text-dim);margin:0;line-height:1.5}
+.path .meta{font-size:.72rem;color:var(--text-ghost);margin-top:6px;letter-spacing:.005em}
+.path-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  margin-top:auto;padding:10px 16px;border-radius:10px;
+  background:rgba(239,68,68,.08);color:var(--accent);
+  font-size:.82rem;font-weight:800;letter-spacing:.005em;
+  border:1px solid rgba(239,68,68,.22);
+  align-self:flex-start;
+  transition:background .15s,border-color .15s,transform .15s;
+}
+.path:hover .path-btn{
+  background:rgba(239,68,68,.16);
+  border-color:rgba(239,68,68,.4);
+  transform:translateX(3px);
+}
+[data-theme="light"] .path-btn{
+  background:rgba(220,38,38,.06);
+  border-color:rgba(220,38,38,.18);
+  color:var(--accent);
+}
+[data-theme="light"] .path:hover .path-btn{
+  background:rgba(220,38,38,.12);
+  border-color:rgba(220,38,38,.32);
+}
+
+@media(max-width:760px){.paths{grid-template-columns:1fr}}
+
+/* ── Secondary routes ─────────────────────────────── */
+.other-routes{padding:28px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.other-routes-label{margin:0 0 7px;font-family:DM Sans,Archivo,Georgia,serif;font-size:clamp(1.35rem,2.6vw,1.75rem);font-weight:650;letter-spacing:-.018em;line-height:1.15;color:var(--text)}
+.other-routes-intro{max-width:760px;margin:0 0 15px;font-size:.92rem;color:var(--text-dim)}
+.other-route-links{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.other-route{
+  display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:13px;
+  min-height:74px;padding:13px 16px;border:1px solid var(--border);border-radius:13px;
+  background:transparent;
+  transition:border-color .15s,transform .15s,box-shadow .15s;
+}
+.other-route:hover{border-color:var(--border-strong);background:rgba(var(--ink-rgb),.02)}
+.route-icon{
+  display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;
+  border:1px solid var(--border);color:var(--text-ghost);font-family:DM Sans,Archivo,Georgia,serif;font-size:.68rem;font-weight:700;letter-spacing:.04em;
+}
+.other-route strong{display:block;font-size:.98rem;line-height:1.2;color:var(--text)}
+.other-route small{display:block;margin-top:4px;font-size:.76rem;line-height:1.25;color:var(--text-ghost)}
+.route-arrow{font-size:1.15rem;color:var(--accent);transition:transform .15s}
+.other-route:hover .route-arrow{transform:translateX(3px)}
+
+/* ── General Clash + interruption story ─────────────── */
+.clash-feature{
+  display:grid;grid-template-columns:minmax(0,1.02fr) minmax(330px,.98fr);gap:34px;align-items:center;
+  margin:64px 0 18px;padding:clamp(26px,4vw,44px);border-radius:20px;overflow:hidden;
+  background:var(--surf-1);color:var(--text);border:1px solid var(--border);
+}
+.clash-kicker,.leaderboard-kicker{display:block;font-family:DM Sans,Archivo,Georgia,serif;font-size:.8rem;font-weight:600;letter-spacing:.005em;color:var(--text-ghost)}
+.clash-feature h2{margin:8px 0 14px;color:var(--text);font-size:clamp(1.6rem,3vw,2.2rem)}
+.clash-feature p{color:var(--text-dim);font-size:.98rem;line-height:1.6;margin-bottom:12px}
+.clash-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:22px}
+.clash-btn,.leaderboard-btn{
+  display:inline-flex;align-items:center;gap:9px;padding:13px 19px;border-radius:11px;
+  background:var(--accent-solid,#b91c1c);color:#fff;font-size:.9rem;font-weight:750;
+  transition:transform .15s,background .15s;
+}
+.clash-btn:hover,.leaderboard-btn:hover{background:#ef4444;transform:translateY(-1px)}
+.clash-flow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-family:DM Sans,Archivo,Georgia,serif;font-size:.7rem;font-weight:600;color:var(--text-ghost)}
+.clash-flow span{padding:5px 9px;border:1px solid var(--border);border-radius:999px}
+.interrupt-demo{padding:22px;border-radius:16px;background:var(--surf-5);color:var(--text);border:1px solid var(--border)}
+.demo-label{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;font-family:DM Sans,Archivo,Georgia,serif;font-size:.74rem;font-weight:600;letter-spacing:.005em;color:var(--text-ghost)}
+.demo-label span:last-child{color:var(--green)}
+.demo-line{position:relative;margin:0;padding:13px 15px;border-radius:12px;font-family:DM Sans,Archivo,Georgia,serif;font-size:.82rem;line-height:1.45}
+.demo-line strong{display:block;margin-bottom:3px;font-size:.58rem;letter-spacing:.13em;text-transform:uppercase}
+.clash-feature .demo-line--ai{background:var(--surf-6);color:rgba(var(--ink-rgb),.72)}
+.clash-feature .demo-line--you{margin-top:6px;background:var(--surf-7);border:1px solid rgba(220,38,38,.18);color:var(--deep-red)}
+.demo-cut{display:flex;align-items:center;gap:9px;margin:9px 0;color:var(--text-ghost);font-family:DM Sans,Archivo,Georgia,serif;font-size:.72rem;font-weight:600;letter-spacing:.005em}
+.demo-cut::before,.demo-cut::after{content:'';height:1px;flex:1;background:var(--border)}
+.clash-feature .demo-captured{margin:16px 0 0;padding-top:13px;border-top:1px solid var(--border);font-family:DM Sans,Archivo,Georgia,serif;font-size:.74rem;color:var(--text-ghost);text-align:center}
+
+/* ── Leaderboard handoff ─────────────────────────── */
+.leaderboard-band{display:grid;grid-template-columns:minmax(260px,.82fr) minmax(0,1.18fr);margin:18px 0 42px;border:1px solid var(--border);border-radius:20px;overflow:hidden;background:transparent}
+.leaderboard-visual{min-height:270px;overflow:hidden;background:#201b19}
+.leaderboard-visual img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+.leaderboard-copy{padding:clamp(24px,4vw,42px);align-self:center}
+.leaderboard-copy h2{margin:8px 0 12px;font-size:clamp(1.55rem,2.8vw,2.05rem)}
+.leaderboard-copy p{margin-bottom:17px;font-size:.98rem}
+.rank-flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 20px;font-family:DM Sans,Archivo,Georgia,serif;font-size:.66rem;font-weight:750;color:var(--text-ghost)}
+.rank-flow span{padding:6px 9px;border-radius:999px;background:rgba(20,20,30,.05);border:1px solid rgba(var(--ink-rgb),.07)}
+.leaderboard-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.leaderboard-ghost{
+  display:inline-flex;align-items:center;gap:8px;padding:13px 19px;border-radius:11px;
+  border:1px solid var(--border);background:transparent;color:var(--text);
+  font-size:.9rem;font-weight:700;
+  transition:border-color .15s,transform .15s;
+}
+.leaderboard-ghost:hover{border-color:rgba(220,38,38,.38);transform:translateY(-1px)}
+.leaderboard-band--lead{margin:0 0 18px}
+
+/* ── Sample ballot card ───────────────────────────── */
+.ballot-card{
+  max-width:620px;margin:18px 0 12px;padding:20px 22px;
+  background:transparent;border:1px solid var(--border);border-radius:16px;
+  font-family:DM Sans,Archivo,Georgia,serif;
+}
+.ballot-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;
+  font-size:.74rem;font-weight:600;letter-spacing:.005em;color:var(--text-ghost);
+}
+.ballot-win{
+  padding:4px 10px;border-radius:999px;font-weight:700;
+  background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.28);color:var(--green);
+}
+.ballot-motion{
+  font-family:DM Sans,Archivo,Georgia,serif;font-size:1.08rem;font-weight:600;letter-spacing:-.01em;
+  color:var(--text);margin-bottom:12px;max-width:none;
+}
+.ballot-rfd{font-size:.84rem;line-height:1.5;color:rgba(var(--ink-rgb),.72);margin-bottom:14px;max-width:none}
+.ballot-rfd strong,.ballot-drill strong{
+  display:block;margin-bottom:4px;font-size:.58rem;font-weight:800;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--accent);
+}
+.ballot-points{
+  display:flex;gap:22px;padding:11px 0;margin-bottom:13px;
+  border-top:1px solid rgba(var(--ink-rgb),.08);border-bottom:1px solid rgba(var(--ink-rgb),.08);
+  font-size:.72rem;color:rgba(var(--ink-rgb),.64);
+}
+.ballot-points b{font-size:1.05rem;font-weight:800;color:var(--text);margin-right:6px}
+.ballot-drill{font-size:.84rem;line-height:1.5;color:rgba(var(--ink-rgb),.72);margin:0;max-width:none}
+
+/* ── Human proof section ───────────────────────────── */
+.human-proof{
+  display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);
+  gap:0;align-items:stretch;margin:64px 0 8px;
+  overflow:hidden;border:1px solid var(--border);border-radius:20px;background:transparent;
+}
+.human-proof>*{min-width:0}
+.human-proof-copy{display:flex;flex-direction:column;justify-content:center;padding:clamp(30px,4.5vw,50px)}
+.proof-kicker{
+  margin-bottom:10px;color:var(--text-ghost);font-family:DM Sans,Archivo,Georgia,serif;
+  font-size:.8rem;font-weight:600;letter-spacing:.005em;
+}
+.human-proof h2{margin:0 0 14px;font-size:clamp(1.55rem,2.8vw,2.05rem)}
+.human-proof p{max-width:560px}
+.proof-link{
+  display:inline-flex;align-items:center;gap:8px;align-self:flex-start;margin-top:7px;
+  color:var(--accent);font-family:DM Sans,Archivo,Georgia,serif;font-size:.86rem;font-weight:700;
+  text-decoration:none;
+}
+.proof-link:hover{text-decoration:underline;text-underline-offset:4px}
+.human-proof .round-photo{
+  position:relative;margin:0;max-width:none;min-width:0;min-height:340px;
+  overflow:hidden;background:#d9d5ce;
+}
+.human-proof .round-photo img{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 66%;
+  border:0;border-radius:0;box-shadow:none;
+}
+.human-proof .round-photo figcaption{
+  position:absolute;z-index:1;left:18px;right:18px;bottom:16px;margin:0;
+  padding:10px 12px;border:1px solid rgba(255,255,255,.65);border-radius:10px;
+  background:rgba(var(--surf-rgb-2),.9);box-shadow:0 10px 30px -20px rgba(20,20,30,.5);
+  color:rgba(var(--ink-rgb),.67);font-family:DM Sans,Archivo,Georgia,serif;font-size:.7rem;font-weight:650;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+}
+
+@media(max-width:920px){
+  .clash-feature,.leaderboard-band,.human-proof{grid-template-columns:1fr}
+  .interrupt-demo{transform:none}
+  .leaderboard-visual{max-height:420px}
+  .human-proof .round-photo{min-height:0;aspect-ratio:16/10}
+}
+
+@media(max-width:680px){
+  .hero{padding-top:8px}
+  .hero-ctas{gap:12px}
+  .btn-primary{min-height:76px;padding:16px 20px;gap:12px}
+  .btn-primary-title{font-size:1.22rem}
+  .btn-primary-arrow{font-size:1.7rem}
+  .hero-proof{gap:5px 18px}
+  .other-route-links{grid-template-columns:1fr}
+  .clash-feature{margin-top:34px;padding:24px 18px}
+  .leaderboard-visual{min-height:220px;max-height:280px}
+  .human-proof{gap:0}
+  .human-proof-copy{padding:28px 22px}
+  .human-proof .round-photo{aspect-ratio:4/3}
+  .human-proof .round-photo figcaption{left:12px;right:12px;bottom:12px}
+}
+
+/* ── Format coverage list ─────────────────────────────── */
+.fmt-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px 14px;
+  list-style:none;padding:0;margin:14px 0 28px;
+}
+.fmt-grid li{
+  font-size:.88rem;color:var(--text-dim);line-height:1.45;padding-left:16px;position:relative;
+}
+.fmt-grid li::before{content:'';position:absolute;left:0;top:.55em;width:8px;height:1px;background:var(--accent)}
+.fmt-grid li strong{color:var(--text);font-weight:700}
+.fmt-grid li strong a{color:inherit;text-decoration:underline;text-decoration-color:rgba(239,68,68,.45);text-underline-offset:3px}
+.fmt-grid li strong a:hover{text-decoration-color:var(--accent)}
+.fmt-grid .fmt-featured{grid-column:span 2;padding:12px 14px 12px 16px;border:1px solid var(--border);border-radius:12px}
+.fmt-grid .fmt-featured::before{display:none}
+.fmt-alias{display:inline-block;margin:0 5px;padding:2px 7px;border-radius:999px;border:1px solid var(--border);font-family:DM Sans,Archivo,Georgia,serif;font-size:.66rem;font-weight:600;letter-spacing:.02em;color:var(--text-ghost)}
+.fmt-start{margin-left:5px;color:var(--accent);font-weight:800;text-decoration:none}
+.fmt-start:hover{text-decoration:underline;text-underline-offset:3px}
+@media(max-width:680px){.fmt-grid .fmt-featured{grid-column:span 1}}
+
+.formats-more{margin:-6px 0 34px;border:1px solid var(--border);border-radius:14px;background:transparent;overflow:hidden}
+.formats-more summary{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 17px;cursor:pointer;list-style:none;color:var(--text);font-size:.9rem;font-weight:650}
+.formats-more summary::-webkit-details-marker{display:none}
+.formats-more summary::after{content:'+';font-size:1.35rem;font-weight:400;color:var(--accent)}
+.formats-more[open] summary::after{content:'×'}
+.formats-more .fmt-grid{margin:0;padding:16px 17px 18px;border-top:1px solid var(--border)}
+
+/* ── FAQ ──────────────────────────────────────────────── */
+.faq{margin-top:14px;display:flex;flex-direction:column;gap:10px}
+.faq details{
+  background:transparent;border:1px solid var(--border);border-radius:12px;padding:14px 18px;
+}
+.faq summary{
+  cursor:pointer;font-weight:650;font-size:.95rem;color:var(--text);list-style:none;
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:'+';font-size:1.4rem;font-weight:400;color:var(--text-ghost);transition:transform .2s}
+.faq details[open] summary::after{content:'×'}
+.faq details p{margin:10px 0 0;font-size:.9rem;color:var(--text-dim);line-height:1.55}
+.faq details p a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+
+/* ── Cross-links chip row ─────────────────────────────── */
+.cross-links{margin-top:24px;display:flex;flex-wrap:wrap;gap:10px}
+.cross-links a{
+  font-size:.82rem;font-weight:700;padding:9px 16px;border-radius:999px;
+  border:1px solid var(--border);color:var(--text-dim);
+  transition:border-color .15s,color .15s;
+}
+.cross-links a:hover{color:var(--text);border-color:var(--border-strong)}
+
+.end-cta{
+  display:flex;align-items:center;justify-content:space-between;gap:28px;margin:64px 0 44px;padding:30px 32px;
+  border-radius:18px;background:var(--surf-1);color:var(--text);border:1px solid var(--border)
+}
+.end-cta-copy{min-width:0}
+.end-cta-kicker{display:block;margin-bottom:7px;font-size:.8rem;font-weight:600;letter-spacing:.005em;color:var(--text-ghost)}
+.end-cta h2{margin:0 0 7px;color:var(--text);font-size:clamp(1.45rem,2.6vw,1.95rem)}
+.end-cta p{margin:0;color:var(--text-dim);font-size:.92rem}
+.end-cta-actions{display:flex;align-items:center;gap:10px;flex:none}
+.end-cta-actions a,.end-cta-actions button{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:12px 18px;border-radius:11px;font-size:.86rem;font-weight:750;white-space:nowrap;cursor:pointer;font-family:inherit}
+.end-cta-primary{background:#b91c1c;color:#fff}
+.end-cta-secondary{border:1px solid var(--border-strong);color:var(--text);background:transparent}
+@media(max-width:760px){
+  .end-cta{align-items:flex-start;flex-direction:column;padding:26px 22px}
+  .end-cta-actions{width:100%;flex-direction:column;align-items:stretch}
+  .end-cta-actions a,.end-cta-actions button{width:100%}
+}
+
+footer.foot{padding:24px 22px;border-top:1px solid var(--border);text-align:center;font-size:.74rem;color:var(--text-ghost)}
+footer.foot a{color:var(--text-dim)}
+
+/* ── Theme picker hidden (forced light) ──────────────── */
+.theme-dots{display:none !important}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none !important;transition:none !important}
+}
+
+/* ── Forced-light overrides for hardcoded dark surfaces ── */
+.path{background:var(--surf-1);box-shadow:0 1px 2px rgba(20,20,30,.04),0 16px 36px -26px rgba(20,20,30,.20)}
+.path:hover{box-shadow:0 1px 2px rgba(20,20,30,.06),0 20px 40px -20px rgba(20,20,30,.22)}
+
+</style>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<link rel="stylesheet" href="/css/debate-discovery.css">
+<script defer src="/js/debate-discovery.js"></script>
+<script defer src="/js/track.js"></script>
+</head>
+<body class="online-entry">
+
+<div id="daTopbar"></div>
+<script defer src="/js/topbar.js"></script>
+<script defer src="/js/notifications.js"></script>
+
+<main>
+<div class="wrap">
+
+  <!-- 2026-09-07 rewrite, per the founder off a friend's cold read of this
+       page ("it's a shitty page", "too much info"): thesis first, the SEO
+       vocabulary kept (debate online, online debate platform, debate
+       strangers, Omegle), and the top line is two doors: debate someone
+       now, or go to the home page. 1,671 words and 13 sections became
+       about 600 and 6. Title and meta description are untouched because
+       this page already ranks 1-5 on the omegle cluster. -->
+  <style>
+    .do-thesis{margin:56px 0 0;max-width:720px}
+    .do-thesis h2{margin:0 0 14px;font-size:clamp(1.5rem,2.6vw,2.1rem);line-height:1.12;letter-spacing:-.02em}
+    .do-thesis p{margin:0 0 14px;font-size:clamp(1.02rem,1.3vw,1.16rem);line-height:1.6;color:var(--text-dim)}
+    .do-thesis p b{color:var(--text)}
+    .do-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:52px 0 0}
+    .do-grid article{padding:18px 18px 20px;border:1px solid var(--line,rgba(127,127,127,.22));border-radius:14px;background:var(--bg-card)}
+    .do-grid h3{margin:0 0 8px;font-size:1.05rem;line-height:1.25}
+    .do-grid p{margin:0;font-size:.95rem;line-height:1.55;color:var(--text-dim)}
+    .do-band{margin:52px 0 0}
+    .do-band h2{margin:0 0 10px;font-size:clamp(1.4rem,2.2vw,1.8rem);line-height:1.15;letter-spacing:-.015em}
+    .do-band>p{margin:0;max-width:640px;font-size:1.04rem;line-height:1.6;color:var(--text-dim)}
+    .do-steps{list-style:none;margin:18px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;counter-reset:step}
+    .do-steps li{padding:14px 16px;border-top:2px solid var(--accent);background:var(--bg-card);border-radius:0 0 12px 12px}
+    .do-steps li b{display:block;margin-bottom:4px;font-size:1rem}
+    .do-steps li span{font-size:.9rem;color:var(--text-dim);line-height:1.5}
+    .do-end{margin:56px 0 0;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+    .do-end .btn-secondary{min-height:52px}
+    .hero-ctas .btn-secondary.do-home{font-weight:700}
+    @media(max-width:820px){.do-grid,.do-steps{grid-template-columns:1fr 1fr}}
+    @media(max-width:520px){.do-grid,.do-steps{grid-template-columns:1fr}.do-thesis{margin-top:40px}}
+  </style>
+
+  <section class="hero" aria-labelledby="page-title">
+    <div class="hero-copy">
+      <span class="eyebrow">Online debate. Real people. A written decision.</span>
+      <h1 id="page-title">Debate online <em>with a real person.</em></h1>
+      <p class="lede">Pick a topic, get matched, and argue it out live on camera. A judge writes down who won and why.</p>
+      <div class="hero-ctas">
+        <a class="btn-primary" href="/spar?from=debate-online" data-cta="debate-online-primary-human" aria-label="Debate someone now: get matched with a real person for a live online debate">
+          <span class="btn-live-dot" aria-hidden="true"></span>
+          <span class="btn-primary-copy">
+            <span class="btn-primary-kicker" id="onlineMatchKicker">Live video, one shared question</span>
+            <span class="btn-primary-title">Debate someone now</span>
+          </span>
+          <span class="btn-primary-arrow" aria-hidden="true">&rarr;</span>
+        </a>
+        <a class="btn-secondary do-home" href="/" data-cta="debate-online-home" aria-label="Go to the Debatable home page">
+          Go to the home page <span aria-hidden="true">&rarr;</span>
+        </a>
+      </div>
+      <div class="online-activity" id="onlineActivity" aria-label="Current activity" aria-live="polite">
+        <a id="onlineQueue" href="/spar?from=debate-online" data-cta="debate-online-activity-queue"><span class="online-activity__dot" aria-hidden="true"></span><span data-activity-label>Check the live queue</span></a>
+        <a id="onlineWatch" href="/watch?from=debate-online" data-cta="debate-online-activity-watch"><span class="online-activity__dot" aria-hidden="true"></span><span data-activity-label>Watch a round first</span></a>
+        <span id="onlinePresence" title="Measured browser sessions active on Debatable in the last five minutes." hidden></span>
+      </div>
+      <p class="hero-note">Live video requires sign-in with Google, Apple, or email. Camera optional: Avatar mode shows an animated mask instead of your face.</p>
+    </div>
+    <figure class="debate-preview" data-debate-preview>
+      <div class="debate-preview__head"><span>Example exchange &middot; animated portraits</span><button type="button" class="debate-preview__pause" data-preview-pause>Pause animation</button></div>
+      <h2 class="debate-preview__question">Should a four-day workweek be the standard?</h2>
+      <div class="debate-preview__people" aria-hidden="true">
+        <div class="debate-preview__seat"><video muted loop playsinline preload="none" poster="/img/round/faces/face46.jpg" data-src="/img/round/faces/face46.mp4"></video><span>FOR</span></div>
+        <div class="debate-preview__seat"><video muted loop playsinline preload="none" poster="/img/round/faces/face48.jpg" data-src="/img/round/faces/face48.mp4"></video><span>AGAINST</span></div>
+      </div>
+      <div class="debate-preview__exchange"><p><b>For:</b> &ldquo;Same work done. More time to live.&rdquo;</p><p><b>Against:</b> &ldquo;Who covers the fifth day at a hospital?&rdquo;</p></div>
+      <figcaption>You make a point. They push back. <a href="/watch?from=debate-online" data-cta="debate-online-preview-watch">Watch a real debate &rarr;</a></figcaption>
+    </figure>
+  </section>
+
+  <section class="do-thesis" aria-labelledby="why-title">
+    <h2 id="why-title">Talk through a disagreement.</h2>
+    <p>Choose a question you care about. <b>Explain your view, hear the reply, and respond.</b> You can talk freely or take timed turns.</p>
+    <p>Both people accept before the video room opens. When the round ends, an AI judge explains which arguments decided the result.</p>
+  </section>
+
+  <section class="do-grid" aria-label="What happens in a round">
+    <article>
+      <h3>Meet another person</h3>
+      <p>The live queue matches you with another person. Agree on a question together before you start.</p>
+    </article>
+    <article>
+      <h3>Read the AI decision</h3>
+      <p>The AI judge reviews what both sides said and explains the result. Compare it with the transcript, or appeal if you disagree.</p>
+    </article>
+    <article>
+      <h3>See your ranking</h3>
+      <p>Rated rounds against other people affect your place on the leaderboard. Your result depends on the outcome and your opponent’s rating.</p>
+    </article>
+  </section>
+
+  <section class="do-band" aria-labelledby="game-title">
+    <h2 id="game-title">Review your round</h2>
+    <p>Read the decision to see which arguments the judge found convincing and which needed a stronger response.</p>
+  </section>
+
+  <section class="do-band" aria-labelledby="how-title">
+    <h2 id="how-title">How an online debate round works</h2>
+    <p>One question, two sides, plain English. No rulebook to learn before you start.</p>
+    <ol class="do-steps">
+      <li><b>Match</b><span>Join the queue and get paired with a real person on video.</span></li>
+      <li><b>Argue</b><span>Choose a conversation or timed turns, then start talking.</span></li>
+      <li><b>The judge decides</b><span>Who won, why, and a score for each side out of 100.</span></li>
+      <li><b>Read the decision</b><span>Every step of the reasoning, written down. Then go again.</span></li>
+    </ol>
+  </section>
+
+  <section class="do-end" aria-label="Start">
+    <a class="btn-primary" href="/spar?from=debate-online" data-cta="debate-online-end-human">
+      <span class="btn-live-dot" aria-hidden="true"></span>
+      <span class="btn-primary-copy"><span class="btn-primary-kicker">Live video, one shared question</span><span class="btn-primary-title">Debate someone now</span></span>
+      <span class="btn-primary-arrow" aria-hidden="true">&rarr;</span>
+    </a>
+    <a class="btn-secondary do-home" href="/" data-cta="debate-online-end-home">Go to the home page <span aria-hidden="true">&rarr;</span></a>
+  </section>
+
+  <h2>Online debate FAQ</h2>
+  <div class="faq">
+    <details><summary>What is an online debate?</summary><p>An online debate is a structured argument held over video or voice instead of in a room. On Debatable each round has one question, two people on opposite sides, timed turns, and a written decision from the judge at the end.</p></details>
+    <details><summary>Where can I debate online?</summary><p>Here. Press <a href="/spar?from=debate-online">Debate someone now</a> to join the live queue and get matched with a real person on video. If nobody is waiting, you can take a <a href="/newvoice?from=debate-online">voice round against the AI</a> while you wait.</p></details>
+    <details><summary>Is this like Omegle, but for debate?</summary><p>Close. You are matched with a stranger on video, but instead of aimless chat you get one shared question, opposite sides, a clock, and a written decision at the end.</p></details>
+    <details><summary>Can I debate random people online?</summary><p>Yes. The queue pairs you with whoever is waiting, you argue opposite sides, and the judge decides.</p></details>
+    <details><summary>Do I have to show my face?</summary><p>No. Every live round has an Avatar mode, so your opponent, the audience, and any replay see an animated mask instead of you.</p></details>
+    <details><summary>How are online debates judged?</summary><p>A judge writes its decision after the round: who won, why, and a score for each side out of 100. The reasoning is written out in full so you can check it.</p></details>
+    <details><summary>Do I need an account to debate online?</summary><p>Live video requires sign-in with Google, Apple, or email before you enter the queue. You answer three quick matching questions first. Your answers carry through sign-in. Both accept, then meet. Watching is open to anyone.</p></details>
+    <details><summary>Can I practice debate online without a partner?</summary><p>Yes. Take a <a href="/newvoice?from=debate-online">voice round against the AI</a>. It argues the other side and the same judge writes the decision.</p></details>
+  </div>
+
+  <div class="cross-links">
+    <a href="/spar?from=debate-online">Find a live opponent</a>
+    <a href="/debate-strangers">Debate strangers online</a>
+    <a href="/omegle-alternative">The Omegle alternative</a>
+    <a href="/watch">Watch people debate</a>
+    <a href="/languages/">Debate in other languages</a>
+    <a href="/argue-online">How to argue online</a>
+    <a href="/online-debate-platforms">Compare free online debate platforms</a>
+    <a href="/practice">Debate an AI</a>
+    <a href="/voice-debate">Casual voice round</a>
+    <a href="/leaderboard">Leaderboard</a>
+    <a href="/live">Scheduled live rounds</a>
+    <a href="/topics">Questions to argue</a>
+    <a href="/learn">Learn to argue</a>
+    <a href="/">About Debatable</a>
+  </div>
+
+</div>
+</main>
+
+<footer class="foot">
+  <a href="/">itsdebatable.com</a> · <a href="/debate-strangers">Debate people online</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · Online debate platform for live, judged rounds.
+</footer>
+
+<!-- JSON-LD: page entity, application, breadcrumbs, debate paths, and FAQ -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": "https://itsdebatable.com/debate-online#webpage",
+      "url": "https://itsdebatable.com/debate-online",
+      "name": "Debate Online and Climb the Leaderboard | Debatable",
+      "description": "Debate online against real people or AI, receive a written judge ballot and speaker points, and climb the public leaderboard.",
+      "inLanguage": "en",
+      "dateModified": "2026-09-07",
+      "isPartOf": { "@id": "https://itsdebatable.com/#website" },
+      "about": { "@id": "https://itsdebatable.com/debate-online#application" },
+      "breadcrumb": { "@id": "https://itsdebatable.com/debate-online#breadcrumb" }
+    },
+    {
+      "@type": "WebApplication",
+      "@id": "https://itsdebatable.com/debate-online#application",
+      "name": "Debatable",
+      "alternateName": ["Online Debate", "Online Debate Platform", "Debate Online"],
+      "url": "https://itsdebatable.com/debate-online",
+      "applicationCategory": "SocialNetworkingApplication",
+      "operatingSystem": "Web",
+      "publisher": { "@id": "https://itsdebatable.com/#org" },
+      "description": "A live online argument arena where people debate real opponents or AI, receive written judge ballots and speaker points, and climb a public leaderboard.",
+      "featureList": [
+        "Live video debates with real people",
+        "Voice and typed debate against AI",
+        "Mid-speech voice interruption captured in the round transcript",
+        "Casual one-on-one rounds in plain English",
+        "One shared motion and clock",
+        "No team setup or tournament rulebook",
+        "AI judge ballots with reasons for decision",
+        "Speaker points, next-round drills, and a public voice leaderboard"
+      ]
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://itsdebatable.com/debate-online#breadcrumb",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Debatable", "item": "https://itsdebatable.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Online Debate", "item": "https://itsdebatable.com/debate-online" }
+      ]
+    },
+    {
+      "@type": "ItemList",
+      "@id": "https://itsdebatable.com/debate-online#paths",
+      "name": "Online debate: ways to play",
+      "itemListOrder": "https://schema.org/ItemListOrderAscending",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Debate people online", "url": "https://itsdebatable.com/spar", "description": "Join another person in a live video round with a shared motion and clock." },
+        { "@type": "ListItem", "position": 2, "name": "Debate online against AI", "url": "https://itsdebatable.com/voice-debate", "description": "Run an informal voice round against an AI that can interrupt and be interrupted." },
+        { "@type": "ListItem", "position": 3, "name": "Schedule an online debate round", "url": "https://itsdebatable.com/live", "description": "Organize a live video round for a club, class, or group of friends." }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://itsdebatable.com/debate-online#faq",
+      "mainEntity": [
+        {
+                "@type": "Question",
+                "name": "What is an online debate?",
+                "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "An online debate is a structured argument held over video or voice instead of in a room. On Debatable each round has one question, two people on opposite sides, timed turns, and a written decision from the judge at the end."
+                }
+        },
+        {
+                "@type": "Question",
+                "name": "Where can I debate online?",
+                "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Here. Press Debate someone now to join the live queue and get matched with a real person on video. If nobody is waiting, you can take a voice round against the AI while you wait."
+                }
+        },
+        {
+                "@type": "Question",
+                "name": "Is this like Omegle, but for debate?",
+                "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Close. You are matched with a stranger on video, but instead of aimless chat you get one shared question, opposite sides, a clock, and a written decision at the end."
+                }
+        },
+        {
+                "@type": "Question",
+                "name": "Can I debate random people online?",
+                "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Yes. The queue pairs you with whoever is waiting, you argue opposite sides, and the judge decides."
+                }
+        },
+        {
+                "@type": "Question",
+                "name": "Do I have to show my face?",
+                "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "No. Every live round has an Avatar mode, so your opponent, the audience, and any replay see an animated mask instead of you."
+                }
+        },
+        {
+                "@type": "Question",
+                "name": "How are online debates judged?",
+                "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "An AI judge writes its decision after the round: who won, why, and a score for each side out of 100. The reasoning is written out in full so you can check it."
+                }
+        },
+        {
+                "@type": "Question",
+                "name": "Do I need an account to debate online?",
+                "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Live video requires sign-in with Google, Apple, or email before you enter the queue. You answer three quick matching questions first. Your answers carry through sign-in. Both accept, then meet. Watching is open to anyone."
+                }
+        },
+        {
+                "@type": "Question",
+                "name": "Can I practice debate online without a partner?",
+                "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Yes. Take a voice round against the AI. It argues the other side and the same judge writes the decision."
+                }
+        }
+]
+    }
+  ]
+}
+</script>
+
+<script>
+(function(){
+  var grid=document.querySelector('[data-face-grid]');
+  if(!grid)return;
+  /* Every file in /img/round/faces today, minus face50 (the
+     illustrated Anonymous avatar, cast by hand elsewhere). */
+  var IDS=['01','02','03','04','06','07','08','10','11','12','13','15','16','17','18','19','20','21','22','23','24','25','26','27','28','29','30','31','32','33','34','35','36','37','38','40','41','42','43','44','45','46','47','48','49','51','52','53','54','56','57','58','59','60','61','62'];
+  var COUNT=24;
+  var ids=IDS.slice();
+  for(var i=ids.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=ids[i];ids[i]=ids[j];ids[j]=t;}
+  var tiles=[];
+  for(var k=0;k<COUNT;k++){
+    var tile=document.createElement('div');
+    tile.className='face-tile';
+    var img=document.createElement('img');
+    img.src='/img/round/faces/face'+ids[k]+'.jpg';
+    img.alt='';
+    img.loading=k<12?'eager':'lazy';
+    img.decoding='async';
+    var side=document.createElement('span');
+    side.className='face-side';
+    tile.appendChild(img);
+    tile.appendChild(side);
+    grid.appendChild(tile);
+    tiles.push(tile);
+  }
+  /* One "round" at a time: two tiles ringed FOR / AGAINST, moving
+     every few seconds so the wall reads as live pairings rather
+     than a static gallery. Paused while the tab is hidden. */
+  var reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
+  var pair=[];
+  function clearPair(){pair.forEach(function(t){t.classList.remove('in-round');});pair=[];}
+  function pickPair(){
+    clearPair();
+    var a=Math.floor(Math.random()*tiles.length);
+    var b=Math.floor(Math.random()*tiles.length);
+    if(b===a)b=(a+7)%tiles.length;
+    pair=[tiles[a],tiles[b]];
+    pair[0].querySelector('.face-side').textContent='FOR';
+    pair[1].querySelector('.face-side').textContent='AGAINST';
+    pair.forEach(function(t){t.classList.add('in-round');});
+  }
+  pickPair();
+  if(!reduced.matches)window.setInterval(function(){if(!document.hidden)pickPair();},3400);
+})();
+</script>
+
+  <script src="/js/home-magnet.js" defer></script>
+  <script src="/js/signup-nudge.js" defer></script>
+<!-- Shared neural-constellation background. Animates on this light
+     surface because <html> carries data-lightweb="web". -->
+<canvas id="uiNeuralCanvas" class="ui-neural-canvas"></canvas>
+<script>
+/* Google sign-in on the highest-traffic organic page.
+   Routes through the shared chooser (js/auth-modal.js, pulled in by
+   topbar.js) so this page cannot drift from every other sign-in surface,
+   and keeps a bare Google popup as the fallback for a load where that
+   script never arrived. On success it goes to /spar rather than back
+   here: someone who searched "debate omegle" wants the round, and the
+   account is the thing standing between them and it, not the destination.
+   If they are already signed in the button stops asking and just goes. */
+(function () {
+  var DEST = '/spar?from=debate-online';
+
+  function go() { window.location.href = DEST; }
+
+  function signedIn() {
+    try {
+      var u = window.firebase && window.firebase.auth && window.firebase.auth().currentUser;
+      return !!(u && !u.isAnonymous);
+    } catch (e) { return false; }
+  }
+
+  function start(where) {
+    try { gtag('event', 'debate_online_matchdesk_click', { surface: where, signed_in: signedIn() }); } catch (e) {}
+    go();
+  }
+
+  ['doGoogle', 'doGoogleEnd'].forEach(function (id) {
+    var button = document.getElementById(id);
+    if (!button) return;
+    button.addEventListener('click', function () { start(id === 'doGoogle' ? 'hero' : 'end'); });
+  });
+
+  /* Relabel once auth resolves. A signed-in visitor being asked to
+     "continue with Google" reads as broken, and the button's real job
+     for them is the round. */
+  function relabel() {
+    if (!signedIn()) return;
+    var title = document.getElementById('doGoogleTitle');
+    var kicker = document.getElementById('doGoogleKicker');
+    var endLabel = document.getElementById('doGoogleEndLabel');
+    if (title) title.textContent = 'Start a live round';
+    if (kicker) kicker.textContent = 'You are signed in. Your ballots and score are saved.';
+    if (endLabel) endLabel.textContent = 'Start a live round';
+    var mark = document.querySelector('#doGoogle .btn-google-mark');
+    if (mark) mark.style.display = 'none';
+  }
+  var tries = 0;
+  var poll = setInterval(function () {
+    tries++;
+    if (signedIn()) { relabel(); clearInterval(poll); }
+    if (tries > 20) clearInterval(poll);
+  }, 400);
+})();
+</script>
+<script defer src="/js/ui-neural.js"></script>
+</body>
+</html>
+
+```

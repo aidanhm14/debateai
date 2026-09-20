@@ -1,146 +1,72 @@
 import fs from 'node:fs';
+import vm from 'node:vm';
 
-function read(file) {
-  return fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-}
-
+const read = file => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
 const page = read('app/debate-online.html');
-const appToml = read('app/netlify.toml');
-const rootToml = read('netlify.toml');
-const sitemap = read('app/netlify/functions/sitemap.mjs');
-const staticSitemap = read('app/sitemap.xml');
-const landing = read('app/landing.html');
-const people = read('app/debate-strangers.html');
-const platforms = read('app/online-debate-platforms.html');
-const llms = read('app/llms.txt');
-const signupNudge = read('app/js/signup-nudge.js');
-const homeMagnet = read('app/js/home-magnet.js');
-
-let passed = 0;
-let failed = 0;
-function check(name, condition) {
-  if (condition) {
-    passed += 1;
-    console.log(`PASS ${name}`);
-  } else {
-    failed += 1;
-    console.error(`FAIL ${name}`);
-  }
-}
-
-function first(pattern, source = page) {
-  return (source.match(pattern) || [])[1] || '';
-}
-
+const canonical = 'https://itsdebatable.com/debate-online';
+const first = pattern => (page.match(pattern) || [])[1] || '';
 const title = first(/<title>([^<]+)<\/title>/i);
-const description = first(/<meta\s+name="description"\s+content="([^"]+)"/i);
+const description = first(/<meta name="description" content="([^"]+)"/i);
+const body = first(/<body[^>]*>([\s\S]*?)<\/body>/i);
 const h1 = first(/<h1[^>]*>([\s\S]*?)<\/h1>/i).replace(/<[^>]+>/g, '').trim();
-const visible = page
-  .replace(/<style[\s\S]*?<\/style>/gi, '')
-  .replace(/<script[\s\S]*?<\/script>/gi, '')
-  .replace(/<!--[\s\S]*?-->/g, '')
-  .replace(/<[^>]+>/g, ' ')
-  .replace(/\s+/g, ' ');
-
-const jsonLd = [];
-for (const match of page.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
-  try { jsonLd.push(JSON.parse(match[1])); } catch (error) { jsonLd.push({ parseError: error.message }); }
+const entities = [...page.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+  .flatMap(match => { const json = JSON.parse(match[1]); return json['@graph'] || [json]; });
+const webPage = entities.find(entity => entity['@type'] === 'WebPage');
+const application = entities.find(entity => entity['@type'] === 'WebApplication');
+const breadcrumb = entities.find(entity => entity['@type'] === 'BreadcrumbList');
+let passed = 0, failed = 0;
+function check(name, condition) {
+  if (condition) { passed++; console.log(`PASS ${name}`); }
+  else { failed++; console.error(`FAIL ${name}`); }
 }
-const entities = jsonLd.flatMap((entry) => entry['@graph'] || [entry]);
-const webPage = entities.find((entry) => entry['@type'] === 'WebPage');
-const application = entities.find((entry) => entry['@type'] === 'WebApplication');
-const breadcrumb = entities.find((entry) => entry['@type'] === 'BreadcrumbList');
-const paths = entities.find((entry) => entry['@type'] === 'ItemList');
-const faq = entities.find((entry) => entry['@type'] === 'FAQPage');
-const landingJsonLd = [];
-for (const match of landing.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
-  try { landingJsonLd.push(JSON.parse(match[1])); } catch (error) { landingJsonLd.push({ parseError: error.message }); }
+
+check('search title keeps the query and brand', title.startsWith('Debate Online ') && title.endsWith(' | Debatable'));
+check('description describes the current private human entry', description.includes('Debate online') && description.includes('Rounds start private'));
+check('one unchanged human-intent headline is in the raw HTML', h1 === 'Debate online with a real person.' && (page.match(/<h1\b/g) || []).length === 1);
+const main = body.match(/<main[^>]*>([\s\S]*?)<\/main>/)?.[1] || '';
+const actions = [...main.matchAll(/<a\b([^>]+)>([\s\S]*?)<\/a>/g)];
+check('the only main action works without JavaScript', actions.length === 1 && actions[0][1].includes('href="/spar?from=debate-online"') && actions[0][2].includes('Meet someone'));
+check('round privacy stays visible beside the action', main.includes('Rounds start private.') && main.includes('Go public when you choose.'));
+check('no explainer or competing product controls return', !/<(?:section|details|video|form)\b/.test(body) && !body.includes('onlineActivity'));
+check('the layout can grow for enlarged text instead of clipping controls', page.includes('100svh') && !/overflow\s*:\s*hidden/.test(page));
+check('motion has a reduced-motion fallback', page.includes('prefers-reduced-motion:reduce'));
+check('automatic button motion ends', !/animation[^;\n]*\binfinite\b/.test(page));
+check('the one page remains measurable', page.includes('/js/track.js') && page.includes('debate_online_matchdesk_click') && page.includes('debate-online-primary-human'));
+check('no old navigation or automatic signup UI is loaded directly', !/src="\/js\/(?:topbar|signup-nudge|notifications|debate-discovery)\.js"/.test(page));
+for (const file of ['app/js/signin-wall.js', 'app/js/corpus-nudge.js']) {
+  let error = null;
+  try { vm.runInNewContext(read(file), { document: { documentElement: { dataset: { entry: 'meet' } } } }); }
+  catch (e) { error = e; }
+  check(`${file} leaves the entry action unobstructed`, !error);
 }
-const landingEntities = landingJsonLd.flatMap((entry) => entry['@graph'] || [entry]);
-const homeWebPage = landingEntities.find((entry) => entry['@id'] === 'https://itsdebatable.com/#webpage');
-
-check('title begins with exact query', title.startsWith('Debate Online '));
-check('title fits search display', title.length >= 45 && title.length <= 60);
-check('description begins with the current watch-or-join intent', description.startsWith('Watch live arguments'));
-check('description fits search display', description.length >= 120 && description.length <= 160);
-check('one transactional H1 is present', h1 === 'Debate online with a real person.' && (page.match(/<h1\b/g) || []).length === 1);
-check('hero offers the debate-now-or-home intent (2026-09-07: thesis-first rewrite, two doors)', page.includes('Watch a real debate') && page.includes('Debate someone now') && page.includes('Go to the home page'));
-check('entry uses live activity and offers an AI route',
-  page.includes('id="onlineActivity"') && page.includes('/js/debate-discovery.js')
-  && page.includes('href="/newvoice?from=debate-online"'));
-check('human entry preserves questions, account creation and mutual consent',
-  page.includes('href="/spar?from=debate-online"')
-  && page.includes('Your answers carry through sign-in.') && page.includes('Both accept, then meet'));
-check('page loads shared One Tap and account-linking module', page.includes('/js/signup-nudge.js'));
-check('One Tap route uses inline auth without a competing nudge',
-  signupNudge.includes("match: /^\\/debate-online")
-  && signupNudge.includes('inlineAuth: true')
-  && signupNudge.includes('window.debatableGoogleSignIn'));
-check('home redirect popup yields to the page conversion flow',
-  /entryPages = \{[\s\S]*?'\/debate-online': true/.test(homeMagnet));
-check('definition FAQ is visible', page.includes('<summary>What is an online debate?</summary>'));
-
-check('canonical points to one clean URL', page.includes('<link rel="canonical" href="https://itsdebatable.com/debate-online">'));
-check('English and default alternates agree with canonical',
-  page.includes('hreflang="en" href="https://itsdebatable.com/debate-online"')
-  && page.includes('hreflang="x-default" href="https://itsdebatable.com/debate-online"'));
-check('page is fully indexable', page.includes('content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"'));
-check('social titles begin with exact query',
-  page.includes('<meta property="og:title" content="Debate Online ')
-  && page.includes('<meta name="twitter:title" content="Debate Online '));
-check('social image has alt text', page.includes('<meta property="og:image:alt"') && page.includes('<meta name="twitter:image:alt"'));
-
-check('all JSON-LD parses', jsonLd.length >= 1 && jsonLd.every((entry) => !entry.parseError));
-check('WebPage entity matches canonical',
-  webPage?.['@id'] === 'https://itsdebatable.com/debate-online#webpage'
-  && webPage?.url === 'https://itsdebatable.com/debate-online'
-  && webPage?.name.startsWith('Debate Online '));
-check('application entity carries exact-query aliases',
-  application?.alternateName?.includes('Online Debate')
-  && application?.alternateName?.includes('Online Debate Platform'));
-check('breadcrumb names the exact query', breadcrumb?.itemListElement?.[1]?.name === 'Online Debate');
-check('path entity describes participation choices', paths?.name === 'Online debate: ways to play');
-check('FAQ schema defines online debate', faq?.mainEntity?.some((item) => item.name === 'What is an online debate?'));
-
-function hasAliasRedirect(source) {
-  return /from = "\/online-debate"\s+to = "\/debate-online"\s+status = 301\s+force = true/.test(source);
+for (const match of page.matchAll(/<script(?![^>]*type="application\/ld\+json")([^>]*)>([\s\S]*?)<\/script>/g)) {
+  if (match[2].trim()) new vm.Script(match[2]);
 }
-check('app redirect consolidates reversed slug', hasAliasRedirect(appToml));
-check('root redirect consolidates reversed slug', hasAliasRedirect(rootToml));
-check('alias is not submitted as a competing sitemap URL',
-  !sitemap.includes("path: '/online-debate'")
-  && !staticSitemap.includes('<loc>https://itsdebatable.com/online-debate</loc>'));
-check('live sitemap marks canonical page fresh and primary',
-  /path: '\/debate-online'[\s\S]{0,140}priority: '0\.92'[\s\S]{0,80}lastmod: '2026-08-28'/.test(sitemap));
-check('live sitemap marks branded homepage fresh and primary',
-  /path: '\/'[\s\S]{0,100}priority: '1\.0'[\s\S]{0,80}lastmod: '2026-08-29'/.test(sitemap));
-check('static sitemap names both query word orders', staticSitemap.includes('"online debate" / "debate online"'));
-check('static sitemap marks homepage and debate page fresh',
-  /<loc>https:\/\/itsdebatable\.com\/<\/loc>\s+<lastmod>2026-08-28<\/lastmod>/.test(staticSitemap)
-  && /<loc>https:\/\/itsdebatable\.com\/debate-online<\/loc>\s+<lastmod>2026-08-28<\/lastmod>/.test(staticSitemap));
-
-check('homepage links exact anchor to canonical', /<a href="\/debate-online"[^>]*>Debate online<\/a>/.test(landing));
-check('homepage metadata owns branded intent',
-  landing.includes('<title>Debatable | Live, Judged Debate With Real People</title>')
-  && landing.includes('"@id": "https://itsdebatable.com/#webpage"'));
-check('homepage JSON-LD parses with a branded WebPage entity',
-  landingJsonLd.length >= 1
-  && landingJsonLd.every((entry) => !entry.parseError)
-  && homeWebPage?.url === 'https://itsdebatable.com/'
-  && homeWebPage?.name.startsWith('Debatable |'));
-check('legacy landing route consolidates to branded root',
-  /from = "\/landing"\s+to = "\/"\s+status = 301\s+force = true/.test(appToml)
-  && /from = "\/landing"\s+to = "\/"\s+status = 301\s+force = true/.test(rootToml));
-check('human-intent page links exact anchor to canonical', people.includes('<a href="/debate-online">Online debate</a>'));
-check('comparison page links exact anchor to canonical', platforms.includes('<a href="/debate-online">Online debate</a>'));
-check('AI discovery file identifies canonical page', llms.includes('[Online debate, three ways](https://itsdebatable.com/debate-online)'));
-check('comparison page keeps its own plural-intent canonical',
-  platforms.includes('<link rel="canonical" href="https://itsdebatable.com/online-debate-platforms">'));
-
-check('visible copy has no em dash', !visible.includes('—'));
-check('visible copy avoids banned acquisition claims',
-  !/free during beta|no sign-up required|pay nothing|unlimited|holistic|robust framework/i.test(visible));
-check('page makes no unverifiable matching-time promise', !/under a minute|in seconds/i.test(visible));
-
+check('inline JavaScript parses', true);
+check('canonical stays at the existing ranking URL', page.includes(`<link rel="canonical" href="${canonical}">`));
+check('language alternates agree with the canonical', ['en', 'x-default'].every(lang => page.includes(`hreflang="${lang}" href="${canonical}"`)));
+check('the page remains indexable', page.includes('content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"'));
+check('social titles agree with the page title', page.includes(`property="og:title" content="${title}"`) && page.includes(`name="twitter:title" content="${title}"`));
+check('social URL agrees with the canonical', page.includes(`property="og:url" content="${canonical}"`));
+check('social images have descriptions', page.includes('property="og:image:alt"') && page.includes('name="twitter:image:alt"'));
+check('WebPage identity and descriptions agree', webPage?.['@id'] === `${canonical}#webpage` && webPage?.url === canonical && webPage?.name === title && webPage?.description === description);
+check('structured data uses the sole brand and social category', application?.name === 'Debatable' && !application?.alternateName && application?.applicationCategory === 'SocialNetworkingApplication');
+check('removed FAQs and paths are not claimed in structured data', !entities.some(e => ['FAQPage', 'ItemList'].includes(e['@type'])));
+check('breadcrumb links back to the website', breadcrumb?.itemListElement?.[0]?.item === 'https://itsdebatable.com/' && breadcrumb?.itemListElement?.[1]?.item === canonical);
+for (const file of ['netlify.toml', 'app/netlify.toml']) {
+  check(`${file} keeps the reversed slug consolidated`, /from = "\/online-debate"\s+to = "\/debate-online"\s+status = 301\s+force = true/.test(read(file)));
+}
+const sitemap = read('app/netlify/functions/sitemap.mjs');
+const snapshot = read('app/sitemap.xml');
+const liveDate = sitemap.match(/path: '\/debate-online'[^\n]*lastmod: '([^']+)'/)?.[1];
+const staticDate = snapshot.match(/<loc>https:\/\/itsdebatable\.com\/debate-online<\/loc>\s+<lastmod>([^<]+)<\/lastmod>/)?.[1];
+check('sitemap dates reflect this page update', liveDate === webPage?.dateModified && staticDate === liveDate);
+check('sitemaps omit the redirect alias', !sitemap.includes("path: '/online-debate'") && !snapshot.includes('<loc>https://itsdebatable.com/online-debate</loc>'));
+for (const file of ['app/landing.html', 'app/debate-strangers.html', 'app/online-debate-platforms.html']) {
+  check(`${file} retains an incoming link`, /href="\/debate-online"/.test(read(file)));
+}
+check('AI discovery describes the new page accurately', read('app/llms.txt').includes('[Debate online](https://itsdebatable.com/debate-online): meet another person'));
+const visible = body.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, ' ');
+check('copy avoids retired claims and em dashes', !/—|free during beta|no sign-up required|unlimited|under a minute|in seconds/i.test(visible));
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

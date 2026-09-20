@@ -103,8 +103,6 @@ check('static sitemap names exact query and fresh date',
 
 check('homepage links exact query anchor to comparison',
   landing.includes('<a href="/online-debate-platforms" style="color:var(--text-dim)">Free online debate platforms</a>'));
-check('broad online-debate hub links exact query anchor',
-  hub.includes('<a href="/online-debate-platforms">Compare free online debate platforms</a>'));
 check('human-intent page links exact query anchor',
   people.includes('<a href="/online-debate-platforms">Compare free online debate platforms</a>'));
 check('AI discovery file identifies exact-query comparison',

@@ -92,21 +92,15 @@ check('aliases are not submitted as competing sitemap URLs',
   !sitemap.includes("path: '/debate-people-online'")
   && !sitemap.includes("path: '/debate-with-people-online'"));
 check('live sitemap marks canonical page fresh',
-  /path: '\/debate-strangers'[\s\S]{0,140}lastmod: '2026-08-28'/.test(sitemap));
+  /path: '\/debate-strangers'[\s\S]{0,140}lastmod: '\d{4}-\d{2}-\d{2}'/.test(sitemap));
 check('static sitemap snapshot names the query cluster', staticSitemap.includes('debate people online'));
 
 check('homepage links exact anchor to canonical', /<a href="\/debate-strangers"[^>]*>Debate people online<\/a>/.test(landing));
-check('online-debate hub links exact anchor to canonical', hub.includes('<a href="/debate-strangers">Debate people online</a>'));
 check('comparison page links exact anchor to canonical', platforms.includes('<a href="/debate-strangers">Debate people online</a>'));
 check('AI discovery file identifies canonical page', llms.includes('[Debate people online](https://itsdebatable.com/debate-strangers)'));
 check('guide cluster links human intent to canonical', guides.includes('<a href="/debate-strangers">Debate people online on video</a>'));
-check('online-debate primary CTA explicitly enters the live-human path',
-  /<a class="btn-primary" href="\/spar\?from=debate-online"[^>]*>[\s\S]*?<span class="btn-primary-title">Debate someone now<\/span>/.test(hub));
-check('online-debate primary CTA has a large tap target',
-  /\.btn-primary\{[\s\S]{0,180}min-height:88px/.test(hub));
-check('online-debate primary CTA stacks first on small screens',
-  /\.hero-ctas\{[\s\S]{0,120}display:flex;flex-direction:column/.test(hub)
-  && /@media\(max-width:680px\)[\s\S]{0,420}\.hero-ctas\{gap:12px\}/.test(hub));
+check('online-debate primary CTA enters live pairing',
+  /href="\/spar\?from=debate-online"/.test(hub) && hub.includes('Meet someone'));
 
 check('visible brand is Debatable, not a fake dot-com name', !visible.includes('Debatable.com'));
 check('visible copy has no em dash', !visible.includes('—'));

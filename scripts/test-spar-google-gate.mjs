@@ -200,9 +200,9 @@ for (const path of publicContractPages) {
   check(!retiredPublicFormats.test(publicText(source)), `${path} must not expose a retired competitive format`);
 }
 
+// The single-screen entry delegates account details to /spar.
 for (const path of [
   'app/landing.html',
-  'app/debate-online.html',
   'app/debate-strangers.html',
   'app/how-it-works.html',
   'app/omegle-alternative.html',

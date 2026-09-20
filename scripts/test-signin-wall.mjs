@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const source = fs.readFileSync(new URL('../app/js/signin-wall.js', import.meta.url), 'utf8');
-function page({ path = '/', storage = new Map(), user = null, native = false, sdk = true, inApp = false } = {}) {
+function page({ path = '/', storage = new Map(), user = null, native = false, sdk = true, inApp = false, entry = '' } = {}) {
   let now = 0, listener;
   const intervals = [], asks = [], events = [], nodes = new Map(), busy = new Set();
   const docEvents = {}, winEvents = {};
   const auth = { currentUser: user, onAuthStateChanged(cb) { listener = cb; cb(user); } };
   const document = {
     hidden: false, activeElement: null, body: { classList: { contains: key => busy.has(key) } },
-    documentElement: { classList: { contains: key => busy.has(key) }, getAttribute() { return null; } },
+    documentElement: { dataset: { entry }, classList: { contains: key => busy.has(key) }, getAttribute() { return null; } },
     querySelector: selector => nodes.get(selector) || null, getElementById: id => nodes.get(id),
     addEventListener: (ev, cb) => { docEvents[ev] = cb; },
   };
@@ -74,3 +74,5 @@ for (const el of [{ tagName: 'INPUT' }, { tagName: 'TEXTAREA' }, { tagName: 'inp
 }
 p = page(); p.typing({ tagName: 'DIV' }); p.advance(300); assert.equal(p.asks.length, 1);
 console.log('PASS typing defers the ask and never loses it; a focused non-field does not');
+
+p = page({ path: '/debate-online', entry: 'meet' }); p.advance(600); assert.equal(p.asks.length, 0); console.log('PASS the single-action entry delegates sign-in to matching');
