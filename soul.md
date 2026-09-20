@@ -1,5 +1,7 @@
 # soul.md. Debatable · itsdebatable.com
 
+> **Guide example faces (Aidan, 2026-09-20).** The Meet step on `/how-it-works` uses the existing consented face46 and face48 photos instead of A/B illustrations. Keep the visible Example label and generic You / Your opponent roles.
+
 > **Homepage Watch button (Aidan, 2026-09-20).** Watch belongs in the top selection menu. Remove its duplicate button beside Debate the AI on desktop and mobile; the AI button fills that row beneath Meet someone, retaining its label, destination and silent moving line. This supersedes earlier instructions to pair Watch with the AI button.
 
 > **Private invite recovery (2026-09-20).** Setup presence must not create a partial round before initialization or change its privacy default. `/private` now creates a private room with the authenticated host's seat before issuing links. A separate server-only invitation admits one authenticated account to the other seat, transactionally. It respects existing age boundaries and survives reloads and agreed side swaps. The invite secret travels in the URL fragment and is removed before analytics. Existing rounds keep their visibility, progress and original host. A host recovering an old direct link can copy a fresh invite from the room. Firestore spectator permissions are unchanged.

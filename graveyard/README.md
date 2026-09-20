@@ -31,6 +31,8 @@ the newer layout adjusted around it.
 
 ## Index
 
+- [2026-09-20: guide letter avatars](2026-09-20-guide-letter-avatars.md): Meet example placeholders replaced with consented photos.
+
 - [2026-09-20: homepage Watch buttons](2026-09-20-homepage-watch-buttons.md): duplicate desktop and mobile actions removed; Watch stays in the top menu.
 
 - [2026-09-20 — wordy discovery pages](2026-09-20-wordy-discovery-pages.md): Topics, How it works, and topic generator before the action-first redesign.
