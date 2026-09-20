@@ -116,11 +116,11 @@ ul.plain{margin:10px 0 0;padding-left:18px;color:var(--dim);font-size:15px;line-
 
   <div class="card" id="setup">
     <div class="field">
-      <label for="motionIn">Motion</label>
+      <label for="motionIn">Topic</label>
       <input id="motionIn" maxlength="300" placeholder="This House would ban targeted advertising to minors" autocomplete="off">
     </div>
     <div class="row2">
-      <div class="field"><label for="fmtSel">Format</label><select id="fmtSel"></select></div>
+      <div class="field" hidden><label for="fmtSel">Round type</label><select id="fmtSel"></select></div>
       <div class="field"><label for="sideSel">You argue</label><select id="sideSel">
         <option value="pro">Pro</option><option value="con">Con</option>
       </select></div>
@@ -186,16 +186,7 @@ ul.plain{margin:10px 0 0;padding-left:18px;color:var(--dim);font-size:15px;line-
 <script>
 (function(){
   'use strict';
-  var FORMATS = [
-    ['quick',  'General'],
-    ['apda',   'APDA Parliamentary'],
-    ['bp',     'British Parliamentary'],
-    ['worlds', 'Worlds (WUDC)'],
-    ['asian',  'Asian Parliamentary'],
-    ['ld',     'Lincoln-Douglas'],
-    ['pf',     'Public Forum'],
-    ['policy', 'Policy (CX)'],
-  ];
+  var FORMATS = [['quick', 'Casual 1v1']];
   var MOTIONS = [
     'This House would ban targeted advertising to minors',
     'This House regrets the rise of the gig economy',
@@ -209,6 +200,8 @@ ul.plain{margin:10px 0 0;padding-left:18px;color:var(--dim);font-size:15px;line-
     'This House would ban single-use plastics outright'
   ];
   var $ = function(id){ return document.getElementById(id); };
+  // Carry a chosen topic into setup without creating or joining a room.
+  try { $('motionIn').value = (new URLSearchParams(location.search).get('motion') || '').trim().slice(0, 300); } catch(e){}
   function say(el, t, k){ el.textContent = t || ''; el.className = 'msg' + (k ? ' ' + k : ''); }
 
   $('fmtSel').innerHTML = FORMATS.map(function(f){

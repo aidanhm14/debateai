@@ -52,13 +52,17 @@ for (const file of [
 for (const file of [
   'app/ai-debate-practice.html',
   'app/debate-case-generator.html',
-  'app/debate-topic-generator.html',
   'app/debate-ai-tools.html',
   'app/prediction-market-debate.html'
 ]) {
   const html = read(file);
   ok(html.includes('/seo-growth.css'), `${file} loads seo-growth.css`);
   ok(!html.includes('Debate<em>AI</em>') && !html.includes('DebateAI search hub'), `${file} does not use the retired visible brand`);
+}
+
+for (const file of ['app/topics/index.html', 'app/how-it-works.html', 'app/debate-topic-generator.html']) {
+  const html = read(file);
+  ok(html.includes('/css/ui.css') && html.includes('/css/discovery-pages.css'), `${file} uses the shared house type system`);
 }
 
 if (fail.length) {
