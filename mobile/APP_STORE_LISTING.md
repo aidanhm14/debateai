@@ -80,6 +80,7 @@ Sources: `app/privacy.html`, `app/js/auth-modal.js`, and
 | Apple data type | Collection to account for | Linked to user | Purpose to verify |
 |---|---|---|---|
 | Email Address, Name | Account identity; account and opted-in lifecycle emails | Yes | App Functionality; Developer's Advertising or Marketing where used for promotional emails |
+| Phone Number | Optional verified SMS-alert number from `/settings` and `/api/phone` when enabled; independent of retired phone sign-in | Yes | App Functionality; verify enabled notification purposes |
 | User ID | Firebase uid, public handle, account-linked analytics and push registration | Yes | App Functionality, Analytics |
 | Sensitive Info | Optional political opinions saved by Match Desk for matchmaking | Yes | Product Personalization, App Functionality |
 | Photos or Videos | Public profile picture uploads and consented live-round recordings | Yes | App Functionality |

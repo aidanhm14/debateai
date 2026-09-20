@@ -11,7 +11,7 @@ Prepared September 20, 2026. The complete local release pack is at `/Users/aidan
 - `apple-review-reply-DRAFT.txt`: prepared response to the last recorded rejection. Send only after verifying the video and re-reading Apple's current message.
 - `recording-and-device-checks.md`: exact physical-iPhone recording walkthrough and remaining device checks.
 - `privacy-worksheet.md`: source-backed disclosure inventory and the remaining dashboard/provider questions.
-- `screenshots/`: fresh simulator screenshots of build 11 displaying the live product. See the screenshot README for accepted sizes and limitations.
+- `screenshots/`: a fresh iPhone simulator screenshot of build 11 displaying the live product. The iPad simulator is prepared, but its current screenshot still needs a manual capture because the automation could not tap its display. See the screenshot README.
 - `evidence/`: command results and artifact hashes. These are supporting checks, not device-test evidence.
 
 ## What you already tested
