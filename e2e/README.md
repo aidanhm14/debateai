@@ -6,7 +6,7 @@ the API contract checks still read the real public endpoints.
 `tests/smoke.spec.mjs` runs after every
 push to `main` (`.github/workflows/e2e-smoke.yml`) once the Netlify deploy is
 live, and fails loudly if a promise the site makes to a stranger stops being
-true: the first screen and its three doors (including returning visitors
+true: the first screen's two debate doors and top-menu Watch (including returning visitors
 from the retired claim experiment), `/spar` optional topic/people choices followed by sign-in before matching, `/watch` static copy, `/practice` mounting, retired
 routes redirecting, `sw.js` parsing with a `CACHE_NAME`, `/api/claude`
 refusing a tokenless call, the public read endpoints, and the judge season
@@ -48,6 +48,19 @@ run; anonymous uids are never counted as signups (soul.md section 8).
   state is a signed-in account.
 
 ## Adding a test
+
+`auth-completion.spec.mjs` drives the complete shared sign-in dialog with
+Firebase replaced at the SDK boundary: persistence, password retries,
+anonymous-to-existing Google recovery, cleanup and destination handoff.
+`conversation-completion.spec.mjs` connects the shipped finish controller and
+room controls to the real server transaction engine in memory. Both people
+must agree and save their final words; failed or delayed uploads cannot open
+judging. `live-room-views.spec.mjs` loads the full page in its existing design
+mode to check the rendered winner, scores and explanation on desktop and phone.
+`practice-access.spec.mjs` renders the shipped React plan card and exercises
+the admission helper for free, paid, failed-payment, paused and legacy grants.
+These are isolated browser checks, not live OAuth, media transport or payment
+provider integration tests. Every network request is intercepted.
 
 `tests/match-invitations.spec.mjs` is an offline two-person browser suite.
 It uses the shipped matching code with an in-memory queue and pairing

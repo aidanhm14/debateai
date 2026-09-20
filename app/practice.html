@@ -3906,11 +3906,12 @@ function isOwnerEmail(email) {
 function isPro() {return __proStatus;}
 // MUST match TYPED_ROUND_PLANS in netlify/functions/claude.mjs and
 // PAID_PLANS in lib/caller.mjs: individual, team, lifetime, byok, voice.
-// Only explicit Stripe-dead statuses revoke; past_due is a grace state.
+// Match hasActivePaidPlan in lib/plans.mjs, including historical Lifetime
+// grants that are independent of subscription status.
 function planPaidFor(team) {
   var PAID = ['individual', 'team', 'lifetime', 'byok', 'voice'];
-  var DEAD = ['canceled', 'cancelled', 'incomplete_expired', 'unpaid'];
-  return !!(team && PAID.indexOf(team.plan) !== -1 && DEAD.indexOf(team.status) === -1);
+  var DEAD = ['canceled', 'cancelled', 'incomplete', 'incomplete_expired', 'unpaid', 'paused'];
+  return !!(team && PAID.indexOf(team.plan) !== -1 && (team.plan === 'lifetime' || DEAD.indexOf(team.status) === -1));
 }
 function isSignedIn() {return __signedInStatus;}
 

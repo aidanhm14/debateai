@@ -56,8 +56,9 @@ test.describe('public pages', () => {
     expect(errors, 'uncaught exceptions on the landing').toEqual([]);
   });
 
-  test('landing keeps the live debate and Watch doors for a returning claim-arm visitor', async ({ page }) => {
+  test('landing keeps the debate doors and top-menu Watch for a returning claim-arm visitor', async ({ page }) => {
     const errors = trackErrors(page);
+    await page.route('**/api/watch-live', route => route.fulfill({ json: { count: 0, rounds: [] } }));
     await page.addInitScript(() => localStorage.setItem('da-fsclaim-ab', 'claim'));
     await page.goto('/?fsclaim=claim');
     await expect(page.locator('#first-screen')).toBeVisible();
@@ -65,14 +66,15 @@ test.describe('public pages', () => {
     for (const [selector, href] of [
       ['.fs-cta--primary', '/spar'],
       ['.fs-cta--ai', '/newvoice?handoff=landing-quick-ai'],
-      // Watch uses the lobby, one room or the active-room list depending on
-      // live traffic. Keep the destination restricted to those valid paths.
-      ['.fs-cta--watch', /^\/(?:watch|spectate|live-round\?room=[^&?#]+&spectate=1)$/],
     ]) {
       const cta = actions.locator(selector);
       await expect(cta).toBeVisible();
       await expect(cta).toHaveAttribute('href', href);
     }
+    await expect(page.locator('.fs-actions-row .fs-cta--watch, .mh-watch')).toHaveCount(0);
+    for (const link of await page.locator('[data-fs-watch-live]').all()) await expect(link).toBeHidden();
+    await page.getByRole('button', { name: 'Menu', exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: 'Watch & clips', exact: true })).toBeVisible();
     await expect(actions.locator('.fs-cta--bet')).toHaveCount(0);
     await expect(page.getByRole('heading', {name:'Debate someone live.',exact:true})).toHaveCount(0);
     expect(errors, 'uncaught exceptions on the landing').toEqual([]);
