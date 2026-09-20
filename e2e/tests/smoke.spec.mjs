@@ -64,6 +64,7 @@ test.describe('public pages', () => {
     const actions = page.locator('#first-screen .fs-actions');
     for (const [selector, href] of [
       ['.fs-cta--primary', '/spar'],
+      ['.fs-cta--ai', '/newvoice?handoff=landing-quick-ai'],
       // Watch uses the lobby, one room or the active-room list depending on
       // live traffic. Keep the destination restricted to those valid paths.
       ['.fs-cta--watch', /^\/(?:watch|spectate|live-round\?room=[^&?#]+&spectate=1)$/],
@@ -72,57 +73,55 @@ test.describe('public pages', () => {
       await expect(cta).toBeVisible();
       await expect(cta).toHaveAttribute('href', href);
     }
-    await expect(actions.locator('.fs-cta--bet, .fs-cta--ai')).toHaveCount(0);
-    await expect(page.getByRole('heading', {name:'Debate someone live.',exact:true})).toBeVisible();
+    await expect(actions.locator('.fs-cta--bet')).toHaveCount(0);
+    await expect(page.getByRole('heading', {name:'Debate someone live.',exact:true})).toHaveCount(0);
     expect(errors, 'uncaught exceptions on the landing').toEqual([]);
   });
 
   // /spar is a LIVE queue with humans in it. Keep these browsers signed
   // out: neither test authenticates a named account or enters the queue.
   // Firebase may create its anonymous identity, which is not a real sign-in.
-  test('/spar first-timer: three questions precede sign-in and survive continuing', async ({ page }) => {
+  test('/spar first-timer saves the three optional answers before account entry', async ({ page }) => {
     const errors = trackErrors(page);
-    // A deterministic empty queue keeps the waiting-person invitation
-    // from covering the account door.
+    let anonymousAttempts = 0;
+    await page.route(/identitytoolkit\.googleapis\.com\/v1\/accounts:signUp/, route => {
+      anonymousAttempts++;
+      return route.abort();
+    });
     await page.route('**/api/spar-queue', route => route.fulfill({ json: { waiting: 0 } }));
     await page.goto('/spar');
-    const desk = page.getByRole('dialog', { name: /AI MATCHMAKING/i });
+    const desk = page.getByRole('dialog', { name: 'Find a debate', exact: true });
     await expect(desk).toBeVisible({ timeout: 20_000 });
-    await expect(page.locator('#signInBtn')).toHaveCount(0);
-    await expect(desk.locator('.afl-panel')).toHaveCount(3);
     const steps = desk.locator('.afl-panel');
-    const pictures = steps.nth(0).locator('.afl-opt--img');
-    await pictures.nth(0).click();
-    await pictures.nth(1).click();
-    await expect(desk).toBeVisible();
+    await expect(steps).toHaveCount(3);
+    await steps.nth(0).getByRole('checkbox', { name: /^Politics / }).click();
+    await steps.nth(0).getByRole('checkbox', { name: /^Tech and AI / }).click();
     await steps.nth(0).locator('.afl-next').click();
-    await expect(desk).toBeVisible();
     await steps.nth(1).locator('.afl-opt--img').nth(0).click();
+    await steps.nth(1).locator('.afl-opt--img').nth(1).click();
     await steps.nth(1).locator('.afl-next').click();
-    await expect(desk).toBeVisible();
-    await steps.nth(2).locator('.afl-opts .afl-opt').first().click();
+    await steps.nth(2).locator('.afl-opt--img').nth(0).click();
     await steps.nth(2).locator('.afl-next').click();
-    await expect(page.locator('#signInBtn')).toBeVisible();
     await expect(desk).toHaveCount(0);
+    await expect(page.locator('#sparGateCard')).toBeVisible();
     const profile = await page.evaluate(() => JSON.parse(localStorage.getItem('da-spar-match-profile-v5')));
+    expect(profile.topics).toHaveLength(2);
     expect(profile.agree).toHaveLength(2);
-    expect(profile.mode).toBe('fast');
-    await page.reload();
-    await expect(page.locator('#signInBtn')).toBeVisible();
-    await expect(desk).toHaveCount(0);
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('da-spar-match-profile-v5')).agree)).toEqual(profile.agree);
+    expect(profile.interest).toHaveLength(1);
     await expect(page.locator('#signInBtn')).toContainText(/with Google/i);
     await expect(page.locator('#appleInBtn')).toBeVisible();
-    await expect(page.getByRole('dialog', { name: /how old are you/i })).toHaveCount(0);
-    await expect(page.locator('.gate-email:visible')).toHaveCount(1);
+    await expect(page.locator('#emailStartBtn')).toBeVisible();
+    await expect(page.locator('.gate-invite')).toContainText('Example invite');
     await expect(page.locator('.gate-guest:visible')).toHaveCount(0);
-    await expect(page.locator('#waitlistRail')).not.toContainText('[object HTMLElement]');
+    await expect(page.getByRole('dialog', { name: /how old are you/i })).toHaveCount(0);
     await expect(page.locator('#globalDebateMap')).toHaveCount(0);
-    await expect(page.getByText(/keep this tab open/i)).toHaveCount(0);
-    // The inline sign-in gate owns this step. The cumulative timed wall
-    // never stacks over an existing account gate.
+    // Reloading preserves the optional answers without creating a guest queue identity.
+    await page.reload();
+    await expect(page.locator('#sparGateCard')).toBeVisible();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('da-spar-match-profile-v5')).topics)).toEqual(profile.topics);
     await page.waitForTimeout(6_500);
     await expect(page.locator('#ditAuth')).toBeHidden();
+    expect(anonymousAttempts, 'matchmaking must not mint a guest session').toBe(0);
     expect(errors, 'uncaught exceptions on /spar').toEqual([]);
   });
 
@@ -136,11 +135,12 @@ test.describe('public pages', () => {
     // Only the queue READ is synthetic. Joining remains impossible here.
     await page.route('**/api/spar-queue', route => route.fulfill({ json: { waiting: 1 } }));
     await page.goto('/spar');
-    const desk = page.getByRole('dialog', { name: /AI MATCHMAKING/i });
+    const desk = page.getByRole('dialog', { name: 'Find a debate', exact: true });
     await expect(desk).toBeVisible({ timeout: 20_000 });
     await desk.locator('.mp-skip-big').click();
-    await expect(page.locator('#signInBtn')).toBeVisible();
     await expect(desk).toHaveCount(0);
+    await expect(page.locator('#sparGateCard')).toBeVisible();
+    await expect(page.locator('#signInBtn')).toBeVisible();
     await expect(page.locator('#signInBtn')).toContainText(/with Google/i);
     await expect(page.locator('#appleInBtn')).toContainText(/with Apple/i);
     await expect(page.locator('.gate-email:visible')).toHaveCount(1);
