@@ -584,15 +584,21 @@
   function saveSignupNickname(user, name) {
     if (!name || !user) return Promise.resolve(user);
     return new Promise(function (resolve) {
+      // A profile write can wait offline indefinitely after Auth succeeds.
+      // Keep the account usable even when nickname sync cannot finish.
+      var timer = setTimeout(done, 2500);
+      function done() { clearTimeout(timer); resolve(user); }
       function save() {
-        if (!window.DBIdentity) { resolve(user); return; }
-        window.DBIdentity.setName(name, undefined, user).then(function () { resolve(user); });
+        if (!window.DBIdentity) { done(); return; }
+        Promise.resolve().then(function () {
+          return window.DBIdentity.setName(name, undefined, user);
+        }).then(done, done);
       }
       if (window.DBIdentity) { save(); return; }
       var script = document.createElement('script');
       script.src = '/js/public-identity.js';
       script.onload = save;
-      script.onerror = function () { resolve(user); };
+      script.onerror = done;
       document.head.appendChild(script);
     });
   }
@@ -1290,15 +1296,16 @@
       var code = (err && err.code) || '';
       try { localStorage.removeItem(LINK_EMAIL_KEY); } catch (e) {}
       var msg = code === 'auth/invalid-action-code'
-        ? 'That sign-in link has expired or was already used. Continue with Google.'
+        ? 'That sign-in link has expired or was already used. Send yourself a new link below.'
         : code === 'auth/invalid-email'
           ? 'That email does not match the link. Try again.'
-          : 'Could not finish signing you in. Continue with Google.';
+          : 'Could not finish signing you in. Request a new link or choose another sign-in method.';
       if (typeof onFail === 'function') { onFail(msg, code); return; }
       stripLinkParams();
-      // Email is no longer a public provider. An old link may finish, but
-      // a failed one returns to the supported Google door.
       openAuthModal('signin');
+      renderChooser('signin', 'link');
+      var retryEmail = home() && home().querySelector('#daEmail');
+      if (retryEmail) retryEmail.value = email;
       setErr(msg);
     });
   }
@@ -1334,7 +1341,7 @@
         '<button type="submit" class="da-btn da-btn--primary da-btn--hero" id="daLinkBtn">Finish signing in</button>' +
       '</form>' +
       '<div class="da-err" role="alert"></div>' +
-      '<p class="da-switch"><button type="button" class="da-link" id="daLinkBail">Continue with Google</button></p>';
+      '<p class="da-switch"><button type="button" class="da-link" id="daLinkBail">Get a new link or use another sign-in method</button></p>';
     var xBtn = c.querySelector('.da-x');
     if (xBtn) xBtn.addEventListener('click', close);
     c.querySelector('#daLinkBail').addEventListener('click', function () {
@@ -1361,7 +1368,7 @@
         setErr(code === 'auth/invalid-email' || code === 'auth/user-not-found'
           ? 'That address does not match this link. Check it and try again.'
           : code === 'auth/invalid-action-code'
-            ? 'This link has expired or was already used. Continue with Google below.'
+            ? 'This link has expired or was already used. Get a new link below.'
             : 'Could not finish signing you in. Use another way in, below.');
       });
     });

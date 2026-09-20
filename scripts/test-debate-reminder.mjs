@@ -21,12 +21,12 @@ for (const date of ['2026-09-08','2026-10-03','2026-10-04','2026-10-25','2026-11
   }
 }
 const toIso = st => new Date(st.start).toISOString();
-assert.equal(toIso(schedule.nextSession(Date.parse('2026-09-08T10:00Z'))), '2026-09-08T11:00:00.000Z');
-assert.equal(toIso(schedule.nextSession(Date.parse('2026-09-08T13:00Z'))), '2026-09-08T19:00:00.000Z');
-assert.equal(toIso(schedule.nextSession(Date.parse('2026-09-08T21:00Z'))), '2026-09-09T01:00:00.000Z');
+assert.equal(toIso(schedule.nextSession(Date.parse('2026-09-08T10:00Z'))), '2026-09-08T15:30:00.000Z');
+assert.equal(toIso(schedule.nextSession(Date.parse('2026-09-08T13:00Z'))), '2026-09-08T15:30:00.000Z');
+assert.equal(toIso(schedule.nextSession(Date.parse('2026-09-08T22:00Z'))), '2026-09-09T01:00:00.000Z');
 const browser = {window:{}, Intl, Date};
 vm.runInNewContext(fs.readFileSync(new URL('../app/js/clash-schedule.js',import.meta.url),'utf8'), browser);
-assert.equal(toIso(browser.window.DBClashSchedule.nextSession(Date.parse('2026-10-25T13:00Z'))), '2026-10-25T20:00:00.000Z');
+assert.equal(toIso(browser.window.DBClashSchedule.nextSession(Date.parse('2026-10-25T18:00Z'))), '2026-10-25T21:00:00.000Z');
 
 const users = [{uid:'a',email:'A@example.org'}, {uid:'a2',email:'a@example.org'},
   {uid:'b',email:'b@example.org'}, {uid:'c',email:'c@example.org'},

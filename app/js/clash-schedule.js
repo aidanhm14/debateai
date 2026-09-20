@@ -1,4 +1,4 @@
-/* Daily at 9 PM in each host city, per the founder on 2026-09-08.
+/* Daily at 9 PM in each host city, per the founder on 2026-09-20.
  * One dependency-free schedule for the browser, RSVP and email senders.
  * Each city keeps its wall-clock time through its own daylight saving.
  */
@@ -8,10 +8,10 @@
 }(typeof window !== 'undefined' ? window : this, function () {
   var LIVE_MS = 90 * 60 * 1000;
   var SESSIONS = [
-    { hour: 21, city: 'Sydney', name: 'Asia-Pacific evening', tz: 'Australia/Sydney',
-      zones: [['Sydney', 'Australia/Sydney'], ['Tokyo', 'Asia/Tokyo'], ['Delhi', 'Asia/Kolkata']] },
-    { hour: 21, city: 'Berlin', name: 'Europe evening', tz: 'Europe/Berlin',
-      zones: [['Berlin', 'Europe/Berlin'], ['London', 'Europe/London'], ['Lagos', 'Africa/Lagos']] },
+    { hour: 21, city: 'India', name: 'India evening', tz: 'Asia/Kolkata',
+      zones: [['India', 'Asia/Kolkata'], ['Singapore', 'Asia/Singapore'], ['Sydney', 'Australia/Sydney']] },
+    { hour: 21, city: 'London', name: 'Europe evening', tz: 'Europe/London',
+      zones: [['London', 'Europe/London'], ['Berlin', 'Europe/Berlin'], ['Lagos', 'Africa/Lagos']] },
     { hour: 21, city: 'New York', name: 'US evening', tz: 'America/New_York',
       zones: [['New York', 'America/New_York'], ['Chicago', 'America/Chicago'], ['Los Angeles', 'America/Los_Angeles']] }
   ];
@@ -49,7 +49,7 @@
     var p = parts(st.start, st.session.tz), day = p.year + p.month + p.day;
     return 'https://calendar.google.com/calendar/render?action=TEMPLATE'
       + '&text=' + encodeURIComponent('Clash Hour (' + st.session.city + ') · Debatable')
-      + '&details=' + encodeURIComponent('Daily at 9 PM New York, 9 PM Berlin and 9 PM Sydney, each in local time. Join at itsdebatable.com/spar')
+      + '&details=' + encodeURIComponent('Daily at 9 PM London, 9 PM India and 9 PM Eastern (New York), each in local time. Join at itsdebatable.com/spar')
       + '&location=' + encodeURIComponent('https://itsdebatable.com/spar')
       + '&dates=' + day + 'T210000/' + day + 'T223000'
       + '&ctz=' + encodeURIComponent(st.session.tz)

@@ -1,7 +1,7 @@
 import schedule from '../../js/clash-schedule.js';
 /* scheduled-spar-night.mjs
- * Weekly reminder for three DAILY sessions at 9 PM in New York, Berlin
- * and Sydney. The shared schedule keeps each city at 9 PM through DST.
+ * Weekly reminder for three DAILY sessions at 9 PM in London, India
+ * and New York. The shared schedule keeps each city at 9 PM through DST.
  *
  * Cohort: every user_profiles doc with an email that isn't opted out
  * (isOptedOut(prof, 'sparnight'): global emailOptOut, the shared
@@ -94,7 +94,7 @@ function renderEmail({ firstName, uid, stream = 'sparnight' }) {
     of finding an opponent. Take the session that is evening where you are.
   </p>
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 20px">
-    9 PM New York<br>9 PM Berlin<br>9 PM Sydney<br>
+    9 PM London<br>9 PM India (IST)<br>9 PM Eastern (New York)<br>
     Three separate sessions, each in that city's local time.
   </p>
   <p style="font-size:.95rem;line-height:1.6;margin:0 0 22px">
@@ -107,7 +107,7 @@ function renderEmail({ firstName, uid, stream = 'sparnight' }) {
   <p style="font-size:.82rem;line-height:1.6;color:#6b6b76;margin:0">
     Can't make it today? It runs every day. Add your session once and
     you're set:
-    <a href="${gcalAsia}" style="color:#dc2626;text-decoration:underline">Asia-Pacific</a> &middot;
+    <a href="${gcalAsia}" style="color:#dc2626;text-decoration:underline">India</a> &middot;
     <a href="${gcalEuro}" style="color:#dc2626;text-decoration:underline">Europe</a> &middot;
     <a href="${gcalUs}" style="color:#dc2626;text-decoration:underline">US</a>.
   </p>

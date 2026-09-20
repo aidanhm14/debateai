@@ -1,4 +1,4 @@
-/* Clash Hour countdown. Daily 9 PM sessions in Sydney, Berlin and New York.
+/* Clash Hour countdown. Daily 9 PM sessions in India, London and New York.
  * The shared clash-schedule.js also drives calendar links and email reminders. */
 (function () {
   if (typeof window === 'undefined') return;
@@ -284,7 +284,7 @@
       ? 'Real opponents, timed rounds, a judge ballot at the end.'
       : (variant === 'rail'
         ? '<span class="sn-slots">' + slotsHtml + '</span>'
-        : 'Ninety minutes when everyone queues at once. Three sessions every day: 9 PM New York, 9 PM Berlin and 9 PM Sydney, each in local time.'
+        : 'Ninety minutes when everyone queues at once. Three sessions every day: 9 PM London, 9 PM India and 9 PM Eastern (New York), each in local time.'
           + (cities ? ' This one is ' + cities + '.' : ''));
     var count = live
       ? 'ends in <span class="sn-count" data-sn-count></span>'

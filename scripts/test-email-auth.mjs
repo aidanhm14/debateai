@@ -96,6 +96,7 @@ function harness(options = {}) {
   const session = new Map();
   const writes = [];
   const calls = [];
+  const timers = [];
   const events = [];
   const location = { origin: 'https://itsdebatable.com', pathname: '/practice', search: '', hash: '', href: 'https://itsdebatable.com/practice' };
   const persisted = options.persistence || { promise: Promise.resolve() };
@@ -123,6 +124,7 @@ function harness(options = {}) {
       this.currentUser = user;
       return Promise.resolve({ user });
     },
+    signInWithEmailLink(email) { calls.push(['emailLink', email]); return Promise.reject({code:'auth/invalid-action-code'}); },
     sendPasswordResetEmail(email) { calls.push(['reset', email]); return Promise.resolve(); },
   };
   if (options.anonymous) {
@@ -139,7 +141,7 @@ function harness(options = {}) {
   }
   const auth = () => firebaseAuth;
   auth.Auth = { Persistence: { LOCAL: 'local', SESSION: 'session' } };
-  auth.EmailAuthProvider = { credential: (email, password) => ({ email, password }) };
+  auth.EmailAuthProvider = { credential: (email, password) => ({ email, password }), credentialWithLink: (email, link) => ({email, link}) };
   const document = {
     getElementById: id => id === 'ditAuthCard' ? card : null,
     querySelector: () => null,
@@ -164,10 +166,10 @@ function harness(options = {}) {
       setItem(key, value) { writes.push([key, String(value)]); session.set(key, String(value)); },
       removeItem: key => session.delete(key),
     },
-    DBIdentity: { setName(name, handle, user) { calls.push(['nickname', { displayNameOverride: name, uid: user.uid }]); return Promise.resolve({ok:true}); } },
+    DBIdentity: { setName(name, handle, user) { calls.push(['nickname', { displayNameOverride: name, uid: user.uid }]); if (options.nicknameReject) return Promise.reject(new Error('offline')); if (options.nicknamePending) return new Promise(() => {}); return Promise.resolve({ok:true}); } },
     gtag: (...args) => events.push(args),
-    setTimeout,
-    clearTimeout,
+    setTimeout(fn, ms) { if (ms === 2500) { timers.push(fn); return 1; } return setTimeout(fn, ms); },
+    clearTimeout() {},
     URL,
     CustomEvent: class { constructor(type) { this.type = type; } },
     dispatchEvent() {},
@@ -178,7 +180,7 @@ function harness(options = {}) {
   // mode switching use the real DOM handlers, not test copies of the logic.
   const marker = '  window.openAuthModal = openAuthModal;';
   assert.ok(source.includes(marker), 'shared modal public entrypoint exists');
-  const instrumented = source.replace(marker, `${marker}\n  window.__renderEmailAuth = function(mode, opts) {\n    googleOnly = !!(opts && opts.googleOnly);\n    liveVideo = !!(opts && opts.liveVideo) && !googleOnly;\n    renderChooser(mode, opts && opts.emailMode);\n  };`);
+  const instrumented = source.replace(marker, `${marker}\n  window.__renderEmailAuth = function(mode, opts) {\n    googleOnly = !!(opts && opts.googleOnly);\n    liveVideo = !!(opts && opts.liveVideo) && !googleOnly;\n    renderChooser(mode, opts && opts.emailMode);\n  };\n  window.__testFinishEmailLink = function(email) { openAuthModal = function() {}; auth = firebase.auth(); return finishEmailLink(email, 'https://itsdebatable.com/spar?mode=signIn&oobCode=expired'); };`);
   vm.runInNewContext(instrumented, sandbox, { filename: 'auth-modal.js' });
   const query = selector => card.querySelector(selector);
   function render(mode, opts) { sandbox.__renderEmailAuth(mode, opts); return card; }
@@ -198,7 +200,7 @@ function harness(options = {}) {
   function noPasswordSaved() {
     assert.ok(!JSON.stringify([...storage, ...session, ...writes]).includes(PASSWORD), 'raw password must never be saved to browser storage');
   }
-  return { render, fill, submit, query, card, storage, calls, events, firebaseAuth, location, noPasswordSaved };
+  return { render, fill, submit, query, card, storage, calls, events, firebaseAuth, location, noPasswordSaved, timers, finishEmailLink: sandbox.__testFinishEmailLink };
 }
 
 const tests = [];
@@ -278,6 +280,31 @@ test('new password account waits for persistent storage before creation and save
   assert.equal(completed(h)[0][2].method, 'email_password_signup');
   assert.equal(h.storage.get('debateos-last-signin-method'), 'email');
   h.noPasswordSaved();
+});
+
+test('nickname sync failure or an offline write cannot strand a created account', async () => {
+  for (const options of [{ nicknameReject:true }, { nicknamePending:true }]) {
+    const h = harness(options);
+    h.render('signup'); h.fill(); h.submit();
+    await settle();
+    if (options.nicknamePending) {
+      assert.equal(completed(h).length, 0);
+      h.timers.forEach(fn => fn());
+      await settle();
+    }
+    assert.equal(completed(h).length, 1);
+    assert.equal(h.firebaseAuth.currentUser.isAnonymous, false);
+    assert.ok(methods(h).includes('verification'));
+  }
+});
+
+test('an expired email link keeps the address and offers a fresh link', async () => {
+  const h = harness(); h.render('signin');
+  await h.finishEmailLink(EMAIL);
+  assert.equal(h.query('#daEmailForm').getAttribute('data-email-mode'), 'link');
+  assert.equal(h.query('#daEmail').value, EMAIL);
+  assert.match(h.query('.da-err').textContent, /new link below/);
+  assert.equal(completed(h).length, 0);
 });
 
 test('signing up from a guest links the existing UID after persistence succeeds', async () => {
