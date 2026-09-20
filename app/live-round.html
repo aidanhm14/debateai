@@ -3551,6 +3551,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
 .round-plan li b,.round-plan li span{display:block}
 .round-plan li span{color:var(--text-dim);margin-top:2px}
 .round-plan li[aria-current]{border-color:var(--accent);box-shadow:inset 0 2px var(--accent)}
+.sequence-list[hidden]{display:none}
 .conversation-finish{border:1px solid var(--accent);border-radius:8px;padding:12px}
 .conversation-finish p{margin:0 0 9px}
 .conversation-finish .row{gap:8px}
@@ -3857,7 +3858,6 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
             </span>
             <div class="rmb-motion" id="rmbMotion">&#8212;</div>
             <div class="round-own-side" id="roundOwnSide" aria-live="polite" hidden></div>
-            <div class="round-plan" id="roundPlan" aria-label="Speaking order"></div>
             <!-- 2026-09-07: the "What This House means" link rides the
                  resolution it explains. renderHouseGloss() fills this and
                  #rmbHouse; #rmbHouse is hidden by CSS whenever this one
@@ -4120,8 +4120,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
                instead of the 2-card roster when the format is 4-team. -->
           <div class="round-roster-4" id="roundRoster4" hidden></div>
           <div class="sequence">
-            <div class="label" style="margin-bottom:6px">Speech sequence</div>
-            <div class="sequence-list" id="sequenceList"></div>
+            <div class="round-plan" id="roundPlan" aria-label="Speaking order"></div>
+            <div class="sequence-list" id="sequenceList" hidden></div>
           </div>
           <div class="rd-transcript-settings" id="transcriptSettings">
             <div class="label" style="margin-bottom:6px">Transcript</div>
@@ -7245,13 +7245,14 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   }
 
   // ── The two doors ─────────────────────────────────────────────────
-  // Conversation or formal speeches, chosen in the room at the start
-  // beat. Pressing either PUBLISHES the format so both screens agree
+  // Explicit conversation rooms retain their mode choices. Timed rounds
+  // use the single Start my speech control. Either choice PUBLISHES the format so both screens agree
   // (the peer adopts d.format in the round snapshot and re-renders),
   // then starts it. Never shown when the tournament fixes the format,
   // never to a spectator, and never once a speech has run.
   function modeDoorsVisible(){
     return state.phase === 'round'
+      && openMode()
       && state.speechIdx === 0
       && state.timerState === 'ready'
       && !isSpectator()
@@ -7674,8 +7675,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   new MutationObserver(updateRoundFocus).observe(document.body, { attributes:true, attributeFilter:['class'] });
   function updatePlayPauseBtn(){
     paintRoundPlan();
-    // Both seats can choose the mode before the first speech. Paint the
-    // choice before returning through the waiting-speaker branch.
+    // Conversation choices repaint before the waiting-speaker branch;
+    // timed rounds keep the current speaker's single start control.
     try { paintModeDoors(); } catch(e){}
     updatePlayPauseBtnCore();
     updateRoundFocus();

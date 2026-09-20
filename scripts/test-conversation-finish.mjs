@@ -127,4 +127,12 @@ let modesPainted=0;
 const controls={paintRoundPlan(){},paintModeDoors(){modesPainted++;},updatePlayPauseBtnCore(){return;},updateRoundFocus(){}};
 vm.createContext(controls);vm.runInContext(helper('updatePlayPauseBtn','  function updatePlayPauseBtnCore'),controls);controls.updatePlayPauseBtn();
 assert.equal(modesPainted,1,'the waiting speaker still gets the initial mode choices');
+const modes={state:{phase:'round',speechIdx:0,timerState:'ready'},openMode:()=>false,
+  isSpectator:()=>false,mySide:()=> 'pro',tournamentControlsLocked:()=>false};
+vm.createContext(modes);vm.runInContext(helper('modeDoorsVisible','  function paintModeDoors('),modes);
+assert.equal(modes.modeDoorsVisible(),false,'timed rounds use the original current-speaker controls');
+modes.openMode=()=>true;
+assert.equal(modes.modeDoorsVisible(),true,'explicit conversation rooms retain their start choices');
+modes.state.timerState='running';
+assert.equal(modes.modeDoorsVisible(),false,'running conversations cannot switch modes');
 console.log('Conversation finish: consent, concurrent requests, expiry, disconnect, durable tails, retry, reconnect, capture timeout and turn ownership passed.');

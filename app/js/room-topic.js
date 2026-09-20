@@ -25,7 +25,7 @@
   var LISTEN_REPLY = 'Use the whole conversation so far, including corrections and changes of subject. The room has paused. If they are still thinking or talking to each other, stay silent. If you have only heard one view, invite the other perspective briefly. Suggest only when you understand the tension, or ask one useful question. Do not repeat a suggestion or fill the pause with acknowledgements.';
   // Nudge timers, host only. The judge is a pre-round helper, so while
   // people just chat it reminds them, casually, that the round is one tap
-  // away: Start conversation (no clock) or Start timed speeches.
+  // away: the current speaker starts the timed round with Start my speech.
   var nudge = { timer: null, count: 0, key: '' };
   function clearNudge() { clearTimeout(nudge.timer); nudge.timer = null; }
   function armNudge(key, delay, instructions, max) {
@@ -44,9 +44,9 @@
   function armTalkNudge() {
     if (!talk || !active(talk)) return;
     if (talk.phase === 'listening') {
-      armNudge('listen:' + talk.id, 75000, 'They have been chatting a while. In one casual line under twenty words, remind them you can suggest a topic whenever they land on a disagreement, or they can just tap Start conversation and argue the resolution on screen. Then keep listening.', 2);
+      armNudge('listen:' + talk.id, 75000, 'They have been chatting a while. In one casual line under twenty words, remind them you can suggest a topic whenever they land on a disagreement, or they can start the round on the topic already on screen. Then keep listening.', 2);
     } else if (talk.phase === 'proposed') {
-      armNudge('proposed:' + talk.id + ':' + talk.proposals, 30000, 'The suggestion is still on their screens and nobody has tapped. In one casual line under twenty words: tap Use it if you are both in, then Start conversation or Start timed speeches. Or say something else. Then keep listening.', 2);
+      armNudge('proposed:' + talk.id + ':' + talk.proposals, 30000, 'The suggestion is still on their screens and nobody has tapped. In one casual line under twenty words: tap Use it if you are both in, then start the round. Or say something else. Then keep listening.', 2);
     }
   }
   function ctx() { return window.__lrTopicContext ? window.__lrTopicContext() : {}; }
