@@ -19150,6 +19150,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         var seatBeatN = 0;
         var seatBeat = function(){
           if (state.phase === 'ballot' || state.phase === 'ballot-rendered') return;
+          // Presence cannot create a partial room before privacy and seats save.
+          if (!state.roundDocSeen || !state.dailyMounted) return;
           // A beat already in flight when the seat is marked empty would
           // land with a LATER server timestamp and quietly undo the mark,
           // which is the one way this could fail closed.
@@ -22353,9 +22355,14 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         updateRoomStage();
       }
     }
-    var privacyChanged = !state.roundDocSeen || state.isPrivate !== (d.isPrivate === true);
-    state.roundDocSeen = true;
-    state.isPrivate = d.isPrivate === true;
+    // Optimistic setup writes can contain only a motion or heartbeat. Their
+    // missing flag is not a saved choice to open the room to spectators.
+    var hasSavedVisibility = typeof d.isPrivate === 'boolean' || !!(d.status && d.posterUid);
+    var privacyChanged = hasSavedVisibility && (!state.roundDocSeen || state.isPrivate !== (d.isPrivate === true));
+    if (hasSavedVisibility){
+      state.roundDocSeen = true;
+      state.isPrivate = d.isPrivate === true;
+    }
     if (privacyChanged){ paintPrivacyToggle(); refreshAdmissionGate(); }
     // Audience count rides the round doc (written by seatBeat). Only
     // render when the field is actually present, so a round doc from
@@ -22866,7 +22873,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       prepMin: state.prepMin || 0,
       judgePicks: state.judgePicks || { pro: 'chair', con: 'chair' },
       // Visibility is a creation default, never a field to overwrite on rejoin.
-      isPrivate: !!state.isPrivate,
+      isPrivate: true,
     };
     var ownAvatar = currentPublicAvatarIdentity();
     if (ownAvatar && state.user && state.user.uid){

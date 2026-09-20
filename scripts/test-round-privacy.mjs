@@ -11,7 +11,10 @@ const firestore=()=>({runTransaction:async fn=>fn({get:async()=>({exists:!!saved
 firestore.FieldValue={serverTimestamp:()=>123};
 const ctx={state,isSpectator:()=>false,getRoundDocRef:()=>({}),firebase:{firestore},publicNameOf:()=> 'A',currentPublicAvatarIdentity:()=>null,DBRoomTeams:Teams,gtag:()=>{},console};
 vm.createContext(ctx);vm.runInContext(init,ctx);
-await ctx.publishRoundInit();assert.equal(writes[0].isPrivate,true,'new round private');
+for(const localPrivacy of [true,false,undefined]){
+ state.isPrivate=localPrivacy;writes=[];
+ await ctx.publishRoundInit();assert.equal(writes[0].isPrivate,true,'fresh round is private even after a partial local snapshot');
+}
 for(const privacy of [true,false,undefined])for(const speechIdx of [0,2]){
  saved={proUid:'a',conUid:'b',isPrivate:privacy,speechIdx};writes=[];
  state.isPrivate=!privacy;
@@ -22,6 +25,23 @@ assert.ok(page.includes('isPrivate: true,'),'query string cannot default a new r
 assert.ok(!page.includes('id="privacyMenu"'),'no visibility menu');
 assert.ok(!page.includes('nudgedUnlisted'),'no repeated unlisted nag');
 assert.ok(page.includes('Promise.resolve(publishRoundInit()).then(mountDaily)'),'privacy saves before video credentials');
+const adoptPrivacy=page.slice(page.indexOf('    var hasSavedVisibility ='),page.indexOf('    if (privacyChanged){'));
+for(const partial of [{lastSeenAt:123},{motion:'More parks'},{judgePicks:{pro:'chair'}}]){
+ const privacy={state:{isPrivate:true,roundDocSeen:false},d:partial};
+ vm.runInNewContext(adoptPrivacy,privacy);
+ assert.equal(privacy.state.isPrivate,true,'a rejected partial creation cannot make the next init public');
+ assert.equal(privacy.state.roundDocSeen,false,'partial local data is not an initialized room');
+}
+for(const savedPrivacy of [true,false,undefined]){
+ const privacy={state:{isPrivate:true,roundDocSeen:false},d:{status:'round',posterUid:'a',isPrivate:savedPrivacy}};
+ vm.runInNewContext(adoptPrivacy,privacy);
+ assert.equal(privacy.state.isPrivate,savedPrivacy===true,'saved legacy and explicit visibility are preserved');
+}
+const beat=page.slice(page.indexOf('        var seatBeat = function(){'),page.indexOf('        seatBeat();'));
+for(const waiting of [{roundDocSeen:false,dailyMounted:false},{roundDocSeen:true,dailyMounted:false}]){
+ const beforeRoom={state:{phase:'setup',...waiting}};
+ vm.runInNewContext(beat+'seatBeat();',beforeRoom);
+}
 
 let round={isPrivate:true,proUid:'a',conUid:'b',posterUid:'a'},calls=[],failToken=false,failRead=false;
 const deps={Request,Response,URL,Headers,TextEncoder,crypto,console,Teams,
