@@ -1,7 +1,7 @@
 #!/usr/bin/env node
+import { readPageSource } from './lib/page-source.mjs';
 
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -19,7 +19,7 @@ import {
 } from '../app/netlify/functions/lib/stream-targets.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
+const read = (name) => readPageSource(path.join(root, name), 'utf8');
 
 let passed = 0;
 function check(value, message) {
@@ -171,7 +171,7 @@ check(air.includes('startScreenShare({ mediaStream'), 'On air publishes the prog
 check(director.includes('href="/air'), 'director links to the On air switcher');
 
 check(!/https:\/\/unpkg\.com\/@daily-co\/daily-js["']/.test(studio + liveRound + air), 'stream pages do not load Daily latest');
-const dailyBundle = fs.readFileSync(path.join(root, 'app/vendor/daily-iframe-0.92.2.js'));
+const dailyBundle = readPageSource(path.join(root, 'app/vendor/daily-iframe-0.92.2.js'));
 check(crypto.createHash('sha256').update(dailyBundle).digest('hex') === '4199d9996bafaa500d97362eb109c2a300ffbead41ce5c4df7132517f7ad5636', 'vendored Daily SDK matches the reviewed npm bundle');
 check(tournament.includes("fetch('/api/stream-status'"), 'tournament page reads the public stream status');
 check(tournament.includes('id="publicStreamFrame"'), 'tournament page contains the public player');

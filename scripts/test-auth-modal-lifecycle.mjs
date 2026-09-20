@@ -1,11 +1,11 @@
-import fs from 'node:fs';
+import { readPageSource } from './lib/page-source.mjs';
 
-const source = fs.readFileSync(new URL('../app/js/auth-modal.js', import.meta.url), 'utf8');
-const landing = fs.readFileSync(new URL('../app/landing.html', import.meta.url), 'utf8');
-const signupNudge = fs.readFileSync(new URL('../app/js/signup-nudge.js', import.meta.url), 'utf8');
-const experienceAsk = fs.readFileSync(new URL('../app/js/experience-ask.js', import.meta.url), 'utf8');
-const audienceMode = fs.readFileSync(new URL('../app/js/audience-mode.js', import.meta.url), 'utf8');
-const livePull = fs.readFileSync(new URL('../app/js/live-pull.js', import.meta.url), 'utf8');
+const source = readPageSource(new URL('../app/js/auth-modal.js', import.meta.url), 'utf8');
+const landing = readPageSource(new URL('../app/landing.html', import.meta.url), 'utf8');
+const signupNudge = readPageSource(new URL('../app/js/signup-nudge.js', import.meta.url), 'utf8');
+const experienceAsk = readPageSource(new URL('../app/js/experience-ask.js', import.meta.url), 'utf8');
+const audienceMode = readPageSource(new URL('../app/js/audience-mode.js', import.meta.url), 'utf8');
+const livePull = readPageSource(new URL('../app/js/live-pull.js', import.meta.url), 'utf8');
 let failures = 0;
 
 function check(condition, label) {

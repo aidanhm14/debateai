@@ -1,0 +1,210 @@
+/* ── Live stream card ────────────────────────────────────────────
+     Takes the example board's slot in the first screen while a stream
+     is on air, and hands it straight back when it ends. It reuses
+     .fs-board's card shell so the swap is a content change, not a
+     layout change.
+
+     The video is OUR OWN <video> element fed by the Daily call object,
+     NOT the Daily prebuilt iframe. Prebuilt paints its own top bar
+     (LIVE / N watching / Speaker view), its own tray (People / Chat /
+     Leave), and a "You're joining as a viewer" welcome gate that a
+     watcher has to click through before any picture appears. None of
+     that is stylable from outside an iframe, so the only way to show
+     the round and nothing else is to take the track and draw it here.
+     See the #fsLive script near the end of the document. */
+  .fs-live{display:none}
+  .fs-live.is-on{display:block}
+  #first-screen.has-live .fs-board:not(.fs-live){display:none}
+  .fs-live .fs-live-top{display:flex;align-items:center;gap:10px;margin-bottom:12px;position:relative;z-index:4}
+  .fs-live-pill{display:inline-flex;align-items:center;gap:6px;background:#b91c1c;color:#fff;
+    font-weight:800;font-size:.58rem;letter-spacing:.13em;padding:4px 10px;border-radius:999px}
+  .fs-live-pill i{width:6px;height:6px;border-radius:50%;background:#fff;animation:fsLivePulse 1.4s infinite}
+  @keyframes fsLivePulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .fs-live-title{font-size:.58rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+    color:rgba(245,239,231,.68);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  [data-theme="light"] .fs-live-title{color:rgba(26,26,31,.64)}
+  .fs-live-open{margin-left:auto;flex:0 0 auto;font-size:.72rem;font-weight:700;text-decoration:none;
+    color:rgba(245,239,231,.72);border:1px solid rgba(245,239,231,.24);border-radius:999px;padding:4px 11px}
+  .fs-live-open:hover{color:#fff;border-color:rgba(239,68,68,.6)}
+  [data-theme="light"] .fs-live-open{color:rgba(26,26,31,.68);border-color:rgba(26,26,31,.2)}
+  [data-theme="light"] .fs-live-open:hover{color:#1a1a1f;border-color:rgba(220,38,38,.55)}
+
+  /* The clip. object-fit:cover on a fixed 16/9 box means a portrait
+     webcam fills the card instead of sitting in pillarbox bars, which
+     is what the prebuilt embed was doing. */
+  .fs-live-stage{position:relative;border-radius:12px;overflow:hidden;background:#000;
+    aspect-ratio:16/9;border:1px solid rgba(245,239,231,.14)}
+  [data-theme="light"] .fs-live-stage{border-color:rgba(26,26,31,.14)}
+  /* Cameras. One speaker fills the stage; two split it down the middle,
+     which is what a round actually looks like. */
+  .fs-live-cams{position:absolute;inset:0;display:grid;grid-template-columns:minmax(0,1fr);gap:2px;background:#000}
+  .fs-live-cams[data-n="2"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fs-live-cam{position:relative;overflow:hidden;background:#000;min-width:0}
+  .fs-live-cam video{width:100%;height:100%;display:block;object-fit:cover;background:#000}
+  /* Screen share. contain, never cover: cropping a slide to fill a box
+     is how the one thing they wanted read gets cut off. */
+  .fs-live-screen{display:none;position:absolute;inset:0;width:100%;height:100%;
+    object-fit:contain;background:#000;z-index:2}
+  .fs-live.is-screen .fs-live-screen{display:block}
+  /* Restream player. Sits above cameras AND screen share: when the
+     round is going out to YouTube that IS the stream, and the Daily
+     room is never joined at all. */
+  .fs-live-embed{display:none;position:absolute;inset:0;width:100%;height:100%;border:0;z-index:5;background:#000}
+  .fs-live.is-embed .fs-live-embed{display:block}
+  .fs-live.is-embed .fs-live-wait,.fs-live.is-embed .fs-live-sound{display:none}
+  /* Bottom RIGHT, not left: slides put their content on the left and
+     read left to right, so a strip in the bottom-left sits on top of
+     the line the speaker is currently making. */
+  .fs-live.is-screen .fs-live-cams{inset:auto 8px 8px auto;width:36%;aspect-ratio:16/9;
+    z-index:3;gap:3px;border-radius:8px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+  .fs-live-nm{position:absolute;left:6px;bottom:6px;z-index:2;display:inline-flex;align-items:center;gap:5px;
+    padding:3px 8px;border-radius:7px;background:rgba(0,0,0,.62);color:#fff;
+    font-size:.68rem;font-weight:700;letter-spacing:.02em;max-width:calc(100% - 12px);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fs-live.is-screen .fs-live-nm{font-size:.56rem;padding:2px 6px;left:4px;bottom:4px}
+  .fs-live-sound{position:absolute;right:8px;bottom:8px;z-index:3;cursor:pointer;
+    padding:5px 11px;border-radius:8px;border:1px solid rgba(255,255,255,.24);
+    background:rgba(0,0,0,.62);color:#fff;font:inherit;font-size:.7rem;font-weight:700}
+  .fs-live-sound:hover{border-color:rgba(239,68,68,.7)}
+  .fs-live-sound[hidden]{display:none}
+  /* Out of the corner the camera strip just took. Top-right is the only
+     corner a slide reliably leaves empty. */
+  .fs-live.is-screen .fs-live-sound{bottom:auto;top:8px}
+  /* Waiting state. The stream can be on air with the host's camera
+     still off, so the card says so rather than showing a black hole. */
+  .fs-live-wait{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    color:rgba(255,255,255,.6);font-size:.85rem;letter-spacing:.02em;text-align:center;padding:16px}
+  .fs-live.is-waiting .fs-live-wait{display:flex}
+  .fs-live-cap{margin:12px 0 0;font-family:var(--font-display);font-weight:700;
+    font-size:clamp(1rem,1.5vw,1.22rem);line-height:1.25;color:#f5efe7}
+  [data-theme="light"] .fs-live-cap{color:#1a1a1f}
+  .fs-live-cap:empty{display:none}
+
+  /* Real chat highlights flow over the right edge of the first screen.
+     Keep the board's clearance stable while loading; an empty feed stays blank. */
+  .fs-chats{display:none;font-family:Arial,Helvetica,sans-serif}
+  .fs-chats:not(.is-live):not(.is-member){visibility:hidden}
+  /* 2026-09-08, the founder: the three-line answer to "what is this" sits
+     ABOVE the highlights and pushes them down. It is a SIBLING of the feed,
+     never a child, because `.fs-chats:not(.is-live)` hides the whole panel
+     when the site is quiet and the product explanation must not go with it. */
+  .fs-rightcol{display:none}
+  /* 2026-09-08, third pass, the founder: the three steps fold into a "How it
+     works" button that links to the page and shows them on hover, so the
+     highlights below can be taller. The steps are ABSOLUTE, so they overlay
+     the feed instead of costing it height, which is what buys the chat its
+     extra room. Opacity and pointer-events do the hiding rather than display
+     or visibility, so the list stays in the accessibility tree and the link
+     that describes itself with it can actually be read. */
+  .fs-what{pointer-events:auto;flex:none;position:relative;z-index:3}
+  .fs-what-btn{display:inline-flex;align-items:center;gap:9px;padding:9px 16px;
+    border-radius:999px;border:1px solid rgba(26,26,31,.16);background:rgba(255,255,255,.72);
+    font-size:.94rem;font-weight:700;color:#1a1a1f;text-decoration:none;
+    transition:border-color .18s ease,background .18s ease,transform .18s ease}
+  .fs-what-btn:hover,.fs-what:focus-within .fs-what-btn{border-color:rgba(220,38,38,.55);
+    background:#fff;transform:translateY(-1px);text-decoration:none}
+  .fs-what-btn:focus-visible{outline:2px solid #dc2626;outline-offset:2px}
+  .fs-what-arrow{font-size:1rem;line-height:1;color:#dc2626}
+  :root:not([data-theme="light"]) .fs-what-btn{border-color:rgba(245,239,231,.22);
+    background:rgba(255,255,255,.06);color:#f5efe7}
+  :root:not([data-theme="light"]) .fs-what-btn:hover,
+  :root:not([data-theme="light"]) .fs-what:focus-within .fs-what-btn{background:rgba(255,255,255,.12);
+    border-color:rgba(240,82,82,.6)}
+  :root:not([data-theme="light"]) .fs-what-arrow{color:#f05252}
+  .fs-what-pop{position:absolute;top:calc(100% + 10px);left:0;width:min(340px,100%);
+    padding:16px 18px;border-radius:14px;background:#fff;
+    border:1px solid rgba(26,26,31,.1);box-shadow:0 18px 44px rgba(20,20,25,.16);
+    opacity:0;pointer-events:none;transform:translateY(-5px);
+    transition:opacity .16s ease,transform .16s ease}
+  .fs-what:hover .fs-what-pop,.fs-what:focus-within .fs-what-pop{opacity:1;pointer-events:auto;transform:none}
+  :root:not([data-theme="light"]) .fs-what-pop{background:#17171b;border-color:rgba(245,239,231,.14);
+    box-shadow:0 18px 44px rgba(0,0,0,.5)}
+  @media(prefers-reduced-motion:reduce){.fs-what-pop,.fs-what-btn{transition:none}}
+  .fs-what-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:13px}
+  .fs-what-list li{display:flex;gap:11px;align-items:flex-start;font-size:.97rem;font-weight:500;
+    line-height:1.4;color:rgba(26,26,31,.84)}
+  :root:not([data-theme="light"]) .fs-what-list li{color:rgba(245,239,231,.9)}
+  .fs-what-n{flex:none;width:24px;height:24px;margin-top:1px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:.78rem;font-weight:800;color:#fff;background:#dc2626}
+  @media(min-width:1360px){
+    .fscreen-wrap{position:relative;max-width:1440px;grid-template-columns:minmax(0,676px) minmax(250px,.5fr);column-gap:clamp(48px,5.5vw,110px)}
+    .fs-rightcol{display:flex;position:absolute;right:0;top:50%;transform:translateY(-50%);
+      width:clamp(270px,23vw,360px);flex-direction:column;gap:clamp(20px,3.2vh,34px);
+      min-width:0;min-height:0;max-height:calc(100svh - 210px);
+      color:#f5efe7;pointer-events:none}
+    [data-theme="light"] .fs-rightcol{color:#1a1a1f}
+    /* Taller since 2026-09-08: the steps became a hover card, so the only
+       thing above the feed is one button and the feed takes the rest. */
+    .fs-chats{display:flex;position:static;transform:none;width:auto;
+      flex:1 1 auto;flex-direction:column;min-width:0;min-height:0;
+      height:auto;max-height:min(600px,calc(100svh - 300px));color:inherit;pointer-events:none}
+  }
+  .fs-chats-top{display:flex;align-items:center;gap:9px;margin-bottom:12px;flex:none;pointer-events:auto}
+  .fs-chats-dot{flex:none;width:8px;height:8px;border-radius:50%;background:rgba(245,239,231,.28)}
+  [data-theme="light"] .fs-chats-dot{background:rgba(26,26,31,.22)}
+  .fs-chats.is-live .fs-chats-dot{background:#16a34a;
+    box-shadow:0 0 0 0 rgba(22,163,74,.5);animation:fsLiveNowPulse 1.8s ease-out infinite}
+  @media(prefers-reduced-motion:reduce){.fs-chats.is-live .fs-chats-dot{animation:none}}
+  .fs-chats-title{font-size:.58rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;
+    color:rgba(245,239,231,.68)}
+  [data-theme="light"] .fs-chats-title{color:rgba(26,26,31,.64)}
+  /* 2026-09-07, the founder: "make discord button larger". A text link
+     became a filled Discord-purple button, the one coloured control in
+     this header, so the door reads as a door. */
+  .fs-chats-discord{margin-left:auto;flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;
+    padding:14px 22px;border-radius:999px;background:#5865F2;color:#fff;text-decoration:none;
+    font-size:1.1rem;font-weight:800;line-height:1;letter-spacing:.01em;
+    box-shadow:0 6px 16px rgba(88,101,242,.32);transition:transform .15s,background .15s}
+  [data-theme="light"] .fs-chats-discord{color:#fff}
+  .fs-chats-discord svg{flex:none;display:block;width:24px;height:24px}
+  .fs-chats-discord:hover{background:#4752c4;transform:translateY(-1px);text-decoration:none}
+  .fs-chats-discord:focus-visible{outline:2px solid #fff;outline-offset:2px}
+  .fs-chats-list{flex:1 1 auto;min-height:0;overflow:hidden;overscroll-behavior:contain;
+    scrollbar-width:none;pointer-events:auto;
+    mask-image:linear-gradient(to bottom,transparent,#000 10%,#000 88%,transparent)}
+  .fs-chats-list::-webkit-scrollbar{display:none}
+  .fs-chats-track{animation:fsChatsFlow var(--fs-chat-duration,60s) linear infinite}
+  .fs-chats-group{display:flex;flex-direction:column;gap:18px;padding:0 0 18px;min-height:var(--fs-chat-height,0px)}
+  @keyframes fsChatsFlow{to{transform:translateY(-50%)}}
+  .fs-chats:hover .fs-chats-track,.fs-chats.is-paused .fs-chats-track{animation-play-state:paused}
+  .fs-chats-list:focus-within .fs-chats-track{animation:none;transform:none}
+  .fs-chats-list:focus-within{overflow-y:auto;mask-image:none}
+  .fs-chats-list:focus-within .fs-chats-copy{display:none}
+  .fs-chats-msg{display:block;text-decoration:none;color:inherit;padding:0 3px;
+    font-size:.9rem;line-height:1.55;overflow-wrap:anywhere}
+  .fs-chats-msg:hover .fs-chats-text{text-decoration:underline;text-underline-offset:3px}
+  .fs-chats-msg:focus-visible{outline:2px solid var(--accent,#dc2626);outline-offset:1px}
+  .fs-chats-meta{display:inline}
+  .fs-chats-room{font-size:.59rem;font-weight:800;letter-spacing:.05em;color:#f87171;margin-right:6px}
+  [data-theme="light"] .fs-chats-room{color:#dc2626}
+  .fs-chats-handle{font-weight:600;color:#f5efe7}
+  [data-theme="light"] .fs-chats-handle{color:#29292e}
+  .fs-chats-handle::after{content:': '}
+  .fs-chats-text{display:inline;margin:0 0 0 5px;color:rgba(245,239,231,.84)}
+  [data-theme="light"] .fs-chats-text{color:rgba(26,26,31,.8)}
+  .fs-chats-cta{margin-top:12px;align-self:flex-start;flex:none;font-size:.75rem;font-weight:700;
+    text-decoration:none;color:inherit;pointer-events:auto}
+  .fs-chats-cta:hover{text-decoration:underline;text-underline-offset:3px}
+  .fs-chats-cta[hidden],.fs-chat-compose[hidden]{display:none}
+  .fs-chat-compose{flex:none;margin-top:12px;pointer-events:auto;font:inherit}
+  .fs-chat-compose label{display:block;margin-bottom:8px;font-size:.75rem;font-weight:700}
+  .fs-chat-row{display:flex;align-items:stretch;gap:7px}
+  .fs-chat-input{flex:1;min-width:0;min-height:42px;max-height:100px;resize:vertical;
+    box-sizing:border-box;padding:11px 12px;border:1px solid rgba(245,239,231,.25);
+    border-radius:12px;background:rgba(255,255,255,.06);color:inherit;font:inherit;font-size:.85rem;line-height:1.35}
+  .fs-chat-input::placeholder{color:inherit;opacity:.6}
+  .fs-chat-send{flex:none;padding:0 13px;border:0;border-radius:12px;
+    background:#dc2626;color:#fff;font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
+  .fs-chat-send:hover:not(:disabled){background:#b91c1c}
+  .fs-chat-send:disabled{opacity:.5;cursor:default}
+  .fs-chat-input:focus-visible,.fs-chat-send:focus-visible{outline:2px solid #dc2626;outline-offset:2px}
+  [data-theme="light"] .fs-chat-input{border-color:rgba(26,26,31,.2);background:rgba(255,255,255,.7)}
+  .fs-chat-status{margin:6px 0 0;font-size:.65rem;line-height:1.4;overflow-wrap:anywhere;opacity:.8}
+  .fs-chat-status.is-error{color:#f87171;opacity:1}
+  [data-theme="light"] .fs-chat-status.is-error{color:#b91c1c}
+  @media(prefers-reduced-motion:reduce){
+    .fs-chats-track{animation:none}
+    .fs-chats-copy{display:none}
+    .fs-chats-list{overflow-y:auto;mask-image:none}
+  }

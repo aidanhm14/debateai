@@ -1,10 +1,10 @@
 #!/usr/bin/env node
+import { readPageSource } from './lib/page-source.mjs';
 // The site does not run abortion or highly triggering motions. This guard
 // covers both halves of that promise: seeded/public motion sources stay clean,
 // and custom motion entry points use the shared server boundary.
 
 import assert from 'assert';
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -87,17 +87,17 @@ const PUBLIC_MOTION_SOURCES = [
 ];
 
 for (const rel of PUBLIC_MOTION_SOURCES) {
-  const source = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+  const source = readPageSource(path.join(ROOT, rel), 'utf8');
   const hits = source.split('\n').filter((line) => isSensitiveMotion(line));
   ok(!hits.length, `${rel} still contains sensitive motions or examples:\n${hits.slice(0, 12).join('\n')}`);
 }
 
-const realtime = fs.readFileSync(path.join(ROOT, 'app/netlify/functions/realtime-session.mjs'), 'utf8');
-const coach = fs.readFileSync(path.join(ROOT, 'app/netlify/functions/coach-session.mjs'), 'utf8');
-const roomJudge = fs.readFileSync(path.join(ROOT, 'app/netlify/functions/room-judge-session.mjs'), 'utf8');
-const asyncTurn = fs.readFileSync(path.join(ROOT, 'app/netlify/functions/async-turn.mjs'), 'utf8');
-const scheduleRound = fs.readFileSync(path.join(ROOT, 'app/netlify/functions/schedule-round.mjs'), 'utf8');
-const tournamentAdmin = fs.readFileSync(path.join(ROOT, 'app/netlify/functions/tournament-admin.mjs'), 'utf8');
+const realtime = readPageSource(path.join(ROOT, 'app/netlify/functions/realtime-session.mjs'), 'utf8');
+const coach = readPageSource(path.join(ROOT, 'app/netlify/functions/coach-session.mjs'), 'utf8');
+const roomJudge = readPageSource(path.join(ROOT, 'app/netlify/functions/room-judge-session.mjs'), 'utf8');
+const asyncTurn = readPageSource(path.join(ROOT, 'app/netlify/functions/async-turn.mjs'), 'utf8');
+const scheduleRound = readPageSource(path.join(ROOT, 'app/netlify/functions/schedule-round.mjs'), 'utf8');
+const tournamentAdmin = readPageSource(path.join(ROOT, 'app/netlify/functions/tournament-admin.mjs'), 'utf8');
 
 ok(SENSITIVE_MOTION_POLICY.includes('SITE MOTION BOUNDARY'), 'voice policy block is missing');
 for (const [name, source] of [

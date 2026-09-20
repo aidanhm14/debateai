@@ -1,5 +1,5 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const elements = new Map();
@@ -23,7 +23,7 @@ const context = {
     return { ok: result.ok, status: result.status, json: async () => result.data };
   }
 };
-vm.runInNewContext(readFileSync('app/js/landing-chat.js', 'utf8'), context);
+vm.runInNewContext(readPageSource('app/js/landing-chat.js', 'utf8'), context);
 const user = { uid: 'member', displayName: 'Private Real Name', email: 'private@example.test', getIdToken: async () => 'account-token' };
 const setUser = context.window.DBLandingChat.setUser;
 const submit = () => form.handlers.submit({ preventDefault() {} });
@@ -89,7 +89,7 @@ assert.equal(submits, 0, 'IME confirmation and Shift+Enter do not send');
 input.handlers.keydown({ key: 'Enter', preventDefault() {} });
 assert.equal(submits, 1);
 
-const landing = readFileSync('app/landing.html', 'utf8');
+const landing = readPageSource('app/landing.html', 'utf8');
 assert.match(landing, /DBLandingChat\.setUser\(realUser\)/, 'The existing Firebase listener updates the composer');
 assert.match(landing, /maxlength="280"/);
 assert.match(landing, /first-screen-spar[^>]*>Meet someone/);

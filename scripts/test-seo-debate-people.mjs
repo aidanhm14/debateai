@@ -1,7 +1,7 @@
-import fs from 'node:fs';
+import { readPageSource } from './lib/page-source.mjs';
 
 function read(file) {
-  return fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+  return readPageSource(new URL(`../${file}`, import.meta.url), 'utf8');
 }
 
 const page = read('app/debate-strangers.html');

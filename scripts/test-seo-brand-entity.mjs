@@ -1,9 +1,9 @@
 #!/usr/bin/env node
+import { readPageSource } from './lib/page-source.mjs';
 
-import fs from 'node:fs';
 
 function read(path) {
-  return fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+  return readPageSource(new URL(`../${path}`, import.meta.url), 'utf8');
 }
 
 function jsonLdNodes(html) {

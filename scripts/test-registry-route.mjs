@@ -1,6 +1,7 @@
+import { readPageSource } from './lib/page-source.mjs';
 import fs from 'node:fs';
 
-const read = (path) => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
+const read = (path) => readPageSource(new URL('../' + path, import.meta.url), 'utf8');
 const appToml = read('app/netlify.toml');
 const rootToml = read('netlify.toml');
 const landing = read('app/landing.html');

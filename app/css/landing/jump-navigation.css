@@ -1,0 +1,59 @@
+
+  html{scroll-behavior:smooth}
+  /* Calm table of contents with a clear active marker (2026-06-24 rev4).
+     Still no card, no spine, no pills, no background — it stays an airy
+     text rail that recedes at rest and comes forward on hover. What changed:
+     it now SINGLES OUT the section you're reading. Non-active links sit
+     quiet (ghost ink); the active link gets full ink + weight + a small
+     accent dot in the left gutter, so the rail reads as a real table of
+     contents that tracks you down the page. The left gutter is reserved on
+     every link so the labels don't shift when the dot appears. */
+  .landing-jumpnav{
+    position:fixed;left:26px;top:50%;transform:translateY(-50%);z-index:20;
+    display:none !important;flex-direction:column;gap:1px;
+    padding:2px 0;
+    background:none !important;border:none !important;box-shadow:none !important;
+    opacity:.62;transition:opacity .45s ease, transform .45s ease;
+  }
+  .landing-jumpnav::before{display:none !important;content:none !important;}
+  .landing-jumpnav:hover,.landing-jumpnav:focus-within{opacity:1}
+  .landing-jumpnav a{
+    position:relative;display:block;
+    padding:3px 2px 3px 16px;   /* 16px left gutter holds the active dot */
+    font-size:.76rem;font-weight:450;letter-spacing:.01em;text-transform:none;
+    line-height:1.32;
+    color:var(--text-ghost);text-decoration:none;
+    background:none !important;border-radius:0;
+    transition:color .22s ease, letter-spacing .22s ease;
+    white-space:nowrap;
+  }
+  /* Active-section dot. Lives in the reserved left gutter; scaled to 0 at
+     rest so only the current link shows it. */
+  .landing-jumpnav a::before{
+    content:'';position:absolute;left:2px;top:50%;
+    width:5px;height:5px;border-radius:50%;
+    background:var(--accent);
+    transform:translateY(-50%) scale(0);
+    transition:transform .22s ease;
+  }
+  .landing-jumpnav a:hover{color:var(--text) !important;letter-spacing:.025em}
+  /* Active section: full ink, heavier weight, accent dot visible. */
+  .landing-jumpnav a.is-active{color:var(--text) !important;font-weight:650;background:none !important}
+  .landing-jumpnav a.is-active::before{transform:translateY(-50%) scale(1)}
+  /* Donate stays the quietest item even when not active. */
+  .landing-jumpnav a.donate{color:var(--text-ghost) !important;background:none !important}
+  .landing-jumpnav a.donate:hover{color:var(--text-dim) !important}
+  /* Hidden state: fade + slide left + ignore pointer events so it doesn't
+     intercept clicks on the content underneath when invisible. */
+  .landing-jumpnav.is-hidden{opacity:0;transform:translate(-24px,-50%);pointer-events:none}
+  @media (prefers-reduced-motion:reduce){
+    .landing-jumpnav,.landing-jumpnav a,.landing-jumpnav a::before{transition:none}
+  }
+  /* Hide breakpoint bumped 1100 -> 1300 (2026-06-15): the content column
+     caps at 1320px and centers, so below ~1300px viewport there's no real
+     gutter for the rail to live in -- even calm text labels can encroach
+     on the leftmost hero content. Above 1300, the gutter has ~40px+ to
+     spare. The shared topbar carries full nav below this width, so the rail
+     is a pure desktop reading aid and nothing's lost by hiding it (well
+     above the ~900px the task floor asks for). */
+  @media(max-width:1300px){.landing-jumpnav{display:none}}

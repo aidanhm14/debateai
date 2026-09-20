@@ -1,0 +1,268 @@
+
+  :root{
+    --mid-w:1180px;
+    --mid-gutter:clamp(18px,5vw,72px);
+    /* Space between two adjacent chapters. Each section pays half at
+       its top and half at its bottom, so the seam is identical no
+       matter which two chapters meet: 34px on phones, 68px on desktop. */
+    --chapter-gap:clamp(34px,4.6vw,68px);
+    --mid-pad-block:calc(var(--chapter-gap) / 2);
+    /* One radius scale and one shadow scale for the whole run. */
+    --mid-radius:18px;
+    --mid-radius-sm:14px;
+    --mid-shadow:0 18px 52px rgba(29,25,21,.08);
+  }
+  /* ── CHAPTERS (2026-07-22) ──────────────────────────────────────────
+     The unification above gave every band one column, one gutter and
+     one gap. That fixed the raggedness it was written for, then went a
+     step too far: sixteen sections ended up weighing exactly the same
+     — same eyebrow, same centred headline, same 33px a side, every one
+     of them on the same flat sheet. Read top to bottom it landed as a
+     slide deck. One slide per scroll, and no way to tell which beats
+     belong to the same argument.
+
+     Chapters put the hierarchy back WITHOUT touching a single
+     section's own rule (id beats class, so the padding below wins on
+     specificity and every existing theme and breakpoint override
+     still lands where it did). Sections that make ONE argument sit
+     tight and share a ground; a NEW argument opens with real air and
+     a change of ground. Structure carried by rhythm and surface is
+     also why the "Where you practise it" caption is gone from the
+     markup below: a chapter you can see does not need announcing. */
+  :root{
+    /* Two gaps instead of one. Inside a chapter the beats are one
+       thought and sit close; between chapters the page takes a breath
+       about three times as long. The contrast IS the hierarchy — one
+       uniform gap is what read as a deck. */
+    --gap-inner:clamp(18px,2.2vw,30px);
+    --gap-chapter:clamp(52px,6.6vw,98px);
+    /* Translucent on purpose: it composites over whatever --bg the
+       active theme sets, instead of pinning a cream that only exists
+       on the light one. */
+    --chapter-tint:rgba(29,25,21,.035);
+  }
+  /* Same literal-not-var() reason as .mid-rule below: the theme tokens
+     are re-declared further down the tree, so the dark family has to
+     be named. */
+  [data-theme="dark"],[data-theme="crimson"],
+  [data-theme="grey"],[data-theme="stone"]{
+    --chapter-tint:rgba(245,239,231,.04);
+  }
+  /* A chapter's ground. The sections sharing one tint butt directly
+     together (every seam in this run measures 0px), so the tint reads
+     as a single continuous sheet rather than as stripes. Three grounds
+     across ~12,000px of scroll: the stakes, the dark room already at
+     #face-wall, and the proof. */
+  #why-this-exists,#floor-band,
+  #reviews,#faq{background-color:var(--chapter-tint)}
+  /* Chapter openings take the long breath. */
+  #why-this-exists,#mode-select,#community-band,
+  #reviews{padding-top:var(--gap-chapter)}
+  /* Chapter closings pay the other half. */
+  #floor-band,#credential-path,#community-band,
+  #stream-band,#faq{padding-bottom:var(--gap-chapter)}
+  /* Beats continuing an argument stay tight to the one before. */
+  #floor-band,#credential-path,#stream-band,#faq,#engine-select{padding-top:var(--gap-inner)}
+  /* The three credential cards are already a dense closing beat. Keep
+     their handoff to the community compact so removing the old promo
+     promo tail does not leave a blank chapter-sized hole. */
+  #credential-path{padding-bottom:calc(var(--gap-chapter) * .32)}
+  /* The other half of the same compact handoff. The other chapter
+     openings keep the full gap. */
+  #community-band{padding-top:max(38px,calc(var(--gap-chapter) * .5))}
+  #why-this-exists,#mode-select,#reviews,#engine-select{padding-bottom:var(--gap-inner)}
+  /* The tail sections are .sec, and .sec carries `padding:56px 0
+     !important` (plus a 44px mobile arm) from the shared page kit far
+     above. An id loses to !important, so the closing chapter has to
+     restate at the same strength or it keeps the flat 56/56 that the
+     rest of the run just stopped using. Left/right stay with .sec. */
+  #reviews{padding-top:var(--gap-chapter) !important}
+  #faq{padding-top:var(--gap-inner) !important}
+  #reviews{padding-bottom:var(--gap-inner) !important}
+  #faq{padding-bottom:var(--gap-chapter) !important}
+  /* ── CHAPTERS ON PHONES ───────────────────────────────────────────
+     The rhythm above fixes the desktop read. On a phone the deck feel
+     survives it, because it comes from something else: the page is a
+     vertical stack of thirteen rounded rectangles, each ~90% of the
+     screen wide, each filled near-white, one per scroll.
+
+     A card earns its chrome by separating its contents from what sits
+     BESIDE it. In a single 390px column nothing sits beside anything,
+     so a full-width card is a border drawn around the page — it groups
+     nothing and costs a frame. The three worst are section wrappers
+     600-1236px tall: at 1.5x the viewport you never see rb-card's top
+     and bottom together, so all it renders is two vertical rules down
+     the edges of the screen for a screen and a half.
+
+     Dissolve those wrappers here. Everything genuinely discrete keeps
+     its chrome, because those ARE objects rather than containers: the
+     ballot, the certificate thumb, the week calendar and its day
+     cells, the booking calendar, the Floor's market cards. */
+  @media (max-width:640px){
+    .ms-wall,.credential-card,.rb-card{
+      border:0 !important;border-radius:0 !important;
+      background:none !important;box-shadow:none !important;
+      padding-left:0 !important;padding-right:0 !important;
+    }
+    /* The wrappers' own rules set these at various breakpoints, and the
+       leaderboard card is a flex column whose padding was holding its
+       rows off the edge. Keep the vertical padding, drop the frame. */
+    .rb-card{padding-top:0 !important;padding-bottom:0 !important}
+    /* Centred ragged body copy is the other slide tell, and at this
+       width it costs real legibility: every line starts at a different
+       x, so the eye hunts for the next one instead of returning to a
+       fixed margin. Headlines stay as designed — a centred HEADLINE is
+       a title, a centred multi-line PARAGRAPH is a slide.
+
+       Named individually rather than as `section p`, because the line
+       count is what decides this and CSS cannot ask. Each one below
+       measured 3-6 lines at 390px. .fw-sub is deliberately NOT here:
+       at 69 characters it sets one line, where centring still reads as
+       a caption under its title rather than as a block of body copy. */
+    #community-band .cb-sub,
+    #mode-select .ms-alts{text-align:left}
+    /* Same shape of bug one section up: a flex row of
+       [dashed lane][label][dashed lane] where the label is flex:none.
+       At 390px the lanes have already collapsed to 0px, so they add
+       nothing, and the label still overflows its rail by 20px. Drop
+       the spent decoration and let the label wrap in the space. */
+    #community-band .cb-rail{flex-wrap:wrap;justify-content:center}
+    #community-band .cb-rail .lane{display:none}
+    #community-band .cb-rail span{flex:1 1 auto;text-align:center}
+  }
+  /* Chapter marker: hairline, a label naming the movement, hairline.
+     Used where one chapter's argument hands off to the next and the
+     seam would otherwise read as "another band started". */
+  .mid-rule{
+    max-width:var(--mid-w);
+    margin:0 auto;
+    padding:0 var(--mid-gutter);
+    display:flex;align-items:center;gap:14px;
+  }
+  .mid-rule::before,.mid-rule::after{
+    content:"";flex:1;height:1px;
+    background:var(--rule,rgba(140,130,115,.32));
+  }
+  .mid-rule span{
+    flex:none;
+    font-family:var(--font-body);
+    font-size:.58rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--text-ghost,rgba(0,0,0,.42));
+  }
+  /* Literal, not var(): the theme tokens are re-declared with LIGHT
+     values on body.light-theme, i.e. BELOW <html>, so var(--text-ghost)
+     resolves to a near-black label sitting on a dark band. */
+  [data-theme="dark"] .mid-rule span,
+  [data-theme="crimson"] .mid-rule span,
+  [data-theme="grey"] .mid-rule span,
+  [data-theme="stone"] .mid-rule span{color:rgba(245,239,231,.68)}
+  [data-theme="dark"] .mid-rule::before,[data-theme="dark"] .mid-rule::after,
+  [data-theme="crimson"] .mid-rule::before,[data-theme="crimson"] .mid-rule::after,
+  [data-theme="grey"] .mid-rule::before,[data-theme="grey"] .mid-rule::after,
+  [data-theme="stone"] .mid-rule::before,[data-theme="stone"] .mid-rule::after{
+    background:rgba(245,239,231,.16);
+  }
+  /* Anchor targets clear the fixed 52px .ui-topbar plus a little air,
+     so a TOC click or a direct #hash link never parks the heading
+     underneath it. */
+  #creator-sweepstakes,#why-this-exists,#floor-band,#mode-select,
+  #credential-path,#community-band,#ranked-band,
+  #live-proof,#reviews,#faq{
+    scroll-margin-top:76px;
+  }
+
+  /* ── Chapter nav (tablet and phone) ──────────────────────────────
+     The left rail is desktop-only and vanishes under 1440px, which left
+     every narrower viewport with no wayfinding at all through the
+     longest part of the page. Same destinations as a horizontal strip,
+     populated from the rail's own list in JS so the two cannot drift.
+     Sticky under the fixed 52px topbar; it does not obscure what it
+     navigates to, because the scroll-margin below grows to clear both
+     bars. */
+  .chapter-nav{display:none}
+  @media (max-width:1679px){
+    .chapter-nav{
+      display:block;
+      position:sticky;top:52px;z-index:35;
+      margin:0 0 var(--mid-pad-block);
+      /* Opaque: content scrolls under this bar, so a translucent fill
+         would smear type through it. */
+      background:#fafaf7;
+      border-bottom:1px solid rgba(140,130,115,.28);
+      -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 16px,#000 calc(100% - 16px),transparent 100%);
+      mask-image:linear-gradient(90deg,transparent 0,#000 16px,#000 calc(100% - 16px),transparent 100%);
+    }
+    .chapter-nav ol{
+      display:flex;gap:6px;
+      list-style:none;margin:0;
+      padding:8px var(--mid-gutter);
+      overflow-x:auto;
+      scroll-snap-type:x proximity;
+      scrollbar-width:none;
+      -webkit-overflow-scrolling:touch;
+    }
+    .chapter-nav ol::-webkit-scrollbar{width:0;height:0}
+    .chapter-nav a{
+      scroll-snap-align:start;
+      display:inline-flex;align-items:baseline;gap:7px;
+      white-space:nowrap;
+      padding:7px 13px;border-radius:999px;
+      border:1px solid transparent;
+      font-family:var(--font-body);
+      font-size:.8rem;font-weight:600;line-height:1;
+      color:var(--text-dim,rgba(0,0,0,.68));
+      text-decoration:none;
+      transition:color .18s,border-color .18s,background .18s;
+    }
+    .chapter-nav a .num{
+      font-size:.6rem;font-weight:700;font-variant-numeric:tabular-nums;
+      color:var(--text-ghost,rgba(0,0,0,.42));
+      transition:color .18s;
+    }
+    /* Size tiers, sticky-bar variant. See the .page-toc-list li[data-size]
+       comment above for which chapters get which tier. */
+    .chapter-nav a[data-size="lg"]{font-size:.9rem;font-weight:800;padding:8px 15px}
+    .chapter-nav a[data-size="sm"]{font-size:.72rem;padding:6px 11px;opacity:.8}
+    .chapter-nav a.is-active{
+      color:var(--accent,#dc2626);
+      border-color:color-mix(in srgb, var(--accent,#dc2626) 34%, transparent);
+      background:color-mix(in srgb, var(--accent,#dc2626) 7%, transparent);
+    }
+    .chapter-nav a.is-active .num{color:var(--accent,#dc2626)}
+    .chapter-nav a:focus-visible{outline:2px solid var(--accent,#dc2626);outline-offset:2px}
+    /* Dark family, stated literally for the same reason as .mid-rule. */
+    [data-theme="dark"] .chapter-nav,
+    [data-theme="crimson"] .chapter-nav,
+    [data-theme="grey"] .chapter-nav,
+    [data-theme="stone"] .chapter-nav{
+      background:#1a1c20;
+      border-bottom-color:rgba(245,239,231,.14);
+    }
+    [data-theme="dark"] .chapter-nav a,
+    [data-theme="crimson"] .chapter-nav a,
+    [data-theme="grey"] .chapter-nav a,
+    [data-theme="stone"] .chapter-nav a{color:rgba(245,239,231,.74)}
+    [data-theme="dark"] .chapter-nav a .num,
+    [data-theme="crimson"] .chapter-nav a .num,
+    [data-theme="grey"] .chapter-nav a .num,
+    [data-theme="stone"] .chapter-nav a .num{color:rgba(245,239,231,.68)}
+    [data-theme="dark"] .chapter-nav a.is-active,
+    [data-theme="crimson"] .chapter-nav a.is-active,
+    [data-theme="grey"] .chapter-nav a.is-active,
+    [data-theme="stone"] .chapter-nav a.is-active{
+      color:#fca5a5;border-color:rgba(239,68,68,.42);background:rgba(239,68,68,.12);
+    }
+    [data-theme="dark"] .chapter-nav a.is-active .num,
+    [data-theme="crimson"] .chapter-nav a.is-active .num,
+    [data-theme="grey"] .chapter-nav a.is-active .num,
+    [data-theme="stone"] .chapter-nav a.is-active .num{color:#fca5a5}
+    /* Clear the topbar AND the chapter nav on anchor jumps. */
+    #creator-sweepstakes,#why-this-exists,#floor-band,#mode-select,
+    #stream-it,#credential-path,#community-band,#ranked-band,
+    #live-proof,#reviews,#faq{
+      scroll-margin-top:118px;
+    }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .chapter-nav a{transition:none}
+  }

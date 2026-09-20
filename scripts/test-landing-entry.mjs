@@ -1,10 +1,10 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import vm from 'node:vm';
 
-const html = fs.readFileSync('app/landing.html', 'utf8');
+const html = readPageSource('app/landing.html', 'utf8');
 const boot = html.match(/<script id="landing-entry-boot">([\s\S]*?)<\/script>/)[1];
-const main = fs.readFileSync('app/js/landing-entry.js', 'utf8');
+const main = readPageSource('app/js/landing-entry.js', 'utf8');
 function target() {
   const events = new Map();
   return {

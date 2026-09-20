@@ -1,0 +1,821 @@
+/* ────────────────────────────────────────────────────────────────────
+   HERO A/B VARIANT — illustrated "global debate" scene (2026-05-26)
+   ────────────────────────────────────────────────────────────────────
+   Sibling of .editorial-hero. The html[data-hero-ab] attribute is set
+   by the early-paint script in <head>; this CSS toggles which arm
+   renders so the unused variant never flashes.
+
+   Composition:
+   - centered headline + subhead
+   - illustrated stage (inline SVG) — two podium debaters + central
+     "debate intelligence globe" with conversation arcs and floating
+     multilingual chips
+   - primary CTA + three secondary destinations
+   - three-dot status row (no fake counts)
+
+   The stage applies its own warm ivory wash so the illustration reads
+   premium regardless of the underlying theme arm.
+   ──────────────────────────────────────────────────────────────────── */
+.hero-illustrated{display:none}
+:root[data-hero-ab="illustrated"] .editorial-hero{display:none !important}:root[data-hero-ab="illustrated"] .hero-illustrated{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  /* Re-opened 2026-06-12 (was clamp(4px,.9vh,12px) after the 2026-05-26
+     fold squeeze): the live-room redesign asks the page to breathe —
+     headline, mode cards, scene, and status each get real air. */
+  gap:clamp(6px, .9vh, 10px);
+  width:100%;
+  max-width:1500px;
+  margin:0 auto;
+  /* 2026-07-19 (2nd pass): top padding halved again and the width opened
+     to 1500 so the door cards can run wider. Combined with section.hero's
+     own top pad the first screen still read as empty above the cards. */
+  padding:clamp(8px, 1.2vh, 16px) clamp(16px, 4vw, 48px) clamp(18px, 2.6vh, 34px);
+  position:relative;
+  z-index:2;
+  /* Local design tokens — retoned in one place if the palette shifts. */
+  --hi-ink:        #1d1915;
+  /* Headline-only ink. The H1 at 70px reads washed out at --hi-ink; a
+     darker stop makes the large type look deliberate rather than faded. */
+  --hi-ink-strong: #0e0b08;
+  --hi-ink-soft:   #4a423a;
+  --hi-ink-faint:  rgba(29,25,21,.34);
+  --hi-line:       rgba(29,25,21,.55);
+  --hi-line-soft:  rgba(29,25,21,.22);
+  --hi-tan:        #b88a4e;
+  --hi-tan-soft:   rgba(184,138,78,.42);
+  --hi-red:        #c83232;
+  --hi-red-soft:   rgba(200,50,50,.16);
+  --hi-paper:      #f6f1e6;
+  --hi-paper-edge: #ebe3d3;
+  --hi-chip-bg:    rgba(255,253,247,.86);
+  --hi-chip-ink:   #2a241d;
+  /* Live-room stage chrome (2026-06-12) */
+  --hi-card-bg:    rgba(255,253,248,.94);
+  --hi-card-solid: #fffdf8;
+  --hi-card-line:  rgba(29,25,21,.12);
+  --hi-card-shadow:rgba(29,25,21,.14);
+  --hi-seat-bg:    rgba(29,25,21,.035);
+  --hi-meter-track:rgba(29,25,21,.1);
+  --hi-map-alpha:  .62;
+}
+/* Warm ivory wash behind the illustration. Layered on top of whatever
+   theme bg the user has so the rest of the page keeps its mood.
+   Section padding cut down 2026-05-26 from the legacy clamp(112,13vh,160)
+   top — that rule kept the OLD hero clear of the topbar, but for the
+   illustrated arm it ate the room the CTAs needed. The illustrated arm
+   only needs ~72px to clear the topbar (60px topbar + 12px breathing). */
+:root[data-hero-ab="illustrated"] section.hero{
+  /* 2026-06-14: no opaque base layer here, and the warm tint fades on a
+     single continuous ramp (no hard 36%/78% plateau). The body paints one
+     continuous --hero-grad across the whole page; letting it show through
+     the hero (instead of repainting it on this box) kills the horizontal
+     seam where the hero's own gradient used to meet the section below —
+     a diagonal (135deg) gradient on a differently-positioned box never
+     lines up phase-wise. Only the soft, transparent-tailed radials sit on
+     top now, so there is nothing to terminate at an edge. */
+  /* 2026-07-22: the warm layer's vertical radius is a PERCENTAGE of this
+     box, not a fixed 880px. At 880px it needed y=883 to reach transparent
+     while the hero is ~756 tall, so it was still ~20% opaque when the box
+     clipped it: a hard horizontal step (rgb(249,248,244) above,
+     rgb(250,250,247) below) running the full page width. That is the seam
+     the note above says must not exist; it came back when the hero was
+     shortened on 2026-07-19 and the pixel radii were left behind.
+     At 78%, transparent lands at 33% + .72*78% = ~89% of the height, so
+     the tail always completes inside the box at any hero height. Keep it
+     relative: any future padding trim silently reintroduces the line. */
+  background:
+    radial-gradient(ellipse 1100px 720px at 50% 36%, var(--hero-grad, #fafaf7) 0%, transparent 60%),
+    radial-gradient(ellipse 1240px 78% at 50% 33%, #f6f1e6 0%, transparent 72%);
+  /* 2026-07-19: trimmed twice now to pull the cards up the first screen.
+     The floor is set by the FIXED 52px .ui-topbar — section.hero starts at
+     y=0 underneath it, so anything below ~54px slides the "Bet on your
+     words" slogan behind the nav. Trimmed to that clearance, no further. */
+  padding-top:clamp(54px, 6.5vh, 64px) !important;
+  padding-bottom:clamp(22px, 3.2vh, 44px) !important;
+  /* 2026-07-19: the section's 5vw side padding (75px at 1512) plus
+     .hero-content's 1240 cap were the real limit on how wide the door
+     cards could run — the doors' own max-width never bound. Both are
+     opened here, scoped to the illustrated arm so the editorial arm and
+     every other .hero-content on the page keep their measure. */
+  padding-left:clamp(16px, 2.6vw, 40px) !important;
+  padding-right:clamp(16px, 2.6vw, 40px) !important;
+  min-height:auto !important;
+}
+:root[data-hero-ab="illustrated"] section.hero .hero-content{max-width:1400px !important}
+:root[data-hero-ab="illustrated"] .hero-bg::before,
+:root[data-hero-ab="illustrated"] .hero-bg::after{display:none !important}
+/* 2026-06-14: drop the .hero-bg gradient on the illustrated arm. It's a
+   masked duplicate of the body's --hero-grad, positioned differently, so
+   its fade-out edge read as a faint horizontal seam against the body
+   gradient. The body already paints the gradient continuously underneath. */
+:root[data-hero-ab="illustrated"] .hero-bg{background:none !important}
+:root[data-hero-ab="illustrated"] .hero-grain{opacity:.04 !important}
+
+/* 2026-06-14: scale the hero content down ~15% on larger viewports so the
+   headline, the four mode cards, AND the live-room stage all land in one
+   viewport (the "zoomed-out" framing the founder asked for — match the shot where
+   the whole debate-room mock is visible). Scoped to >=900px so the mobile
+   2x2 layout keeps full-size, readable text. `zoom` reflows (unlike
+   transform:scale, which would leave a gap), and is supported in current
+   Chrome, Firefox, and Safari. The full-bleed background lives on
+   section.hero (the parent), so only the content scales, not the BG. */
+@media(min-width:900px){
+  .hero-illustrated{zoom:.91}
+}
+
+/* Headline + subhead */
+.hero-illustrated .hi-head{position:relative;text-align:center;max-width:760px;margin:0 auto}
+/* 2026-07-22: the .hi-money currency field around the slogan was cut
+   per the founder — "Bet on your words" says it; the floating glyphs were
+   noise around it. The Floor band keeps its own .fb-money motif. */
+.hero-illustrated .hi-slogan,
+.hero-illustrated .hi-subhead{position:relative;z-index:1}
+.hero-illustrated .hi-headline,
+.hero section.hero .hero-illustrated .hi-headline,
+section.hero .hero-illustrated h1.hi-headline{
+  /* !important needed to override the legacy `.hero h1{text-transform:
+     uppercase}` rule higher up in this stylesheet — the illustrated
+     headline reads as Title-case prose, not all-caps banner.
+     Size dropped 2026-05-26 from clamp(2.4,5.4vw,4rem) so the scene +
+     CTAs fit in one viewport on a 13" laptop. */
+  font-family:var(--font-display) !important;
+  font-weight:700 !important;
+  font-size:clamp(2.3rem, 4.7vw, 3.55rem) !important;
+  line-height:.98 !important;
+  letter-spacing:0 !important;
+  color:var(--hi-ink-strong, var(--hi-ink)) !important;
+  margin:0 0 4px !important;
+  text-transform:none !important;
+  font-variation-settings:"opsz" 144, "SOFT" 70, "WONK" 1 !important;
+}
+/* Keep every rotating headline variant on ONE line at desktop widths.
+   The lead + accent swap through phrases of slightly different length
+   ("Sharpen every argument." is the longest); at the 820px head width
+   some wrapped to two rows mid-rotation. nowrap locks it to one row.
+   Scoped to >=641px only — below that one line is impossible at phone
+   widths, so the headline keeps its default wrapping. Matches the base
+   rule's specificity so it reliably wins; sits after it in source. */
+@media(min-width:641px){
+  section.hero .hero-illustrated h1.hi-headline{white-space:nowrap !important}
+}
+.hero-illustrated .hi-headline-accent{
+  display:block;
+  color:var(--hi-red);
+  font-style:normal;
+  font-variation-settings:"opsz" 144, "SOFT" 100, "WONK" 1;
+}
+/* Animated slide-up swap for the headline + CTA rotators below.
+   CSS @keyframes (not transitions) so the timing is owned by the
+   browser's animation engine — survives backgrounded-tab rAF
+   throttling that earlier class-toggle approaches got bitten by.
+   Out: text fades up and out of view. In: next text rises from
+   below back into place. Label is inline-block so transform takes
+   effect on inline content; H1 is already block-level. */
+.hero-illustrated .hi-cta-primary .hi-cta-primary-label{display:inline-block}
+@keyframes hiRotateOut{
+  from{opacity:1;transform:translateY(0)}
+  to{opacity:0;transform:translateY(-10px)}
+}
+@keyframes hiRotateIn{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.hero-illustrated .hi-rotating-out{
+  animation:hiRotateOut .36s cubic-bezier(.4,0,.2,1) forwards;
+}
+.hero-illustrated .hi-rotating-in{
+  animation:hiRotateIn .36s cubic-bezier(.4,0,.2,1) forwards;
+}
+.hero-illustrated .hi-subhead{
+  font-family:var(--font-body);
+  font-size:clamp(1rem, 1.3vw, 1.12rem);
+  line-height:1.5;
+  color:var(--hi-ink-soft);
+  margin:0 auto;
+  max-width:min(1040px, calc(100vw - 72px));
+  font-weight:400;
+  white-space:nowrap;
+}
+/* Quiet live-stat strip under the subhead: real sign-up count + this
+   week's live-round searches. Numbers carry the hero red; the rest
+   stays soft ink so it reads as proof, not a shout. */
+
+/* ── LIVE DEBATE ROOM STAGE (2026-06-12) ──────────────────────────
+   The metaphor era is over: the stage now shows the product itself.
+   Layered command center, back to front — world map (the network),
+   open-room lobby cards (the lobbies), the AI judge panel (the
+   assistant), and the live room with two participants (the point).
+   Layers sit in a CSS perspective; the parallax script near the
+   markup sets --mx/--my on .hi-scene and each layer multiplies them
+   by its own depth factor, so the scene reads as a place, not a
+   drawing. Everything is decorative: aria-hidden, pointer-events:
+   none. The room mock's clock and counts are illustrative UI, the
+   same status as the drawn debaters they replace. */
+.hero-illustrated .hi-stage{
+  position:relative;
+  width:100%;
+  max-width:1180px;
+  aspect-ratio:1100 / 400;
+  margin:30px auto 0;
+  pointer-events:none;
+  perspective:1400px;
+}
+/* Invisible full-stage anchor — the decorative scene stays
+   pointer-events:none; this plane above it makes the whole room mock
+   a real door into /spar. */
+.hero-illustrated .hi-stage-link{
+  position:absolute;inset:0;z-index:6;
+  pointer-events:auto;cursor:pointer;border-radius:18px;
+  overflow:visible;
+}
+.hero-illustrated .hi-stage-link:focus-visible{
+  outline:2px solid var(--hi-red);outline-offset:4px;
+}
+.hero-illustrated .hi-enter-cue{
+  position:absolute;left:clamp(-42px,calc(2.2vw - 24px),4px);top:62%;
+  transform:translateY(-50%) rotate(-3deg);
+  display:flex;align-items:center;gap:9px;width:224px;
+  color:var(--hi-red);pointer-events:none;
+  filter:drop-shadow(0 8px 16px rgba(29,25,21,.12));
+}
+.hero-illustrated .hi-enter-copy{
+  width:104px;text-align:right;
+  font-family:var(--font-body);
+  font-size:.78rem;line-height:1.05;font-weight:900;
+  letter-spacing:.06em;text-transform:uppercase;
+  color:var(--hi-red);
+  text-shadow:0 1px 0 rgba(255,253,248,.92);
+}
+.hero-illustrated .hi-enter-arrow{
+  width:108px;height:52px;flex:none;overflow:visible;
+}
+.hero-illustrated .hi-enter-arrow path,
+.hero-illustrated .hi-enter-arrow polyline{
+  fill:none;stroke:currentColor;stroke-width:4.2;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.hero-illustrated .hi-enter-arrow path{
+  stroke-dasharray:160;
+  animation:hiEnterArrowTrace 3.8s ease-in-out infinite;
+}
+@keyframes hiEnterArrowTrace{
+  0%,18%{stroke-dashoffset:160;opacity:.38}
+  46%,100%{stroke-dashoffset:0;opacity:1}
+}
+.hero-illustrated .hi-scene{
+  position:absolute;inset:0;
+  transform-style:preserve-3d;
+  --mx:0;--my:0;
+  animation:hiSceneFloat 11s ease-in-out infinite;
+}
+@keyframes hiSceneFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+
+/* L1 · world map — almost invisible. The cities pulse on a slow
+   stagger so the network reads as awake without shouting. */
+.hero-illustrated .hi-map{
+  position:absolute;inset:0 2%;width:96%;height:100%;
+  color:var(--hi-ink);
+  opacity:var(--hi-map-alpha,.62);
+  /* translateZ(-90px) pushes the map behind the judge panel (-60px) so
+     the faint continent shapes stop rendering in front of it as blobs.
+     The opaque card now fully covers the map where they overlap. */
+  transform:translate3d(calc(var(--mx)*2px), calc(var(--my)*2px), -90px);
+  transition:transform .42s cubic-bezier(.2,.6,.3,1);
+}
+.hero-illustrated .hi-map-land{fill:currentColor;opacity:var(--hi-land-alpha,.055)}
+.hero-illustrated .hi-map-dot{fill:var(--hi-red);opacity:.55}
+.hero-illustrated .hi-map-ring{
+  fill:none;stroke:var(--hi-red);stroke-width:1.2;opacity:0;
+  transform-box:fill-box;transform-origin:center;
+  animation:hiMapPulse 5.6s ease-out infinite;
+  animation-delay:var(--d,0s);
+}
+@keyframes hiMapPulse{
+  0%,54%{transform:scale(.3);opacity:0}
+  60%{opacity:.5}
+  84%,100%{transform:scale(2.6);opacity:0}
+}
+.hero-illustrated .hi-map-city text{
+  font-family:var(--font-body);
+  font-size:10px;letter-spacing:.05em;
+  fill:currentColor;opacity:.42;
+}
+
+/* L3 · AI judge panel — the working assistant. A plane behind the
+   room: smaller, tilted toward it, never glowing. Meters sweep on
+   slow offsets so the panel reads as alive, not loading. */
+.hero-illustrated .hi-judge{
+  /* Content-sized and centered on the old band — the flow strip +
+     scored meters need more height than the fixed 12%/14% box gave. */
+  position:absolute;top:6%;right:3%;width:27.5%;
+  display:flex;flex-direction:column;gap:6px;
+  /* Opaque so the hero backdrop doesn't show through as faint blobs
+     behind the meters (the .94 card bg was letting it bleed). */
+  background:var(--hi-card-solid,var(--hi-card-bg));
+  border:1px solid var(--hi-card-line);
+  border-radius:14px;
+  padding:clamp(8px,1.1vw,14px);
+  box-shadow:0 18px 44px var(--hi-card-shadow);
+  transform:translate3d(calc(var(--mx)*8px), calc(var(--my)*6px), 0) rotateY(-7deg) translateZ(-60px);
+  transition:transform .38s cubic-bezier(.2,.6,.3,1);
+  font-family:var(--font-body);
+}
+.hero-illustrated .hi-judge-head{
+  display:flex;align-items:center;gap:7px;
+  font-size:.74rem;font-weight:700;letter-spacing:.02em;
+  color:var(--hi-chip-ink);
+}
+.hero-illustrated .hi-judge-head em{
+  font-style:normal;font-weight:500;font-size:.62rem;
+  color:var(--hi-ink-soft);opacity:.8;margin-left:auto;
+}
+.hero-illustrated .hi-judge-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--hi-red);
+  animation:hiStatusPulse 2.6s ease-in-out infinite;flex:none;
+}
+.hero-illustrated .hi-meter{display:flex;align-items:center;gap:8px}
+.hero-illustrated .hi-meter label{
+  font-size:.58rem;font-weight:500;color:var(--hi-ink-soft);
+  width:34%;flex:none;letter-spacing:.01em;white-space:nowrap;
+}
+.hero-illustrated .hi-bar{
+  flex:1;height:4px;border-radius:99px;overflow:hidden;
+  background:var(--hi-meter-track);
+}
+.hero-illustrated .hi-bar i{
+  display:block;height:100%;width:100%;border-radius:99px;
+  background:var(--hi-red);opacity:.72;
+  transform-origin:left;
+}
+.hero-illustrated .hi-bar-1{transform:scaleX(.72);animation:hiBarA 12s ease-in-out infinite}
+.hero-illustrated .hi-bar-2{transform:scaleX(.58);animation:hiBarB 15s ease-in-out infinite;background:var(--hi-tan)}
+.hero-illustrated .hi-bar-3{transform:scaleX(.8);animation:hiBarC 13s ease-in-out infinite}
+.hero-illustrated .hi-bar-4{transform:scaleX(.64);animation:hiBarD 10s ease-in-out infinite;background:var(--hi-tan)}
+@keyframes hiBarA{0%,100%{transform:scaleX(.72)}45%{transform:scaleX(.84)}75%{transform:scaleX(.66)}}
+@keyframes hiBarB{0%,100%{transform:scaleX(.58)}38%{transform:scaleX(.49)}70%{transform:scaleX(.69)}}
+@keyframes hiBarC{0%,100%{transform:scaleX(.8)}50%{transform:scaleX(.7)}80%{transform:scaleX(.87)}}
+@keyframes hiBarD{0%,100%{transform:scaleX(.64)}42%{transform:scaleX(.75)}68%{transform:scaleX(.57)}}
+.hero-illustrated .hi-meter-val{
+  flex:none;min-width:24px;text-align:right;
+  font-size:.6rem;font-weight:700;font-variant-numeric:tabular-nums;
+  color:var(--hi-chip-ink);opacity:.85;
+}
+.hero-illustrated .hi-meter-val small{
+  font-size:.46rem;font-weight:500;margin-left:1px;
+  color:var(--hi-ink-soft);
+}
+/* The flow strip — tracked arguments with their round status. */
+.hero-illustrated .hi-flow{
+  list-style:none;margin:1px 0 0;padding:5px 0 0;
+  border-top:1px solid var(--hi-card-line);
+  display:flex;flex-direction:column;gap:4px;min-height:0;overflow:hidden;
+}
+.hero-illustrated .hi-flow li{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+.hero-illustrated .hi-flow-arg{
+  font-size:.6rem;font-weight:500;color:var(--hi-ink-soft);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.hero-illustrated .hi-flow-tag{
+  flex:none;padding:1px 7px;border-radius:99px;
+  font-size:.5rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--hi-ink-soft);background:var(--hi-meter-track);
+}
+.hero-illustrated .hi-flow-tag.is-live{
+  color:var(--hi-red);background:transparent;
+  border:1px solid var(--hi-red);opacity:.85;
+}
+.hero-illustrated .hi-flow-tag.is-drop{
+  color:var(--hi-red);background:var(--hi-meter-track);opacity:.8;
+}
+.hero-illustrated .hi-judge-note span{
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.hero-illustrated .hi-judge-note{
+  margin:auto 0 0;padding-top:6px;
+  border-top:1px solid var(--hi-card-line);
+  font-size:.6rem;line-height:1.4;color:var(--hi-ink-soft);
+  font-style:normal;
+  transition:opacity .4s ease;
+}
+.hero-illustrated .hi-judge-note.is-fading{opacity:0}
+.hero-illustrated .hi-judge-note b{
+  display:block;margin-bottom:2px;
+  font-weight:600;font-style:normal;font-size:.56rem;
+  letter-spacing:.07em;text-transform:uppercase;
+  color:var(--hi-chip-ink);opacity:.65;
+}
+
+/* L4–5 · the live room — the centerpiece. Closest plane, biggest
+   parallax factor, angled a touch toward the viewer. */
+.hero-illustrated .hi-room{
+  position:absolute;top:4%;bottom:6%;left:14%;right:32%;
+  display:flex;flex-direction:column;
+  background:var(--hi-card-solid,var(--hi-card-bg));
+  border:1px solid var(--hi-card-line);
+  border-radius:18px;
+  /* 2026-06-14: was 0 34px 70px — a big offset blur that read as a muddy
+     grey smudge below the card on the flat cream bg. Cleaner layered
+     elevation: a tight close shadow + a soft lifted one with negative
+     spread so the footprint stays under the card, not a wide band. */
+  box-shadow:0 2px 6px rgba(29,25,21,.05), 0 16px 38px -12px rgba(29,25,21,.16);
+  transform:translate3d(calc(var(--mx)*12px), calc(var(--my)*9px), 0) rotateX(1.4deg) rotateY(-2deg) translateZ(30px);
+  transition:transform .32s cubic-bezier(.2,.6,.3,1);
+  font-family:var(--font-body);
+  overflow:hidden;
+}
+.hero-illustrated .hi-room-top{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 16px;
+  border-bottom:1px solid var(--hi-card-line);
+  font-size:.68rem;
+}
+.hero-illustrated .hi-room-live{
+  display:inline-flex;align-items:center;gap:5px;
+  background:var(--hi-red);color:#fff;
+  font-size:.56rem;font-weight:800;letter-spacing:.09em;
+  padding:3px 8px;border-radius:999px;flex:none;
+}
+.hero-illustrated .hi-room-live i{
+  width:5px;height:5px;border-radius:50%;background:#fff;
+  animation:hiLiveDot 1.6s ease-in-out infinite;
+}
+@keyframes hiLiveDot{0%,100%{opacity:.45}50%{opacity:1}}
+.hero-illustrated .hi-room-name{
+  font-weight:700;font-size:.74rem;letter-spacing:-.005em;
+  color:var(--hi-chip-ink);white-space:nowrap;
+}
+.hero-illustrated .hi-room-watch{
+  margin-left:auto;color:var(--hi-ink-soft);font-weight:500;white-space:nowrap;
+}
+.hero-illustrated .hi-room-watch b{font-weight:700;color:var(--hi-chip-ink);font-variant-numeric:tabular-nums}
+.hero-illustrated .hi-room-timer{
+  font-variant-numeric:tabular-nums;
+  font-weight:800;font-size:.82rem;color:var(--hi-chip-ink);
+  background:var(--hi-seat-bg);
+  border:1px solid var(--hi-card-line);
+  padding:2px 9px;border-radius:8px;flex:none;
+}
+.hero-illustrated .hi-room-motion{
+  margin:0;padding:9px 16px 0;
+  font-size:clamp(.72rem,1vw,.84rem);line-height:1.4;
+  color:var(--hi-ink-soft);
+}
+.hero-illustrated .hi-room-motion b{
+  font-weight:700;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--hi-red);margin-right:7px;
+}
+.hero-illustrated .hi-room-speech{
+  margin:0;padding:4px 16px 0;
+  font-size:.6rem;font-weight:500;letter-spacing:.02em;
+  color:var(--hi-ink-soft);opacity:.85;
+}
+.hero-illustrated .hi-room-speech b{
+  font-weight:700;color:var(--hi-chip-ink);
+}
+.hero-illustrated .hi-room-seats{
+  flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  padding:10px 16px 14px;min-height:0;
+}
+/* Seats are live webcam tiles: the feed fills the tile, labels overlay
+   on top so the viewer still reads who's on which side. */
+.hero-illustrated .hi-seat{
+  position:relative;margin:0;overflow:hidden;
+  background:var(--hi-seat-bg);
+  border:1px solid var(--hi-card-line);
+  border-radius:12px;
+  min-height:0;
+}
+/* Depth: you sit a breath closer (scale + red active-speaker ring like
+   a video call), the opponent a breath further back. */
+.hero-illustrated .hi-seat-you{box-shadow:inset 0 0 0 2px var(--hi-red), 0 8px 22px var(--hi-card-shadow);transform:scale(1.015)}
+.hero-illustrated .hi-seat-opp{opacity:.96}
+.hero-illustrated .hi-seat-cam{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;display:block;
+  /* Light webcam desaturation only. Dropped the contrast/brightness-down
+     combo: it amplified and darkened the sensor grain in these low-light
+     stills (the files are also denoised at source now). */
+  filter:saturate(.96);
+}
+/* PROPOSITION / OPPOSITION chip, top-left, over the feed. */
+.hero-illustrated .hi-seat-tag{
+  position:absolute;top:7px;left:7px;z-index:2;
+  padding:2px 7px;border-radius:6px;
+  font-size:.5rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:#fff;background:rgba(0,0,0,.55);
+}
+.hero-illustrated .hi-seat-tag--pro{background:rgba(200,50,50,.85)}
+/* Bottom nameplate bar, over the feed. */
+.hero-illustrated .hi-seat-bar{
+  position:absolute;left:0;right:0;bottom:0;z-index:2;
+  display:flex;align-items:center;justify-content:space-between;gap:6px;
+  padding:16px 9px 7px;
+  background:linear-gradient(transparent, rgba(0,0,0,.76));
+}
+.hero-illustrated .hi-seat-who{font-size:.74rem;font-weight:800;color:#fff;letter-spacing:-.01em}
+.hero-illustrated .hi-seat-state{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:.58rem;font-weight:700;color:rgba(255,255,255,.92);
+}
+.hero-illustrated .hi-seat-you .hi-seat-state{color:#fff}
+.hero-illustrated .hi-seat-state svg{width:11px;height:11px;flex:none}
+.hero-illustrated .hi-wave{display:inline-flex;align-items:flex-end;gap:2px;height:10px}
+.hero-illustrated .hi-wave i{
+  width:2.5px;border-radius:2px;background:var(--hi-red);
+  transform-origin:bottom;
+  animation:hiWave 1.1s ease-in-out infinite;
+}
+.hero-illustrated .hi-wave i:nth-child(1){height:4px}
+.hero-illustrated .hi-wave i:nth-child(2){height:7px;animation-delay:-.18s}
+.hero-illustrated .hi-wave i:nth-child(3){height:10px;animation-delay:-.36s}
+.hero-illustrated .hi-wave i:nth-child(4){height:6px;animation-delay:-.54s}
+.hero-illustrated .hi-wave i:nth-child(5){height:8px;animation-delay:-.72s}
+@keyframes hiWave{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
+
+/* The real-people phrase in the subhead, set in the brand red so
+   the live-humans wedge leads the line. */
+.hero-illustrated .hi-subhead .hi-live-em{
+  color:var(--hi-red);font-weight:650;
+}
+
+/* Creed line.
+   Sits between the illustrated stage and the CTA row. Voice-of-the-
+   builder, not product copy. The canonical first entry is the
+   "antagonist and tool, not the Messiah, not an arbitrary enemy"
+   stance kept by design (see decision-log 2026-05-19 / 2026-05-23
+   reaffirmation). Other entries in the pool share the same shape:
+   short, "what this is vs what it isn't", honoring the craft rather
+   than gamifying it. Italic Fraunces, centered, muted color so it
+   reads as a quote anchor — not a tagline competing with the
+   headline. */
+.hero-illustrated .hi-creed{
+  font-family:var(--font-display);
+  font-style:normal;font-weight:400;
+  font-size:clamp(.95rem, 1.15vw, 1.08rem);
+  line-height:1.45;letter-spacing:.005em;
+  color:var(--hi-ink-soft);
+  text-align:center;max-width:640px;
+  margin:4px auto 2px;
+  opacity:.86;
+  /* Two-phase fade matches the headline/CTA rotators (which use
+     a slide-up animation). The creed swap is gentler — pure opacity
+     fade — because it sits as a quiet anchor, not a marquee. */
+  transition:opacity .42s ease;
+}
+.hero-illustrated .hi-creed.is-fading{opacity:0}
+.hero-illustrated .hi-creed b{font-weight:500;font-style:normal;color:var(--hi-ink)}
+
+/* CTA row.
+   2026-05-27: was column-stacked (one big red primary on top, three
+   tiny text-link secondaries below with dot separators). On a wide
+   viewport that left the page reading as one lonely button with a
+   row of subtle text below it. New layout puts primary + three
+   secondaries in a single horizontal button bar. Secondaries get
+   real pill borders + more padding so they read as actionable CTAs,
+   not annotations. Wraps to two lines under ~720px, then stacks
+   under 560px on mobile per the @media block further down. */
+.hero-illustrated .hi-cta-row{
+  display:flex;flex-direction:row;align-items:center;justify-content:center;
+  flex-wrap:wrap;gap:14px;
+  margin-top:8px;max-width:1080px;width:100%;
+}
+.hero-illustrated .hi-cta-primary{
+  display:inline-flex;align-items:center;gap:10px;
+  font-family:var(--font-body);
+  font-weight:600;font-size:1rem;color:#fff;background:var(--hi-red);
+  padding:15px 30px;border-radius:999px;text-decoration:none;border:0;
+  box-shadow:0 8px 24px rgba(200,50,50,.32);
+  transition:transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.hero-illustrated .hi-cta-primary:hover{
+  transform:translateY(-2px);background:#b62828;
+  box-shadow:0 12px 28px rgba(200,50,50,.42);
+}
+.hero-illustrated .hi-cta-primary svg{width:14px;height:14px}
+/* display:contents lets the three secondary anchors participate in
+   .hi-cta-row's flex layout as direct siblings of the primary, so
+   the four buttons get even spacing. The wrapper itself still holds
+   the ARIA role/label and is queryable for analytics hooks. */
+.hero-illustrated .hi-cta-secondary-row{display:contents}
+.hero-illustrated .hi-cta-secondary{
+  display:inline-flex;align-items:center;
+  font-family:var(--font-body);
+  font-weight:500;font-size:.9rem;color:var(--hi-ink);text-decoration:none;
+  padding:13px 22px;border-radius:999px;
+  background:rgba(255,253,247,.55);
+  border:1px solid var(--hi-tan-soft);
+  transition:border-color .2s ease, color .2s ease, background .2s ease, transform .2s ease;
+}
+.hero-illustrated .hi-cta-secondary:hover{
+  color:var(--hi-red);border-color:var(--hi-red);
+  background:#fff;transform:translateY(-1px);
+}
+/* 2026-05-27: live-variant secondary CTA, used for /spar. Pulsing
+   red dot + tinted background + red border so the matchmaker pill
+   reads as the active human surface and visually outweighs the
+   neutral secondaries beside it. Same hover delta as the rest. */
+.hero-illustrated .hi-cta-secondary--live{
+  gap:8px;
+  background:rgba(239,68,68,.06);
+  border-color:rgba(239,68,68,.42);
+  color:var(--hi-red);
+  font-weight:600;
+}
+.hero-illustrated .hi-cta-secondary--live:hover{
+  background:rgba(239,68,68,.10);
+  border-color:var(--hi-red);
+  color:var(--hi-red);
+}
+.hero-illustrated .hi-cta-secondary-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--hi-red);box-shadow:0 0 10px rgba(239,68,68,.55);
+  animation:hi-spar-pulse 1.6s ease-in-out infinite;
+  flex-shrink:0;
+}
+@keyframes hi-spar-pulse{
+  0%,100%{opacity:.62;transform:scale(.92)}
+  50%{opacity:1;transform:scale(1.12)}
+}
+@media(prefers-reduced-motion:reduce){
+  .hero-illustrated .hi-cta-secondary-dot{animation:none}
+}
+/* Dot separators are no longer needed now that the secondaries are
+   real pill buttons sitting in the same row as the primary. The DOM
+   still has them so older variants can fall back; hide them in this
+   layout. */
+.hero-illustrated .hi-cta-sep{display:none}
+
+/* Prominent Google sign-in (2026-05-31, per user: "very obviously").
+   Re-adds an in-hero sign-in button, reversing the 2026-05-19 removal.
+   White + the colored G logo so it pops on the cream hero; sits above the
+   debate CTAs so it reads as the primary action. Hidden once signed in
+   (body.signed-in, set by the Firebase IIFE). Click delegates to the
+   existing hidden #googleSignupBtn → triggerGoogleSignIn(). */
+.hero-illustrated .hi-google-wrap{display:flex;flex-direction:column;align-self:flex-end;align-items:flex-end;gap:6px;margin:-4px 0 10px;text-align:right}
+@media(max-width:640px){.hero-illustrated .hi-google-wrap{align-self:center;align-items:center;text-align:center;margin:0 auto 10px}}
+.hero-illustrated .hi-google-cta{
+  display:inline-flex;align-items:center;justify-content:center;gap:11px;
+  padding:15px 30px;border-radius:999px;
+  background:#fff;color:#1f1f24;border:1px solid rgba(0,0,0,.10);
+  font-family:var(--font-body);
+  font-size:1.02rem;font-weight:700;letter-spacing:-.01em;cursor:pointer;text-decoration:none;
+  box-shadow:0 12px 30px rgba(0,0,0,.16),0 2px 7px rgba(0,0,0,.08);
+  transition:transform .15s ease,box-shadow .15s ease,background .15s ease;
+}
+.hero-illustrated .hi-google-cta:hover{transform:translateY(-2px);background:#fafafa;box-shadow:0 18px 42px rgba(0,0,0,.22),0 3px 9px rgba(0,0,0,.10)}
+.hero-illustrated .hi-google-cta:active{transform:translateY(0)}
+.hero-illustrated .hi-google-cta svg{width:21px;height:21px;flex-shrink:0}
+.hero-illustrated .hi-google-sub{max-width:390px;font-size:.8rem;color:var(--hi-ink-soft,#6f6a63);font-family:var(--font-body);line-height:1.28}
+.hero-illustrated .hi-beta-micro{display:block;margin-bottom:2px;font-size:.6rem;line-height:1;letter-spacing:.12em;text-transform:uppercase;opacity:.45}
+body.signed-in .hero-illustrated .hi-google-wrap{display:none !important}
+@media(max-width:560px){.hero-illustrated .hi-google-cta{font-size:.96rem;padding:13px 24px}}
+
+/* Status row */
+.hero-illustrated .hi-status{
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:center;
+  font-family:var(--font-body);
+  font-size:.78rem;color:var(--hi-ink-soft);letter-spacing:.01em;
+  margin-top:10px;opacity:.88;
+}
+.hero-illustrated .hi-status-item{display:inline-flex;align-items:center;gap:8px}
+.hero-illustrated .hi-status-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--hi-red);
+  box-shadow:0 0 0 0 rgba(200,50,50,.55);
+  animation:hiStatusPulse 2.6s ease-in-out infinite;
+}
+.hero-illustrated .hi-status-item:nth-child(2) .hi-status-dot{animation-delay:-.9s}
+.hero-illustrated .hi-status-item:nth-child(3) .hi-status-dot{animation-delay:-1.8s}
+@keyframes hiStatusPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(200,50,50,.55)}
+  50%{box-shadow:0 0 0 6px rgba(200,50,50,0)}
+}
+
+/* Dark themes: flip the local design tokens so the illustration
+   reads as cream-ink on warm-dark paper instead of dark-ink on a
+   half-rendered ivory wash that loses to the page background. The
+   bg gets a deeper warm radial so the scene sits on a candlelit
+   table rather than on flat black, the podium fills darken, and
+   the head silhouettes get a charcoal fill so they don't read as
+   white masks floating on black. */
+:root[data-theme="grey"][data-hero-ab="illustrated"] .hero-illustrated,
+:root[data-theme="crimson"][data-hero-ab="illustrated"] .hero-illustrated,
+:root[data-theme="stone"][data-hero-ab="illustrated"] .hero-illustrated,
+:root[data-theme="dark"][data-hero-ab="illustrated"] .hero-illustrated{
+  /* 2026-06-01 contrast pass — earlier tokens were calibrated for the
+     "muted illustration" aesthetic. On the real dark-crimson page bg,
+     pills + line art were too dim to read as proper product chrome
+     (looked unfinished, like loading-state placeholders). Bumps every
+     opacity + warms the tan accent so edges define, strokes hold,
+     chips sit ABOVE the page rather than dissolving INTO it.
+     Light-theme tokens above unchanged — contrast was already strong. */
+  --hi-ink:        #faf2dc;
+  --hi-ink-strong: #fffaea;
+  --hi-ink-soft:   #e8dcc0;
+  --hi-ink-faint:  rgba(250,242,220,.5);
+  --hi-line:       rgba(250,242,220,.86);   /* was .62 — podium strokes hold */
+  --hi-line-soft:  rgba(250,242,220,.5);    /* was .28 — secondary strokes visible */
+  --hi-tan:        #e8b878;                  /* was #d4a76a — warmer + brighter */
+  --hi-tan-soft:   rgba(232,184,120,.78);   /* was .38 — pill borders define */
+  --hi-red:        #ef5a5a;
+  --hi-red-soft:   rgba(239,90,90,.22);
+  --hi-paper:      #221a14;
+  --hi-paper-edge: #2e231a;
+  --hi-chip-bg:    rgba(52,40,30,.95);      /* was .78 — pill body sits on page */
+  --hi-chip-ink:   #faf2dc;
+  /* Live-room stage chrome (2026-06-12) — warm dark cards, black
+     shadows, brighter map so the scene holds on the dark page bg. */
+  --hi-card-bg:    rgba(52,41,31,.96);
+  --hi-card-solid: #34291f;
+  --hi-card-line:  rgba(250,242,220,.26);
+  --hi-card-shadow:rgba(0,0,0,.5);
+  --hi-seat-bg:    rgba(250,242,220,.09);
+  --hi-meter-track:rgba(250,242,220,.22);
+  --hi-map-alpha:  .8;
+}
+:root[data-theme="grey"][data-hero-ab="illustrated"] section.hero,
+:root[data-theme="crimson"][data-hero-ab="illustrated"] section.hero,
+:root[data-theme="stone"][data-hero-ab="illustrated"] section.hero,
+:root[data-theme="dark"][data-hero-ab="illustrated"] section.hero{
+  /* 2026-06-14: same seam fix as the light arm. No opaque --hero-grad base
+     here — the body paints one continuous dark gradient across the page, so
+     repainting it on this box made the 135deg diagonal mismatch read as a
+     horizontal seam at the hero's bottom. The warm glow now fades on a
+     single ramp (no 32%/78% plateau) to nothing, so there's no edge. */
+  /* 2026-07-22: vertical radius made relative, same reason as the light
+     arm. The fixed 880px clipped at the hero's bottom with ~7.6% brown
+     still painted, which reads as a harder line here than on light. */
+  background:
+    radial-gradient(ellipse 1240px 78% at 50% 33%, rgba(58,30,20,.52) 0%, rgba(45,24,17,.18) 38%, transparent 72%) !important;
+}
+/* Element-level dark adjustments for the live-room stage. Card
+   chrome flips via the token block above; the land mass needs a
+   touch more presence on dark so the map doesn't vanish. */
+:root[data-theme="grey"][data-hero-ab="illustrated"] .hero-illustrated .hi-map,
+:root[data-theme="crimson"][data-hero-ab="illustrated"] .hero-illustrated .hi-map,
+:root[data-theme="stone"][data-hero-ab="illustrated"] .hero-illustrated .hi-map,
+:root[data-theme="dark"][data-hero-ab="illustrated"] .hero-illustrated .hi-map{
+  --hi-land-alpha:.085;
+}
+:root[data-theme="grey"][data-hero-ab="illustrated"] .hero-illustrated .hi-enter-copy,
+:root[data-theme="crimson"][data-hero-ab="illustrated"] .hero-illustrated .hi-enter-copy,
+:root[data-theme="stone"][data-hero-ab="illustrated"] .hero-illustrated .hi-enter-copy,
+:root[data-theme="dark"][data-hero-ab="illustrated"] .hero-illustrated .hi-enter-copy{
+  text-shadow:0 2px 8px rgba(0,0,0,.52);
+}
+
+/* Responsive */
+@media(max-width:900px){
+  :root[data-hero-ab="illustrated"] .hero-illustrated{padding-top:24px}
+  .hero-illustrated .hi-subhead{max-width:760px;white-space:normal}
+  .hero-illustrated .hi-stage{aspect-ratio:1100 / 470}
+  .hero-illustrated .hi-enter-cue{display:none}
+  .hero-illustrated .hi-room{left:8%;right:35%}
+  .hero-illustrated .hi-judge{right:1.5%;width:31%}
+  /* Mid widths can't hold the full judge stack — the flow strip is
+     the depth cue for big screens; meters + note carry it here. */
+  .hero-illustrated .hi-flow{display:none}
+}
+@media(max-width:640px){
+  .hero-illustrated .hi-headline{font-size:clamp(2rem, 9vw, 2.6rem) !important}
+  .hero-illustrated .hi-subhead{font-size:.95rem}
+  /* The collage stacks: room card first, judge panel under it, the
+     map still breathing behind both. Lobby cards go — at 380px
+     they're noise, and the mode buttons above already carry the
+     formats. Parallax is desktop-only (pointer:fine), so the static
+     transforms come off too. */
+  .hero-illustrated .hi-stage{aspect-ratio:auto;max-width:520px;perspective:none}
+  .hero-illustrated .hi-scene{position:relative;inset:auto;display:flex;flex-direction:column;gap:10px;animation:none}
+  .hero-illustrated .hi-map{position:absolute;inset:0;width:100%;opacity:.4;transform:none}
+  .hero-illustrated .hi-room{position:relative;inset:auto;transform:none;min-height:248px;order:-1}
+  .hero-illustrated .hi-judge{position:relative;inset:auto;top:auto;bottom:auto;right:auto;width:92%;margin:0 auto;transform:none;gap:8px}
+  .hero-illustrated .hi-cta-primary{padding:13px 24px;font-size:.95rem}
+  /* Secondaries tighten on mobile: smaller padding/font so all four
+     pills can still fit in 1–2 rows under 640px before stacking. */
+  .hero-illustrated .hi-cta-secondary{font-size:.82rem;padding:10px 16px}
+  .hero-illustrated .hi-cta-row{gap:10px}
+  .hero-illustrated .hi-status{font-size:.72rem;gap:12px}
+}
+@media(max-width:420px){
+  .hero-illustrated .hi-cta-secondary-row{gap:2px}
+  .hero-illustrated .hi-cta-sep{display:none}
+  .hero-illustrated .hi-cta-secondary{padding:7px 10px}
+  .hero-illustrated .hi-room-name{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .hero-illustrated .hi-scene,
+  .hero-illustrated .hi-map-ring,
+  .hero-illustrated .hi-bar-1,
+  .hero-illustrated .hi-bar-2,
+  .hero-illustrated .hi-bar-3,
+  .hero-illustrated .hi-bar-4,
+  .hero-illustrated .hi-wave i,
+  .hero-illustrated .hi-room-live i,
+  .hero-illustrated .hi-judge-dot,
+  .hero-illustrated .hi-seat-you .hi-ava::after,
+  .hero-illustrated .hi-status-dot,
+  .hero-illustrated .hi-enter-arrow path{animation:none !important}
+}

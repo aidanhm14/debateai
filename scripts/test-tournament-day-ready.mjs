@@ -1,16 +1,16 @@
-import fs from 'node:fs';
+import { readPageSource } from './lib/page-source.mjs';
 
-const reminder = fs.readFileSync('app/netlify/functions/scheduled-tournament-day-reminder.mjs', 'utf8');
-const kickoffReminder = fs.readFileSync('app/netlify/functions/scheduled-tournament-kickoff-reminder.mjs', 'utf8');
-const eloUpdate = fs.readFileSync('app/netlify/functions/admin-open-elo-update.mjs', 'utf8');
-const admin = fs.readFileSync('app/admin.html', 'utf8');
-const landing = fs.readFileSync('app/landing.html', 'utf8');
-const leaderboard = fs.readFileSync('app/leaderboard.html', 'utf8');
-const tournamentAdmin = fs.readFileSync('app/netlify/functions/tournament-admin.mjs', 'utf8');
-const liveJudge = fs.readFileSync('app/netlify/functions/live-judge.mjs', 'utf8');
-const liveRound = fs.readFileSync('app/live-round.html', 'utf8');
-const open = fs.readFileSync('app/open.html', 'utf8');
-const tournament = fs.readFileSync('app/tournament.html', 'utf8');
+const reminder = readPageSource('app/netlify/functions/scheduled-tournament-day-reminder.mjs', 'utf8');
+const kickoffReminder = readPageSource('app/netlify/functions/scheduled-tournament-kickoff-reminder.mjs', 'utf8');
+const eloUpdate = readPageSource('app/netlify/functions/admin-open-elo-update.mjs', 'utf8');
+const admin = readPageSource('app/admin.html', 'utf8');
+const landing = readPageSource('app/landing.html', 'utf8');
+const leaderboard = readPageSource('app/leaderboard.html', 'utf8');
+const tournamentAdmin = readPageSource('app/netlify/functions/tournament-admin.mjs', 'utf8');
+const liveJudge = readPageSource('app/netlify/functions/live-judge.mjs', 'utf8');
+const liveRound = readPageSource('app/live-round.html', 'utf8');
+const open = readPageSource('app/open.html', 'utf8');
+const tournament = readPageSource('app/tournament.html', 'utf8');
 const failures = [];
 
 function check(label, condition) {

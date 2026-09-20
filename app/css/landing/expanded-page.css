@@ -1,0 +1,171 @@
+
+    .landing-more-shell{background:var(--bg,#faf9f5);padding-top:clamp(18px,2vw,28px)}
+    .landing-more{width:100%}
+    /* Control arm (and JS-off visitors): opening the gate force-renders
+       every chapter at once, the behavior this rule shipped with on
+       2026-07-25. The landing_cv_v1 'cv' arm drops the override so the
+       chapters keep content-visibility:auto after the gate opens and
+       only render near the viewport. QA: ?lpcv=cv|control. */
+    html:not([data-lpcv="cv"]) body.landing-more-open #how-it-works,
+    html:not([data-lpcv="cv"]) body.landing-more-open #live-proof,
+    html:not([data-lpcv="cv"]) body.landing-more-open #stream-it,
+    html:not([data-lpcv="cv"]) body.landing-more-open #why-this-exists,
+    html:not([data-lpcv="cv"]) body.landing-more-open #floor-band,
+    html:not([data-lpcv="cv"]) body.landing-more-open #mode-select,
+    html:not([data-lpcv="cv"]) body.landing-more-open #engine-select,
+    html:not([data-lpcv="cv"]) body.landing-more-open #credential-path,
+    html:not([data-lpcv="cv"]) body.landing-more-open #community-band,
+    html:not([data-lpcv="cv"]) body.landing-more-open #creator-sweepstakes,
+    html:not([data-lpcv="cv"]) body.landing-more-open #reviews,
+    html:not([data-lpcv="cv"]) body.landing-more-open #faq{
+      content-visibility:visible !important;
+    }
+    /* The rest-of-page gate is a real button, not a quiet text row. It is
+       intentionally compact so the five chapter choices below do the
+       explaining without another paragraph of setup copy. */
+    .landing-more{display:flex;justify-content:center}
+    .landing-more-summary{
+      width:min(560px,calc(100% - 36px));
+      margin:0 auto 16px;
+      padding:18px 18px 18px 30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:18px;
+      list-style:none;
+      cursor:pointer;
+      border:1px solid var(--accent-solid,#b91c1c);
+      border-radius:999px;
+      background:var(--accent-solid,#b91c1c);
+      color:#fff;
+      text-align:left;
+      appearance:none;
+      box-shadow:0 12px 28px color-mix(in srgb,var(--accent,#dc2626) 24%,transparent);
+      transition:transform .18s ease,box-shadow .18s ease,background .18s ease;
+    }
+    .landing-more-summary:hover{transform:translateY(-2px);background:#b91c1c;box-shadow:0 16px 34px rgba(185,28,28,.28)}
+    .landing-more-summary:focus-visible{
+      outline:3px solid color-mix(in srgb,var(--accent,#dc2626) 34%,transparent);
+      outline-offset:4px;
+    }
+    .lm-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
+    .lm-title{
+      font-family:var(--font-body);
+      font-size:1.3rem;font-weight:850;letter-spacing:.01em;line-height:1.1;
+      color:#fff;
+    }
+    /* The sub-line carries the same voice as the "built by a real human :)"
+       footer note; it hides once the tour is open, where "Hide tour" needs
+       no pitch under it. */
+    .lm-sub{
+      font-family:var(--font-body);
+      font-size:.82rem;font-weight:500;line-height:1.3;
+      color:rgba(255,255,255,.82);
+    }
+    .landing-more.is-open .lm-sub{display:none}
+    .lm-action{
+      display:grid;place-items:center;flex:none;
+      width:46px;height:46px;border-radius:50%;
+      background:rgba(255,255,255,.2);color:#fff;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);
+    }
+    .lm-action svg{width:21px;height:21px;display:block;transition:transform .22s ease}
+    .landing-more:not(.is-open) .lm-action svg{animation:lmChevronNudge 1.8s ease-in-out infinite}
+    @keyframes lmChevronNudge{0%,100%{transform:translateY(-1px)}50%{transform:translateY(3px)}}
+    .lm-open{display:none}
+    .landing-more.is-open .lm-closed{display:none}
+    .landing-more.is-open .lm-open{display:inline}
+    .landing-more.is-open .lm-action svg{transform:rotate(180deg)}
+    @media (max-width:640px){
+      .landing-more-summary{
+        width:calc(100% - 36px);
+        margin:0 auto 14px;
+        padding:14px 14px 14px 22px;
+      }
+      .lm-title{font-size:1.12rem}
+      .lm-sub{font-size:.76rem}
+    }
+    @media (prefers-reduced-motion:reduce){
+      .landing-more-summary,.lm-action svg{transition:none}
+      .landing-more:not(.is-open) .lm-action svg{animation:none}
+    }
+    /* Collapsed gate: keep the chapter strip visible as a jump menu under
+       the Explore card, at every width. A pill click deep-links through
+       the gate: the hashchange handler opens it and scrolls to the target. */
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav:not([hidden]){
+      display:block;position:static;z-index:auto;
+      background:transparent;border-bottom:0;
+      -webkit-mask-image:none;mask-image:none;
+      width:calc(100% - clamp(36px,10vw,144px));max-width:1120px;
+      margin:0 auto clamp(28px,3.4vw,44px);
+    }
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav ol{
+      display:flex;flex-wrap:wrap;justify-content:center;gap:12px 8px;
+      list-style:none;margin:0;padding:0;
+      overflow:visible;
+    }
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav a{
+      display:inline-flex;align-items:baseline;gap:6px;white-space:nowrap;
+      padding:8px 14px;border-radius:999px;
+      border:1px solid var(--border,rgba(140,130,115,.22));
+      background:transparent;
+      font-family:var(--font-body);
+      font-size:.8rem;font-weight:600;line-height:1;
+      color:var(--text-dim,rgba(0,0,0,.6));
+      text-decoration:none;
+      transition:color .18s,border-color .18s,background .18s;
+    }
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav a .num{
+      font-size:.6rem;font-weight:700;font-variant-numeric:tabular-nums;
+      color:var(--text-ghost,rgba(0,0,0,.36));
+    }
+    /* One consistent pill weight, collapsed-gate jump-menu variant.
+       Was two size tiers (bold+bigger "lg", faded+smaller "sm") that
+       implied a priority order between chapters that isn't real, and
+       made the row read as busy. Every chapter is an equally valid
+       jump target, so every pill matches. */
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav a[data-size="lg"],
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav a[data-size="sm"]{
+      font-size:.88rem;font-weight:600;padding:9px 15px;opacity:1;
+      border-color:var(--border,rgba(140,130,115,.22));
+    }
+    body.landing-more-ready:not(.landing-more-open) .chapter-nav a:hover{
+      color:var(--accent,#dc2626);
+      border-color:color-mix(in srgb,var(--accent,#dc2626) 40%,transparent);
+      background:color-mix(in srgb,var(--accent,#dc2626) 6%,transparent);
+    }
+    [data-theme="dark"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a,
+    [data-theme="crimson"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a,
+    [data-theme="grey"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a,
+    [data-theme="stone"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a{
+      color:rgba(245,239,231,.74);
+      border-color:rgba(245,239,231,.18);
+    }
+    [data-theme="dark"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a .num,
+    [data-theme="crimson"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a .num,
+    [data-theme="grey"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a .num,
+    [data-theme="stone"] body.landing-more-ready:not(.landing-more-open) .chapter-nav a .num{
+      color:rgba(245,239,231,.68);
+    }
+    /* PARKED 2026-07-31 per the founder: hide Stream it, The Floor, and Community
+       to simplify what opens behind the gate. PARKED 2026-08-01: the engine
+       picker ("Then choose who argues back") joins them. PARKED 2026-08-19
+       (landing-redesign brief, story compression): the credential + vision
+       chapter, 2115px of future-facing cards; the certificate keeps its
+       Explore-menu route at /credentials, and the founder credential line
+       moved to a one-line trust strip before the FAQ. The sections stay
+       in the file untouched. To restore: drop the id from this rule AND
+       from the `parked` map in the TOC builder script (engine-select
+       never had a TOC row).
+       PARKED 2026-08-24 per the founder ("get rid of these", four
+       screenshots): the creator/streamer tournament island, the company
+       philosophy chapter, the seven-card mode picker, and the streamers
+       promo rail inside the leaderboard band. Same reason as every park
+       above and the one his own collaborators keep naming: the page does
+       too much at once. Streaming keeps its Explore route at /room-judge,
+       creator tournaments at /tournaments, and the mode-picker
+       destinations are all still reachable from the Explore menu, so
+       nothing here removes a route, only a landing chapter. */
+    #stream-it,#floor-band,#community-band,#engine-select,#credential-path,
+    #creator-sweepstakes,#why-this-exists,#mode-select{display:none !important}
+  

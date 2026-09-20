@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+import { readPageSource } from './lib/page-source.mjs';
 
 import assert from 'node:assert/strict';
-import { readFileSync, statSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import politicalDebate from '../app/netlify/functions/political-debate.mjs';
 import debate from '../app/netlify/functions/debate.mjs';
 import { MOTION_BANK } from '../app/netlify/functions/lib/debate-bank.mjs';
@@ -122,28 +123,28 @@ assert.match(politicalQuestion, /Round<\/span><span class="v">One person on each
 assert.match(politicalQuestion, /href="\/spar" data-cta="question-brief-live">Debate someone now/);
 assert.doesNotMatch(politicalQuestion, />Start a round</);
 
-const rootNetlify = readFileSync(new URL('../netlify.toml', import.meta.url), 'utf8');
-const appNetlify = readFileSync(new URL('../app/netlify.toml', import.meta.url), 'utf8');
+const rootNetlify = readPageSource(new URL('../netlify.toml', import.meta.url), 'utf8');
+const appNetlify = readPageSource(new URL('../app/netlify.toml', import.meta.url), 'utf8');
 for (const route of ['/political-debate', '/political-debate-topics']) {
   assert.ok(rootNetlify.includes(`from = "${route}"`), `root netlify missing ${route}`);
   assert.ok(appNetlify.includes(`from = "${route}"`), `app netlify missing ${route}`);
 }
 
-const sitemap = readFileSync(new URL('../app/netlify/functions/sitemap.mjs', import.meta.url), 'utf8');
+const sitemap = readPageSource(new URL('../app/netlify/functions/sitemap.mjs', import.meta.url), 'utf8');
 for (const route of ['/political-debate', '/political-debate-topics', '/contested']) {
   assert.ok(sitemap.includes(`path: '${route}'`), `sitemap missing ${route}`);
 }
 
-const contested = readFileSync(new URL('../app/netlify/functions/contested.mjs', import.meta.url), 'utf8');
+const contested = readPageSource(new URL('../app/netlify/functions/contested.mjs', import.meta.url), 'utf8');
 assert.match(contested, /isSensitiveMotion/);
 assert.doesNotMatch(contested, /FORMAT_LABELS/);
 assert.match(contested, /Political Discussions Today/);
 assert.match(contested, /class="cta" href="\/spar" data-cta="contested-live">Debate someone now<\/a>/);
 assert.doesNotMatch(contested, /href="\/practice">Start a round<\/a>/);
 
-const landing = readFileSync(new URL('../app/landing.html', import.meta.url), 'utf8');
-const topbar = readFileSync(new URL('../app/js/topbar.js', import.meta.url), 'utf8');
-const challenges = readFileSync(new URL('../app/challenges.html', import.meta.url), 'utf8');
+const landing = readPageSource(new URL('../app/landing.html', import.meta.url), 'utf8');
+const topbar = readPageSource(new URL('../app/js/topbar.js', import.meta.url), 'utf8');
+const challenges = readPageSource(new URL('../app/challenges.html', import.meta.url), 'utf8');
 assert.match(landing, /href="\/political-debate">Political debate<\/a>/);
 assert.match(topbar, /href: '\/political-debate', label: 'Political debates'/);
 assert.match(challenges, /q\.get\('claim'\)/);

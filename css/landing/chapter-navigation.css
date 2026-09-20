@@ -1,0 +1,168 @@
+
+  /* ── Page TOC (2026-05-24 rev2) ────────────────────────────────────
+     Editorial-doc style left rail: numbered sections (01–06) in
+     tabular-nums, a real vertical track with a scroll-progress fill
+     that follows the reader through the page range, and a stronger
+     active state where the number itself recolors to the accent. */
+  .page-toc{
+    position:fixed;
+    left:24px;
+    top:50%;
+    transform:translateY(-50%);
+    z-index:40;
+    width:206px;
+    padding:0 0 0 18px;
+    /* 12 rows now rather than 10. Cap the rail to the viewport and let
+       it scroll internally as a last resort, so a short window can
+       never clip the bottom entries off the page. */
+    max-height:calc(100vh - 140px);
+    overflow-y:auto;
+    scrollbar-width:none;
+    font-family:var(--font-body);
+    /* No CSS transition on opacity: the browser was sometimes parking
+       the implicit CSSTransition in an idle/time:null state on first
+       paint, which froze opacity at 0 even when class + inline-style
+       both said 1. Visibility is toggled instantly from JS instead. */
+    opacity:0;
+    pointer-events:none;
+    user-select:none;
+  }
+  .page-toc.is-visible{
+    opacity:1;
+    pointer-events:auto;
+  }
+  /* Vertical track + scroll-progress fill. Track is the always-visible
+     1px hairline; fill grows top-down as the reader moves through the
+     TOC range, fading at its leading edge so the progress line reads
+     as a gradient rather than a hard cap. */
+  .page-toc-track{
+    position:absolute;
+    left:0; top:0; bottom:0;
+    width:1px;
+    background:var(--border);
+  }
+  .page-toc-track-fill{
+    position:absolute;
+    left:0; top:0;
+    width:1px;
+    height:0;
+    background:linear-gradient(to bottom, var(--accent), color-mix(in srgb, var(--accent) 30%, transparent));
+    transition:height .35s cubic-bezier(.2,.7,.2,1);
+    box-shadow:0 0 8px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+  .page-toc-eyebrow{
+    font-size:.56rem;
+    font-weight:800;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    opacity:.7;
+    margin:0 0 16px;
+  }
+  .page-toc::-webkit-scrollbar{width:0;height:0}
+  .page-toc-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:0;
+  }
+  .page-toc-list a{
+    display:flex;
+    align-items:baseline;
+    gap:11px;
+    font-size:.79rem;
+    line-height:1.35;
+    color:var(--text-dim);
+    text-decoration:none;
+    padding:6px 0 6px 14px;
+    margin-left:-19px;
+    border-left:2px solid transparent;
+    opacity:.62;
+    transition:color .22s, border-color .22s, opacity .22s, transform .22s;
+  }
+  .page-toc-list a .num{
+    font-size:.62rem;
+    font-weight:600;
+    letter-spacing:.04em;
+    color:var(--text-dim);
+    font-variant-numeric:tabular-nums;
+    min-width:18px;
+    flex-shrink:0;
+    transition:color .22s;
+  }
+  .page-toc-list a:hover{
+    color:var(--text);
+    opacity:1;
+    transform:translateX(2px);
+  }
+  .page-toc-list a.is-active{
+    color:var(--text);
+    font-weight:600;
+    opacity:1;
+    border-left-color:var(--accent);
+  }
+  .page-toc-list a.is-active .num{
+    color:var(--accent);
+    font-weight:700;
+  }
+  /* Size tiers (2026-08-10): the conversion-path chapters (how it
+     works, the two live-proof chapters, choose-a-path, join) read
+     slightly larger/bolder than the rest; low-commitment reads (why
+     debate, reviews) read slightly smaller and dimmer. Kept subtle on
+     the vertical rail since it's a tight editorial list, not a button
+     row — the size swing is much more visible on .chapter-nav below. */
+  .page-toc-list li[data-size="lg"] a{font-weight:700;opacity:.78}
+  .page-toc-list li[data-size="sm"] a{font-size:.72rem;opacity:.48}
+  /* Shared hover/focus preview popover — see wireTocPreviews() below.
+     Fixed-position singleton, reused across every pill in both TOCs. */
+  .toc-preview-pop{
+    position:fixed;z-index:2147483000;
+    display:flex;flex-direction:column;align-items:center;gap:7px;
+    width:172px;padding:14px 12px 12px;
+    border-radius:14px;
+    background:#16090b;color:#f5efe7;
+    border:1px solid rgba(220,38,38,.34);
+    box-shadow:0 20px 48px rgba(0,0,0,.34);
+    opacity:0;transform:translateY(6px) scale(.96);
+    transition:opacity .15s ease,transform .15s ease;
+    pointer-events:none;
+    text-align:center;
+  }
+  .toc-preview-pop.is-below{transform:translateY(-6px) scale(.96)}
+  .toc-preview-pop.is-shown{opacity:1;transform:translateY(0) scale(1)}
+  .toc-preview-pop .tpp-icon{width:34px;height:34px;color:var(--accent,#dc2626)}
+  .toc-preview-pop .tpp-icon svg{width:100%;height:100%;display:block}
+  .toc-preview-pop .tpp-label{
+    font-family:var(--font-display);
+    font-size:.9rem;font-weight:700;color:#fff;margin:0;line-height:1.2;
+  }
+  .toc-preview-pop .tpp-note{
+    font-family:var(--font-body);
+    font-size:.66rem;line-height:1.42;color:rgba(245,239,231,.68);margin:0;
+  }
+  [data-theme="light"] .toc-preview-pop{background:#fff;color:#1a1a1f;border-color:rgba(220,38,38,.28);box-shadow:0 20px 48px rgba(0,0,0,.16)}
+  [data-theme="light"] .toc-preview-pop .tpp-label{color:#1a1a1f}
+  [data-theme="light"] .toc-preview-pop .tpp-note{color:rgba(0,0,0,.64)}
+  @media (hover:none){.toc-preview-pop{display:none !important}}
+  @media (prefers-reduced-motion:reduce){.toc-preview-pop{transition:none}}
+  /* The rail is fixed at left:24px and is 206px wide, so it owns the
+     leftmost ~230px of the window. The middle chapters are a 1180px
+     column, centred, so their left edge only clears the rail once the
+     window is 1180 + 2*(24+206+16) = ~1672px.
+
+     The 2026-07-19 gate of 1440px was therefore ~230px short, and
+     between 1440 and 1672 the rail sat directly on top of the content:
+     the mode-select cards rendered with "01 Debate a person" unreadable
+     underneath it. "Tucks away when the reader idles" did not save it,
+     because the collision is worst precisely while scrolling.
+
+     Gate is now the width at which the rail actually fits. Below it the
+     horizontal .chapter-nav strip takes over, which is in normal flow
+     and cannot overlap anything, so narrower laptops still get
+     wayfinding rather than losing it. Keep this in sync with
+     roomForRail in the TOC script and with the .chapter-nav gate. */
+  @media (max-width:1679px){
+    .page-toc{display:none}
+  }

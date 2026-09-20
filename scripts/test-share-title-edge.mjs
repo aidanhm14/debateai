@@ -1,6 +1,7 @@
+import { readPageSource } from './lib/page-source.mjs';
 import fs from 'node:fs';
 
-const landing = fs.readFileSync(new URL('../app/landing.html', import.meta.url), 'utf8');
+const landing = readPageSource(new URL('../app/landing.html', import.meta.url), 'utf8');
 const appEdge = new URL('../app/netlify/edge-functions/share-title.mjs', import.meta.url);
 const rootEdge = new URL('../netlify/edge-functions/share-title.mjs', import.meta.url);
 

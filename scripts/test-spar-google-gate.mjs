@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
+import { readPageSource } from './lib/page-source.mjs';
 
-const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const read = (path) => readPageSource(new URL(`../${path}`, import.meta.url), 'utf8');
 const spar = read('app/spar.html');
 const authModal = read('app/js/auth-modal.js');
 const pair = read('app/netlify/functions/spar-pair.mjs');

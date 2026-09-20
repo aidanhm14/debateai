@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readPageSource } from './lib/page-source.mjs';
 // Guard for the site-language layer (js/locale.js + lib/prompts.mjs).
 //
 // Three things it pins, because each one was the failure this layer was
@@ -11,13 +12,12 @@
 //      voice) cannot drift apart again.
 //   3. The server block keeps the parsed labels English and returns ''
 //      for English, so an English round is byte-identical to before.
-import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+const read = (p) => readPageSource(path.join(ROOT, p), 'utf8');
 let fails = 0, passes = 0;
 function ok(cond, msg) { if (cond) passes++; else { fails++; console.error('FAIL', msg); } }
 

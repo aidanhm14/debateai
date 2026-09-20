@@ -1,0 +1,830 @@
+/* Hero voice orb — the visual centerpiece. Canvas-rendered pulsing
+   sphere that reads as "live AI voice." Sits in the editorial hero
+   right column. */
+/* 2026-05-19: card chrome stripped. The dark rounded rectangle that
+   framed the orb was clipping its red drop-shadow into a square edge
+   and reading as a marketing card pasted onto the hero. With no
+   background/border/shadow, the orb's glow bleeds into the page wash
+   and the eyebrow + label + CTA sit directly on the hero background.
+   overflow:visible so the canvas drop-shadow isn't re-clipped. */
+.hero-orb-card{
+  background:transparent;
+  border:none;
+  border-radius:0;
+  /* 2026-05-26 rev5: padding-bottom trimmed 36 → 14 since the
+     inner "Start a voice round" pill was removed (the climax CTA
+     below the card carries the action now). Tightens the gap
+     between orb canvas → climax CTA so the eye flows in one
+     continuous motion instead of falling into empty space. */
+  padding:48px 32px 14px;
+  width:100%;
+  /* 2026-05-26 (rev2): bumped 520 → 720 so flanking debater
+     silhouettes have room to stand around the orb instead of clipping
+     against the card edges. Mobile breakpoint below still drops the
+     debaters under 760px. */
+  max-width:720px;
+  margin:0 auto;
+  box-shadow:none;
+  text-align:center;
+  position:relative;
+  overflow:visible;
+  /* 2026-05-24: orb card is now an <a> wrapping the canvas + label
+     pointing to /voice-debate. Defaults below reset link styling so
+     existing layout doesn't shift; hover state lifts and intensifies
+     the drop-shadow on the canvas underneath. */
+  text-decoration:none;
+  color:inherit;
+  cursor:pointer;
+  transition:transform .25s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+/* Floor ellipse beneath the stage. Grounds the debaters + orb so the
+   scene reads as "a room with a floor," not "figures floating in space."
+   Sits at the bottom of the orb card, low opacity, blurred to feel like
+   a soft shadow rather than a hard ring. */
+.hero-orb-card::after{
+  content:'';
+  position:absolute;
+  left:50%;bottom:18px;
+  width:78%;height:30px;
+  transform:translateX(-50%);
+  background:radial-gradient(ellipse at center,
+    rgba(239,68,68,.16) 0%,
+    rgba(239,68,68,.05) 40%,
+    transparent 75%);
+  filter:blur(6px);
+  pointer-events:none;
+  z-index:0;
+}
+[data-theme="light"] .hero-orb-card::after,
+[data-theme="stone"] .hero-orb-card::after{
+  background:radial-gradient(ellipse at center,
+    rgba(220,38,38,.10) 0%,
+    rgba(220,38,38,.03) 40%,
+    transparent 75%);
+}
+.hero-orb-card:hover{transform:translateY(-3px)}
+.hero-orb-card:hover .hero-orb-canvas{filter:drop-shadow(0 0 58px rgba(239,68,68,.42))}
+.hero-orb-card:hover .hero-orb-cta{background:#b91c1c;color:#fff;transform:translateY(0)}
+.hero-orb-card:focus-visible{outline:2px solid #ef4444;outline-offset:6px;border-radius:18px}
+.hero-orb-live{
+  position:absolute;top:18px;left:50%;transform:translateX(-50%);
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.6rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+  color:#ef4444;
+  padding:4px 12px;
+  border:1px solid rgba(239,68,68,.32);
+  border-radius:999px;
+  background:rgba(239,68,68,.06);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+.hero-orb-live::before{
+  content:'';width:7px;height:7px;border-radius:50%;
+  background:#ef4444;box-shadow:0 0 10px rgba(239,68,68,.85);
+  animation:heroOrbPulse 1.8s ease-in-out infinite;
+}
+@keyframes heroOrbPulse{
+  0%,100%{opacity:.55;transform:scale(.9)}
+  50%    {opacity:1;transform:scale(1.15)}
+}
+.hero-orb-cta{
+  display:inline-flex;align-items:center;gap:8px;
+  margin-top:14px;
+  padding:8px 16px;
+  font-size:.78rem;font-weight:700;letter-spacing:.02em;
+  color:#ef4444;
+  background:rgba(239,68,68,.08);
+  border:1px solid rgba(239,68,68,.32);
+  border-radius:999px;
+  transition:background .2s ease,color .2s ease,transform .2s ease;
+}
+.hero-orb-cta::after{
+  content:'→';font-size:.9em;transition:transform .25s ease;
+}
+.hero-orb-card:hover .hero-orb-cta::after{transform:translateX(4px)}
+[data-theme="light"] .hero-orb-live,
+[data-theme="stone"] .hero-orb-live{background:rgba(239,68,68,.08)}
+@media (prefers-reduced-motion:reduce){
+  .hero-orb-card,.hero-orb-card:hover{transform:none}
+  .hero-orb-live::before{animation:none}
+}
+[data-theme="grey"] .hero-orb-card,
+[data-theme="crimson"] .hero-orb-card,
+[data-theme="light"] .hero-orb-card,
+[data-theme="stone"] .hero-orb-card{
+  background:transparent;
+  border:none;
+  box-shadow:none;
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+.hero-orb-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.62rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--text-dim);
+  margin-bottom:36px;
+}
+.hero-orb-eyebrow-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 8px rgba(239,68,68,.55);
+}
+/* The orb itself is a <canvas> rendered by a small inline script
+   below — same waveform-aurora visual as voice-debate.html, but fed a
+   synthetic breath-level loop instead of real audio so it loops
+   ambiently on the landing. Canvas sits in a transparent square; all
+   the glow happens inside the pixel buffer. */
+.hero-orb-canvas{
+  /* 2026-05-24: trimmed again per user "make the orb a bit smaller."
+     Sizing history: 338 → 460 → 400 → 340 desktop. Mobile 260 → 340
+     → 290 → 250. Drop-shadow blur eased 52 → 44 so the red wash
+     stays soft at the smaller footprint instead of looking too gauzy
+     for the canvas. */
+  display:block;
+  width:clamp(300px,28vw,340px);height:clamp(300px,28vw,340px);
+  margin:24px auto 18px;
+  /* 2026-05-26 (rev14): drop-shadow eased 44px/.26 -> 28px/.18 per
+     the founder's brief "reduce red bloom intensity." The bloom was
+     spilling ~80px past the orb edge into the white surround
+     looking radioactive. Hover state at .hero-orb-card:hover still
+     bumps to 58/.42 for interaction feedback. */
+  filter:drop-shadow(0 0 28px rgba(239,68,68,.18));
+}
+@media (max-width:760px){
+  .hero-orb-canvas{width:290px;height:290px;margin-top:28px;margin-bottom:18px}
+}
+@media (max-width:480px){
+  .hero-orb-canvas{width:250px;height:250px;margin-top:18px}
+}
+.hero-orb-label{
+  /* 2026-05-19: was 800 weight + 1.05rem reading as a heavy competing
+     headline under the orb. Dropped to 500 weight + slightly smaller
+     so it sits as a quiet caption, not a second masthead. Top margin
+     pulled negative to tighten against the orb's bottom edge. */
+  font-size:1.02rem;font-weight:600;color:var(--text);
+  letter-spacing:-.005em;line-height:1.35;
+  margin:2px auto 14px;max-width:320px;
+}
+/* 2026-05-24: "AI · STANDING BY" label + helper sub-line. Lifts the
+   voice-debate setup scene onto the landing so a first-time visitor
+   sees the same "room is set, both sides waiting to begin" frame
+   they'll meet when they click into Voice.
+   2026-05-26 (rev2): pulled up with a negative margin so the chip
+   visually overlaps the lower edge of the orb canvas. Reads as a
+   tiny editorial label floating in front of the system rather than
+   sitting awkwardly below it. Subtle dark backdrop blur so it stays
+   legible across the orb glow. */
+.hero-orb-standby{
+  /* 2026-05-26 rev5: inline-flex + auto-margins + negative
+     top-margin combo wasn't centering on its own line — it ended
+     up rendering inline with the sub-text below. Switched to
+     block-level + auto-center via a wrapping <span> approach:
+     the standby pill stays inline-flex (for icon + label
+     alignment) but sits inside its own line. Use a flex
+     parent or text-align:center on a block container. Here we
+     keep it simple — make the standby pill itself a block-level
+     element with width:max-content + margin auto so auto-margins
+     actually center, and let it sit cleanly between canvas and
+     sub-text without negative-margin overlap. */
+  display:flex;align-items:center;gap:8px;justify-content:center;
+  width:max-content;
+  font-size:.74rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
+  color:#fff;
+  margin:4px auto 8px;
+  padding:6px 12px;
+  background:rgba(15,5,8,.62);
+  border:1px solid rgba(239,68,68,.32);
+  border-radius:999px;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  position:relative;z-index:4;
+}
+[data-theme="light"] .hero-orb-standby,
+[data-theme="stone"] .hero-orb-standby{
+  color:#7f1d1d;
+  background:rgba(255,255,255,.78);
+  border-color:rgba(220,38,38,.32);
+}
+.hero-orb-standby-dot{
+  width:9px;height:9px;border-radius:50%;
+  background:#ef4444;
+  box-shadow:0 0 10px rgba(239,68,68,.65);
+  animation:heroOrbPulse 1.8s ease-in-out infinite;
+}
+.hero-orb-sub{
+  font-size:1rem;font-weight:500;color:var(--text-dim);
+  letter-spacing:-.005em;line-height:1.4;
+  margin:0 auto 6px;max-width:340px;
+}
+[data-theme="light"] .hero-orb-standby,
+[data-theme="stone"] .hero-orb-standby{color:#b91c1c}
+[data-theme="light"] .hero-orb-standby-dot,
+[data-theme="stone"] .hero-orb-standby-dot{background:#b91c1c}
+
+/* Standby debaters — silhouette bookends flanking the orb so the
+   landing scene reads as "the room is set, both sides are here
+   waiting to begin." Behind the orb (z-index -1, pointer-events
+   none). Container width hugs the orb card so figures stay close
+   to the orb instead of bleeding into the headline column or past
+   the right edge. Hidden under 760px so the orb owns the frame on
+   mobile. */
+.hero-orb-card{isolation:isolate}
+.hero-orb-card .standby-figures{
+  /* 2026-05-26 rev5: pinned to the canvas vertical band instead of
+     translateY(-44%). Previous positioning let the lecterns extend
+     down past the canvas and overlap the "Ready when you are..."
+     sub-text + "AI · STANDING BY" pill. Now the figures' container
+     sits inside the canvas y-range so the lecterns land at the
+     canvas floor, not below it. top:60px (clears the live-voice
+     pill); height:340px (matches canvas height). */
+  position:absolute;left:50%;top:60px;
+  transform:translateX(-50%);
+  /* 2026-05-24 (rev3): widened modestly per user direction —
+     "move these a bit farther apart." Stays tight enough at 2-col
+     hero widths (≥760px) that the left figure doesn't bleed into
+     the headline column and the right doesn't clip off the
+     viewport. On wide viewports a min-width breakpoint below
+     pushes a touch further for extra breathing room. */
+  width:min(620px,calc(100% + 140px));height:340px;
+  pointer-events:none;z-index:-1;
+}
+@media (min-width:1200px){
+  /* Wide desktop — room to push figures further outward without
+     the right one clipping off-viewport. */
+  .hero-orb-card .standby-figures{
+    width:min(700px,calc(100% + 200px));
+  }
+}
+.standby-figures .stage-debater{
+  position:absolute;bottom:0;top:auto;
+  /* 2026-05-27 redesign: slimmer/taller silhouettes, contour-only heads,
+     architectural podiums. Width nudged down so the elongated proportions
+     don't make them feel bulky. Opacity bumped from .46 → .58 so the
+     linework reads as composed presence, not faint ghosts. */
+  width:clamp(104px,12.2vw,138px);height:auto;
+  opacity:.58;
+  transition:opacity .35s ease;
+  --deb-ink:rgba(232,224,206,.94);
+  --deb-ink-soft:rgba(232,224,206,.62);
+  --deb-fill:rgba(232,224,206,.07);
+}
+/* 2026-05-26 (revisited): sf-left restored. Original removal reason
+   was the green head reading as "foreign in a red brand world." Fix:
+   give sf-left a cooler, dusty crimson palette (rose-red) so the two
+   debaters are tonally distinct but both inside the red brand family.
+   Reads as "two people, two voices, same room."
+   2026-05-26 (rev3): pulled inward + tilted toward center. Previous
+   positioning had each debater hugging the outer edge of the card
+   (left:-10px / right:-10px) which read as "two figures stationed
+   at opposite walls." User wanted them feeling like they're in the
+   same conversation — moved each in by ~7% of the card width and
+   added a 3° inward rotation so the posture leans toward the orb. */
+.standby-figures .sf-left{
+  left:7%;
+  --deb-accent:rgba(220,140,140,.88);
+  --deb-glow:rgba(190,80,80,.40);
+  transform-origin:50% 95%;
+  /* 2026-05-26 (rev7): gentle wiggle so the figures read as alive
+     between speeches, not as static cutouts. Two slightly-different
+     keyframes per side (different period + slight offset) so the two
+     never sway in sync — that's what reads as mechanical. Amplitude
+     held under 2.5° + ~1px vertical drift; anything bigger looks like
+     they're being shaken. Reduced-motion guard below pins to static
+     for users who opted out. The arm + head get their own micro-
+     animations layered on top inside the SVG nodes (.deb-arm,
+     .deb-head). */
+  animation:debaterWiggleLeft 5.6s ease-in-out infinite;
+}
+.standby-figures .sf-right{
+  right:7%;
+  --deb-accent:rgba(251,113,113,.92);
+  --deb-glow:rgba(239,68,68,.42);
+  transform-origin:50% 95%;
+  animation:debaterWiggleRight 6.4s ease-in-out infinite;
+  animation-delay:-1.2s;
+}
+/* Body sway. Both figures now have their own non-mirrored SVG geometry
+   (2026-05-27 redesign), so the right side no longer carries scaleX(-1)
+   — it leans inward via a negative rotation instead. Amplitudes held
+   tiny so the figures read as breathing, not swaying. */
+@keyframes debaterWiggleLeft{
+  0%,100%{transform:rotate(1.6deg)  translateY(0)}
+  25%    {transform:rotate(2.8deg)  translateY(-0.6px)}
+  50%    {transform:rotate(2.0deg)  translateY(0.3px)}
+  75%    {transform:rotate(1.0deg)  translateY(-0.4px)}
+}
+@keyframes debaterWiggleRight{
+  0%,100%{transform:rotate(-1.6deg) translateY(0)}
+  25%    {transform:rotate(-2.8deg) translateY(-0.6px)}
+  50%    {transform:rotate(-1.0deg) translateY(0.4px)}
+  75%    {transform:rotate(-2.2deg) translateY(-0.5px)}
+}
+/* Head bob — slower than the body sway so the figure doesn't look
+   spasmic. Origin at neck base (cx=100, y=110 ish in the 460-unit
+   SVG) so the head tilts naturally on the body. */
+.standby-figures .stage-debater .deb-head{
+  transform-origin:50% 24%;
+  animation:debaterHeadBob 7.2s ease-in-out infinite;
+}
+.standby-figures .sf-right .deb-head{animation-duration:8s;animation-delay:-2s}
+@keyframes debaterHeadBob{
+  0%,100%{transform:rotate(0deg)   translateY(0)}
+  33%    {transform:rotate(1.4deg) translateY(-0.4px)}
+  66%    {transform:rotate(-1.2deg) translateY(0.3px)}
+}
+/* Free-hand gesture — the .deb-arm group on each silhouette is the
+   raised hand. Slow gesticulation, different period per side so the
+   two don't wave together. */
+.standby-figures .stage-debater .deb-arm{
+  transform-origin:30% 30%;
+  animation:debaterArmWave 5.2s ease-in-out infinite;
+}
+.standby-figures .sf-right .deb-arm{animation-duration:6.1s;animation-delay:-1.7s}
+@keyframes debaterArmWave{
+  0%,100%{transform:rotate(0deg)}
+  40%    {transform:rotate(3.5deg)}
+  70%    {transform:rotate(-2deg)}
+}
+@media (prefers-reduced-motion:reduce){
+  .standby-figures .sf-left,
+  .standby-figures .sf-right,
+  .standby-figures .stage-debater .deb-head,
+  .standby-figures .stage-debater .deb-arm,
+  .standby-figures .stage-debater .deb-speak-pulse,
+  .standby-figures .stage-debater .deb-mic-pulse{
+    animation:none !important;
+  }
+  .standby-figures .sf-left{transform:rotate(2deg)}
+  .standby-figures .sf-right{transform:rotate(-2deg)}
+}
+/* 2026-05-24 (rev3): light/stone contrast pass. User flagged the
+   figures as "too pale/ghostly" against the cream page bg. Base
+   opacity was .56 × ink-alpha .78 ≈ .44 effective — barely legible.
+   Bumped opacity .56 → .82 and ink alphas .78/.5 → .92/.68 so the
+   silhouettes read as actual figures, not faint outlines. The
+   stroke-width bump to 1.7/1.3 in the block below is unchanged. */
+[data-theme="light"] .standby-figures .stage-debater,
+[data-theme="stone"] .standby-figures .stage-debater{
+  opacity:.82;
+  --deb-ink:rgba(26,26,31,.92);
+  --deb-ink-soft:rgba(26,26,31,.68);
+  --deb-fill:rgba(26,26,31,.08);
+}
+.standby-figures .stage-debater .deb-stroke{
+  stroke:var(--deb-ink);
+  stroke-width:1.3;
+  fill:none;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  vector-effect:non-scaling-stroke;
+}
+.standby-figures .stage-debater .deb-stroke-soft{
+  stroke:var(--deb-ink-soft);
+  stroke-width:1;
+}
+[data-theme="light"] .standby-figures .stage-debater .deb-stroke,
+[data-theme="stone"] .standby-figures .stage-debater .deb-stroke{stroke-width:1.7}
+[data-theme="light"] .standby-figures .stage-debater .deb-stroke-soft,
+[data-theme="stone"] .standby-figures .stage-debater .deb-stroke-soft{stroke-width:1.3}
+/* 2026-05-27 redesign + polish pass:
+   - head is contour-only with a faint blurred halation behind it
+     (museum-exhibit spotlit-thinker register).
+   - layered second-pass contour at low opacity gives the hand-drawn
+     doubled-line feel without an feTurbulence filter (cheaper).
+   - tie becomes a slim tapered shape (knot at top → point at bottom).
+   - architectural floor line extends past each podium so the two
+     figures share a ground plane.
+   - pulse amplitudes calmed; breathing reads as restraint. */
+.standby-figures .stage-debater .deb-head{fill:none}
+.standby-figures .stage-debater .deb-hand{fill:var(--deb-ink);opacity:.62}
+.standby-figures .stage-debater .deb-shadow{
+  fill:var(--deb-ink);opacity:.09;
+}
+/* Faint halation behind the head — gaussian-blurred fill that reads
+   as a soft museum spotlight. Filter applied in the SVG via filter=
+   so the rest of the figure stays crisp. */
+.standby-figures .stage-debater .deb-halation{
+  fill:var(--deb-ink);opacity:.07;
+}
+[data-theme="light"] .standby-figures .stage-debater .deb-halation,
+[data-theme="stone"] .standby-figures .stage-debater .deb-halation{
+  opacity:.09;
+}
+/* Hand-drawn doubled contour: low-opacity offset companion stroke
+   layered behind the primary head outline. No filter needed. */
+.standby-figures .stage-debater .deb-stroke-ghost{
+  stroke:var(--deb-ink-soft);stroke-width:1.0;fill:none;opacity:.35;
+  stroke-linecap:round;stroke-linejoin:round;
+  vector-effect:non-scaling-stroke;
+}
+[data-theme="light"] .standby-figures .stage-debater .deb-stroke-ghost,
+[data-theme="stone"] .standby-figures .stage-debater .deb-stroke-ghost{
+  stroke-width:1.3;opacity:.30;
+}
+/* Tapered tie path (knot-to-point shape). Slim and refined. */
+.standby-figures .stage-debater .deb-tie{
+  fill:var(--deb-accent);opacity:.72;stroke:none;
+}
+[data-theme="light"] .standby-figures .stage-debater .deb-tie,
+[data-theme="stone"] .standby-figures .stage-debater .deb-tie{opacity:.82}
+/* Architectural ground line — thin stroke past the podium width. */
+.standby-figures .stage-debater .deb-ground{
+  stroke:var(--deb-ink-soft);stroke-width:.7;fill:none;opacity:.5;
+  stroke-linecap:round;vector-effect:non-scaling-stroke;
+}
+[data-theme="light"] .standby-figures .stage-debater .deb-ground,
+[data-theme="stone"] .standby-figures .stage-debater .deb-ground{
+  stroke-width:.9;opacity:.55;
+}
+.standby-figures .stage-debater .deb-mic-head{
+  fill:var(--deb-ink);opacity:.78;
+}
+.standby-figures .stage-debater .deb-speak-pulse{
+  fill:var(--deb-accent);opacity:.18;
+  transform-box:fill-box;transform-origin:50% 50%;
+  animation:debaterSpeakPulse 4.2s ease-in-out infinite;
+}
+.standby-figures .stage-debater .deb-mic-pulse{
+  fill:var(--deb-glow);opacity:.10;
+  transform-box:fill-box;transform-origin:50% 50%;
+  animation:debaterMicPulse 3.4s ease-in-out infinite;
+}
+.standby-figures .sf-right .deb-speak-pulse{animation-delay:-2.1s;animation-duration:4.8s}
+.standby-figures .sf-right .deb-mic-pulse{animation-delay:-1.4s;animation-duration:3.8s}
+/* Calmer amplitudes — figures breathe, not flash. */
+@keyframes debaterSpeakPulse{
+  0%,100%{transform:scale(0.92);opacity:.14}
+  50%    {transform:scale(1.16);opacity:.28}
+}
+@keyframes debaterMicPulse{
+  0%,100%{transform:scale(0.94);opacity:.07}
+  50%    {transform:scale(1.22);opacity:.18}
+}
+@media (max-width:760px){
+  .hero-orb-card .standby-figures{display:none}
+}
+.hero-orb-cta{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 20px;border-radius:999px;
+  border:1px solid var(--border);
+  background:transparent;color:var(--text);
+  font-size:.88rem;font-weight:700;text-decoration:none;
+  transition:border-color .2s ease, background .2s ease;
+}
+.hero-orb-cta:hover{
+  border-color:var(--accent);
+  background:rgba(239,68,68,.06);
+}
+.hero-orb-cta-arrow{font-weight:800;color:var(--text-dim)}
+@media (max-width:760px){
+  .hero-orb-card{padding:36px 22px 28px;border-radius:14px}
+  .hero-orb-sphere{width:180px;height:180px;margin-bottom:24px}
+  .hero-orb-eyebrow{margin-bottom:24px}
+}
+
+/* Proof strip — small caps stats, hairline dividers, no chips. */
+.proof-strip{
+  border-top:1px solid rgba(255,255,255,.06);
+  border-bottom:1px solid rgba(255,255,255,.06);
+  padding:28px clamp(20px,4vw,56px);
+  background:rgba(0,0,0,.42);
+  /* 2026-05-27 perf: 12px blur dropped to 6px + slightly more opaque
+     bg. The strip is full-width and re-rasterized when content
+     scrolls under it; halving the radius cuts the Chrome gaussian
+     cost roughly in quarter. */
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+[data-theme="light"] .proof-strip{
+  background:rgba(255,255,255,.6);
+  border-color:rgba(0,0,0,.06);
+}
+.proof-wrap{
+  max-width:1180px;margin:0 auto;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:0;
+  align-items:center;
+}
+.proof-item{
+  display:flex;flex-direction:column;gap:6px;
+  padding:6px 24px;
+  border-right:1px solid rgba(255,255,255,.12);
+}
+.proof-item:last-child{border-right:none}
+[data-theme="light"] .proof-item{border-right-color:rgba(0,0,0,.10)}
+.proof-item strong{
+  font-size:clamp(1.4rem,2.6vw,2rem);
+  font-weight:700;
+  letter-spacing:-.025em;
+  color:var(--text);
+  line-height:1;
+  font-variant-numeric:tabular-nums;
+}
+.proof-item span{
+  font-size:.62rem;font-weight:700;
+  letter-spacing:.18em;text-transform:uppercase;
+  color:rgba(255,255,255,.72);
+}
+[data-theme="light"] .proof-item span{color:rgba(0,0,0,.64)}
+@media(max-width:760px){
+  .proof-wrap{grid-template-columns:repeat(2,1fr);gap:14px 0}
+  .proof-item{padding:10px 14px;border-right:none}
+  .proof-item:nth-child(odd){border-right:1px solid rgba(255,255,255,.06)}
+  [data-theme="light"] .proof-item:nth-child(odd){border-right-color:rgba(0,0,0,.06)}
+}
+
+/* Audience cards — three glassy cards, minimal, premium. */
+.aud-section{
+  padding:64px clamp(20px,5vw,72px) 48px;
+  max-width:1280px;margin:0 auto;
+}
+.aud-head{
+  display:flex;align-items:baseline;justify-content:space-between;
+  gap:24px;flex-wrap:wrap;
+  margin-bottom:36px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  padding-bottom:18px;
+}
+[data-theme="light"] .aud-head{border-bottom-color:rgba(0,0,0,.08)}
+.aud-eyebrow{
+  font-size:.66rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+  color:rgba(255,255,255,.68);
+}
+[data-theme="light"] .aud-eyebrow{color:rgba(0,0,0,.64)}
+.aud-head-line{
+  font-size:.86rem;color:rgba(255,255,255,.68);font-weight:400;
+  letter-spacing:.01em;
+}
+[data-theme="light"] .aud-head-line{color:rgba(0,0,0,.64)}
+.aud-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:18px;
+}
+@media(max-width:880px){.aud-grid{grid-template-columns:1fr}}
+.aud-card{
+  display:flex;flex-direction:column;
+  padding:32px 28px;
+  background:rgba(20,20,24,.5);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:16px;
+  text-decoration:none;color:inherit;
+  transition:border-color .2s ease, background .2s ease, transform .2s ease;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+}
+.aud-card:hover{
+  border-color:rgba(220,38,38,.45);
+  background:rgba(28,18,20,.6);
+  transform:translateY(-3px);
+}
+[data-theme="light"] .aud-card{
+  background:#fff;
+  border-color:rgba(0,0,0,.08);
+  box-shadow:0 1px 3px rgba(0,0,0,.04);
+}
+[data-theme="light"] .aud-card:hover{
+  border-color:rgba(220,38,38,.45);
+  background:#fff;
+  box-shadow:0 12px 32px rgba(220,38,38,.10);
+}
+.aud-card-tag{
+  font-size:.62rem;font-weight:700;letter-spacing:.20em;text-transform:uppercase;
+  color:#dc2626;
+  margin-bottom:18px;
+}
+[data-theme="light"] .aud-card-tag{color:#b91c1c}
+.aud-card h3{
+  font-size:1.32rem;font-weight:700;
+  letter-spacing:-.02em;line-height:1.2;
+  color:var(--text);
+  margin:0 0 14px;
+}
+.aud-card p{
+  font-size:.92rem;line-height:1.55;
+  color:rgba(255,255,255,.68);
+  font-weight:400;
+  margin:0 0 24px;
+  flex:1;
+}
+[data-theme="light"] .aud-card p{color:rgba(0,0,0,.64)}
+.aud-card-cta{
+  font-size:.78rem;font-weight:600;
+  color:#dc2626;
+  letter-spacing:-.005em;
+  transition:gap .2s ease;
+}
+.aud-card:hover .aud-card-cta{gap:10px}
+[data-theme="light"] .aud-card-cta{color:#b91c1c}
+
+/* How it works — three numbered steps. */
+.how-section{
+  padding:48px clamp(20px,5vw,72px) 64px;
+  max-width:1280px;margin:0 auto;
+}
+.how-head{
+  display:flex;align-items:baseline;justify-content:space-between;
+  gap:24px;flex-wrap:wrap;
+  margin-bottom:36px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  padding-bottom:18px;
+}
+[data-theme="light"] .how-head{border-bottom-color:rgba(0,0,0,.08)}
+.how-head-title{
+  font-size:clamp(1.6rem,3vw,2.2rem);
+  font-weight:700;
+  letter-spacing:-.025em;
+  line-height:1.1;
+  color:var(--text);
+}
+.how-steps{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:24px;
+  counter-reset:howstep;
+}
+@media(max-width:880px){.how-steps{grid-template-columns:1fr;gap:16px}}
+.how-step{
+  position:relative;
+  padding:32px 28px 32px 32px;
+  background:rgba(20,20,24,.4);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:16px;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+}
+[data-theme="light"] .how-step{
+  background:#fff;
+  border-color:rgba(0,0,0,.08);
+  box-shadow:0 1px 3px rgba(0,0,0,.04);
+}
+.how-step-num{
+  font-family:var(--font-body);
+  font-size:.72rem;font-weight:700;letter-spacing:.20em;
+  color:#dc2626;
+  margin-bottom:16px;
+  display:block;
+}
+[data-theme="light"] .how-step-num{color:#b91c1c}
+.how-step h3{
+  font-size:1.1rem;font-weight:700;
+  letter-spacing:-.015em;line-height:1.25;
+  color:var(--text);
+  margin:0 0 10px;
+}
+.how-step p{
+  font-size:.9rem;line-height:1.55;
+  color:rgba(255,255,255,.68);
+  font-weight:400;
+  margin:0;
+}
+[data-theme="light"] .how-step p{color:rgba(0,0,0,.64)}
+
+/* Final CTA — restrained, big type, single button. */
+.final-cta{
+  padding:72px clamp(20px,5vw,72px);
+  text-align:center;
+  position:relative;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(220,38,38,.10) 0%, transparent 60%),
+    transparent;
+}
+.final-cta-inner{
+  max-width:760px;margin:0 auto;
+}
+.final-cta-eyebrow{
+  font-size:.66rem;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+  color:rgba(255,255,255,.72);
+  margin-bottom:22px;
+}
+[data-theme="light"] .final-cta-eyebrow{color:rgba(0,0,0,.64)}
+.final-cta h2{
+  font-size:clamp(2.2rem,5vw,3.8rem);
+  font-weight:800;
+  letter-spacing:-.035em;
+  line-height:1;
+  color:var(--text);
+  margin:0 0 22px;
+}
+.final-cta p{
+  font-size:1.1rem;line-height:1.55;
+  color:rgba(255,255,255,.82);
+  max-width:520px;margin:0 auto 40px;
+}
+[data-theme="light"] .final-cta p{color:rgba(0,0,0,.7)}
+.final-cta-foot{
+  margin-top:18px;
+  font-size:.82rem;
+  color:rgba(255,255,255,.68);
+  letter-spacing:.01em;
+}
+[data-theme="light"] .final-cta-foot{color:rgba(0,0,0,.64)}
+
+/* Globe section — keep the rotating earth but tone the surrounding
+   chrome down so it flows out of the editorial hero. The hard black
+   bg made it read as a separate "page" instead of a continuation. */
+.hero-globe-section{
+  background:transparent !important;
+  padding:36px clamp(20px,4vw,56px) 56px !important;
+  border-top:1px solid rgba(255,255,255,.06);
+}
+[data-theme="light"] .hero-globe-section{
+  border-top-color:rgba(0,0,0,.06);
+}
+.hero-globe-eyebrow{
+  background:rgba(255,255,255,.04) !important;
+  border:1px solid rgba(255,255,255,.10) !important;
+  color:rgba(255,255,255,.78) !important;
+  font-size:.66rem !important;letter-spacing:.22em !important;
+  font-weight:600 !important;
+}
+[data-theme="light"] .hero-globe-eyebrow{
+  background:rgba(0,0,0,.03) !important;
+  border-color:rgba(0,0,0,.10) !important;
+  color:rgba(0,0,0,.64) !important;
+}
+.hero-globe-headline{
+  font-size:clamp(1.6rem,2.8vw,2.2rem) !important;
+  font-weight:700 !important;
+  letter-spacing:-.025em !important;
+  line-height:1.15 !important;
+}
+.hero-globe-headline em{
+  font-style:normal !important;
+  font-weight:700 !important;
+}
+.hero-globe-sub{
+  font-size:.96rem !important;
+  color:rgba(255,255,255,.68) !important;
+  line-height:1.6 !important;
+}
+[data-theme="light"] .hero-globe-sub{color:rgba(0,0,0,.64) !important}
+.hero-globe-stat strong{
+  font-weight:700 !important;
+  font-size:1.4rem !important;
+}
+.hero-globe-stat span{
+  font-size:.6rem !important;
+  letter-spacing:.18em !important;
+  color:rgba(255,255,255,.68) !important;
+}
+[data-theme="light"] .hero-globe-stat span{color:rgba(0,0,0,.64) !important}
+
+/* Section dividers between new editorial blocks — hairline, not glow. */
+.editorial-divider{
+  height:1px;
+  background:linear-gradient(90deg,
+    transparent 0%,
+    rgba(255,255,255,.10) 20%,
+    rgba(255,255,255,.10) 80%,
+    transparent 100%);
+  max-width:1280px;margin:0 auto;
+}
+[data-theme="light"] .editorial-divider{
+  background:linear-gradient(90deg,
+    transparent 0%,
+    rgba(0,0,0,.10) 20%,
+    rgba(0,0,0,.10) 80%,
+    transparent 100%);
+}
+
+/* Inline Google sign-in under the rebuttal demo. Quieter than the
+   old "Sign up with Google. The AI learns your debate style" pill. */
+.editorial-signin-row{
+  display:flex;align-items:center;gap:14px;
+  margin-top:28px;
+  font-size:.86rem;color:rgba(255,255,255,.78);
+  flex-wrap:wrap;
+}
+[data-theme="light"] .editorial-signin-row{color:rgba(0,0,0,.65)}
+/* Builder credit (.editorial-builder-credit + .ebc-*) removed
+   2026-05-13. User feedback: third-person "By the founder HM" reads
+   arrogant. The product stays product-first;/* The .hero > .hero-content wraps both old and new — we hide the old
+   blocks above and render the new editorial-hero inside .hero-content. */
+
+/* Tighten the giant "Voice AI" + "Live Debates · AI-judged" headlines.
+   They were carrying too much weight and competing with the new hero. */
+#voice-ai h2,
+#live-debates h2{
+  font-size:clamp(1.7rem,3.4vw,2.4rem) !important;
+  font-weight:700 !important;
+  letter-spacing:-.025em !important;
+  line-height:1.1 !important;
+  text-shadow:none !important;
+}
+#voice-ai h2 em,
+#live-debates h2 em{
+  font-style:normal !important;
+  color:#dc2626 !important;
+}
+#voice-ai > .wrap > div:first-child,
+#live-debates > .wrap > div:first-child{
+  background:transparent !important;
+  border:none !important;
+  padding:0 !important;
+  color:rgba(255,255,255,.68) !important;
+  font-size:.66rem !important;
+  letter-spacing:.22em !important;
+}
+#voice-ai > .wrap > div:first-child span:first-child,
+#live-debates > .wrap > div:first-child span:first-child{
+  display:none !important;
+}
+[data-theme="light"] #voice-ai h2 em,
+[data-theme="light"] #live-debates h2 em{color:#b91c1c !important}
+
+/* Featured "Debate the AI" block (id=debate-ai) — was duplicating
+   the audience cards section. Hide. The voice + live sections cover
+   the same ground in tighter form. */
+#debate-ai{display:none !important}
+

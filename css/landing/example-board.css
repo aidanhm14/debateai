@@ -1,0 +1,150 @@
+/* The board. Was a fixed-white "market screen" regardless of site
+     theme (2026-07-23 note above, superseded 2026-08-10): on the dark
+     themes that is the single card the whole page's "black mode" bug
+     traces back to, a lit-paper island on an otherwise dark page. Dark
+     is now the default paint, same as every other card on the page;
+     [data-theme="light"] pins the original white-tab treatment back
+     for visitors on the light theme, unchanged. */
+  .fs-board{background:linear-gradient(168deg,#232228 0%,#1c1b20 58%,#17161a 100%);
+    border:1px solid rgba(245,239,231,.14);border-radius:18px;
+    padding:clamp(15px,1.7vw,21px);
+    box-shadow:0 28px 62px rgba(0,0,0,.5),0 3px 10px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.06);
+    color:#f5efe7;overflow:hidden;position:relative;
+    transform-origin:center;
+    transition:transform .2s cubic-bezier(.2,.75,.2,1),border-color .2s ease,box-shadow .2s ease}
+  .fs-board:hover,.fs-board:focus-within{
+    transform:scale(1.02);
+    border-color:rgba(245,239,231,.24);
+    box-shadow:0 36px 76px rgba(0,0,0,.6),0 5px 14px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.08);
+    z-index:2}
+  [data-theme="light"] .fs-board{background:linear-gradient(168deg,#ffffff 0%,#fdfdfc 58%,#f8f7f5 100%);
+    border-color:rgba(26,26,31,.1);
+    box-shadow:0 28px 62px rgba(24,22,28,.1),0 3px 10px rgba(24,22,28,.05),inset 0 1px 0 #fff;
+    color:#1a1a1f}
+  [data-theme="light"] .fs-board:hover,[data-theme="light"] .fs-board:focus-within{
+    border-color:rgba(26,26,31,.18);
+    box-shadow:0 36px 76px rgba(24,22,28,.16),0 5px 14px rgba(24,22,28,.08),inset 0 1px 0 #fff}
+  /* A native link covers the board so navigation still works if the
+     animation script does not run. */
+  .fs-board{cursor:pointer}
+  .fs-board-hit{position:absolute;inset:0;z-index:3;display:block;border-radius:inherit}
+  .fs-example-tag{position:absolute;left:14px;top:12px;z-index:4;pointer-events:none;padding:4px 9px;border-radius:999px;
+    background:rgba(0,0,0,.66);color:rgba(255,255,255,.92);font-size:.58rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    backdrop-filter:blur(4px);white-space:nowrap}
+  [data-theme="light"] .fs-example-tag{background:rgba(26,26,31,.78)}
+  .fs-board-hit:focus-visible{outline:2px solid #dc2626;outline-offset:-4px}
+  /* 2026-09-03, per the founder: "allow buttons to swipe between these
+     images". Prev/next arrows ride the tiles, above the hit anchor at
+     z-index 3, so a press steps the board instead of opening /spar. The
+     header pager with its "1 of 24" counter was removed earlier the same
+     day; this is a different shape, not its return. Vertical placement is
+     set by script (--fs-nav-top) from the stage's real rect, because the
+     card's offset parent changes when the board moves into #mhome. */
+  .fs-nav{position:absolute;top:var(--fs-nav-top,120px);z-index:4;width:36px;height:36px;margin-top:-18px;
+    border-radius:50%;border:1px solid rgba(245,239,231,.28);background:rgba(20,18,22,.74);color:#f5efe7;
+    display:grid;place-items:center;padding:0;cursor:pointer;font-family:inherit;
+    transition:background .15s,border-color .15s}
+  .fs-nav svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  .fs-nav:hover{background:rgba(20,18,22,.92);border-color:#f5efe7}
+  .fs-nav:focus-visible{outline:2px solid #dc2626;outline-offset:2px}
+  .fs-nav--prev{left:6px}
+  .fs-nav--next{right:6px}
+  [data-theme="light"] .fs-nav{border-color:rgba(26,26,31,.2);background:rgba(255,255,255,.88);color:#1a1a1f}
+  [data-theme="light"] .fs-nav:hover{background:#fff;border-color:#1a1a1f}
+  /* 2026-09-02, per the founder: some cards carry a short title above the
+     motion ("Democrats vs Republicans", "Left vs Right") so a visitor can
+     see the FIGHT before reading the sentence. Hidden unless the ROUNDS
+     entry sets `title`. The [hidden] rule is explicit because the block
+     display would otherwise beat the UA sheet (the /predict trap). */
+  .fs-title{display:block;margin:0 0 6px;font-size:.62rem;font-weight:800;letter-spacing:.12em;
+    text-transform:uppercase;color:#f87171}
+  .fs-title[hidden]{display:none}
+  [data-theme="light"] .fs-title{color:#dc2626}
+  /* The two-line reserve keeps a rotating topic from moving the board. */
+  .fs-board h2.fs-motion{margin:0 0 13px;font-family:var(--font-display) !important;font-weight:600;font-style:normal;
+    font-size:clamp(1.32rem,2.05vw,1.75rem);line-height:1.15;letter-spacing:-.008em;
+    color:#f5efe7;
+    /* min-height holds two lines so a shorter motion does not bounce the
+       whole board on every swap. */
+    min-height:2.3em}
+  [data-theme="light"] .fs-board h2.fs-motion{color:#0f0f12}
+  .fs-board h2.fs-motion.is-open-topic{color:#ef4444;font-weight:600}
+  [data-theme="light"] .fs-board h2.fs-motion.is-open-topic{color:#b91c1c}
+
+
+  /* Round panel: two tiles, the speaking one ringed. */
+  .fs-stage{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}
+  .fs-tile{position:relative;aspect-ratio:16/11;border-radius:11px;overflow:hidden;background:#000;
+    border:1px solid rgba(245,239,231,.16)}
+  [data-theme="light"] .fs-tile{border-color:rgba(26,26,31,.14)}
+  /* Preserve the approved source pixels. The old saturation/contrast filter
+     and generated grain softened already-small webcam crops. */
+  .fs-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  /* Hover clip. A silent three-second loop generated from the same still
+     sits over the poster and fades in only while it is actually playing,
+     so a clip that never loads leaves the still exactly as it was. */
+  .fs-tile .fs-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+    z-index:1;opacity:0;pointer-events:none;transition:opacity .22s ease}
+  .fs-tile .fs-vid.is-on{opacity:1}
+  @media(prefers-reduced-motion:reduce){.fs-tile .fs-vid{display:none}}
+  .fs-tile--speaking{box-shadow:inset 0 0 0 2px rgba(239,68,68,.85)}
+  .fs-board .fs-tile-nm{position:absolute;left:8px;bottom:8px;z-index:2;display:inline-flex;align-items:center;gap:5px;
+    padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
+    font-size:.6rem;font-weight:700;color:rgba(255,255,255,.9);white-space:nowrap}
+  .fs-board .fs-tile-nm i{width:5px;height:5px;border-radius:50%;background:#ef4444;animation:fsMic 1.5s ease-in-out infinite}
+  @keyframes fsMic{50%{opacity:.3}}
+  .fs-board .fs-clock{position:absolute;right:8px;top:8px;z-index:2;padding:3px 7px;border-radius:6px;
+    background:rgba(0,0,0,.6);font-size:.6rem;font-weight:800;color:#fff;font-variant-numeric:tabular-nums}
+
+  /* Hot/cold scale. */
+  .fs-odds{margin-bottom:12px}
+  .fs-odds-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .fs-board .fs-odds-k{font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(245,239,231,.68)}
+  [data-theme="light"] .fs-board .fs-odds-k{color:rgba(26,26,31,.64)}
+  .fs-board .fs-odds-live{margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:.58rem;
+    font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:rgba(245,239,231,.68)}
+  [data-theme="light"] .fs-board .fs-odds-live{color:rgba(26,26,31,.64)}
+  .fs-board .fs-odds-live i{width:5px;height:5px;border-radius:50%;background:#16a34a;animation:fsMic 1.6s ease-in-out infinite}
+  .fs-board .fs-odds-live.is-settled i{background:rgba(245,239,231,.32);animation:none}
+  [data-theme="light"] .fs-board .fs-odds-live.is-settled i{background:rgba(26,26,31,.3)}
+  .fs-scale{display:flex;align-items:center;gap:11px}
+  .fs-scale-end{display:flex;flex-direction:column;gap:1px;min-width:62px}
+  .fs-scale-end--con{text-align:right}
+  .fs-board .fs-scale-end b{font-size:.68rem;font-weight:700;color:rgba(245,239,231,.68);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  [data-theme="light"] .fs-board .fs-scale-end b{color:rgba(26,26,31,.64)}
+  .fs-board .fs-scale-end em{font-style:normal;font-size:.95rem;font-weight:800;font-variant-numeric:tabular-nums;color:#f5efe7}
+  [data-theme="light"] .fs-board .fs-scale-end em{color:#1a1a1f}
+  .fs-board .fs-scale-end--pro em{color:#f87171}
+  [data-theme="light"] .fs-board .fs-scale-end--pro em{color:#dc2626}
+  .fs-board .fs-scale-end--con em{color:#60a5fa}
+  [data-theme="light"] .fs-board .fs-scale-end--con em{color:#2563eb}
+  /* Head-to-head bar: A's share fills warm from the left, B's cool
+     remainder shows through on the right, and they meet at the mark. */
+  .fs-scale-track{position:relative;flex:1;height:8px;border-radius:999px;overflow:hidden;
+    background:rgba(59,130,246,.4)}
+  /* Quarter marks, so the bar reads as a scale rather than a plain fill and
+     speaks the same axis language as the chart underneath it. */
+  .fs-scale-track::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(90deg,transparent 0 calc(25% - 1px),rgba(255,255,255,.5) calc(25% - 1px) 25%)}
+  .fs-scale-fill{position:absolute;left:0;top:0;bottom:0;background:rgba(220,38,38,.75);
+    transition:width .5s cubic-bezier(.2,.8,.2,1)}
+  .fs-scale-mark{position:absolute;top:50%;width:3px;height:16px;border-radius:2px;background:#f5efe7;
+    transform:translate(-50%,-50%);box-shadow:0 1px 6px rgba(0,0,0,.4);
+    transition:left .5s cubic-bezier(.2,.8,.2,1)}
+  [data-theme="light"] .fs-scale-mark{background:#1a1a1f;box-shadow:0 1px 6px rgba(0,0,0,.3)}
+
+  /* Price chart, built to read like a real market board: gradient area under
+     the line, a dashed coin-flip line at 50, the visible window labelled on
+     the right rail, a last-price flag pinned to the live end, and a volume
+     histogram along the floor tinted by whichever side gained on that tick.
+     Every part is derived from the same random walk that drives the bar
+     above it, so none of it is decoration faking data the board lacks.
+     Text stays in HTML on the rail because the SVG is preserveAspectRatio
+     ="none" and would stretch any glyph placed inside it. */
+  .fs-chart{position:relative;height:68px;margin-top:9px;display:flex;gap:7px}
+  .fs-plot{position:relative;flex:1;min-width:0}
+  .fs-plot svg{width:100%;height:100%;display:block}
+  .fs-grid{stroke:rgba(26,26,31,.07);stroke-width:1;vector-effect:non-scaling-stroke}
+  .fs-mid{stroke:rgba(26,26,31,.26);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+  

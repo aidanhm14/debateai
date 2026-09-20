@@ -1,7 +1,7 @@
-import fs from 'node:fs';
+import { readPageSource } from './lib/page-source.mjs';
 
 const root = new URL('../', import.meta.url);
-const read = (path) => fs.readFileSync(new URL(path, root), 'utf8');
+const read = (path) => readPageSource(new URL(path, root), 'utf8');
 let failures = 0;
 
 function check(condition, label) {

@@ -1,0 +1,94 @@
+
+  .hero-globe-section{
+    padding:48px 24px 56px;position:relative;overflow:hidden;
+    /* 2026-05-16: dropped the hard #000 bg — section was reading as a
+       sharp black wall stamped onto the page. Now inherits the body
+       bg so the geography block sits flush with the surrounding flow. */
+    background:transparent;
+  }
+  [data-theme="light"] .hero-globe-section{background:transparent}
+  .hero-globe-wrap{
+    max-width:1180px;margin:0 auto;
+    display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;
+  }
+  .hero-globe-eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:.66rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+    /* 2026-05-16: dropped the pulsing-red chip styling. Eyebrow now
+       reads as a quiet hairline tag in the muted text color, no red
+       glow, no animated dot. */
+    color:var(--text-dim);
+    padding:5px 12px;border-radius:999px;
+    background:transparent;
+    border:1px solid var(--border);
+    margin-bottom:18px;
+  }
+  .hero-globe-eyebrow .dot{
+    width:6px;height:6px;border-radius:50%;background:var(--text-dim);
+  }
+  .hero-globe-headline{
+    font-size:clamp(1.7rem,3vw,2.5rem);font-weight:900;letter-spacing:-.025em;line-height:1.1;
+    margin:0 0 14px;color:var(--text);
+  }
+  .hero-globe-headline em{font-style:normal;color:var(--text)}
+  .hero-globe-headline strong{color:var(--text);font-weight:900}
+  .hero-globe-sub{
+    font-size:1.02rem;color:var(--text-dim);line-height:1.65;margin:0 0 24px;max-width:560px;
+  }
+  .hero-globe-stats{display:flex;gap:36px;flex-wrap:wrap}
+  .hero-globe-stat{display:flex;flex-direction:column;gap:2px;min-width:90px}
+  .hero-globe-stat strong{
+    font-size:1.65rem;font-weight:900;color:var(--text);letter-spacing:-.02em;line-height:1;
+  }
+  .hero-globe-stat span{
+    font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--text-dim);margin-top:6px;
+  }
+  .hero-globe-canvas-wrap{
+    /* 2026-05-17: globe lives in the LEFT column of the 2-col grid so
+       the page isn't right-side dominant — the hero orb is already
+       anchored on the right above it. order:-1 flips visual order
+       without changing DOM order (which keeps the heading/sub first
+       for screenreaders + SEO). */
+    order:-1;
+    position:relative;display:flex;justify-content:center;align-items:center;
+    width:100%;aspect-ratio:1;max-width:520px;margin:0 auto;
+    /* Reserve space even before the canvas backing buffer is sized.
+       Without this, a layout race on first paint can leave the canvas
+       at 0×0 in some Chrome configurations. */
+    min-width:240px;min-height:240px;
+    /* No background here. A previous radial-gradient + ::after halo
+       combo created a visibly rectangular dark patch around the globe
+       (the wrap box was square, the gradient was elliptical, the
+       corners gave the rectangle away). Canvas2D paints its own floor
+       reflection now, which is the only ground glow we need. */
+  }
+  .hero-globe-canvas{
+    width:100%;height:100%;display:block;
+    /* No `contain: layout paint` — it forces a separate compositor
+       layer that, on some Chrome configs, paints with subtly
+       different alpha than the surrounding section, showing up as a
+       square shadow box around the canvas. */
+    /* Soft radial mask. With markers and land dots now fading via
+       depth in the JS, this only needs to feather the outermost pixels
+       (floor shadow's outer rim). Previous 60→88 was aggressive and
+       clipped marker glows hard at the limb — read as a "glitch
+       away" rather than a 3D recede. Now 80→98: barely there. */
+    -webkit-mask-image:radial-gradient(circle at 50% 52%, #000 80%, transparent 98%);
+    mask-image:radial-gradient(circle at 50% 52%, #000 80%, transparent 98%);
+  }
+  @media(max-width:880px){
+    .hero-globe-wrap{grid-template-columns:1fr;gap:24px;text-align:center}
+    .hero-globe-canvas-wrap{order:-1;max-width:380px}
+    .hero-globe-stats{justify-content:center}
+    .hero-globe-stat{align-items:center}
+    .hero-globe-sub{margin-left:auto;margin-right:auto}
+  }
+  @media(max-width:560px){
+    .hero-globe-section{padding:32px 18px 40px}
+    .hero-globe-canvas-wrap{max-width:300px}
+    .hero-globe-stat strong{font-size:1.35rem}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .hero-globe-canvas{filter:none}
+  }

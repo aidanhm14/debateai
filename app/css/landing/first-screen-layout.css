@@ -1,0 +1,647 @@
+
+  /* Control arm gets nothing; the section is hidden and the hero is
+     untouched. Base-hidden so a no-JS visitor falls through to the
+     existing hero rather than seeing both. */
+  .fscreen{display:none}
+  :root[data-first-screen="ticker"] .fscreen{display:flex}
+  /* On the ticker arm the hero's own headline block stands down so the
+     page has one h1. The doors and cards under it stay exactly as they
+     are, which is the "keep the graphics, move them later" part. */
+  :root[data-first-screen="ticker"] .hero-illustrated .hi-head{display:none}
+  :root[data-first-screen="ticker"] .hero{padding-top:0}
+  /* The hero live card grew its own prediction-market layer on 2026-07-22
+     (ticker tape, odds chart, pot). On this arm the first screen already
+     IS the market, so the card's copy of it is suppressed and the card
+     goes back to being the live room. One market per screen. */
+  :root[data-first-screen="ticker"] .hero-illustrated .hi-lf-ticker,
+  :root[data-first-screen="ticker"] .hero-illustrated .hi-lf-mkt-head,
+  :root[data-first-screen="ticker"] .hero-illustrated .hi-lf-mkt-chart,
+  :root[data-first-screen="ticker"] .hero-illustrated .hi-lf-mkt-rows{display:none}
+
+  /* Same floor the hero documents at its own padding-top: the .ui-topbar
+     is FIXED at 52px and this section starts at y=0 underneath it, so
+     anything below ~54px slides the headline behind the nav. */
+  /* min-height is the FULL viewport, not 100svh minus the bar: the section
+     starts at y=0 underneath the fixed topbar, so subtracting the bar height
+     ended the hero 52px above the fold and let the next section peek in.
+     padding-top already keeps content clear of the bar. */
+  /* 2026-07-23: the old clamp(58px,7vh,80px) only cleared the 52px bar by
+     ~7px on a short or zoomed viewport, so the slogan sat right on the nav
+     hairline. Floor is now 84px (32px of daylight) and the vh term is
+     bigger, so the copy has air under the bar at every height. */
+  /* Top padding clears the fixed topbar and the live strip; it was sized
+   for a taller stack than the page now has, which pushed the whole
+   first screen down. Trimmed so the hero sits higher without landing
+   under the bar. */
+  /* ── First screen layout tokens ── 2026-08-19 (structural pass) ──
+     Three values drive the whole screen. Before this, spacing lived on
+     the individual blocks (a 20px margin on the Open card, a 7px one on
+     the globe) and was re-declared in three max-height arms that
+     disagreed with the base and with each other, and the globe was three
+     widths at once (a 430px box, a 300px canvas, a 300px caption) held
+     together by a -10px pull. Those arms are gone; these clamps replace
+     them, so the screen scales by height instead of stepping at three
+     breakpoints. */
+  .fscreen{
+    --fs-rhythm:clamp(16px,3vh,28px);  /* between blocks in the copy column */
+    --fs-globe:clamp(240px,35vh,340px); /* the globe, one size, no arms */
+  }
+  .fscreen{justify-content:center;align-items:center;min-height:100svh;padding:clamp(64px,7.5vh,92px) clamp(18px,5vw,72px) clamp(20px,3vh,36px)}
+  /* The section starts under a 32px in-flow strip (ui.css gives the body
+     that padding whenever .has-beta-strip is set), so a flat 100svh made
+     it 32px taller than the space it actually occupies and it centred its
+     contents against a box whose bottom was below the fold. */
+  /* Desktop only: the mobile arm below deliberately drops min-height to 0
+     so the stacked column is content-height, and `body.has-beta-strip
+     .fscreen` would otherwise out-specify it and pin a 100svh floor back
+     on phones. */
+  @media(min-width:941px){body.has-beta-strip .fscreen{min-height:calc(100svh - 32px)}}
+  /* 2026-08-22 per the founder: the board (the two real webcam tiles) and
+     the CTAs are what should pull the eye toward the stranger match, so
+     the right column takes a larger share and the wrap grows 80px. */
+  /* 2026-09-03, the founder's desktop sketch: one centred column (the
+     board with its doors under it) with the chats panel beside it from
+     1360px and the leaderboard rail docked on the left edge. The headline
+     column is gone from this screen, so the grid no longer splits the
+     width with it. */
+  .fscreen-wrap{width:100%;max-width:1280px;display:grid;grid-template-columns:minmax(0,676px);justify-content:center;gap:clamp(32px,4.2vw,64px);align-items:center}
+  /* 2026-08-24, per the founder: the composition moves "a tad left" so the
+     leaderboard rail (#lbRail, the dock of faces docked on the left
+     edge since 2026-09-01) has room to sit beside the example board instead of on top of
+     it. Transform rather than a margin: the wrap is a centred flex item,
+     so a margin-right would shrink it AND move it by half the value,
+     while a translate moves it by exactly what it says. Desktop only;
+     the rail is display:none under 1101px and so is this.
+
+     The flag is set SYNCHRONOUSLY by the small script under the first
+     screen, not by the renderer that lands with the board data. Waiting
+     for the fetch would slide the headline 40px sideways a few hundred
+     milliseconds after load, which is a jolt on the one thing above the
+     fold. It also means the shift survives a failed board fetch: 40px of
+     a centred composition is not detectable without a ruler, and taking
+     it back would be that same jolt in the case where something has
+     already gone wrong. */
+  /* 2026-08-25, the founder, on the rail sitting under the example board: "move
+     this left and like 5% smaller to afford the space appropriately." The
+     rail grew (54 -> 68px tiles) and came back onto the page (peek 12 ->
+     -8px), so it now wants ~36px more than the old shift gave it. Two
+     moves, because one alone would not pay for it: the composition slides
+     further left, and it scales to .95 about its own centre, which hands
+     back another ~2.5% of the wrap width on the right side, roughly 32px
+     at the 1280px cap. Scale rather than a narrower max-width: a cap
+     change reflows the headline and the board into different line breaks,
+     while a scale is the same composition, 5% smaller, exactly as asked.
+     Desktop only, same as the rail. */
+  @media(min-width:1101px){
+    /* 2026-08-31, founder off a screenshot ("move these 3 over a bit
+       right bc it feels left sided a bit"): the shift softened
+       -88..-56px -> -48..-28px. The old value parked the headline at
+       the screen edge on ~1600px windows; the rail still clears the
+       board because the .95 scale is untouched and the rail only
+       needs ~76px at the right edge. If the rail ever overlaps the
+       chat panel again, widen THIS clamp before touching the scale. */
+    /* 2026-09-01, founder: "bring the leaderboard over to the left side".
+       The rail is on the LEFT edge now, so the same shift runs the other
+       way: the composition slides right to clear the ~76px the collapsed
+       rail needs beside the copy column. Magnitude unchanged. */
+    html.lbr-ready .fscreen-wrap{transform:translateX(clamp(40px,3.6vw,76px))}
+    /* The copy column also steps in from the left edge so the h1, the
+       CTA pair and the globe sit toward the page centre rather than
+       hugging the edge. Padding, not margin: the grid track keeps its
+       width so the board and chat columns do not move. */
+    .fscreen-copy{padding-left:clamp(10px,2vw,44px)}
+  }
+  /* The copy column is a flex column with ONE gap, so its three blocks
+     (the CTA cluster, the Open card, the globe) are evenly spaced by the
+     container instead of each carrying its own margin. The hidden copy
+     arm and the two inline <script> tags are display:none and so
+     contribute no gap. Was a -2vh optical lift correcting a dead-centred
+     column against a taller board; the two columns now start on the same
+     line, so there is nothing left to correct. */
+  /* 2026-09-03: the headline column is off the desktop first screen (the
+     founder's sketch has the board, its doors, the chats panel and the
+     rail, and nothing else). Its markup stays as dormant copy. */
+  .fscreen-copy{display:none}
+  @media(min-width:941px){.fscreen-copy{margin-top:0}}
+  @media(max-width:940px){.fscreen-wrap{grid-template-columns:1fr;gap:26px}.fscreen{min-height:0}}
+
+  /* The prediction eyebrow links directly to the points board. */
+  .fs-slogan{margin:0 0 17px;font-size:clamp(.82rem,1.1vw,.95rem);font-weight:800;
+    letter-spacing:.14em;text-transform:uppercase;color:rgba(26,26,31,.64)}
+  .fs-slogan-a{color:#dc2626;text-decoration:none;
+    border-bottom:2px solid rgba(220,38,38,.35);padding-bottom:1px;
+    transition:border-color .15s,color .15s}
+  .fs-slogan-a:hover,.fs-slogan-a:focus-visible{color:#b91c1c;border-bottom-color:#b91c1c}
+  .fs-h1{margin:0 0 19px;font-family:var(--font-display);font-weight:700;
+    font-size:clamp(2.1rem,4.6vw,3.35rem);line-height:1.04;letter-spacing:-.025em;color:#1a1a1f;text-wrap:balance}
+  .fs-sub{margin:0 0 28px;font-size:clamp(1rem,1.5vw,1.14rem);line-height:1.55;color:rgba(26,26,31,.66);max-width:34ch}
+  /* "win money" jumps to the tournament band. Weighted heavier than the
+     surrounding line so it reads as the offer rather than as incidental
+     link text. The band self-retires after event day and unlinks this
+     with it, so the anchor can never outlive the thing it points at. */
+  .fs-sub-a{color:#dc2626;font-weight:800;text-decoration:none;
+    border-bottom:2px solid rgba(220,38,38,.35);padding-bottom:1px;
+    transition:border-color .15s,color .15s}
+  .fs-sub-a:hover,.fs-sub-a:focus-visible{color:#b91c1c;border-bottom-color:#b91c1c}
+  :root:not([data-theme="light"]) .fs-sub-a{color:#f87171;border-bottom-color:rgba(248,113,113,.4)}
+  :root:not([data-theme="light"]) .fs-sub-a:hover,
+  :root:not([data-theme="light"]) .fs-sub-a:focus-visible{color:#fca5a5;border-bottom-color:#fca5a5}
+  /* ── The stranger headline, 2026-08-22 ─────────────────────────
+     The first screen is pinned to 100svh, so a headline added to it can
+     only cost scroll. It is therefore sized off the VIEWPORT HEIGHT, the
+     same way --fs-globe and --fs-rhythm already are, rather than off
+     width alone: two lines at every desktop width, winding back on a
+     short window instead of stepping at a breakpoint. Measured at
+     1440/1280/960 x800 after the Open card came off the first screen
+     (25ebec32): the section lands at exactly 32-800 with the globe whole
+     at 457-743, so nothing else on the screen had to give. If a block is
+     ever added back to this column, this is the first thing that should
+     shrink. Scoped to the stranger arm, so the ?heroCopy=practice QA
+     view is untouched. */
+  .fs-copy-stranger .fs-h1{
+    margin:0 0 12px;
+    font-size:clamp(1.9rem,calc(2.5vw + .55vh),2.8rem);line-height:1.06}
+  .fs-copy-stranger .fs-sub{
+    margin:0 0 18px;max-width:44ch;
+    font-size:clamp(.95rem,calc(.9vw + .12vh),1.06rem);line-height:1.5}
+  .fs-copy-stranger .fs-sub--category{margin-bottom:2px;font-weight:800}
+  /* 2026-08-24: the category line IS the h1 now. It keeps the sub scale on
+     purpose (a bold lead, not a second display line) so the 100svh first
+     screen does not have to give anything back, and takes full-strength
+     ink in every theme because a dimmed line cannot lead a screen. */
+  .fs-sub--lead{
+    font-weight:600;color:#1a1a1f;text-wrap:balance}
+  /* Sized off the VIEWPORT HEIGHT as well as its width, the same way the
+     headline it replaced was, because the first screen is pinned to
+     100svh: a lead line that only reads width grows on a short window
+     and pushes the CTAs under the fold. line-height and letter-spacing
+     live in THIS rule rather than the one above, because
+     `.fs-copy-stranger .fs-sub` outweighs a single class and would take
+     the display line back to body leading. */
+  .fs-copy-stranger .fs-sub--lead{margin:0 0 18px;max-width:19ch;
+    font-size:clamp(1.7rem,calc(2.9vw + .9vh),2.6rem);
+    line-height:1.08;letter-spacing:-.018em}
+  :root:not([data-theme="light"]) .fs-sub--lead{color:#f5efe7}
+  .fs-copy-practice{display:none}
+  :root[data-first-copy="practice"] .fs-copy-stranger{display:none}
+  :root[data-first-copy="practice"] .fs-copy-practice{display:block}
+  /* 2026-08-19 per the founder: the left stack read as crowded. Column gap
+     stays tight at 12px (the two CTAs sit as a pair); the ROW gap is what
+     opens, so the walkthrough link stops crowding the buttons. Measured
+     at 10px, which was the tightest seam in a column whose other two
+     seams are 28px; 14px reads as one cluster without the crowding. */
+  .fs-ctas{display:flex;flex-wrap:wrap;align-items:center;gap:14px 12px}
+  /* 2026-08-31 per the founder: "make the jump in button wider to match the
+     spectate and bet tokens button". The pair stacks as a column and both
+     buttons stretch to the wider label (Spectate), so Jump in is never the
+     narrower door. This supersedes the one-row rule above; the longer
+     Spectate label had the pair wrapping at most widths anyway. */
+  .fs-ctas{flex-direction:column;align-items:stretch;width:max-content;max-width:100%}
+  @media(max-width:640px){.fs-ctas{width:100%}}
+  /* ── The Debatable Open, one line ── 2026-08-19 ──────────────────
+     Sized deliberately against the band that was removed on 08-12 for
+     running 1285px on a phone. This is a single row plus a fine-print
+     line, so the reason that band came off does not apply to it. */
+  .fs-open-card{margin:0;padding:12px 16px 11px;border-radius:14px;
+    border:1px solid rgba(220,38,38,.38);background:#fffdfa;
+    box-shadow:0 6px 20px rgba(26,26,31,.07);
+    transition:border-color .15s,background .15s,transform .15s}
+  .fs-open-card:hover{border-color:rgba(220,38,38,.7);background:#fff;transform:translateY(-1px)}
+  .fs-open{display:flex;align-items:center;gap:12px;text-decoration:none;
+    color:rgba(26,26,31,.88)}
+  /* The age note rides INSIDE the money sentence rather than sitting under
+     the row as its own paragraph. The three-sentence version came off on
+     2026-08-19 per the founder, and that objection was to the volume of terms on
+     a front page, not to the disclosure: a row that prints $500 has to say
+     who can be paid it. One clause satisfies both. */
+  .fs-open-fine{display:block;margin-top:3px;font-size:.78rem;line-height:1.35;
+    color:rgba(26,26,31,.64);font-weight:400}
+  .fs-open-tag{flex:0 0 auto;font-size:.74rem;font-weight:800;letter-spacing:.09em;
+    text-transform:uppercase;color:#fff;background:#dc2626;border-radius:999px;padding:5px 10px}
+  .fs-open-main{flex:1 1 auto;min-width:0;font-size:1rem;line-height:1.35}
+  .fs-open-main b{font-weight:800}
+  .fs-open-go{flex:0 0 auto;color:#dc2626;font-weight:800}
+  /* The card used to carry its own light surface in EVERY theme, so its
+     text could stay a dark literal. That reads correctly on the light
+     page and badly on the dark one, where a near-white block on a
+     near-black page is the brightest thing on the screen and pulls the
+     eye off both the Debate button and the round card. Per the founder
+     2026-08-19 the dark themes get a dark surface instead: a faint white
+     wash rather than a flat panel, so it still reads as a raised card,
+     with the red border carrying the identity and the date pill staying
+     solid red (white-on-#dc2626 is unchanged and passes on both). Text
+     flips to the page's cream literal, which is the normal convention
+     here and is now correct because the surface underneath is dark. */
+  :root:not([data-theme="light"]) .fs-open-card{
+    background:rgba(255,255,255,.045);
+    border-color:rgba(248,113,113,.42);
+    box-shadow:0 6px 20px rgba(0,0,0,.32)}
+  :root:not([data-theme="light"]) .fs-open-card:hover{
+    background:rgba(255,255,255,.085);border-color:rgba(248,113,113,.78)}
+  :root:not([data-theme="light"]) .fs-open{color:rgba(245,239,231,.9)}
+  :root:not([data-theme="light"]) .fs-open-go{color:#f87171}
+  /* The card got its own dark treatment on 2026-08-19, so the fine clause
+     needs the matching override or it renders near-black on a dark card.
+     Measured at 1.1 contrast before this line existed. Both alphas are
+     set to clear WCAG AA for small text on their own card: 5.17 on the
+     light card, 6.35 on the dark one. The obvious .58 fails at 4.25. */
+  :root:not([data-theme="light"]) .fs-open-fine{color:rgba(245,239,231,.62)}
+
+  @media(max-width:560px){
+    .fs-open-card{padding:11px 13px 10px}
+    .fs-open{align-items:flex-start;flex-wrap:wrap;gap:9px}
+    .fs-open-main{flex:1 1 100%;font-size:.95rem}
+    .fs-open-go{display:none}
+  }
+  /* 2026-08-19: with the visible headline cut, the two CTAs are the first
+     thing on the screen, so both scale up to carry the hero on their own.
+     The h1 survives screen-reader-only so the page keeps its h1. */
+  .fs-h1--sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;
+    overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+  /* 2026-08-19 per the founder: the two CTAs are the SAME size, two equal
+     doors; color alone (solid red vs outline) says which one leads.
+     Equal boxes also keep the centered row symmetric. */
+  .fs-cta{display:inline-flex;align-items:center;justify-content:center;
+    gap:10px;border-radius:999px;text-decoration:none;transition:transform .15s,box-shadow .15s;
+    padding:19px clamp(20px,2.4vw,34px);font-size:clamp(1.06rem,.9vw,1.16rem)}
+  /* Scaled up per the founder 2026-08-19. The pair has to stay on ONE row at
+     every desktop width, and the column is only 371px at 941px wide, so
+     a fixed min-width big enough to read at 1440 wrapped the pair there.
+     Padding and type size scale with the viewport instead and the buttons
+     shrink to fit rather than dropping to two rows; they stay pixel-equal
+     because they share the same box. Under 640px an arm further down
+     takes over and makes each one full width. */
+  .fs-cta--primary,.fs-cta--ghost{flex:0 1 auto;min-width:0;max-width:none;white-space:nowrap}
+  /* Debate outranks Spectate on SIZE as well as colour (the founder, 2026-08-22).
+     The two used to share one box, so hierarchy rested on red alone. The
+     pair still has to hold one row at 941px, where the copy column is only
+     371px, so both keep vw-scaled horizontal padding and shrink to fit
+     instead of wrapping; only the ratio between them changed. */
+  /* 2026-08-22 per the founder: bigger still. Debate is the door to the
+     stranger match and the one thing the first screen exists to sell. */
+  .fs-cta--primary{font-weight:800;
+    padding:26px clamp(30px,3.4vw,52px);font-size:clamp(1.26rem,1.12vw,1.48rem);
+    background:#dc2626;color:#fff;box-shadow:0 10px 26px rgba(220,38,38,.26)}
+  .fs-cta--primary:hover{transform:translateY(-2px);box-shadow:0 18px 40px rgba(220,38,38,.38)}
+  .fs-cta--ghost{font-weight:700;
+    padding:15px clamp(16px,1.9vw,28px);font-size:clamp(.97rem,.78vw,1.05rem);
+    color:rgba(26,26,31,.72);border:1px solid rgba(26,26,31,.22)}
+  .fs-cta--ghost:hover{border-color:rgba(26,26,31,.5);color:#1a1a1f}
+  @media(max-width:640px){.fs-cta--primary,.fs-cta--ghost{width:100%;max-width:none;padding-left:24px;padding-right:24px}}
+  /* Watch lives in the top menu; the board keeps Meet someone and Debate the AI. */
+  /* 2026-09-03, the founder: "put some space between these". */
+  .fs-actions{display:flex;flex-direction:column;gap:14px;margin-top:12px}
+  .fs-actions .fs-cta{font-family:var(--font-body);font-weight:600;letter-spacing:0}
+  /* Keep the large one-line label while tightening the vertical space
+     around it. Short screens keep room for the AI door. */
+  .fs-actions .fs-cta--primary{width:100%;min-height:116px;padding:10px 18px;font-size:clamp(2.9rem,4.4vw,4.4rem);line-height:1.15}
+  @media(max-height:880px){
+    .fs-actions .fs-cta--primary{min-height:104px;font-size:clamp(2.7rem,4vw,3.9rem)}
+  }
+  @media(max-height:820px){
+    .fs-actions .fs-cta--primary{min-height:94px;font-size:clamp(2.5rem,3.5vw,3.5rem)}
+  }
+  .fs-actions-row{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+  .fs-actions-row .fs-cta{width:100%;padding:11px 16px;font-size:clamp(1.25rem,1.2vw,1.45rem)}
+  .fs-actions-row .fs-cta--bet{background:#15803d;border:1px solid #166534;color:#fff}
+  .fs-actions-row .fs-cta--bet:hover{background:#166534;color:#fff}
+  @media(max-width:520px){.fs-actions-row{grid-template-columns:1fr}}
+  /* "remember - the big screen can widen" (the founder, 2026-09-03). 740px
+     is what keeps the Google line above an 800px fold; a screen with the
+     height to spare gets the wider board back. Height-gated, not just
+     width-gated, because a wide short laptop is exactly the case that
+     pushed the sign-in under the fold. */
+  @media(min-width:1500px) and (min-height:900px){
+    .fscreen-wrap{grid-template-columns:minmax(0,880px)}
+    .fscreen-wrap{max-width:1560px}
+  }
+  @media(min-width:1500px) and (min-height:900px) and (min-width:1360px){
+    .fscreen-wrap{grid-template-columns:minmax(0,880px) minmax(250px,.5fr)}
+  }
+  @media(min-width:1800px) and (min-height:1000px){
+    .fscreen-wrap{grid-template-columns:minmax(0,980px) minmax(260px,.5fr);max-width:1700px}
+  }
+  /* Both secondary doors blend into the page as one matched pair
+     (2026-09-06, Aidan off a screenshot: "make both white blend actually
+     like the watch button, debate the ai should match"). The gray AI fill
+     that gave it its own weight is retired; the red Meet someone door is the only
+     button with a fill of its own. */
+  .fs-actions-row .fs-cta--watch,
+  .fs-actions-row .fs-cta--ai{background:var(--bg,#fafaf7);border-color:#e1e1de;color:#1a1a1f}
+  .fs-actions-row .fs-cta--watch:hover,
+  .fs-actions-row .fs-cta--ai:hover{background:#f3f3f0;border-color:#c9c9c5;color:#1a1a1f}
+  :root:not([data-theme="light"]) .fs-actions-row .fs-cta--watch,
+  :root:not([data-theme="light"]) .fs-actions-row .fs-cta--ai{background:var(--bg);border-color:rgba(245,239,231,.18);color:#f5efe7}
+  :root:not([data-theme="light"]) .fs-actions-row .fs-cta--watch:hover,
+  :root:not([data-theme="light"]) .fs-actions-row .fs-cta--ai:hover{background:rgba(245,239,231,.06);border-color:rgba(245,239,231,.3);color:#fff}
+  /* The live upgrade keeps its red ink. */
+  .fs-actions-row .fs-cta--watch.is-live{color:#dc2626}
+  :root:not([data-theme="light"]) .fs-actions-row .fs-cta--watch.is-live{color:#f87171}
+  /* Sign-in row (2026-08-11, per the founder: "advertise google sign in much
+     earlier and quicker to a new visitor"). Sits directly under the two
+     hero CTAs, on the first screen, so the account ask arrives with the
+     product pitch instead of 25 seconds later from a corner nudge. It is
+     deliberately SECOND in weight to Debate: the advise-not-require rule
+     (soul.md §4) still holds, and a stranger who wants to argue right
+     now should not have to read past a login to find the button. What
+     the line sells is the thing an account actually buys, a score that
+     counts, so it does not read as a toll gate. Hidden once signed in
+     via body.signed-in, like every other in-hero auth affordance. */
+  .fs-signin{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:16px}
+  .fs-signin-btn{
+    display:inline-flex;align-items:center;gap:10px;
+    padding:12px 22px;border-radius:999px;cursor:pointer;
+    background:#fff;color:#1f1f24;border:1px solid rgba(26,26,31,.14);
+    font-family:inherit;font-size:.95rem;font-weight:700;white-space:nowrap;
+    box-shadow:0 8px 22px rgba(0,0,0,.10);
+    transition:transform .15s ease,box-shadow .15s ease,background .15s ease;
+  }
+  .fs-signin-btn:hover{transform:translateY(-2px);background:#fafafa;box-shadow:0 12px 28px rgba(0,0,0,.16)}
+  .fs-signin-btn svg{width:18px;height:18px;flex:none}
+  .fs-signin-why{max-width:390px;font-size:.86rem;line-height:1.45;color:rgba(26,26,31,.6)}
+  :root:not([data-theme="light"]) .fs-signin-why{color:rgba(245,239,231,.62)}
+  body.signed-in .fs-signin{display:none !important}
+  @media(max-width:640px){
+    .fs-signin{margin-top:14px}
+    .fs-signin-btn{width:100%;justify-content:center}
+    .fs-signin-why{max-width:none}
+  }
+  /* 2026-08-12, per the founder (arrow drawn from the button to the empty
+     space above the example board): on desktop the row moves OUT of the
+     copy column and sits at the top of the right column, directly over
+     the board. That space was dead, and the ask lands at eye level
+     beside the headline rather than as a fourth item under three CTAs,
+     where it was competing with Debate for the same downward glance.
+     The copy column keeps its own copy of the row for narrow screens,
+     where there is no second column to move it into and stacking it
+     under the CTAs is the correct order. Exactly one is ever visible.
+     The grid is two columns with the copy in column 1; giving the copy
+     an explicit two-row span is what lets the sign-in take row 1 of
+     column 2 without pushing the board out of alignment. */
+  /* 2026-08-19 redesign: the sign-in row moved BELOW the board on every
+     width. The proof (a judged round) now outranks the account ask, so
+     the board takes row 1 of column 2 and the sign-in line follows it.
+     The copy arms' inline sign-in rows are retired at all widths; the
+     one visible sign-in is the wrap-level row after the board, which
+     also matches DOM order, so screen-reader order equals visual order. */
+  .fscreen-copy .fs-signin{display:none}
+  /* No margin: the wrap's row-gap spaces this off the board, so the
+     desktop and mobile grids each state that distance once. */
+  .fs-signin--side{display:flex;gap:14px;margin:0}
+  @media(min-width:941px){
+    /* The wrap's `gap` was authored for ONE row, so it was only ever a
+       column gap; adding a second row made it a 64px trench between the
+       board and the sign-in row under it. The column gap stays; the row
+       gap is now the real distance between the board and the sign-in row
+       under it, rather than 0 plus a margin on the row itself. */
+    .fscreen-wrap{row-gap:14px;align-items:center}
+    .fscreen-wrap > .fs-signin--side{grid-column:1;grid-row:2;align-self:start}
+    /* centre, not start or end. Top-aligning was right while the two
+       columns were within 8px of each other, but the globe is now the
+       tallest thing on the screen and the copy column outruns the board
+       by ~70px signed in. Centring splits that difference evenly top and
+       bottom, so the mismatch reads as a composition rather than as a
+       ragged edge, and it self-corrects if either column changes height. */
+    .fscreen-wrap > .fs-board-wrap{grid-column:1;grid-row:1;align-self:center}
+    /* SIGNED IN: the sign-in row under the board is display:none, so row
+       2 of column 2 holds nothing and the board takes both rows, centred
+       against the copy the same way. This is the state most returning
+       visitors see, and it is the one with the bigger height difference. */
+    body.signed-in .fscreen-wrap > .fs-board-wrap{grid-row:1 / span 2;align-self:center}
+  }
+  /* ── "N live right now" ── 2026-09-03, the founder, pointing at the
+     example board: "put this actually above (and in red) without the
+     circle around it - just text and a blipping red dot - right above
+     this". It was a green bordered pill in the CTA column (2026-08-24 for
+     guests over the Google button, 2026-09-02 a signed-in copy over the
+     doors). One line now, for everyone, sitting directly above the board:
+     plain red text, a blinking red dot, no pill. Static inside
+     .fs-board-wrap so it takes real room instead of floating into the
+     screen padding; the wrapper carries the board's grid placement. Not
+     on phones: the board moves into the phone home there, whose red door
+     already carries the same words. 2026-09-08, the founder: it reads
+     "people LIVE right now" with no number at all, which also retires the
+     founder-called floor of 3 that used to sit on top of the measured
+     count (fsLiveNow, near the end of the document, now dormant). Nothing
+     here is fetched or painted, so a JS-off visitor sees the same line. */
+  .fs-board-wrap{position:relative;min-width:0}
+  .fs-live-line{display:flex;align-items:center;gap:6px;margin:0 0 8px 4px;
+    font-size:.86rem;font-weight:800;letter-spacing:.01em;color:#dc2626;white-space:nowrap}
+  .fs-live-line[hidden]{display:none}
+  .fs-live-line b{font-weight:900}
+  .fs-live-dot{flex:none;width:9px;height:9px;border-radius:50%;background:#dc2626;
+    animation:fsLiveBlip 1.1s steps(1,end) infinite}
+  @keyframes fsLiveBlip{0%,55%{opacity:1}56%,100%{opacity:.16}}
+  @media(prefers-reduced-motion:reduce){.fs-live-dot{animation:none}}
+  :root:not([data-theme="light"]) .fs-live-line{color:#f05252}
+  :root:not([data-theme="light"]) .fs-live-dot{background:#f05252}
+  /* ── Mobile first screen (TikTok traffic lands here) ── 2026-08-24 ──
+     The globe is 112px of ambience between the CTAs and the proof, and
+     the constellation crosses it, so it comes off on phones (the
+     2026-08-19 "hide the globe on mobile" call, restored). And the guest
+     sign-in unit, now carrying the "N live right now" nudge, moves up
+     under the CTAs and ahead of the example board, so the account ask
+     and the live proof land in the FIRST viewport where a cold visitor
+     actually is. Desktop keeps board-leads / sign-in-follows. */
+  @media(max-width:940px){
+    .fscreen-copy .fs-globe{display:none}
+    .fscreen-wrap > .fscreen-copy{order:1}
+    .fscreen-wrap > .fs-signin--side{order:2;margin-top:2px}
+    .fscreen-wrap > .fs-board-wrap{order:3}
+    .fscreen-wrap > .fs-live{order:4}
+  }
+  /* Live-round count on Spectate. Filled by the watch-live poll near the
+     end of the document; stays hidden until at least one public round is
+     actually live, so the badge can never overstate the room. */
+  .fs-cta-live{display:none;align-items:center;gap:6px;margin-left:2px;padding:3px 9px;
+    border-radius:999px;background:#dc2626;color:#fff;font-size:.7rem;font-weight:800;
+    letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+  .fs-cta-live::before{content:"";width:6px;height:6px;border-radius:50%;background:#fff;
+    animation:fsLivePulse 1.6s ease-in-out infinite}
+  .fs-cta.is-live .fs-cta-live{display:inline-flex}
+  /* Live-only Spectate door. Hidden until the
+     watch-live poll finds a real public round; the explicit [hidden] rule
+     is load-bearing because .fs-cta sets display and would otherwise
+     beat the UA sheet (the /predict and /bounties [hidden] trap). Red
+     ink on a bordered pill, so it reads as live without competing with
+     the one solid-red door above it. */
+  .fs-cta--watch[hidden]{display:none}
+  .mh-spectate{display:flex;width:100%;margin-top:12px;justify-content:center}
+  .fs-cta--watch.is-live{color:#dc2626;border-color:rgba(220,38,38,.45);font-weight:800}
+  .fs-cta--watch.is-live:hover{color:#b91c1c;border-color:#dc2626}
+  .fs-watch-dot{display:none}
+  .fs-cta--watch.is-live .fs-watch-dot{display:block}
+  .fs-watch-dot{width:9px;height:9px;border-radius:50%;background:#dc2626;flex:0 0 auto;
+    box-shadow:0 0 0 0 rgba(220,38,38,.45);animation:fsWatchPulse 1.6s ease-out infinite}
+  @keyframes fsWatchPulse{0%{box-shadow:0 0 0 0 rgba(220,38,38,.45)}70%{box-shadow:0 0 0 8px rgba(220,38,38,0)}100%{box-shadow:0 0 0 0 rgba(220,38,38,0)}}
+  @media(prefers-reduced-motion:reduce){.fs-watch-dot{animation:none}}
+  :root:not([data-theme="light"]) .fs-cta--watch.is-live{color:#f87171;border-color:rgba(248,113,113,.5)}
+  :root:not([data-theme="light"]) .fs-cta--watch.is-live:hover{color:#fca5a5;border-color:#f87171}
+  @keyframes fsLivePulse{0%,100%{opacity:1}50%{opacity:.35}}
+  @media(prefers-reduced-motion:reduce){.fs-cta-live::before{animation:none}}
+  /* Dark themes (2026-08-10 revival): the first screen shipped during
+     the light-only era with hardcoded light-surface ink. The white
+     cards (example-round board, guide video card) stay white; only the
+     ink sitting directly on the page background flips. Covers crimson
+     plus the legacy grey/stone/dark saves. */
+  :root:not([data-theme="light"]) .fs-slogan{color:rgba(245,239,231,.68)}
+  :root:not([data-theme="light"]) .fs-h1{color:#f5efe7}
+  :root:not([data-theme="light"]) .fs-sub{color:rgba(245,239,231,.68)}
+  :root:not([data-theme="light"]) .fs-cta--ghost{color:rgba(245,239,231,.78);border-color:rgba(245,239,231,.28)}
+  :root:not([data-theme="light"]) .fs-cta--ghost:hover{border-color:rgba(245,239,231,.6);color:#fff}
+  :root:not([data-theme="light"]) .fs-globe .story-globe-caption{color:rgba(245,239,231,.68)}
+  :root:not([data-theme="light"]) .fs-globe .story-globe-caption .globe-map-link{color:#f5efe7}
+
+  /* 2026-08-10: the example board, the creator-sweep promo, the ballot
+     mock, and the certificate cover are no longer paper artifacts kept
+     white against a dark page — they paint the dark palette directly
+     (see their own base rules further down, plus the
+     [data-theme="light"] pin-backs beside each). The broad ink rules
+     below still catch prose that isn't individually classed. */
+  :root:not([data-theme="light"]) .cs-motion-strip,
+  :root:not([data-theme="light"]) .creator-sweep .cs-copy{color:rgba(245,239,231,.68)}
+  :root:not([data-theme="light"]) .cs-motion-strip a{color:#f5efe7}
+  :root:not([data-theme="light"]) .cs-motion-strip b,
+  :root:not([data-theme="light"]) .creator-sweep .cs-copy b{color:#f5efe7}
+  :root:not([data-theme="light"]) .live-proof-video .lpv-ballotin{color:#f5efe7}
+  /* Remaining dark-on-dark text, listed per section because each of these
+     sets its own color rather than inheriting one. Found by walking every
+     text node on the dark theme and comparing computed ink against the
+     nearest opaque painted background, so this is the measured set rather
+     than a guess at which sections look light-authored. */
+  :root:not([data-theme="light"]) #live-proof span{color:rgba(245,239,231,.68)}
+  /* Prose that sits directly on the page. Deliberately broad (bare p / q /
+     summary) because this copy is unclassed, so the paper cards below have
+     to take their ink back rather than be excluded up front. Every selector
+     in this pair carries the same id, because an id outranks any number of
+     classes: the first attempt scoped the broad rules by id and the paper
+     re-asserts by class, so the broad ones won inside the white cards and
+     produced near-white bold text on white. Same id both sides, then more
+     classes on the paper side, is what actually orders these correctly. */
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-motion-strip p,
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-motion-strip q,
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-motion-strip b,
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-motion-strip summary{color:rgba(245,239,231,.72)}
+  /* The world figure inside the creator-sweep poster paints its own dark
+     photo panel regardless of the poster's own background, so its
+     caption keeps light ink on both themes (matches its base rule). */
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-world figcaption,
+  :root:not([data-theme="light"]) #creator-sweepstakes .cs-world figcaption b{color:rgba(245,239,231,.82)}
+
+  /* 2026-08-05: the live presence globe moved into the hero. */
+  /* gap, not a negative pull. The canvas paints its floor shadow all the
+     way down (measured: content ends at 99.1% of the square box), so the
+     old -10px on the caption sat the line on top of the shadow. The
+     caption now clears the box entirely and the globe reads as sphere,
+     ground, line. */
+  .fs-globe{display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:none;margin:0;gap:6px}
+  /* Axes. The button pair and the Open card sit on the column's left
+     edge; the globe centres. That reads as one composition rather than
+     two because the Open card directly above it runs the FULL column
+     width, so the card's centre and the globe's centre are the same line
+     and the globe hangs off it.
+     History: an earlier pass centred the buttons too and had three axes
+     at once (buttons centred, the walkthrough wrapping to a third inset
+     104px in, the card on its own left edge), which is what pushed
+     everything onto the left edge in the first place. The buttons stay
+     there. Only the globe moved, per the founder 2026-08-19, together with the
+     size bump that makes it wide enough to carry a centred axis. */
+  .fs-copy-stranger .fs-ctas{justify-content:flex-start}
+  .fscreen-copy .fs-globe{align-items:flex-start;margin-left:0;margin-right:auto}
+  @media(min-width:941px){
+    .fscreen-copy .fs-globe{align-items:center;margin-left:0;margin-right:0}
+  }
+  .fs-globe .hero-globe-canvas-wrap{margin:0;width:100%;max-width:var(--fs-globe);min-width:190px;min-height:190px}
+  /* The canvas box is not the globe. world-globe.js draws the disc at
+     R = min(W,H) * 0.42 about the box centre, so the square canvas carries
+     exactly 8% of empty margin on its left, right and top; the floor
+     shadow fills the bottom, which is why only the top is pulled back.
+     Horizontally the 8% now cancels, because the box is centred and the
+     margin is even on both sides. Vertically it does not: it read as a
+     48px gap under the Open card where every other seam in the column is
+     27px. Offsetting the top by the renderer's own inset puts the SPHERE
+     in the column's rhythm instead of the padded box it is drawn inside,
+     as a fraction of --fs-globe so it tracks the globe at every size. */
+  @media(min-width:941px){
+    .fs-globe .hero-globe-canvas-wrap{
+      margin:calc(var(--fs-globe) * -0.08) auto 0}
+  }
+  .fs-globe .story-globe-caption{display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:340px;margin-top:0;text-align:left;font-size:.78rem;line-height:1.4;color:rgba(26,26,31,.64)}
+  @media(min-width:941px){
+    .fs-globe .story-globe-caption{align-items:center;text-align:center;max-width:none}
+  }
+  .fs-globe .story-globe-caption .globe-map-link{margin-top:3px;color:#1a1a1f;font-weight:700}
+  /* Dark family (opt-in via the topbar toggle, 2026-08-10): the copy
+     column was authored with hardcoded light-surface ink, so each ink
+     color gets a dark twin here. The example board stays a white card
+     on purpose — a lit screen in a dark room. */
+  [data-theme="dark"] .fs-h1,[data-theme="crimson"] .fs-h1,
+  [data-theme="grey"] .fs-h1,[data-theme="stone"] .fs-h1{color:#f5efe7}
+  [data-theme="dark"] .fs-sub,[data-theme="crimson"] .fs-sub,
+  [data-theme="grey"] .fs-sub,[data-theme="stone"] .fs-sub{color:rgba(245,239,231,.72)}
+  [data-theme="dark"] .fs-slogan,[data-theme="crimson"] .fs-slogan,
+  [data-theme="grey"] .fs-slogan,[data-theme="stone"] .fs-slogan{color:rgba(245,239,231,.68)}
+  [data-theme="dark"] .fs-cta--ghost,[data-theme="crimson"] .fs-cta--ghost,
+  [data-theme="grey"] .fs-cta--ghost,[data-theme="stone"] .fs-cta--ghost{
+    color:rgba(245,239,231,.78);border-color:rgba(245,239,231,.28)}
+  [data-theme="dark"] .fs-cta--ghost:hover,[data-theme="crimson"] .fs-cta--ghost:hover,
+  [data-theme="grey"] .fs-cta--ghost:hover,[data-theme="stone"] .fs-cta--ghost:hover{
+    color:#f5efe7;border-color:rgba(245,239,231,.55)}
+  [data-theme="dark"] .fs-globe .story-globe-caption,[data-theme="crimson"] .fs-globe .story-globe-caption,
+  [data-theme="grey"] .fs-globe .story-globe-caption,[data-theme="stone"] .fs-globe .story-globe-caption{
+    color:rgba(245,239,231,.68)}
+  [data-theme="dark"] .fs-globe .story-globe-caption .globe-map-link,[data-theme="crimson"] .fs-globe .story-globe-caption .globe-map-link,
+  [data-theme="grey"] .fs-globe .story-globe-caption .globe-map-link,[data-theme="stone"] .fs-globe .story-globe-caption .globe-map-link{
+    color:#f5efe7}
+  /* The three max-height arms that used to sit here (860px stepped the
+     globe to 270, 820px re-declared both block margins, 760px stepped the
+     globe to 225) are folded into --fs-globe and --fs-rhythm, which scale
+     continuously instead of jumping at three heights. The CTA cluster's
+     own internal gap is the one thing the tokens do not cover, since it
+     spaces the walkthrough link off the button pair rather than spacing
+     the blocks, so it keeps a short-window arm of its own. */
+  @media(min-width:941px) and (max-height:820px){.fs-ctas{gap:12px 12px}}
+  @media(max-width:940px){
+    /* Below the two-column break the globe turns on its side: sphere on
+       the left, live count beside it, one short band instead of a tall
+       stack. The min-width/min-height on .hero-globe-canvas-wrap above is
+       190px and unconditional, so it has to be overridden here or the
+       canvas refuses to come down to a phone-sized disc. */
+    /* .fscreen-copy .fs-globe above pins align-items:flex-start at every
+       width and outranks a bare .fs-globe, so the row arm has to be
+       written at the same specificity or the caption sticks to the top
+       of the sphere instead of sitting level with it. */
+    .fs-globe,.fscreen-copy .fs-globe{
+      flex-direction:row;align-items:center;justify-content:flex-start;gap:14px;width:100%;
+    }
+    .fs-globe .hero-globe-canvas-wrap{
+      flex:none;width:136px;max-width:136px;min-width:136px;
+      height:136px;min-height:136px;margin:0;
+    }
+    .fs-globe .story-globe-caption{
+      flex:1 1 auto;min-width:0;max-width:none;
+      align-items:flex-start;text-align:left;margin-top:0;
+    }
+  }
+  @media(max-width:400px){
+    .fs-globe{gap:11px}
+    .fs-globe .hero-globe-canvas-wrap{
+      width:112px;max-width:112px;min-width:112px;height:112px;min-height:112px;
+    }
+  }
+
+  /* The lightbox the card opens into. */
+  .vg-backdrop{position:fixed;inset:0;z-index:9600;display:flex;align-items:center;justify-content:center;
+    padding:clamp(14px,4vw,44px);background:rgba(12,12,16,.84);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  .vg-backdrop[hidden]{display:none}
+  .vg-card{width:min(940px,100%);background:#0c0c10;border-radius:16px;overflow:hidden;
+    box-shadow:0 40px 90px -30px rgba(0,0,0,.85)}
+  .vg-head{display:flex;align-items:center;gap:12px;padding:12px 13px 12px 18px}
+  .vg-head h2{margin:0;font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:#fff}
+  .vg-head .vg-sp{flex:1}
+  .vg-x{width:32px;height:32px;flex:none;border-radius:50%;border:1px solid rgba(255,255,255,.24);
+    background:transparent;color:#fff;font-size:1.15rem;line-height:1;cursor:pointer;padding:0}
+  .vg-x:hover{background:rgba(255,255,255,.14)}
+  .vg-card video{display:block;width:100%;max-height:70vh;background:#000}
+
+  

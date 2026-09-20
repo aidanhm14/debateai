@@ -1,0 +1,383 @@
+
+  /* 2026-06-25: was a flat #000 slab that read as a pasted-in black box
+     against the page's own textured backdrop. Transparent now, so it
+     blends with the surrounding sections (the ballot card carries its own
+     contrast). */
+  .live-proof{
+    padding:40px clamp(20px,4vw,40px) 44px;
+    background:transparent;position:relative;
+  }
+
+  .live-proof-wrap{max-width:1180px;margin:0 auto}
+
+  /* 2026-05-19: header de-marketed. Was a pink-filled pill eyebrow +
+     900-weight headline with a red em on the closer + a defensive
+     "arguably fairer" sub-claim — screamed against the editorial
+     register the rest of the page uses. Now: small-caps text eyebrow
+     (matches .founder-action-eyebrow / encyclopedia h3 weight), lighter
+     headline weight, no red splash, sub describes what the ballot
+     contains instead of arguing for it. */
+  .live-proof-header{text-align:center;margin-bottom:30px}
+  .live-proof-eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:.6rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--text-dim);
+    margin-bottom:14px;
+  }
+  .live-proof-eyebrow .dot{display:none}
+  .live-proof-headline{
+    font-size:clamp(1.55rem,2.6vw,2.05rem);font-weight:700;letter-spacing:-.02em;line-height:1.15;
+    margin:0 0 10px;color:var(--text);
+  }
+  .live-proof-headline em{font-style:normal;color:inherit}
+  .live-proof-sub{
+    font-size:.95rem;color:var(--text-dim);line-height:1.6;margin:0 auto;max-width:640px;
+  }
+
+  /* Two-column grid: video screenshot left, HTML ballot panel right.
+     The original full-screenshot approach broke on Safari (it choked on
+     the 2662×1518 PNG decoder) and was visually heavy. Splitting into
+     a smaller cropped video + crisp HTML ballot keeps the proof clear,
+     renders everywhere, and stays selectable for SEO. */
+  .live-proof-frame{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+    align-items:start;
+  }
+  .live-proof-video{
+    position:relative;display:block;
+    border-radius:14px;overflow:hidden;
+    background:#0c0c10;
+    box-shadow:0 30px 70px rgba(0,0,0,.45);
+    line-height:0;
+    /* Keeps the original near-square panel beside the ballot. The wide
+       two-person image crops evenly from both sides at this breakpoint. */
+    aspect-ratio: 585 / 571;
+    cursor:pointer;text-decoration:none;color:inherit;
+    transition:transform .18s ease, box-shadow .18s ease;
+  }
+  .live-proof-video:hover{
+    transform:translateY(-2px);
+    box-shadow:0 36px 80px rgba(0,0,0,.50);
+  }
+  [data-theme="light"] .live-proof-video:hover{
+    box-shadow:0 24px 56px rgba(0,0,0,.14);
+  }
+  /* "Open Live Debates →" hint that fades up over the screenshot on hover.
+     Tells visitors the screenshot is the entry point, not just decoration. */
+  .live-proof-video::after{
+    content:"Open Live Debates →";
+    position:absolute;left:50%;bottom:14px;transform:translateX(-50%) translateY(8px);
+    background:#b91c1c;color:#fff;
+    padding:8px 14px;border-radius:999px;
+    font-size:.75rem;font-weight:800;letter-spacing:.04em;line-height:1;
+    box-shadow:0 10px 24px rgba(239,68,68,.35);
+    opacity:0;pointer-events:none;
+    transition:opacity .18s ease, transform .18s ease;
+    z-index:3;
+  }
+  .live-proof-video:hover::after,
+  .live-proof-video:focus-visible::after{
+    opacity:1;transform:translateX(-50%) translateY(0);
+  }
+  @media (prefers-reduced-motion:reduce){
+    .live-proof-video,
+    .live-proof-video::after{transition:none}
+  }
+  [data-theme="light"] .live-proof-video{
+    box-shadow:0 20px 50px rgba(0,0,0,.12);
+  }
+  .live-proof-video img{
+    width:100%;height:100%;object-fit:cover;object-position:center;
+    display:block;
+    position:relative;z-index:2;
+  }
+
+  /* Floating recording badge anchored to the screenshot's top-left. */
+  .live-proof-badge{
+    position:absolute;top:12px;left:12px;
+    display:inline-flex;align-items:center;gap:7px;
+    background:rgba(0,0,0,.66);
+    color:#fff;font-size:.6rem;font-weight:800;
+    letter-spacing:.14em;text-transform:uppercase;
+    padding:5px 9px;border-radius:6px;
+    border:1px solid rgba(239,68,68,.4);
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    pointer-events:none;
+  }
+  .live-proof-badge::before{
+    content:"";width:5px;height:5px;border-radius:50%;
+    background:#ef4444;box-shadow:0 0 8px #ef4444;
+    animation:rec-pulse 1.6s ease-in-out infinite;
+  }
+
+  /* HTML ballot panel — mirrors what /live-round renders after a round.
+     Header strip, winner pill, two speaker-point cards, RFD body.
+     Height-locked to the video panel beside it via aspect-ratio so the
+     two columns end at the same baseline; RFD overflow gets clipped
+     with a fade so the panel still feels like a real screenshot. */
+  /* Dark by default (2026-08-10): this ballot mockup ("mirrors what
+     /live-round renders") used to stay a fixed cream card regardless
+     of site theme, same bug class as .fs-board above. Base rules now
+     paint dark; [data-theme="light"] pins the original cream values
+     back unchanged. */
+  .live-proof-ballot{
+    background:#211f1c;
+    color:#f0ece5;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.1);
+    /* Hard red offset (2026-08-19 redesign): a verdict is a decisive
+       object, not a floating panel. */
+    box-shadow:10px 10px 0 rgba(220,38,38,.22),0 24px 60px rgba(0,0,0,.55);
+    display:flex;flex-direction:column;
+    overflow:hidden;
+    font-size:.86rem;
+    /* match the video panel's aspect-ratio so both columns are the
+       exact same height. The RFD body inside flexes and clips with a
+       fade gradient at the bottom (.lpb-rfd::after). */
+    aspect-ratio: 585 / 571;
+  }
+  [data-theme="light"] .live-proof-ballot{
+    background:#faf8f3;
+    color:#1c1c1c;
+    border-color:rgba(0,0,0,.10);
+    box-shadow:10px 10px 0 rgba(220,38,38,.16),0 18px 44px rgba(0,0,0,.14);
+  }
+  .lpb-strip{
+    display:flex;align-items:center;gap:10px;
+    background:#2a2723;
+    padding:10px 14px;
+    border-bottom:1px solid rgba(255,255,255,.08);
+    font-size:.74rem;
+    color:#bab3a8;
+  }
+  [data-theme="light"] .lpb-strip{background:#f3f0e8;border-bottom-color:rgba(0,0,0,.06);color:#666}
+  .lpb-strip-dots{display:inline-flex;gap:5px;align-items:center}
+  .lpb-strip-dots span{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .lpb-strip-dots .d1{background:#ef4444}
+  .lpb-strip-dots .d2{background:#f0ece5}
+  [data-theme="light"] .lpb-strip-dots .d2{background:#222}
+  .lpb-strip-dots .d3{background:transparent;border:1.5px solid #f0ece5}
+  [data-theme="light"] .lpb-strip-dots .d3{border-color:#222}
+  .lpb-strip-back{
+    margin-left:auto;
+    color:#d8d2c7;font-weight:600;
+    border:1px solid rgba(255,255,255,.16);
+    padding:3px 10px;border-radius:999px;
+    font-size:.7rem;
+  }
+  [data-theme="light"] .lpb-strip-back{color:#444;border-color:rgba(0,0,0,.12)}
+  .lpb-body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
+  .lpb-winner{
+    background:rgba(34,197,94,.14);
+    border:1px solid rgba(34,197,94,.32);
+    border-radius:10px;
+    padding:14px 16px;text-align:center;
+  }
+  [data-theme="light"] .lpb-winner{background:#e9fbef;border-color:rgba(34,197,94,.30)}
+  .lpb-winner-name{
+    font-size:1.4rem;font-weight:900;color:#4ade80;letter-spacing:-.015em;
+    line-height:1.1;
+  }
+  [data-theme="light"] .lpb-winner-name{color:#16a34a}
+  .lpb-winner-sub{
+    margin-top:4px;color:#c7c1b6;font-size:.85rem;
+  }
+  [data-theme="light"] .lpb-winner-sub{color:#555}
+  .lpb-scores{
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  }
+  .lpb-score{
+    /* 2026-07-22: white -> the winner banner's tint per the founder ("have
+       these be similar color"), so the verdict and the two score cards
+       read as one ballot block. */
+    background:rgba(34,197,94,.14);
+    border:1px solid rgba(34,197,94,.32);
+    border-radius:10px;
+    padding:10px 12px;text-align:center;
+  }
+  [data-theme="light"] .lpb-score{background:#e9fbef;border-color:rgba(34,197,94,.30)}
+  /* 2026-07-29: the losing side reads red at the SAME intensity as the
+     winner's green. #fbe9e9 is #e9fbef rotated to the brand-red hue with
+     lightness and saturation held constant, so neither card shouts louder
+     than the other. Verdict green, loss red, one weight. */
+  .lpb-score--loss{
+    background:rgba(239,68,68,.14);
+    border:1px solid rgba(239,68,68,.32);
+  }
+  [data-theme="light"] .lpb-score--loss{background:#fbe9e9;border-color:rgba(239,68,68,.30)}
+  .lpb-score-name{
+    font-size:.6rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    color:#bab3a8;margin-bottom:4px;
+  }
+  [data-theme="light"] .lpb-score-name{color:#666}
+  .lpb-score-num{
+    font-size:1.6rem;font-weight:900;color:#f5f2ec;letter-spacing:-.01em;line-height:1;
+    font-variant-numeric:tabular-nums;
+  }
+  [data-theme="light"] .lpb-score-num{color:#111}
+  .lpb-score-lbl{
+    font-size:.58rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:#a49d92;margin-top:4px;
+  }
+  [data-theme="light"] .lpb-score-lbl{color:#888}
+  .lpb-rfd-h{
+    font-size:.66rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+    color:#bab3a8;
+  }
+  [data-theme="light"] .lpb-rfd-h{color:#666}
+  .lpb-rfd{
+    font-size:.84rem;color:#e6e1d8;line-height:1.55;
+    flex:1;min-height:0;
+    overflow:hidden;position:relative;
+  }
+  [data-theme="light"] .lpb-rfd{color:#222}
+  .lpb-rfd::after{
+    content:"";position:absolute;left:0;right:0;bottom:0;height:48px;
+    background:linear-gradient(180deg,transparent,#211f1c);
+    pointer-events:none;
+  }
+  [data-theme="light"] .lpb-rfd::after{background:linear-gradient(180deg,transparent,#faf8f3)}
+  .lpb-rfd p{margin:0 0 8px}
+  .lpb-rfd p:last-child{margin-bottom:0}
+
+  @media(max-width:760px){
+    .live-proof-frame{grid-template-columns:1fr;gap:14px}
+    /* On mobile the ballot stacks below the video — drop the strict
+       aspect-ratio cap so the RFD can breathe at its natural length
+       instead of clipping in a tall narrow box. */
+    .live-proof-ballot{aspect-ratio:auto}
+    .lpb-rfd{flex:none}
+    .lpb-rfd::after{display:none}
+  }
+  @media(max-width:560px){
+    .live-proof{padding:40px 16px 48px}
+    .live-proof-headline{font-size:1.45rem}
+    .lpb-strip{padding:8px 12px;font-size:.68rem}
+    .lpb-strip-back{display:none}
+    .lpb-body{padding:14px}
+    .lpb-winner-name{font-size:1.2rem}
+    .lpb-score-num{font-size:1.35rem}
+  }
+
+  @media(max-width:680px){
+    .live-proof-badge{font-size:.58rem;padding:5px 8px}
+  }
+
+  /* WHY TRUST IT strip (2026-08-11). Four checkable facts under the
+     ballot. Colours ride the page tokens rather than hardcoding a
+     palette, so it follows the section between the dark slab themes and
+     the cream one the same way the headline and sub already do. The
+     footer note is scoped by id on purpose: the broad
+     `#live-proof span` ink rule further up is an id selector and would
+     otherwise outrank a bare class here. */
+  .lp-trust{margin-top:28px}
+  .lp-trust-head{
+    text-align:center;margin:0 0 16px;
+    font-size:.6rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .lp-trust-grid{
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;
+  }
+  .lp-trust-card{
+    border:1px solid var(--border);border-radius:14px;
+    padding:16px 17px;min-width:0;
+    background:rgba(255,255,255,.03);
+  }
+  [data-theme="light"] .lp-trust-card{background:#fff;box-shadow:0 14px 34px -30px rgba(20,20,30,.5)}
+  .lp-trust-card h3{
+    margin:0 0 7px;font-size:.94rem;font-weight:800;letter-spacing:-.01em;line-height:1.25;
+    color:var(--text);
+  }
+  .lp-trust-card p{
+    margin:0;font-size:.82rem;line-height:1.55;color:var(--text-dim);
+  }
+  .lp-trust-foot{
+    margin:16px 0 0;text-align:center;
+    font-size:.8rem;line-height:1.6;color:var(--text-dim);
+  }
+  .lp-trust-foot-links{display:flex;align-items:baseline;justify-content:center;flex-wrap:wrap;gap:5px 18px}
+  .lp-trust-foot a,.lp-trust-foot-link{color:#dc2626;font-weight:700;text-decoration:none;border-bottom:1px solid rgba(220,38,38,.35)}
+  .lp-trust-foot-link{appearance:none;padding:0;background:none;border-top:0;border-right:0;border-left:0;border-radius:0;font:inherit;cursor:pointer}
+  .lp-trust-foot a:hover,.lp-trust-foot-link:hover{border-bottom-color:#dc2626}
+  /* #dc2626 clears AA on the cream page but not on the near-black one,
+     so the dark themes take the lighter red. Id-scoped to sit in the
+     same specificity band as the section's other ink pin-backs. */
+  :root:not([data-theme="light"]) #live-proof .lp-trust-foot a,
+  :root:not([data-theme="light"]) #live-proof .lp-trust-foot-link{color:#f87171;border-bottom-color:rgba(248,113,113,.4)}
+  .lp-trust-critique{
+    margin:12px 0 0;border:1px solid rgba(220,38,38,.35);border-radius:14px;
+    padding:13px 17px;font-size:.84rem;line-height:1.55;color:var(--text-dim);
+    background:rgba(220,38,38,.05);
+  }
+  .lp-trust-critique b{color:var(--text);font-weight:800;margin-right:4px}
+  .lp-trust-critique a{
+    margin-left:8px;white-space:nowrap;color:#dc2626;font-weight:700;
+    text-decoration:none;border-bottom:1px solid rgba(220,38,38,.35);
+  }
+  .lp-trust-critique a:hover{border-bottom-color:#dc2626}
+  :root:not([data-theme="light"]) #live-proof .lp-trust-critique a{color:#f87171;border-bottom-color:rgba(248,113,113,.4)}
+  #live-proof .lp-trust-foot-note{
+    display:block;margin:7px auto 0;max-width:620px;
+    font-size:.74rem;line-height:1.55;color:var(--text-dim);
+  }
+  @media (max-width:900px){
+    .lp-trust-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+  @media (max-width:560px){
+    .lp-trust-grid{grid-template-columns:1fr}
+    .lp-trust-card{padding:14px 15px}
+  }
+
+  /* "Post a motion or accept a challenge →" CTA strip under the proof.
+     Sits below the three caption tiles and tells the visitor that this
+     isn't just a feature mockup — the board is live and they can open
+     it in one tap. Mirrors the primary/ghost pair on /live's hero. */
+  .live-proof-cta{
+    display:flex;flex-direction:column;align-items:center;
+    gap:10px;margin-top:24px;text-align:center;
+  }
+  .live-proof-cta-row{
+    display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;
+    justify-content:center;
+  }
+  .live-proof-cta-btn{
+    display:inline-flex;align-items:center;gap:8px;
+    background:#b91c1c;color:#fff;
+    padding:13px 22px;border-radius:999px;
+    font-size:.95rem;font-weight:800;letter-spacing:-.005em;
+    text-decoration:none;
+    box-shadow:0 14px 32px rgba(239,68,68,.32);
+    transition:transform .18s ease, box-shadow .18s ease, background .18s ease;
+  }
+  .live-proof-cta-btn:hover{
+    background:#dc2626;
+    transform:translateY(-2px);
+    box-shadow:0 20px 40px rgba(239,68,68,.40);
+  }
+  .live-proof-cta-ghost{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:13px 20px;border-radius:999px;
+    font-size:.88rem;font-weight:700;letter-spacing:-.005em;
+    color:var(--text-dim);
+    background:transparent;
+    border:1px solid var(--border);
+    text-decoration:none;
+    transition:color .18s ease, border-color .18s ease, transform .18s ease;
+  }
+  .live-proof-cta-ghost:hover{
+    color:var(--text);
+    border-color:var(--text-dim);
+    transform:translateY(-1px);
+  }
+  .live-proof-cta-sub{
+    font-size:.78rem;color:var(--text-dim);line-height:1.5;
+    max-width:560px;
+  }
+  @media(max-width:560px){
+    .live-proof-cta-btn{font-size:.86rem;padding:11px 18px}
+    .live-proof-cta-ghost{font-size:.8rem;padding:11px 16px}
+    .live-proof-cta-sub{font-size:.72rem}
+  }

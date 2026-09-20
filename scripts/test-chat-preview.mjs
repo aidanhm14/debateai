@@ -1,5 +1,5 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import vm from 'node:vm';
 import { isChatPreviewEligible } from '../app/netlify/functions/lib/chat-preview.mjs';
@@ -95,7 +95,7 @@ hooks.deregister(); globalThis.fetch = originalFetch; delete globalThis.__chatPr
 
 // Exercise the shipped renderer through loading, failure, populated and
 // empty polls. The whole panel stays blank until real messages render.
-const landing = readFileSync('app/landing.html', 'utf8');
+const landing = readPageSource('app/landing.html', 'utf8');
 assert.match(landing, /\.fs-chats:not\(\.is-live\):not\(\.is-member\)\{visibility:hidden\}/, 'An empty panel stays hidden for guests while members can start the chat');
 assert.doesNotMatch(landing, /fs-chats-rooms|fs-chats-skel|__fsChatsRooms/, 'No fallback card or skeleton can return');
 const renderer = landing.slice(landing.indexOf('  /* fsChats:'), landing.indexOf("    var canvas = document.getElementById('heroGlobeCanvas');"));

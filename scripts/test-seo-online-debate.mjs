@@ -1,7 +1,7 @@
-import fs from 'node:fs';
+import { readPageSource } from './lib/page-source.mjs';
 import vm from 'node:vm';
 
-const read = file => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+const read = file => readPageSource(new URL(`../${file}`, import.meta.url), 'utf8');
 const page = read('app/debate-online.html');
 const canonical = 'https://itsdebatable.com/debate-online';
 const first = pattern => (page.match(pattern) || [])[1] || '';

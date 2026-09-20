@@ -1,6 +1,7 @@
+import { readPageSource } from '../../scripts/lib/page-source.mjs';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-const read=name=>readFileSync(new URL('../../app/'+name,import.meta.url),'utf8');
+const read=name=>readPageSource(new URL('../../app/'+name,import.meta.url),'utf8');
 const source=read('landing.html');
 const scripts=[...source.replace(/<!--[\s\S]*?-->/g,'').matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]);
 const feed=scripts.find(s=>s.includes('window.__lbTop = (function'));

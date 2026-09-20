@@ -1,0 +1,873 @@
+/* ──────────────────────────────────────────────────────────────────
+   2026-05-11 EDITORIAL REDESIGN.
+   Premium / Bloomberg-Terminal-meets-A24-meets-Chess.com aesthetic.
+   Restraint over glow, hierarchy over density, amber accents on judge
+   notes. Crimson stays as accent, not atmosphere. Reduces the prior
+   "AI arcade lobby" feel without breaking existing routing/auth.
+   ────────────────────────────────────────────────────────────────── */
+
+/* 2026-06-15: re-enabled as a LIGHT, fading table of contents (per the founder).
+   The old heavy left-rail dashboard card is gone; the airy restyle (thin
+   accent spine, faint-at-rest, brightens on hover) + scroll fade + active
+   scroll-spy live in the .landing-jumpnav rule + script below. Stays
+   desktop-only (hidden under 1100px). */
+
+/* Drop the old beta strip at top — editorial pages don't open with a
+   gradient marquee. */
+.beta-strip{display:none !important}
+
+/* Tone the hero ambient glow down by ~60%. The radial halos
+   (.hero-bg::before / ::after) were carrying the bulk of the
+   "arcade" red wash. Lower the alpha and shrink them. */
+.hero-bg::before{
+  opacity:.38 !important;
+  background:radial-gradient(ellipse at 70% 30%, rgba(220,38,38,.22) 0%, transparent 60%) !important;
+}
+.hero-bg::after{
+  opacity:.30 !important;
+  background:radial-gradient(ellipse at 30% 80%, rgba(220,38,38,.14) 0%, transparent 60%) !important;
+}
+/* Light theme: kill the red radial overlays + grain entirely. On the
+   off-white body they read as a pink tint that creates a visible
+   color seam between the hero and the section below (globe / story /
+   etc.). The body's --hero-grad already paints a unified off-white;
+   nothing else should sit on top of it. */
+[data-theme="light"] .hero-bg::before,
+[data-theme="light"] .hero-bg::after{
+  display:none !important;
+}
+[data-theme="light"] .hero-grain{display:none !important}
+.hero-grain{opacity:.025 !important}
+
+/* Hero shell — centered editorial layout. Sized to its content so it
+   doesn't bake in empty space below when the card-stack content is
+   shorter than the viewport (an earlier min-height:100svh was forcing
+   a visible gap before the globe section on tall screens / when the
+   rebuttal card hadn't painted yet). The legacy .hero rule above sets
+   min-height:100vh for the pre-editorial design; clear it here. */
+section.hero{
+  /* 2026-05-21: the hero was content-height (min-height:0), so on a laptop
+     viewport the founder-video "coming soon" frame below peeked into view
+     and looked half-broken. Fill the viewport and center the content so the
+     next section sits cleanly below the fold. Centering (not top-anchoring)
+     keeps the headline near its current spot on a laptop while staying
+     balanced on tall screens instead of leaving a big void below the text.
+     Slightly larger top padding nudges the text down a touch. */
+  min-height:100svh !important;
+  /* 2026-05-26 (rev11): top padding bumped to clamp(112,13vh,160)
+     per the founder "FIX THE POSITIONING OF THIS ITS TO CLOSE." The
+     previous 9vh top wasn't accounting for the ~60px fixed topbar
+     above the hero — when the topbar overlays the hero's first ~60px
+     of padding-top, only ~21px of effective breathing room is left
+     at small viewports (9vh of 900px = 81px, minus 60px topbar = 21).
+     New 13vh gives 117px at 900vh (57px clear after topbar) and
+     scales to 160px at very tall screens. */
+  padding:clamp(112px,13vh,160px) clamp(20px,5vw,72px) clamp(44px,5vh,72px) !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+@media (min-width:1100px){
+  section.hero{padding-left:clamp(40px,5vw,80px) !important;padding-right:clamp(40px,5vw,80px) !important}
+}
+
+/* 2-column hero from 900px up. Left column flexes to fill the viewport
+   minus the right column; right column is capped at 380–520px so the
+   card stack never drifts uncomfortably wide. Above the breakpoint the
+   grid uses named areas so the card-stack can span all left-column rows.
+   Below 900px everything stacks vertically in document order (text →
+   card stack), no override needed. */
+/* 2026-05-26 (rev13): outer @media (min-width:900px) -> @media all
+   (i.e. always-on) so the .editorial-hero grid template + grid-area
+   assignments apply at mobile widths too. Without this, phones got
+   none of the editorial-hero CSS and elements auto-flowed in document
+   order — mantra ended up below the founding-cta in the mobile
+   screenshot. The inner @media (max-width:1099px) override still
+   narrows to single-col on phone widths. */
+@media all{
+  /* 2026-05-26 (rev3): triangular composition.
+     Previous rev was a clean centered vertical stack but read as
+     "nice homepage" — too symmetrical, no directional tension. User
+     wanted "live debate chamber powering up." Composition is now:
+
+         HEADLINE (slightly left of center)
+         ───────────────────────────────
+         [primary pill]       [primary pill]
+                 ←  ORB STAGE  →
+         debater    [you / orb]    debater
+         ───────────────────────────────
+              [ Enter live round ]
+                   (one bold CTA)
+              secondary pills · founder cue
+
+     The two primary pills flank the stage like opposing podium
+     entrances. The headline sits high and slightly left. The orb
+     sits lower so the headline owns the top band. A single bold
+     "Enter live round" CTA acts as the climax action under the
+     stage; secondary pills + founder cue tail off below. */
+  .editorial-hero{
+    display:grid;
+    /* 2026-05-26 (rev12): 2-COL layout RESTORED per the founder "IT NEEDS
+       TO BE WIDER ON THE X AXIS." The rev11 conflict resolution took
+       the parallel single-col reversion, but the founder's screenshot
+       confirmed the narrow centered stack wastes ~40% of viewport
+       width on each side. Returning to left=typography+actions,
+       right=orb stage. Falls back to single-col under 1100px in
+       the @media block below. */
+    grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);
+    grid-template-areas:
+      "eyebrow        card"
+      "headline       card"
+      "subhead        card"
+      "primary-pills  card"
+      "ctas           card"
+      "stage-cta      card"
+      "secondary-pills card"
+      "founder        card"
+      "signin         card";
+    column-gap:48px;
+    row-gap:0;
+    justify-items:start;
+    align-items:start;
+    text-align:left;
+    position:relative;
+    max-width:1240px;
+    margin-inline:auto;
+  }
+  /* Right-column card centers vertically against the full left span. */
+  .editorial-hero .hero-card-stack{align-self:center;justify-self:end;max-width:520px}
+  /* Mobile fallback: under 1100px collapse to centered single-col. */
+  @media (max-width:1099px){
+    .editorial-hero{
+      grid-template-columns:minmax(0,1fr);
+      grid-template-areas:
+        "eyebrow"
+        "headline"
+        "subhead"
+        "primary-pills"
+        "card"
+        "stage-cta"
+        "ctas"
+        "secondary-pills"
+        "founder"
+        "signin";
+      justify-items:center;
+      align-items:start;
+      text-align:center;
+      column-gap:0;
+      max-width:none;
+    }
+    .editorial-hero .hero-card-stack{align-self:start;justify-self:center}
+  }
+  /* 2026-05-26 (rev10): radical first-impression simplification per
+     the founder "I WANT THE LANDING PAGE TO LOOK EASY TO UNDERSTAND/ENTER."
+     Above-the-fold visible left column is reduced from 10 items to 5:
+     eyebrow → mantra → subhead → primary CTA → "50/mo on sign-in"
+     secondary → tertiary text-link row → founder cue. Hiding the
+     primary pill rail (Adaptive voice + Online video debates) on
+     desktop — those entry points are noise on first impression;
+     users access them via the tertiary text-link rail. The "still
+     building" and "76 debaters bookmark" paragraphs are honest but
+     read as decoration to a stranger; hidden above the fold. */
+  /* !important needed: later .editorial-hero .hero-pill-rail--primary
+     rule in the same media query sets display:flex with equal
+     specificity and wins by source order. */
+  .editorial-hero .hero-pill-rail--primary{display:none !important}
+  .editorial-hero .hero-building-note{display:none !important}
+  .editorial-hero .hero-bookmark-note{display:none !important}
+  /* 2026-05-26 (rev12): RE-KILLED the env-signal chips after parallel
+     commits re-added them ("1 online now / 1 signed in / 214ms voice").
+     The "ms voice" stat is still fake (no real latency endpoint wired);
+     the "online" count is a Firestore-presence read floored at 1 per
+     a parallel commit. Either way, the 3-chip cluster reads as
+     fake-startup-traction-theater. Real online count is surfaced
+     below the fold via the "1 online in the last 5 minutes" row. */
+  .editorial-hero .hero-env-signals{display:none !important}
+  /* Explainer eyebrow above the mantra. Tiny all-caps brand-red
+     line that tells a stranger what the product IS in 4 words
+     before they decode the rhythmic mantra below. */
+  .editorial-hero .hero-explainer-eyebrow{
+    grid-area:eyebrow;
+    justify-self:start;
+    margin:0 0 12px;
+    font-family:var(--font-body);
+    font-size:.78rem;font-weight:700;
+    letter-spacing:.16em;text-transform:uppercase;
+    color:#dc2626;
+    line-height:1;
+  }
+  [data-theme="light"] .editorial-hero .hero-explainer-eyebrow{color:#b91c1c}
+  /* 2026-05-26 (rev12): RE-ADDED .hero-subhead styling. Parallel
+     commits dropped both the markup AND the CSS. Substantive Fraunces
+     serif sub-line below the mantra; left-aligned in 2-col, centered
+     in mobile fallback. */
+  .editorial-hero .hero-subhead{
+    grid-area:subhead;
+    justify-self:start;
+    max-width:520px;
+    margin:18px 0 4px;
+    font-family:var(--font-display);
+    font-size:clamp(1.05rem,1.25vw,1.22rem);
+    font-weight:400;
+    line-height:1.45;
+    color:rgba(0,0,0,.64);
+    letter-spacing:.005em;
+  }
+  /* Hero MESSAGE A/B (2026-05-31): two subhead siblings on the live
+     (illustrated) hero, one per arm. 'flow' is hidden by default and for
+     no-JS; shown only when the early-paint IIFE sets
+     html[data-hero-msg="flow"]. Default arm + no-JS keep the original
+     subhead. Only one is ever display:block so they never both occupy the
+     .hi-head column. (The .editorial-hero arm is deprecated/hidden, so the
+     swap lives on .hi-subhead, the subhead everyone actually sees.) */
+  .hero-illustrated .hi-subhead--flow{display:none}
+  html[data-hero-msg="flow"] .hero-illustrated .hi-subhead--default{display:none}
+  html[data-hero-msg="flow"] .hero-illustrated .hi-subhead--flow{display:block}
+  /* 2026-06-16: trained-on-debate tail swap on the live subhead. Control
+     tail shows by default + no-JS; the 'on' arm names the training
+     credential instead. Inline spans, exactly one visible, shared bold lead. */
+  .hero-illustrated .hi-sub-tail--trained{display:none}
+  html[data-trained-ab="on"] .hero-illustrated .hi-sub-tail--control{display:none}
+  html[data-trained-ab="on"] .hero-illustrated .hi-sub-tail--trained{display:inline}
+  [data-theme="grey"] .editorial-hero .hero-subhead,
+  [data-theme="crimson"] .editorial-hero .hero-subhead,
+  [data-theme="stone"] .editorial-hero .hero-subhead{color:rgba(255,255,255,.7)}
+  @media (max-width:1099px){
+    .editorial-hero .hero-subhead{
+      justify-self:center;text-align:center;margin-left:auto;margin-right:auto;
+    }
+  }
+  /* Ambient radial behind the stage — gives the lower hero band a
+     contained atmosphere so the debaters + orb don't float in pure
+     white. Sits behind everything (z-index:0). The hero-orb-card
+     gets isolation:isolate elsewhere so its canvas + standby chip
+     still stack correctly above it. */
+  .editorial-hero::before{
+    content:'';
+    position:absolute;
+    left:50%;top:46%;
+    width:min(1100px,92vw);height:62%;
+    transform:translateX(-50%);
+    background:radial-gradient(ellipse at center,
+      rgba(239,68,68,.08) 0%,
+      rgba(239,68,68,.03) 38%,
+      transparent 72%);
+    pointer-events:none;
+    z-index:0;
+  }
+  [data-theme="light"] .editorial-hero::before,
+  [data-theme="stone"] .editorial-hero::before{
+    background:radial-gradient(ellipse at center,
+      rgba(220,38,38,.05) 0%,
+      rgba(220,38,38,.02) 38%,
+      transparent 72%);
+  }
+  .editorial-hero > *{position:relative;z-index:1}
+
+  .editorial-hero .editorial-eyebrow{
+    grid-area:eyebrow;display:none;
+  }
+  .editorial-hero .hero-headline{
+    grid-area:headline;
+    max-width:780px;margin:32px auto 0;
+    /* Slight left bias breaks the perfectly-centered "corporate"
+       feel without breaking the optical center entirely. ~7% offset
+       reads as "intentionally asymmetric" not "broken." */
+    transform:translateX(-7%);
+    text-align:left;text-wrap:balance;
+  }
+  /* Two-line rhythm. Default: lead big, accent slightly smaller
+     and lower so it reads as "Live spawn" landing, then "into
+     debates." resolving. The .hh-accent already breaks to its own
+     line; we tune the relative size + leading. */
+  .editorial-hero .hero-headline .hh-accent{
+    display:block;
+    font-size:.78em;
+    margin-top:-2px;
+    opacity:.95;
+  }
+
+  .editorial-hero .hero-sub{
+    grid-area:sub;max-width:560px;margin:14px auto 0;text-align:center;
+  }
+  .editorial-hero .hero-ctas{
+    grid-area:ctas;margin:20px auto 0;justify-self:center;
+  }
+  /* Primary pills flank the stage. justify-content:space-between
+     pushes Adaptive voice to the left and Debate Omegle to the
+     right within a wide max-width band so they read as "two
+     entrances into the arena." The mid-row separator (none) +
+     wider gap lets the gap itself be the message. */
+  .editorial-hero .hero-pill-rail--primary{
+    grid-area:primary-pills;
+    justify-self:stretch;
+    width:100%;max-width:780px;
+    margin:18px auto -8px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:24px;
+    padding:0 24px;
+  }
+  .editorial-hero .hero-pill-rail--secondary{
+    grid-area:secondary-pills;margin:18px auto 0;justify-self:center;
+  }
+  .editorial-hero .hero-card-stack{
+    grid-area:card;
+    align-self:center;justify-self:center;
+    width:100%;
+    max-width:820px;
+    /* Pushed down so the headline owns the top band. */
+    margin:34px auto 0;
+    display:flex;flex-direction:column;gap:18px;
+    min-width:0;
+  }
+  .editorial-hero .hero-card-stack > .hero-orb-card{
+    width:100%;
+    max-width:none;
+    margin:0;
+    min-width:0;
+  }
+  /* The single climax CTA below the stage. One bold action, large
+     and confident. Everything around it becomes secondary by
+     contrast. */
+  .editorial-hero .hero-stage-cta{
+    grid-area:stage-cta;
+    justify-self:center;
+    /* 2026-05-26 rev6: was -10px to pull the CTA into the orb's
+       bottom edge, but after upstream's rev12 split the hero into
+       a two-column grid with Sign in with Google sitting directly
+       above this button, the -10px pulled the red Debatable pill
+       INTO the white Sign in button, leaving a visible overlap
+       (~10px). Switched to a positive 14px so they sit cleanly
+       stacked with breathing room. The "orb → action" continuity
+       is preserved via the column layout where the orb is in the
+       adjacent column, not directly above. */
+    margin:14px auto 0;
+  }
+  .editorial-hero .editorial-signin-row{grid-area:signin;margin-top:24px}
+  .editorial-hero .hero-founder-cue{
+    grid-area:founder;justify-self:center;margin:22px auto 0;
+  }
+  .editorial-hero .hero-building-note,
+  .editorial-hero .hero-bookmark-note{
+    text-align:center;margin-left:auto;margin-right:auto;
+  }
+}
+
+/* Bold primary CTA under the stage. Brand red, larger padding,
+   stronger shadow — reads as the dominant action. Falls back
+   cleanly on mobile (still a real button, just narrower). */
+.hero-stage-cta{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:16px 30px;
+  font-family:inherit;font-size:1.04rem;font-weight:800;
+  letter-spacing:-.005em;color:#fff;
+  background:#dc2626;
+  border:1px solid #dc2626;border-radius:999px;
+  text-decoration:none;
+  box-shadow:0 14px 36px -10px rgba(239,68,68,.62),
+    inset 0 1px 0 rgba(255,255,255,.16);
+  transition:transform .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.hero-stage-cta:hover{
+  transform:translateY(-2px);
+  background:#b91c1c;
+  box-shadow:0 20px 48px -12px rgba(239,68,68,.7),
+    inset 0 1px 0 rgba(255,255,255,.18);
+}
+.hero-stage-cta .hero-stage-cta-arrow{
+  display:inline-block;font-size:.95em;transition:transform .25s ease;
+}
+.hero-stage-cta:hover .hero-stage-cta-arrow{transform:translateX(4px)}
+
+/* ── Polish layer (2026-05-26 rev4) ──────────────────────────
+   Orbital standby, ambient env signals, connection paths from
+   orb to debaters, mobile order rules. Goal: the room feels
+   inhabited and connected, not three independent shapes
+   sharing a viewport. */
+
+/* 2026-05-26 rev5: previous desktop override positioned the
+   "AI · standing by" pill absolutely at top:calc(50% + 180px)
+   to overlap the orb's lower-right perimeter. After the orb-card
+   padding-bottom was tightened and the inner Start-a-voice-round
+   pill was removed, that absolute y now lands on top of the
+   sub-text "Ready when you are..." instead of the canvas bottom.
+   Override removed — standby pill returns to the normal in-flow
+   block position between canvas and sub-text (base CSS at
+   .hero-orb-standby below). Less polish, but it actually reads
+   in the right order instead of fighting the layout. */
+@media (min-width:900px){
+  .hero-orb-card{position:relative;}
+}
+
+/* 2026-05-26 rev5: env-signal floating chips replaced with a single
+   horizontal status row beneath the climax CTA. Critique was that
+   the three corner chips (online now / signed in / 214 ms voice)
+   read as "randomly attached" — three independent objects with no
+   anchor. One inline row reads as one composition element,
+   grounded by sitting under the action it follows. */
+.hero-status-row{
+  display:inline-flex;align-items:center;gap:10px;
+  margin:16px auto 0;
+  padding:6px 14px;border-radius:999px;
+  font-family:'Geist Mono',ui-monospace,SFMono-Regular,monospace;
+  font-size:.68rem;font-weight:500;letter-spacing:.04em;
+  color:var(--text-dim);
+  background:transparent;
+  border:1px solid var(--border);
+  opacity:0;
+  animation:status-row-fade-in 1.1s ease-out .4s forwards;
+}
+.hero-status-row strong{
+  color:var(--text);
+  font-variant-numeric:tabular-nums;font-weight:700;
+}
+.hero-status-row .hsr-item{display:inline-flex;align-items:center;gap:5px}
+.hero-status-row .hsr-sep{opacity:.45}
+.hero-status-row .hsr-dot-live{
+  width:6px;height:6px;border-radius:50%;
+  background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.6);
+  animation:env-dot-pulse 2.1s ease-in-out infinite;
+}
+[data-theme="light"] .hero-status-row,
+[data-theme="stone"] .hero-status-row{
+  border-color:rgba(125,95,45,.22);
+  color:rgba(40,28,15,.62);
+}
+[data-theme="light"] .hero-status-row strong,
+[data-theme="stone"] .hero-status-row strong{color:#3a2a14}
+@keyframes env-dot-pulse{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes status-row-fade-in{
+  from{opacity:0;transform:translateY(4px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@media (max-width:560px){
+  .hero-status-row{font-size:.62rem;gap:6px;padding:5px 10px}
+}
+
+/* Connection paths — faint SVG curves from orb center to each
+   debater's head position. Stroke-dasharray + animated
+   dashoffset gives a slow signal-pulse, suggesting the orb is
+   "in conversation with" both debaters. Sits behind the canvas
+   (z-index:0) but above the card background. Hidden under
+   900px since the debaters are display:none there. */
+.hero-connect-paths{
+  position:absolute;inset:0;
+  width:100%;height:100%;
+  pointer-events:none;
+  z-index:1;
+  overflow:visible;
+}
+.hero-connect-paths path{
+  fill:none;
+  /* 2026-05-26 (rev14): stroke opacity dropped (.34 -> .18) + pulse
+     animation killed per the founder's brief "reduce decorative UI noise."
+     The dashed-line "connection" between figures and orb reads as
+     atmospheric without the dashoffset animation. The static dashes
+     still communicate the relationship; the perpetual march of
+     dashes was the noise. */
+  stroke:rgba(239,68,68,.18);
+  stroke-width:1.2;
+  stroke-dasharray:4 6;
+  stroke-linecap:round;
+}
+[data-theme="light"] .hero-connect-paths path,
+[data-theme="stone"] .hero-connect-paths path{
+  stroke:rgba(125,95,45,.32);
+}
+.hero-connect-paths path.hcp-right{animation-delay:-2s}
+@keyframes connect-pulse{
+  from{stroke-dashoffset:0}
+  to{stroke-dashoffset:-30}
+}
+@media (max-width:899px){
+  .hero-connect-paths{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .hero-connect-paths path{animation:none}
+  .hero-status-row,
+  .hero-status-row .hsr-dot-live{animation:none}
+}
+
+/* Mobile order — under the desktop @media wrapper (so it
+   applies on narrower widths only). Single column flex
+   already happens naturally; this enforces the explicit
+   sequence the user asked for: headline → orb (with debaters
+   inside) → primary CTAs → secondary pills → founder. */
+@media (max-width:899px){
+  .editorial-hero{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+  }
+  /* 2026-05-26 (rev13): order block rewritten to include the four
+     elements that landed in this thread (eyebrow, subhead, presence
+     row, founding-cta). All four defaulted to order:0 which pushed
+     them BEFORE the headline (order:1) in flex order — visible in
+     the mobile screenshot where the mantra appeared 4 rows down.
+     New order: eyebrow → headline → subhead → presence → google
+     sign-in → 50/mo founding-cta → orb stage → climax CTA → text
+     links → founder cue.
+     - .hero-pill-rail--primary kept at order:4 even though it's
+       display:none on landing now (the order is harmless when the
+       element doesn't render). */
+  .editorial-hero .hero-explainer-eyebrow{order:1;margin:18px auto 0}
+  .editorial-hero .hero-headline{order:2;margin:14px auto 0}
+  .editorial-hero .hero-subhead{order:3;margin:14px auto 0;max-width:520px}
+  .editorial-hero .hero-online-note{order:4;margin:16px auto 0}
+  .editorial-hero .hero-ctas{order:5;margin:18px auto 0}
+  .editorial-hero .hero-founding-cta{order:6;margin:14px auto 0}
+  .editorial-hero .hero-card-stack{order:7;margin:22px auto 0}
+  .editorial-hero .hero-stage-cta{order:8;margin:18px auto 0}
+  .editorial-hero .hero-pill-rail--primary{order:9;display:none}
+  .editorial-hero .hero-pill-rail--secondary{order:10;margin:14px auto 0}
+  .editorial-hero .hero-founder-cue{order:11;margin:24px auto 0}
+  .editorial-hero .editorial-signin-row{order:12;margin:20px auto 0}
+  .editorial-hero .hero-building-note,
+  .editorial-hero .hero-bookmark-note{display:none !important}
+}
+.hero-content{
+  max-width:1240px !important;
+  text-align:left !important;
+  padding-top:0 !important;
+  width:100%;
+}
+.editorial-hero{
+  max-width:1240px;
+  margin-inline:auto;
+  width:100%;
+}
+
+/* "Founder story" scroll cue — small text + downward arrow under
+   the pill rail. Anchors to #founder-story; html{scroll-behavior:
+   smooth} already gives us the smooth scroll for free. */
+.hero-founder-cue{
+  display:inline-flex;align-items:center;gap:8px;
+  margin-top:28px;
+  padding:8px 4px 8px 2px;
+  color:rgba(255,255,255,.68);
+  font-size:.78rem;font-weight:600;
+  letter-spacing:.16em;text-transform:uppercase;
+  text-decoration:none;
+  cursor:pointer;
+  transition:color .2s ease, transform .2s ease;
+}
+.hero-founder-cue:hover{color:#fff;transform:translateY(1px)}
+.hero-founder-cue .hfc-arrow{
+  width:14px;height:14px;
+  color:rgba(239,68,68,.85);
+}
+.hero-founder-cue:hover .hfc-arrow{color:#ef4444}
+[data-theme="light"] .hero-founder-cue{color:rgba(0,0,0,.64)}
+[data-theme="light"] .hero-founder-cue:hover{color:#1a1a1f}
+[data-theme="light"] .hero-founder-cue .hfc-arrow{color:rgba(220,38,38,.85)}
+
+/* Editorial eyebrow — small caps, hairline border, no glow.
+   Sits above the headline as a typographic anchor. */
+.editorial-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:5px 13px;border-radius:999px;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.22);
+  font-size:.62rem;font-weight:700;
+  /* Tightened from .22em → .12em so the long format list
+     ("Public beta · WSDC · Asian Parli · BP · PF · more") fits on
+     one line at the standard hero widths. The leader span
+     (.ee-beta) keeps the wider tracking that signals "editorial
+     eyebrow," then the format-list portion runs at normal cadence. */
+  letter-spacing:.12em;text-transform:uppercase;
+  color:rgba(255,255,255,.92);
+  font-feature-settings:"ss01" on;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+  white-space:nowrap;
+}
+@media (max-width: 720px){
+  .editorial-eyebrow{white-space:normal;letter-spacing:.10em}
+}
+.editorial-eyebrow .ee-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:#dc2626;
+  box-shadow:0 0 0 3px rgba(220,38,38,.16);
+}
+[data-theme="light"] .editorial-eyebrow{
+  background:rgba(0,0,0,.03);
+  border-color:rgba(0,0,0,.10);
+  color:rgba(0,0,0,.64);
+}
+/* When the eyebrow is a link (beta feedback shortcut, 2026-05-18),
+   give it a hover lift + warm accent so it reads as clickable. */
+.editorial-eyebrow-link{
+  text-decoration:none;cursor:pointer;
+  transition:border-color .18s ease, color .18s ease, background .18s ease;
+}
+.editorial-eyebrow-link:hover{
+  border-color:rgba(239,68,68,.55);
+  color:#fff;
+  background:rgba(239,68,68,.10);
+}
+[data-theme="light"] .editorial-eyebrow-link:hover{
+  border-color:rgba(220,38,38,.42);
+  color:#1a1a1f;
+  background:rgba(220,38,38,.06);
+}
+.editorial-eyebrow .ee-sep{opacity:.55;margin:0 2px}
+/* "Public beta" leader inside the eyebrow chip — slightly brighter
+   than the format-list text so the beta status reads first. */
+.editorial-eyebrow .ee-beta{
+  color:#fca5a5;font-weight:900;letter-spacing:.22em;
+  padding-right:2px;
+}
+[data-theme="light"] .editorial-eyebrow .ee-beta{color:#b91c1c}
+/* On narrow screens shrink the eyebrow + force one line so
+   'Public beta · 10 debate formats' stays as a single horizontal
+   chip instead of wrapping its segments into two stacked chunks. */
+.editorial-eyebrow{white-space:nowrap}
+@media (max-width:480px){
+  .editorial-eyebrow{font-size:.58rem;padding:5px 10px}
+  .editorial-eyebrow .ee-beta{letter-spacing:.14em}
+}
+
+/* "Still being built — join the Discord" pill in the hero pill rail.
+   Same shape as the other .hero-pill nav links so it doesn't shout;
+   a small static accent dot signals it's the live community link. */
+.hero-still-built{
+  display:inline-flex;align-items:center;gap:9px;
+  font-size:.98rem;font-weight:700;
+  padding:12px 22px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--text);
+  text-decoration:none;
+  white-space:nowrap;
+  transition:border-color .2s ease, color .2s ease;
+}
+.hero-still-built:hover{border-color:var(--text-dim);color:var(--text)}
+.hero-still-built .hsb-dot{
+  width:6px;height:6px;border-radius:50%;background:var(--accent);
+  display:inline-block;flex-shrink:0;
+}
+.hero-still-built .hsb-arrow{font-size:.85rem;font-weight:700;color:var(--text-dim)}
+/* New headline — bigger, tighter, editorial. !important on
+   text-transform to override legacy .hero h1{text-transform:uppercase}
+   higher up in the file. */
+.hero h1.hero-headline,
+.hero-headline{
+  /* 2026-05-17: hero headline rebuilt around Fraunces (variable serif).
+     Bigger size + heavier opsz so the editorial character reads at a
+     glance; SOFT 70 + WONK 1 push the letterforms toward warmth. Inter
+     was the prior face — too generic for a debate tool. */
+  font-family:var(--font-display) !important;
+  font-size:clamp(2.55rem,4.6vw,3.75rem) !important;
+  font-weight:700 !important;
+  font-style:normal !important;
+  font-variation-settings:"opsz" 144, "SOFT" 70, "WONK" 1 !important;
+  letter-spacing:-.032em !important;
+  line-height:.98 !important;
+  color:var(--text) !important;
+  text-transform:none !important;
+  margin:22px 0 26px !important;
+  max-width:880px;
+}
+.hero h1.hero-headline .hh-accent,
+.hero-headline .hh-accent{
+  font-style:normal !important;
+  font-weight:700 !important;
+}
+/* 2026-05-16: hero accent rebuild. Stripped the multi-stop crimson
+   gradient + the italic-glyph overshoot/box-decoration tricks. The
+   previous treatment read as AI-styled marketing chrome ("look at our
+   fancy gradient headline"), not editorial. New: solid foreground
+   color, slightly lighter weight on the accent, no gradient mask,
+   no negative letter-spacing past the headline base. The headline
+   still wraps on its own line and reads as a real masthead. */
+.hero-headline .hh-accent{
+  display:block;
+  margin-top:.08em;
+  color:var(--text);
+  font-weight:700;
+  font-style:normal;
+  letter-spacing:-.025em;
+  line-height:1.08;
+  padding-bottom:.06em;
+  /* Explicitly reset any inherited gradient-clip — older selectors
+     elsewhere on the page still apply linear-gradients to .hh-accent. */
+  background:none;
+  -webkit-background-clip:initial;
+  background-clip:initial;
+  -webkit-text-fill-color:currentColor;
+}
+[data-theme="light"] .hero-headline .hh-accent{
+  color:#1a1a1f;
+  background:none;
+  -webkit-text-fill-color:#1a1a1f;
+}
+
+/* Subhead — readable body weight, generous max-width, restrained color. */
+.hero-sub{
+  font-size:clamp(1.05rem,1.35vw,1.22rem);
+  font-weight:400;
+  line-height:1.55;
+  color:rgba(255,255,255,.82);
+  max-width:640px;
+  margin:0 0 36px;
+}
+[data-theme="light"] .hero-sub{color:rgba(0,0,0,.7)}
+
+/* Hero creed — small italic line that sits between the spec sub and
+   the CTA row. It's voice-of-the-builder, not product copy: the role
+   AI plays here (sparring antagonist + tool you use) over the two
+   tired readings (techno-messiah / AI-as-arbitrary-enemy). Kept short
+   so it reads as a creed, not a paragraph. */
+.hero-creed{
+  font-size:clamp(1.06rem,1.45vw,1.2rem);
+  font-weight:500;
+  font-style:normal;
+  line-height:1.45;
+  color:rgba(255,255,255,.68);
+  max-width:560px;
+  margin:6px 0 42px;
+  border-left:3px solid var(--accent);
+  padding-left:18px;
+}
+[data-theme="light"] .hero-creed{color:rgba(0,0,0,.64)}
+
+/* CTA row — primary muted crimson + secondary ghost. No more 4-button stack. */
+.hero-ctas{
+  display:flex;align-items:center;gap:14px;
+  flex-wrap:wrap;
+  margin-bottom:18px;
+}
+
+/* OG pill rail under the primary CTAs. 2026-05-18: bumped from
+   secondary-link size (7px/14px pad, .84rem) to proper navigation
+   button size (12px/22px pad, .98rem) so the rail carries real
+   visual weight under the headline. Adds a top margin for breathing
+   room. Voice gets a brand-red "New" tag. */
+.hero-building-note{
+  flex-basis:100%;margin:0 0 14px;
+  font-size:.88rem;color:rgba(255,255,255,.68);
+  letter-spacing:.01em;font-style:normal;
+}
+[data-theme="light"] .hero-building-note{color:rgba(0,0,0,.64)}
+
+/* Bookmark-and-come-back honest note. Sits right below the
+   "still building" line in the hero pill rail. Same flex-basis:100%
+   trick to break to its own row. Counter (.hero-bookmark-count) gets
+   the brand red; <kbd> shortcuts get a quiet keycap chip so power
+   users see the macOS / Windows hotkeys without it shouting. Both
+   counts hydrate live from /api/public-join-history; the markup
+   number is only the fetch-failure fallback. */
+/* 2026-05-26 rev5: real-time online count line. Sits between the
+   "still building" note and the cumulative "N signed in" line so
+   the live + cumulative numbers read together. Green pulsing dot
+   for the "live" signal — same dot color used in env-signal chips
+   and matchmaking surfaces. */
+.hero-online-note{
+  flex-basis:100%;margin:6px 0 4px;
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.92rem;color:rgba(255,255,255,.78);
+  font-weight:500;letter-spacing:.005em;line-height:1.55;
+}
+.hero-online-note strong{color:#fff;font-weight:800;font-variant-numeric:tabular-nums}
+.hero-online-note .hero-online-dot{
+  display:inline-block;width:7px;height:7px;border-radius:50%;
+  /* 2026-05-26 (rev14): pulse animation removed + box-shadow halved
+     (7px -> 3px) per the founder's brief "keep glow only for active
+     speaking / primary CTA hover / orb center / important interaction
+     states." A presence indicator is informational, not interactive
+     — it doesn't need to demand attention by pulsing. Solid green
+     dot still signals "live presence" without competing with the
+     orb's animation. */
+  background:#22c55e;box-shadow:0 0 3px rgba(34,197,94,.5);
+  flex-shrink:0;
+}
+@media (prefers-reduced-motion:reduce){
+  .hero-online-note .hero-online-dot{animation:none}
+}
+[data-theme="light"] .hero-online-note{color:rgba(0,0,0,.74)}
+[data-theme="light"] .hero-online-note strong{color:#0a0a0a}
+
+.hero-bookmark-note{
+  flex-basis:100%;margin:-4px 0 14px;
+  font-size:.9rem;color:rgba(255,255,255,.74);
+  letter-spacing:.005em;line-height:1.55;
+}
+.hero-bookmark-note .hero-bookmark-count{color:#ef4444;font-weight:800}
+.hero-bookmark-note kbd{
+  display:inline-block;padding:1px 6px;border-radius:5px;
+  border:1px solid rgba(255,255,255,.22);
+  font-size:.78em;font-family:'SF Mono','Geist Mono',ui-monospace,Menlo,monospace;font-weight:600;
+  background:rgba(255,255,255,.06);color:rgba(255,255,255,.88);
+  letter-spacing:0;margin:0 1px;vertical-align:1px;
+}
+[data-theme="light"] .hero-bookmark-note{color:rgba(0,0,0,.64)}
+[data-theme="light"] .hero-bookmark-note .hero-bookmark-count{color:#dc2626}
+[data-theme="light"] .hero-bookmark-note kbd{
+  border-color:rgba(0,0,0,.18);background:rgba(0,0,0,.04);color:rgba(0,0,0,.74);
+}
+
+/* Founding-cohort sign-in nudge. Sits below the "N debaters signed in"
+   count and pulls signed-OUT visitors into the community by anchoring
+   the ask to a real, finite goal ("the first thousand"). Hidden for
+   signed-in visitors via body.signed-in, since they're already in. */
+.hero-founding-cta{
+  flex-basis:100%;display:inline-flex;align-items:center;gap:8px;
+  margin:-4px 0 16px;padding:9px 16px;
+  background:rgba(239,68,68,.10);
+  border:1px solid rgba(239,68,68,.32);
+  border-radius:999px;
+  color:#fca5a5;
+  font-size:.86rem;font-weight:600;letter-spacing:.005em;
+  text-decoration:none;
+  transition:background .15s,border-color .15s,color .15s,transform .15s;
+  align-self:flex-start;
+  cursor:pointer;
+  font-family:inherit;
+}
+.hero-founding-cta:hover{
+  background:rgba(239,68,68,.16);
+  border-color:rgba(239,68,68,.52);
+  color:#fff;transform:translateY(-1px);text-decoration:none;
+}
+.hero-founding-cta .hfc-arrow{
+  display:inline-block;transition:transform .15s ease;
+}
+.hero-founding-cta:hover .hfc-arrow{transform:translateX(3px)}
+.hero-founding-cta .hfc-em{color:inherit;font-weight:800}
+body.signed-in .hero-founding-cta{display:none !important}
+[data-theme="light"] .hero-founding-cta{
+  background:rgba(220,38,38,.07);border-color:rgba(220,38,38,.30);color:#b91c1c;
+}
+[data-theme="light"] .hero-founding-cta:hover{
+  background:rgba(220,38,38,.12);border-color:rgba(220,38,38,.48);color:#1a1a1f;
+}
+
+/* 2026-05-26 (rev6): messianic creed line under the Sign-in CTA.
+   Restored from the pre-2026-05-24 sweep per user direction. Italic
+   Fraunces, quiet, sits as a thesis-statement, not a button. Hidden
+   for signed-in users (they've already crossed the door). */
+.hero-creed{
+  flex-basis:100%;
+  margin:-4px 0 16px;
+  font-family:var(--font-display);
+  font-style:normal;
+  font-size:.95rem;
+  font-weight:400;
+  line-height:1.45;
+  color:rgba(0,0,0,.64);
+  letter-spacing:.005em;
+  max-width:460px;
+}
+[data-theme="grey"] .hero-creed,
+[data-theme="crimson"] .hero-creed,
+[data-theme="stone"] .hero-creed{color:rgba(255,255,255,.68)}
+body.signed-in .hero-creed{display:none !important}
+@media (max-width:1099px){
+  .hero-creed{text-align:center;margin-left:auto;margin-right:auto}
+}body.signed-in .editorial-hero .hero-ctas{margin-bottom:0}
+body.signed-in .editorial-hero .hero-pill-rail{margin-top:14px}
+body.signed-in .hero-creed{margin-bottom:14px}
+body.signed-in .hero-ctas{margin-bottom:14px}
+body.signed-in .hero-pill-rail{margin-top:14px}

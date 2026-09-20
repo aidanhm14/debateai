@@ -1,5 +1,5 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { validateDesign, compileCSS, applicableChanges, pageKey } from '../app/js/design/model.mjs';
 import { createDesignHandler } from '../app/netlify/functions/admin-design.mjs';
 import { createPublicDesignHandler } from '../app/netlify/functions/site-design.mjs';
@@ -65,7 +65,7 @@ ok(designPages().some(p=>p.path==='/landing.html')&&designPages().length>80,'Pag
 let reads=0,writes=0;
 class XHR{open(method){/^(GET|HEAD|OPTIONS)$/.test(method)?reads++:writes++;}}
 const listeners={};const context={URLSearchParams,Response,Promise,Error,XMLHttpRequest:XHR,document:{currentScript:{getAttribute:()=>'/landing.html'},addEventListener:(name,fn)=>listeners[name]=fn},location:{search:'?__design=1',pathname:'/landing.html'},navigator:{sendBeacon:()=>writes++,mediaDevices:{getUserMedia:()=>writes++,getDisplayMedia:()=>writes++},serviceWorker:{register:()=>writes++}},parent:{__DB_DESIGN_HOST:true},fetch:()=>{reads++;return Promise.resolve(new Response('{}'));}};
-context.window=context;vm.runInNewContext(readFileSync(new URL('../app/js/design-loader.js',import.meta.url),'utf8'),context);
+context.window=context;vm.runInNewContext(readPageSource(new URL('../app/js/design-loader.js',import.meta.url),'utf8'),context);
 ok(context.__DB_DESIGN_PREVIEW===true,'Editor preview is identified before the page initializes');
 ok((await context.fetch('/api/spar-pair',{method:'POST'})).status===403,'Preview blocks fetch writes before page actions can run');
 assert.throws(()=>new context.XMLHttpRequest().open('POST','/write'));checks++;
