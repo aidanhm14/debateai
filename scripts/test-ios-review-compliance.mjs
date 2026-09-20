@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readPageSource } from './lib/page-source.mjs';
 
 // App Store Guidelines 1.2 and 2.2 are release requirements, not review
 // copy. This guard keeps the production flow behind the reviewer evidence:
@@ -6,11 +7,10 @@
 // response promise, and no beta language on the native-facing legal surfaces.
 
 import assert from 'node:assert';
-import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const read = (path) => readFileSync(root + path, 'utf8');
+const read = (path) => readPageSource(root + path, 'utf8');
 
 const auth = read('app/js/auth-modal.js');
 const spar = read('app/spar.html');

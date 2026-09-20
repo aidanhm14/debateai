@@ -1,8 +1,8 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import vm from 'node:vm';
 
-const read = file => fs.readFileSync(new URL('../' + file, import.meta.url), 'utf8');
+const read = file => readPageSource(new URL('../' + file, import.meta.url), 'utf8');
 const live = read('app/live-round.html');
 const practice = read('app/practice.html');
 const flow = read('app/netlify/functions/flow.mjs');

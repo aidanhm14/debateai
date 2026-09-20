@@ -6,12 +6,14 @@ import { draftFixture } from '../../scripts/test-support/draft-fixture.mjs';
 
 const source = readFileSync(new URL('../../app/live-round.html', import.meta.url), 'utf8');
 const between = (a, b) => source.slice(source.indexOf(a), source.indexOf(b, source.indexOf(a)));
-const draft = between('    // ── MOTION DRAFT (', '    // ── Motion context (');
+const draftModule = readFileSync(new URL('../../app/js/live-room/draft.js', import.meta.url), 'utf8');
+const timerModule = readFileSync(new URL('../../app/js/live-room/timers.js', import.meta.url), 'utf8');
 const snapshot = between('  function onRoundSnapshot(d){', '    // ── Snapshot repaint gating')
   + "if (window.testPaintFailure) throw new Error('fixture-decoration'); }";
 const swap = between('    function applySeatSwap(){', '    function proposeSwap(){');
-const daily = between("    call.on('app-message', function(ev){", "    call.on('participant-left', paintRoom);");
-const speech = between('  function startSpeechTimer(){', "    if (state.phase === 'round' && state.speechIdx === 0 && !isSpectator() && !judgeLockKey()){")
+const connectionModule = readFileSync(new URL('../../app/js/live-room/connection.js', import.meta.url), 'utf8');
+const daily = connectionModule.slice(connectionModule.indexOf("    call.on('app-message', function(ev){"), connectionModule.indexOf("    call.on('participant-left', paintRoom);"));
+const speech = timerModule.slice(timerModule.indexOf('  function startSpeechTimer(){'), timerModule.indexOf("    if (context.state.phase === 'round' && context.state.speechIdx === 0 && !isSpectator() && !judgeLockKey()){"))
   + 'window.speechesStarted++; }';
 const styles = [...source.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
 
@@ -37,6 +39,7 @@ async function world(browser, { signals = true } = {}) {
     });
     await p.goto('https://draft.test/live-round');
     await p.addStyleTag({ content: styles });
+    await p.addScriptTag({ content: draftModule });
     await p.evaluate(({ uid, round }) => {
       window.roundState = { ...round, room: 'room', phase: 'round', formatKey: 'quick', timerState: 'ready', recordingRequired: false, log: [], user: { uid, getIdToken: async () => uid } };
       window.speechesStarted = 0;
@@ -58,7 +61,8 @@ async function world(browser, { signals = true } = {}) {
       function tournamentControlsLocked(){ return false; } function tournamentDraftMotion(){ return ''; }
       // This fixture exercises pre-round draft admission, with no finishing conversation.
       function conversationIsFinishing(){ return false; }
-      ${draft}
+      var context = { state };
+      DBLiveDraft.attach({ state, escHtml, getRoundDocRef, isSpectator, onRoundSnapshot, toast });
       ${snapshot}
       ${swap}
       ${daily}

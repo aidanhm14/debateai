@@ -1,5 +1,5 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import vm from 'node:vm';
 import { roomShotPublic } from '../app/netlify/functions/lib/room-shot-eligibility.mjs';
 
@@ -10,7 +10,7 @@ const live = { status: 'round', proUid: 'a', conUid: 'b', seatSeen: { a: now, b:
 const image = Buffer.from('fixture JPEG').toString('base64');
 let round = structuredClone(live), uid = 'a', writes = 0;
 const shot = { public: true, seats: { pro: { b64: image, at: now - 15000 } } };
-const routeSource = fs.readFileSync('app/netlify/functions/room-shot.mjs', 'utf8')
+const routeSource = readPageSource('app/netlify/functions/room-shot.mjs', 'utf8')
   .replace(/^import .*;\n/gm, '').replace('export default async', 'globalThis.handler = async')
   .replace('export const config', 'const config');
 const context = vm.createContext({
@@ -58,7 +58,7 @@ assert.equal((await get()).status, 404);
 
 // The room selects assigned participants, not spectators, hidden raw
 // cameras, or screen shares. Exercise the actual uploader's selection.
-const html = fs.readFileSync('app/live-round.html', 'utf8');
+const html = readPageSource('app/live-round.html', 'utf8');
 const start = html.indexOf('  function pushRoomShot(){');
 const end = html.indexOf('    if (!data || data.length < 200) return;', start);
 let captured;

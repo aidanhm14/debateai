@@ -1,3 +1,4 @@
+import { readPageSource } from './lib/page-source.mjs';
 // Guard for the AI-use screen (lib/ai-use.mjs + its wiring). The promises
 // pinned here are published to users in the report modal, so breaking one
 // is a lie on a safety surface, not a refactor:
@@ -11,7 +12,6 @@
 //      reads safety_reports.
 // Run: node scripts/test-ai-use.mjs
 
-import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
@@ -109,14 +109,14 @@ ok(combineVerdicts(softHeur, null) === 'none', 'nothing found is none');
 ok(AI_USE_VERDICTS.join(',') === 'none,weak,moderate,strong', 'verdict vocabulary is pinned');
 
 // ── Wiring assertions (source reads, same style as the other guards) ─
-const reportSrc = readFileSync(join(root, 'app/netlify/functions/report-user.mjs'), 'utf8');
+const reportSrc = readPageSource(join(root, 'app/netlify/functions/report-user.mjs'), 'utf8');
 ok(/'ai_use'/.test(reportSrc), 'report-user accepts the ai_use reason');
 ok(/aiAnalysis/.test(reportSrc), 'report-user attaches the analysis to the report record');
 ok(!/video_bans|banUntil|collection\(['"]strikes|updateParticipants|setUserData|['"]eject/i.test(reportSrc), 'report-user has NO strike/ban/eject write path — the screen is evidence only');
 ok(/checkLayers\('aiuse'/.test(reportSrc), 'the model call is rate-limited per reporter');
 ok(/Human review proceeds as normal/.test(reportSrc), 'a rate-limited screen still files the report');
 
-const pageSrc = readFileSync(join(root, 'app/live-round.html'), 'utf8');
+const pageSrc = readPageSource(join(root, 'app/live-round.html'), 'utf8');
 ok(/value="ai_use"/.test(pageSrc), 'the report modal offers Using AI');
 ok(/rosterOppAiReport/.test(pageSrc), 'the opponent card has the one-tap AI report');
 ok(/rmbChangeBtn/.test(pageSrc), 'the resolution band has the visible Change control');
@@ -129,7 +129,7 @@ ok(!/aiAnalysis/.test(pageSrc), 'the client never receives or renders the raw an
 // Same constitution as admin-appeals: the queue where a human reads the
 // evidence must contain no model call and no cron, and it must never be
 // able to strike, ban, or eject from a dashboard button.
-const benchSrc = readFileSync(join(root, 'app/netlify/functions/admin-safety-reports.mjs'), 'utf8');
+const benchSrc = readPageSource(join(root, 'app/netlify/functions/admin-safety-reports.mjs'), 'utf8');
 ok(/requireAdmin/.test(benchSrc), 'the review bench is admin-gated');
 ok(!/api\.anthropic\.com|api\.openai\.com|generativelanguage|ANTHROPIC_API_KEY|OPENAI_API_KEY/.test(benchSrc), 'the review bench makes NO provider call — a model may not review a report about a model');
 ok(!/schedule\s*:/.test(benchSrc), 'no cron resolves a report on its own');
@@ -137,7 +137,7 @@ ok(!/video_bans|banUntil|collection\(['"]strikes|['"]eject/i.test(benchSrc), 're
 ok(/note\.length < 10/.test(benchSrc), 'a resolution requires a written reason');
 ok(/already_resolved/.test(benchSrc), 'a resolved report stays resolved (no double-resolve)');
 
-const adminSrc = readFileSync(join(root, 'app/admin.html'), 'utf8');
+const adminSrc = readPageSource(join(root, 'app/admin.html'), 'utf8');
 ok(/loadSafetyReports/.test(adminSrc) && /api\/admin\/safety-reports/.test(adminSrc), '/admin renders the queue');
 ok(/evidence for you, never a verdict/i.test(adminSrc), 'the card states the evidence-not-verdict posture');
 

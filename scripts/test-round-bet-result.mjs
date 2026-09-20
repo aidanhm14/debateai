@@ -1,7 +1,7 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import vm from 'node:vm';
-const source=fs.readFileSync(new URL('../app/js/round-bet.js',import.meta.url),'utf8');
+const source=readPageSource(new URL('../app/js/round-bet.js',import.meta.url),'utf8');
 const scope=vm.createContext({});
 vm.runInContext(source.slice(source.indexOf('  function resultCopy('),source.indexOf('  function paintResult(')),scope);
 const copy=scope.resultCopy;
@@ -16,6 +16,6 @@ assert.match(copy({...market,status:'voided'},bet,true).detail,/full stake was r
 assert.match(copy(market,null,true).detail,/No bet placed/);
 assert.doesNotMatch(copy(market,null,true).title,/tokens/);
 assert.match(copy({...market,poolPro:150,poolCon:50},bet,true).detail,/received 66 tokens/,'fractional returns use the settlement floor');
-const live=fs.readFileSync(new URL('../app/live-round.html',import.meta.url),'utf8');
+const live=readPageSource(new URL('../app/live-round.html',import.meta.url),'utf8');
 assert.ok(!live.includes('id="ballotBetSlot"'),'retired betting results stay off the public ballot');
 console.log('Bet result: settled returns, net profit, rounding, no bet, pending, loss and refunds passed.');

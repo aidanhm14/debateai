@@ -62,6 +62,11 @@ the admission helper for free, paid, failed-payment, paused and legacy grants.
 These are isolated browser checks, not live OAuth, media transport or payment
 provider integration tests. Every network request is intercepted.
 
+`live-room-modules.spec.mjs` loads the extracted controllers directly. It
+checks blocked-microphone retry, renderer audio fallback, call retry,
+receive-only spectators, network recovery and departure/bfcache presence.
+Devices, Daily and Firestore are controlled fixtures, not live services.
+
 `tests/match-invitations.spec.mjs` is an offline two-person browser suite.
 It uses the shipped matching code with an in-memory queue and pairing
 endpoints. It covers mutual acceptance before room entry, existing matches, concurrent

@@ -1,13 +1,13 @@
+import { readPageSource } from './lib/page-source.mjs';
 // The live round must never strand setup on "Could not write a brief."
 // Transient failures retry once; every terminal failure gets neutral local
 // context, and both setup surfaces use the same helper.
-import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const helperSource = readFileSync(join(root, 'app/js/motion-brief.js'), 'utf8');
-const liveRoundSource = readFileSync(join(root, 'app/live-round.html'), 'utf8');
+const helperSource = readPageSource(join(root, 'app/js/motion-brief.js'), 'utf8');
+const liveRoundSource = readPageSource(join(root, 'app/live-round.html'), 'utf8');
 const browser = {};
 new Function('window', 'globalThis', helperSource)(browser, browser);
 

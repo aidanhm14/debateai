@@ -1,3 +1,4 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 
@@ -62,10 +63,10 @@ check('one nudge per recipient per window, however many messages arrive', () => 
   assert.ok(DM_EMAIL_COOLDOWN_MS >= 60 * 60 * 1000, 'cooldown is hours, not a token throttle');
 });
 
-const endpoint = readFileSync(new URL('../app/netlify/functions/notify-dm.mjs', import.meta.url), 'utf8');
-const core = readFileSync(new URL('../app/js/dm-core.js', import.meta.url), 'utf8');
-const liveRound = readFileSync(new URL('../app/live-round.html', import.meta.url), 'utf8');
-const spar = readFileSync(new URL('../app/spar.html', import.meta.url), 'utf8');
+const endpoint = readPageSource(new URL('../app/netlify/functions/notify-dm.mjs', import.meta.url), 'utf8');
+const core = readPageSource(new URL('../app/js/dm-core.js', import.meta.url), 'utf8');
+const liveRound = readPageSource(new URL('../app/live-round.html', import.meta.url), 'utf8');
+const spar = readPageSource(new URL('../app/spar.html', import.meta.url), 'utf8');
 
 check('server claims the cooldown transactionally before sending, and reverts on failure', () => {
   assert.match(endpoint, /dm_email_state/);
@@ -111,7 +112,7 @@ check('live-round DM composer notifies with its generated message id', () => {
 check('retired first-message route is compatibility-only', () => {
   const compatibilityPath = new URL('../app/netlify/functions/notify-dm-accept.mjs', import.meta.url);
   assert.equal(existsSync(compatibilityPath), true);
-  const compatibility = readFileSync(compatibilityPath, 'utf8');
+  const compatibility = readPageSource(compatibilityPath, 'utf8');
   assert.match(compatibility, /return notifyDm\(forwarded\)/);
   assert.doesNotMatch(compatibility, /sendEmail|message\.text|acceptEmailSentAt/);
   assert.doesNotMatch(spar, /notify-dm-accept/);

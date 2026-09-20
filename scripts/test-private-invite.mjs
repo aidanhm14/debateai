@@ -1,10 +1,11 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {privateInvite} from '../app/netlify/functions/lib/private-invite.mjs';
 import {corsResponse,errorResponse,jsonResponse} from '../app/netlify/functions/lib/response.mjs';
 
-const read=p=>readFileSync(p,'utf8');
+const read=p=>readPageSource(p,'utf8');
 const now=Date.now();
 function fixture(){
   const rows=new Map();

@@ -10,6 +10,13 @@ Source-based guards use `scripts/lib/page-source.mjs` to inspect marked
 external assets; browser checks must load the actual files. Continue surgical
 changes without JSX, redesign or a wholesale rewrite.
 
+The live room now loads six controllers from `app/js/live-room/`: timers,
+media, connection, presence, draft and verdict. Their dependencies are
+injected explicitly from the page; shared state uses live getters/setters.
+See that directory's README before moving more responsibilities. Keep
+server draft/judge policy and stored-round compatibility in their existing
+modules. Browser fixtures exercise the shipped controllers directly.
+
 > **Debate online entry (Aidan, 2026-09-20).** `/debate-online` is a single screen with the existing search-intent headline, one animated “Meet someone” link to `/spar`, and a short private-by-default note. No how-it-works sections, FAQ, example videos, activity counters or competing account popups. Keep semantic HTML, canonical metadata and accurate structured data. Button motion is finite and respects reduced motion. Small screens fit without scrolling; enlarged text may scroll to keep controls accessible.
 
 > **Private rounds by default (Aidan, 2026-09-19).** New live rounds start private, with “Private round”, “No spectators” and one “Make public” button. Publishing is an explicit participant action for that round; rejoining never overwrites it. Private round transcripts and video are participant-only, including direct links and stage views. Audience-camera controls live inside Chat, and the old visibility menu and unlisted nudge are retired. Ordinary live-round visibility does not select the separate /private and /squad judging allowance. Existing rounds keep their saved visibility.

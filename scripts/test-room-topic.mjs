@@ -1,5 +1,5 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { runTopicAction, mintTopicVoice, topicNames, ownsTopicVoice } from '../app/netlify/functions/room-topic.mjs';
 import { publicTopicTalk, topicRoundOpen, buildTopicJudgeInstructions, topicGreeting, TOPIC_TOOLS, TOPIC_GREETING, TOPIC_MAX_MS, TOPIC_MAX_PROPOSALS } from '../app/netlify/functions/lib/room-topic.mjs';
 import { validateProposedMotion } from '../app/netlify/functions/lib/spar-motion-generation.mjs';
@@ -157,7 +157,7 @@ assert.equal(SEASONS.at(-1).rubricVersion, 'adjudication-2026-09-flex');
 assert.deepEqual(RUBRICS['adjudication-2026-09-flex'].dimensions, RUBRICS['adjudication-2026-08c'].dimensions);
 assert.deepEqual(SEASONS.at(-1).panel, SEASONS.at(-2).panel);
 assert.notEqual(rubricHash('adjudication-2026-09-flex'), rubricHash('adjudication-2026-08c'));
-const page = readFileSync(new URL('../app/live-round.html', import.meta.url), 'utf8');
+const page = readPageSource(new URL('../app/live-round.html', import.meta.url), 'utf8');
 assert.ok(page.includes('window.RoomTopic.dismiss()'), 'starting a speech sends the judge away rather than being refused by it');
 assert.ok(!/isPending\(\)\)\{ toast\(/.test(page), 'the old blocking toast is gone');
 assert.ok(page.includes('Debate something else'));

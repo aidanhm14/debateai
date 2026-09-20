@@ -1,7 +1,7 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-const source=readFileSync('app/live-round.html','utf8');
+const source=readPageSource('app/live-round.html','utf8');
 const upload=source.slice(source.indexOf('  function srvUpload('),source.indexOf('  function srvSegment()'));
 let deliver, side='pro';
 const ctx={FormData:class{append(){}},state:{speechIdx:0,micFinal:''},mic:{generation:1,finals:[]},srv:{fails:0},

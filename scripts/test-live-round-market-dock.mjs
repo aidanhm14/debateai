@@ -1,6 +1,6 @@
-import { readFileSync } from 'node:fs';
+import { readPageSource } from './lib/page-source.mjs';
 
-const page = readFileSync(new URL('../app/live-round.html', import.meta.url), 'utf8');
+const page = readPageSource(new URL('../app/live-round.html', import.meta.url), 'utf8');
 let passed = 0;
 let failed = 0;
 

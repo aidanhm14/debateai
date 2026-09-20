@@ -1,8 +1,8 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import Teams from '../app/js/room-teams.js';
-const read=p=>readFileSync(p,'utf8');
+const read=p=>readPageSource(p,'utf8');
 const page=read('app/live-round.html');
 const init=page.slice(page.indexOf('  function publishRoundInit(){'),page.indexOf('  function publishSpeech(entry){'));
 let saved=null, writes=[];
@@ -40,6 +40,7 @@ for(const savedPrivacy of [true,false,undefined]){
 const beat=page.slice(page.indexOf('        var seatBeat = function(){'),page.indexOf('        seatBeat();'));
 for(const waiting of [{roundDocSeen:false,dailyMounted:false},{roundDocSeen:true,dailyMounted:false}]){
  const beforeRoom={state:{phase:'setup',...waiting}};
+ beforeRoom.context=beforeRoom;
  vm.runInNewContext(beat+'seatBeat();',beforeRoom);
 }
 

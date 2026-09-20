@@ -1,5 +1,5 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import vm from 'node:vm';
 import { roundStillsAllowed, clearRoundStills, savedRoundThumbnail, STILL_CONSENT_VERSION, STILL_COUNT, STILL_GAP_MS } from '../app/netlify/functions/lib/round-stills.mjs';
 import { roomShotPublic } from '../app/netlify/functions/lib/room-shot-eligibility.mjs';
@@ -47,7 +47,7 @@ assert.equal(roundStillsAllowed(live, { ...permission, disabled: true }), false)
 // smoke below separately encodes real canvases with the actual renderer.
 const bytes = Buffer.alloc(250, 0); bytes.set([255, 216, 255], 0); bytes.set([255, 217], 248);
 const b64 = bytes.toString('base64');
-const route = fs.readFileSync('app/netlify/functions/round-stills.mjs', 'utf8')
+const route = readPageSource('app/netlify/functions/round-stills.mjs', 'utf8')
   .replace(/^import .*;\n/gm, '').replace('export default async', 'globalThis.handler = async').replace('export const config', 'const config');
 const context = vm.createContext({
   Buffer, URL, Response, console, Number, Date: class extends Date { static now(){ return now; } },
@@ -98,7 +98,7 @@ for (const collection of ['round_stills', 'round_still_sets', 'round_still_permi
 
 // Exercise the real recording-consent writer, including an older client
 // that has never shown the new still-image disclosure.
-const recordingSource = fs.readFileSync('app/netlify/functions/round-recording.mjs', 'utf8')
+const recordingSource = readPageSource('app/netlify/functions/round-recording.mjs', 'utf8')
   .replace(/^import .*;\n/gm, '').replace('export default async', 'globalThis.recordingHandler = async')
   .replace('export async function', 'async function').replace('export const config', 'const recordingConfig');
 const recordingContext = vm.createContext({
@@ -131,7 +131,7 @@ assert.equal((await post()).status, 403);
 
 // Parse all changed browser code, including the large room's inline blocks.
 for (const name of ['app/live-round.html', 'app/round-images.html']) {
-  const html = fs.readFileSync(name, 'utf8');
+  const html = readPageSource(name, 'utf8');
   for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
     if (!/src=|application\/ld\+json/.test(match[1]) && match[2].trim()) new vm.Script(match[2], { filename: name });
   }

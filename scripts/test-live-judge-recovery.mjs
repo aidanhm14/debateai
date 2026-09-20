@@ -1,3 +1,4 @@
+import { readPageSource } from './lib/page-source.mjs';
 // Regression coverage for the live-room ballot watchdog. These helpers are
 // pure on purpose: recovery authorization and lease timing must stay
 // testable without Firestore or provider keys.
@@ -12,7 +13,6 @@ import {
   recoveryWaitMs,
   judgeLeaseWaitMs,
 } from '../app/netlify/functions/live-judge.mjs';
-import { readFileSync } from 'node:fs';
 
 let failures = 0;
 function ok(condition, label) {
@@ -125,8 +125,8 @@ const incomplete = incompletePanelSummary({
 ok(incomplete.missing === 1 && incomplete.panelSize === 3, 'the retry response names the missing panel seat');
 ok(incomplete.tally.pro === 1 && incomplete.tally.con === 1, 'the retry response keeps operational vote counts without publishing a result');
 
-const appCheckSource = readFileSync(new URL('../app/js/app-check.js', import.meta.url), 'utf8');
-const liveRoundSource = readFileSync(new URL('../app/live-round.html', import.meta.url), 'utf8');
+const appCheckSource = readPageSource(new URL('../app/js/app-check.js', import.meta.url), 'utf8');
+const liveRoundSource = readPageSource(new URL('../app/live-round.html', import.meta.url), 'utf8');
 const gatedBlock = appCheckSource.match(/var GATED = \[([\s\S]*?)\];/);
 const authBlock = appCheckSource.match(/var AUTH_ROUTES = \[([\s\S]*?)\];/);
 ok(gatedBlock && gatedBlock[1].includes("'/api/live-judge'"), 'live judge always mints an App Check token');
@@ -144,7 +144,7 @@ ok(
   'the server judge waits for the final transcript write',
 );
 ok(
-  /allowRuntimeFallbackCall:\s*internal/.test(readFileSync(new URL('../app/netlify/functions/live-judge.mjs', import.meta.url), 'utf8')),
+  /allowRuntimeFallbackCall:\s*internal/.test(readPageSource(new URL('../app/netlify/functions/live-judge.mjs', import.meta.url), 'utf8')),
   'live judging cannot overrun its request window with a second provider call',
 );
 

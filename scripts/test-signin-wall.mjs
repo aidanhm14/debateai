@@ -1,7 +1,7 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import vm from 'node:vm';
-const source = fs.readFileSync(new URL('../app/js/signin-wall.js', import.meta.url), 'utf8');
+const source = readPageSource(new URL('../app/js/signin-wall.js', import.meta.url), 'utf8');
 function page({ path = '/', storage = new Map(), user = null, native = false, sdk = true, inApp = false, entry = '' } = {}) {
   let now = 0, listener;
   const intervals = [], asks = [], events = [], nodes = new Map(), busy = new Set();

@@ -1,3 +1,4 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
@@ -106,7 +107,7 @@ await timeout.act('a','finish');await timeout.act('a','finish-ready',{},now+2000
 assert.equal(timeout.round().speeches.length,1,'A disconnected teammate cannot block completion forever');
 
 // Execute the actual in-page attribution helpers, including seat 2 turns.
-const page=readFileSync('app/live-round.html','utf8');
+const page=readPageSource('app/live-round.html','utf8');
 const ctx={state:{isDuo:true,user:{uid:'c'},proUid:'a',proUid2:'c',conUid:'b',conUid2:'d'},
   mySide:()=> 'pro',sideBench:(_f,side)=>side==='pro'?'gov':'opp'};
 vm.createContext(ctx);
@@ -137,7 +138,7 @@ console.log('Team seats: host approval, simultaneous requests, expiry, age group
 // Run the real Daily handler with only network/auth/database dependencies
 // stubbed. A viewer cannot turn a copied URL into a sending credential.
 let dailyBody,tokenBody,tokenFails=false;
-const dailySource=readFileSync('app/netlify/functions/create-daily-room.mjs','utf8').replace(/^import .*;\n/gm,'').replace('export default async (req) =>','var handler = async (req) =>').replace(/export const config\s*=[\s\S]*$/,'');
+const dailySource=readPageSource('app/netlify/functions/create-daily-room.mjs','utf8').replace(/^import .*;\n/gm,'').replace('export default async (req) =>','var handler = async (req) =>').replace(/export const config\s*=[\s\S]*$/,'');
 const dailyCtx={Request,Response,URL,Headers,TextEncoder,crypto,console,process:{env:{DAILY_API_KEY:'test',DAILY_DOMAIN:'test',DAILY_RECORD:'0'}},Teams,
   getDb:()=>f.db,withDeadline:p=>p,verifyIdToken:async uid=>({sub:uid,firebase:{sign_in_provider:'google.com'}}),
   checkLayers:async()=>({ok:true}),parseTournamentRoom:()=>null,

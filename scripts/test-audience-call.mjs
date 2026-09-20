@@ -1,9 +1,10 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {audienceAudioAllowed} from '../app/netlify/functions/lib/audience-media.mjs';
-const server=readFileSync('app/netlify/functions/audience-cam.mjs','utf8');
-const page=readFileSync('app/live-round.html','utf8');
+const server=readPageSource('app/netlify/functions/audience-cam.mjs','utf8');
+const page=readPageSource('app/live-round.html','utf8');
 let record={kind:'cam',status:'accepted',audio:true,respondedBy:'pro',respondedAt:{toMillis:()=>Date.now()-1000}};
 const db={collection:()=>({doc:()=>({collection:()=>({doc:()=>({get:async()=>({exists:true,data:()=>record})})})})})};
 const c={console,Date,APPROVAL_TTL_MS:7200000,withDeadline:p=>p};vm.createContext(c);

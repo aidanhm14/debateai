@@ -1,11 +1,11 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { createRequire } from 'node:module';
 import { roundOutcome, hasCapturedSpeech } from '../app/netlify/functions/lib/round-funnel.mjs';
 const require = createRequire(import.meta.url);
 const journey = require('../app/js/live-journey.js');
-const read = file => readFileSync(new URL('../' + file, import.meta.url), 'utf8');
+const read = file => readPageSource(new URL('../' + file, import.meta.url), 'utf8');
 const spar = read('app/spar.html'), live = read('app/live-round.html');
 const fn = (source, name) => {
   const m = source.match(new RegExp('  function ' + name + '\\([^)]*\\)\\{[\\s\\S]*?\\n  \\}'));
@@ -63,7 +63,13 @@ let blocked=true,captures=0,joins=0,notice='';const audio={kind:'audio',readySta
 class Stream {constructor(tracks=[]){this.tracks=tracks;}getAudioTracks(){return this.tracks.filter(t=>t.kind==='audio');}getVideoTracks(){return this.tracks.filter(t=>t.kind==='video');}}
 const m={Promise,Date,Error,console,MediaStream:Stream,state:{dailyUrl:'fixture'},room:{viewer:false,joined:false},camConv:{},camJoinNoticeShown:false,
  navigator:{mediaDevices:{getUserMedia:async()=>{captures++;if(blocked)throw Object.assign(new Error('blocked'),{name:'NotAllowedError'});return new Stream([audio,video]);}}},window:{DebateCam:{start:async srcStream=>({srcStream})}},liveJourney(){},captureConstraints:()=>true,seatLabel:()=> 'Fixture',startGuard(){},publishTrackFor:()=>video,tuneSendQuality(){},myRoomName:()=> 'Fixture',setRoomNote(){},setRoomExit:s=>{notice=s;},paintTray(){},toast:s=>{notice=s;},gtag(){},setTimeout,clearTimeout};
-m.room.call={join:async props=>{joins++;assert.equal(props.audioSource,audio);m.room.joined=true;}};vm.createContext(m);for(const n of ['ensureAvatarCam','joinWith','joinRoomCall','camJoinNoVideoNotice'])vm.runInContext(fn(live,n),m);
+m.room.call={join:async props=>{joins++;assert.equal(props.audioSource,audio);m.room.joined=true;}};vm.createContext(m);
+m.document={createElement:()=>({addEventListener(){},appendChild(){}})};
+m.room.note={classList:{add(){},remove(){}},style:{},appendChild:el=>{if(el.className==='cv-exit-h')notice=el.textContent;}};
+vm.runInContext(read('app/js/live-room/media.js')+read('app/js/live-room/connection.js'),m);
+const media=m.window.DBLiveMedia.create(m),connection=m.window.DBLiveConnection.create(m);
+for(const n of ['ensureAvatarCam','camJoinNoVideoNotice'])m[n]=media[n];
+for(const n of ['joinWith','joinRoomCall'])m[n]=connection[n];
 await m.joinRoomCall();assert.equal(joins,0);assert.match(notice,/microphone did not start/);assert.equal(m.camConv.camP,null);
 blocked=false;await m.joinRoomCall();assert.equal(captures,3);assert.equal(joins,1);assert.equal(m.room.joined,true);
 // A failed video renderer still joins with the microphone already acquired.

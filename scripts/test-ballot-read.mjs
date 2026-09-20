@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readPageSource } from './lib/page-source.mjs';
 /* ── test-ballot-read.mjs ─────────────────────────────────────────────
    Guards the ballot reading-depth control (app/js/ballot-read.js).
 
@@ -18,13 +19,12 @@
 
    Static analysis plus a sandboxed load of the module. No network, no
    npm. Wired into scripts/hooks/pre-commit. */
-import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+const read = (p) => readPageSource(path.join(ROOT, p), 'utf8');
 
 let pass = 0, fail = 0;
 const ok = (cond, msg) => { if (cond) { pass++; } else { fail++; console.log('  FAIL ' + msg); } };

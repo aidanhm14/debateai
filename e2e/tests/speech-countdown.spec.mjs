@@ -19,6 +19,7 @@ async function liveClock(page, open = false) {
     '<div id="timerBar"></div><span id="timerTarget"></span><p id="overtimeNote" hidden></p>' +
     '<textarea id="speechText">The argument before the cutoff.</textarea>' +
     '<div id="rmbRec"><span id="rmbRecLabel"></span><span id="rmbRecElapsed"></span></div>');
+  await page.addScriptTag({ content: read('js/live-room/timers.js') });
   await page.addScriptTag({ content: `
     var $ = id => document.getElementById(id);
     var state = {phase:'round', log:[], formatKey:${JSON.stringify(open ? 'open' : 'quick')}, timerState:'running', timerElapsed:0,
@@ -31,6 +32,8 @@ async function liveClock(page, open = false) {
     ${between(live, '  function getElapsed(){', '  function prepareTimer(')}
     ${between(live, '  function fmtElapsed(ms){', '\n  function ')}
     ${between(live, '  function setRecUi(', '\n  // Ask for a display capture')}
+    var timersController = DBLiveTimers.create({ state, $, openMode, fmtTime, getElapsed,
+      updateJudgeOverview, isMyTurn, isSpectator, renderExtUI, OVERTIME_GRACE_SEC });
     setInterval(drawTimer, 100); drawTimer();
   ` });
 }

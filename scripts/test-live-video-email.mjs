@@ -1,8 +1,8 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
-const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const read = path => readPageSource(new URL(`../${path}`, import.meta.url), 'utf8');
 const spar = read('app/spar.html');
 const notices = read('app/js/notifications.js');
 const providers = ['google.com', 'apple.com', 'password'];

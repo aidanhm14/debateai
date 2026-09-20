@@ -1,7 +1,8 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-const source=readFileSync('app/live-round.html','utf8');
+const source=readPageSource('app/live-round.html','utf8');
 let clock=120000;const host={innerHTML:''},calls=[];
 const state={formatKey:'open',timerState:'running',proName:'Sam <script>',conName:'Jordan',openPeerSegs:[{at:20,text:'A reply',clock:'server'}]};
 const context={state,openMode:()=>true,isSpectator:()=>false,mySide:()=> 'pro',openPeerSide:()=> 'con',$:()=>host,

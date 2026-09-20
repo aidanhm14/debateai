@@ -1,3 +1,4 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
@@ -100,7 +101,7 @@ try{
 }finally{globalThis.fetch=originalFetch;}
 
 // Real page helpers, with browser/timer boundaries controlled.
-const html=readFileSync(new URL('../app/live-round.html',import.meta.url),'utf8');
+const html=readPageSource(new URL('../app/live-round.html',import.meta.url),'utf8');
 function helper(name,next){return html.slice(html.indexOf('  function '+name+'('),html.indexOf(next,html.indexOf('  function '+name+'(')));}
 let slowResolve, timeout;
 const ctx={srv:{pending:[new Promise(resolve=>{slowResolve=resolve;})]},state:{micActive:false},mic:{},

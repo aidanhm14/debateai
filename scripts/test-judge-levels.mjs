@@ -1,6 +1,6 @@
+import { readPageSource } from './lib/page-source.mjs';
 // The three visible live-round judge types must be identical in the
 // browser and the server-written ballot path.
-import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -17,12 +17,12 @@ function assert(ok, message) {
   console.error('FAIL: ' + message);
 }
 
-const source = readFileSync(join(root, 'app/js/judge-lenses.js'), 'utf8');
-const liveRoundSource = readFileSync(join(root, 'app/live-round.html'), 'utf8');
-const sparSource = readFileSync(join(root, 'app/spar.html'), 'utf8');
-const newVoiceSource = readFileSync(join(root, 'app/newvoice.html'), 'utf8');
-const voiceDebateSource = readFileSync(join(root, 'app/voice-debate.html'), 'utf8');
-const liveJudgeSource = readFileSync(join(root, 'app/netlify/functions/live-judge.mjs'), 'utf8');
+const source = readPageSource(join(root, 'app/js/judge-lenses.js'), 'utf8');
+const liveRoundSource = readPageSource(join(root, 'app/live-round.html'), 'utf8');
+const sparSource = readPageSource(join(root, 'app/spar.html'), 'utf8');
+const newVoiceSource = readPageSource(join(root, 'app/newvoice.html'), 'utf8');
+const voiceDebateSource = readPageSource(join(root, 'app/voice-debate.html'), 'utf8');
+const liveJudgeSource = readPageSource(join(root, 'app/netlify/functions/live-judge.mjs'), 'utf8');
 const browser = {};
 new Function('window', source)(browser);
 const client = browser.JUDGE_LENSES || [];

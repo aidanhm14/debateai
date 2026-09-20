@@ -1,3 +1,4 @@
+import { readPageSource } from './lib/page-source.mjs';
 // ─────────────────────────────────────────────────────────────
 // Guards on the judge integrity layer.
 //
@@ -9,7 +10,6 @@
 //
 // Run: node scripts/test-judge-integrity.mjs
 // ─────────────────────────────────────────────────────────────
-import { readFileSync } from 'node:fs';
 import {
   SEASONS, RUBRICS, seasonFor, seasonById, seasonExpired, rubricHash, rubricFor,
   charterDoc, canonicalJson, FEE_POLICY, APPEAL_POLICY, AUDIT_POLICY,
@@ -180,7 +180,7 @@ function t(label, cond) {
   // A persona per pinned family, so a debater can read who is on the
   // bench. An unnamed seat is allowed by design but never for a family
   // the season actually pinned.
-  const benchSrc = readFileSync(new URL('../app/netlify/functions/lib/judge-bench.mjs', import.meta.url), 'utf8');
+  const benchSrc = readPageSource(new URL('../app/netlify/functions/lib/judge-bench.mjs', import.meta.url), 'utf8');
   t('every pinned family has a bench persona',
     jurors.every((j) => new RegExp('^\\s*' + j.provider + ': \\{', 'm').test(benchSrc)));
 
@@ -189,7 +189,7 @@ function t(label, cond) {
   // whose provider errors is available by key and absent from the panel,
   // and reporting that as a full-strength panel is precisely the silent
   // degradation this layer forbids.
-  const runSrc = readFileSync(new URL('../app/netlify/functions/lib/judge-run.mjs', import.meta.url), 'utf8');
+  const runSrc = readPageSource(new URL('../app/netlify/functions/lib/judge-run.mjs', import.meta.url), 'utf8');
   t('degradation is measured in votes, not configured keys',
     /degraded: tally\.votesCast < wanted\.length/.test(runSrc));
   // 8000 since 2026-09-03. At 3000 the current reasoning models spend the
@@ -200,7 +200,7 @@ function t(label, cond) {
   t('the juror budget clears a reasoning ballot',
     /JUROR_MAX_TOKENS = Number\(process\.env\.JUDGE_JUROR_MAX_TOKENS \|\| 8000\)/.test(runSrc));
 
-  const jurorsSrc = readFileSync(new URL('../app/netlify/functions/lib/judge-jurors.mjs', import.meta.url), 'utf8');
+  const jurorsSrc = readPageSource(new URL('../app/netlify/functions/lib/judge-jurors.mjs', import.meta.url), 'utf8');
   t('every pinned provider has a dispatch entry',
     jurors.every((j) => new RegExp('^\\s*' + j.provider + ':', 'm').test(jurorsSrc)));
   t('every pinned provider has an availability check',
@@ -209,7 +209,7 @@ function t(label, cond) {
   // The public disclosure has to live where people meet the council and
   // where they read its ballot. A complete audit row hidden behind an API
   // is evidence, but it is not an explanation.
-  const integrityPage = readFileSync(new URL('../app/judge-integrity.html', import.meta.url), 'utf8');
+  const integrityPage = readPageSource(new URL('../app/judge-integrity.html', import.meta.url), 'utf8');
   t('integrity page names how the council decides',
     integrityPage.includes('How the council reaches a decision.')
       && integrityPage.includes('Same round, separate reads.')
@@ -223,14 +223,14 @@ function t(label, cond) {
       && integrityPage.includes('b.temper')
       && integrityPage.includes('j.pinnedModel'));
 
-  const draftSrc = readFileSync(new URL('../app/js/judge-draft.js', import.meta.url), 'utf8');
+  const draftSrc = readPageSource(new URL('../app/js/judge-draft.js', import.meta.url), 'utf8');
   t('pre-round council names providers, models, method, and persuasion fence',
     draftSrc.includes("esc(providerName(s.provider)) + ' · ' + esc(s.model)")
       && draftSrc.includes('How the council decides')
       && draftSrc.includes('How persuasion is scored'));
 
-  const roundsPage = readFileSync(new URL('../app/rounds.html', import.meta.url), 'utf8');
-  const liveRoundPage = readFileSync(new URL('../app/live-round.html', import.meta.url), 'utf8');
+  const roundsPage = readPageSource(new URL('../app/rounds.html', import.meta.url), 'utf8');
+  const liveRoundPage = readPageSource(new URL('../app/live-round.html', import.meta.url), 'utf8');
   t('published async ballots name the brains actually used',
     roundsPage.includes('Brains used: ')
       && roundsPage.includes('p.models')
@@ -240,7 +240,7 @@ function t(label, cond) {
       && liveRoundPage.includes('ballotCouncilHtml(b)')
       && liveRoundPage.includes('human audience, not the AI score'));
 
-  const judgePage = readFileSync(new URL('../app/judge.html', import.meta.url), 'utf8');
+  const judgePage = readPageSource(new URL('../app/judge.html', import.meta.url), 'utf8');
   t('one-off judge names its selected provider and exact model',
     judgePage.includes("brain.maker + ' ' + brain.name + ' · ' + brain.model")
       && judgePage.includes('This one-off ballot uses only'));
@@ -298,9 +298,9 @@ function t(label, cond) {
 // ballot can still be explained accurately. They must not reappear in the
 // public picker now that new rounds are casual 1v1 only.
 {
-  const opts = readFileSync(new URL('../app/js/judge-options.js', import.meta.url), 'utf8');
-  const judge = readFileSync(new URL('../app/judge.html', import.meta.url), 'utf8');
-  const guide = readFileSync(new URL('../app/judge-paradigms.html', import.meta.url), 'utf8');
+  const opts = readPageSource(new URL('../app/js/judge-options.js', import.meta.url), 'utf8');
+  const judge = readPageSource(new URL('../app/judge.html', import.meta.url), 'utf8');
+  const guide = readPageSource(new URL('../app/judge-paradigms.html', import.meta.url), 'utf8');
 
   // Read ONE group object out of js/judge-options.js by brace depth.
   // Slicing from a marker to a guessed end (to 'brains: {', or to the end
@@ -360,7 +360,7 @@ function t(label, cond) {
   // side-dependent cut is the single change that would make every other
   // fix in this layer worthless.
   for (const f of ['lib/credits.mjs', 'lib/settle.mjs']) {
-    const code = readFileSync(new URL('../app/netlify/functions/' + f, import.meta.url), 'utf8')
+    const code = readPageSource(new URL('../app/netlify/functions/' + f, import.meta.url), 'utf8')
       .replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
     t(`${f} takes no rake`, !/\brake\b/i.test(code));
     t(`${f} charges no fee`, !/\bhouseFee\b|\bcommission\b|\bplatformCut\b|\bvig\b/i.test(code));
@@ -371,7 +371,7 @@ function t(label, cond) {
 
   // Money only moves on a verdict this server wrote. A verdict authored
   // by one of the two interested parties must never settle an economy.
-  const settle = readFileSync(new URL('../app/netlify/functions/lib/settle.mjs', import.meta.url), 'utf8');
+  const settle = readPageSource(new URL('../app/netlify/functions/lib/settle.mjs', import.meta.url), 'utf8');
   t('settlement gates on verdict provenance', /MONEY_VERDICT_SOURCES/.test(settle));
   t('provenance gate allows only server verdicts',
     /MONEY_VERDICT_SOURCES\s*=\s*new Set\(\['server'\]\)/.test(settle));
@@ -676,14 +676,14 @@ function t(label, cond) {
   // Fix 3's load-bearing rule. Routing an appeal back to a model, even a
   // bigger one, is the same circularity with a larger bill. Assert the
   // human bench contains no provider call and no scheduled trigger.
-  const bench = readFileSync(new URL('../app/netlify/functions/admin-appeals.mjs', import.meta.url), 'utf8');
+  const bench = readPageSource(new URL('../app/netlify/functions/admin-appeals.mjs', import.meta.url), 'utf8');
   t('the appeal bench calls no model', !/api\.anthropic|api\.openai|generativelanguage|judge-jurors|callPanel/.test(bench));
   t('the appeal bench is not scheduled', !/export const config[\s\S]*schedule/.test(bench));
   t('the appeal bench requires an admin', /requireAdmin/.test(bench));
   t('the appeal bench reverses the market', /reverseMarket/.test(bench));
   t('the appeal bench reverses the ladder', /reverseRoundRating/.test(bench));
 
-  const filing = readFileSync(new URL('../app/netlify/functions/judge-appeal.mjs', import.meta.url), 'utf8');
+  const filing = readPageSource(new URL('../app/netlify/functions/judge-appeal.mjs', import.meta.url), 'utf8');
   t('filing calls no model', !/api\.anthropic|api\.openai|generativelanguage|callPanel/.test(filing));
   t('filing freezes settlement', /disputeState: 'open'/.test(filing));
 }
@@ -695,7 +695,7 @@ function t(label, cond) {
   // arrives through the presentation layer, which is the pinned-panel
   // promise defeated from the other side. So: it may describe the panel
   // and it may not participate in deciding one.
-  const bench = readFileSync(new URL('../app/netlify/functions/lib/judge-bench.mjs', import.meta.url), 'utf8');
+  const bench = readPageSource(new URL('../app/netlify/functions/lib/judge-bench.mjs', import.meta.url), 'utf8');
   // Comments are stripped before these checks. This file documents its
   // own prohibitions ("exports no winner"), so matching raw text would
   // fail on the prose that promises the thing being asserted, and a
@@ -707,7 +707,7 @@ function t(label, cond) {
 
   // The tally path must not know the bench exists. If judge-panel ever
   // imports it, a persona could weight a vote.
-  const panel = readFileSync(new URL('../app/netlify/functions/lib/judge-panel.mjs', import.meta.url), 'utf8');
+  const panel = readPageSource(new URL('../app/netlify/functions/lib/judge-panel.mjs', import.meta.url), 'utf8');
   t('the tally does not import the bench', !/judge-bench/.test(panel));
 
   // The bench must derive from the season's own juror list rather than
@@ -762,7 +762,7 @@ function t(label, cond) {
   for (const f of ['lib/settle.mjs', 'lib/credits.mjs', 'lib/rating-apply.mjs']) {
     let code;
     try {
-      code = readFileSync(new URL('../app/netlify/functions/' + f, import.meta.url), 'utf8');
+      code = readPageSource(new URL('../app/netlify/functions/' + f, import.meta.url), 'utf8');
     } catch {
       // A renamed or deleted money path must fail loudly rather than
       // silently passing a guard over a file that is no longer there.
@@ -819,7 +819,7 @@ function t(label, cond) {
   const boardSrc = {};
   for (const f of ['leaderboard-top.mjs', 'leaderboard-ratings.mjs', 'lib/rating-board.mjs', 'lib/standings-snapshot.mjs']) {
     try {
-      boardSrc[f] = readFileSync(new URL('../app/netlify/functions/' + f, import.meta.url), 'utf8');
+      boardSrc[f] = readPageSource(new URL('../app/netlify/functions/' + f, import.meta.url), 'utf8');
     } catch {
       t(`${f} exists to be guarded`, false);
       boardSrc[f] = '';
@@ -843,7 +843,7 @@ function t(label, cond) {
   for (const f of ['lib/rating-apply.mjs', 'lib/settle.mjs', 'lib/credits.mjs']) {
     let code = '';
     try {
-      code = readFileSync(new URL('../app/netlify/functions/' + f, import.meta.url), 'utf8');
+      code = readPageSource(new URL('../app/netlify/functions/' + f, import.meta.url), 'utf8');
     } catch {
       t(`${f} exists to be guarded`, false);
       continue;

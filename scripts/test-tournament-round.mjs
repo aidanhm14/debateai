@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readPageSource } from './lib/page-source.mjs';
 // ─────────────────────────────────────────────────────────────
 // Guard for lib/tournament-round.mjs, the check that decides whether a
 // live round rates automatically.
@@ -100,7 +101,7 @@ const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + 
   const { fileURLToPath } = await import('node:url');
   const { dirname, join } = await import('node:path');
   const here = dirname(fileURLToPath(import.meta.url));
-  const src = readFileSync(
+  const src = readPageSource(
     join(here, '..', 'app', 'netlify', 'functions', 'lib', 'tournament-round.mjs'), 'utf8');
 
   // Mentioned in the comment explaining why it is not trusted, never read.
@@ -119,19 +120,19 @@ const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + 
   const { fileURLToPath } = await import('node:url');
   const { dirname, join } = await import('node:path');
   const here = dirname(fileURLToPath(import.meta.url));
-  const roomSrc = readFileSync(
+  const roomSrc = readPageSource(
     join(here, '..', 'app', 'netlify', 'functions', 'create-daily-room.mjs'), 'utf8');
-  const dropinSrc = readFileSync(
+  const dropinSrc = readPageSource(
     join(here, '..', 'app', 'netlify', 'functions', 'tournament-dropin.mjs'), 'utf8');
-  const adminSrc = readFileSync(
+  const adminSrc = readPageSource(
     join(here, '..', 'app', 'netlify', 'functions', 'tournament-admin.mjs'), 'utf8');
-  const clientSrc = readFileSync(
+  const clientSrc = readPageSource(
     join(here, '..', 'app', 'live-round.html'), 'utf8');
-  const recordingSrc = readFileSync(
+  const recordingSrc = readPageSource(
     join(here, '..', 'app', 'netlify', 'functions', 'round-recording.mjs'), 'utf8');
-  const recordingAdminSrc = readFileSync(
+  const recordingAdminSrc = readPageSource(
     join(here, '..', 'app', 'netlify', 'functions', 'recordings-admin.mjs'), 'utf8');
-  const liveJudgeSrc = readFileSync(
+  const liveJudgeSrc = readPageSource(
     join(here, '..', 'app', 'netlify', 'functions', 'live-judge.mjs'), 'utf8');
 
   ok(/collection\('room_admissions'\)/.test(roomSrc),

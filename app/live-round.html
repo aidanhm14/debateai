@@ -4409,8 +4409,172 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
 })();
 </script>
 
+<script src="/js/live-room/timers.js" data-page-source></script>
+<script src="/js/live-room/media.js" data-page-source></script>
+<script src="/js/live-room/connection.js" data-page-source></script>
+<script src="/js/live-room/presence.js" data-page-source></script>
+<script src="/js/live-room/verdict.js" data-page-source></script>
+<script src="/js/live-room/draft.js" data-page-source></script>
 <script>
 (function(){
+  var timersController = window.DBLiveTimers.create({
+    get $(){ return $; },
+    get clearFloorRemark(){ return clearFloorRemark; },
+    get cloudRec(){ return cloudRec; },
+    get conversationIsFinishing(){ return conversationIsFinishing; },
+    get fmtTime(){ return fmtTime; },
+    get foldAidesForSpeech(){ return foldAidesForSpeech; },
+    get getElapsed(){ return getElapsed; },
+    get getRoundDocRef(){ return getRoundDocRef; },
+    get hidePrepBanner(){ return hidePrepBanner; },
+    get hideStartCueReminder(){ return hideStartCueReminder; },
+    get holdMandatoryRecordingModal(){ return holdMandatoryRecordingModal; },
+    get isMyTurn(){ return isMyTurn; },
+    get isSpectator(){ return isSpectator; },
+    get judgeLockKey(){ return judgeLockKey; },
+    get liveJourney(){ return liveJourney; },
+    get openMode(){ return openMode; },
+    get OVERTIME_GRACE_SEC(){ return OVERTIME_GRACE_SEC; },
+    get pushRoomShot(){ return pushRoomShot; },
+    get renderExtUI(){ return renderExtUI; },
+    get renderJudgeDraft(){ return renderJudgeDraft; },
+    get restoreAidesAfterSpeech(){ return restoreAidesAfterSpeech; },
+    get setMicActive(){ return setMicActive; },
+    get showCloudRecordingConsent(){ return showCloudRecordingConsent; },
+    get state(){ return state; },
+    get teamSeatControls(){ return teamSeatControls; },
+    get toast(){ return toast; },
+    get updateJudgeOverview(){ return updateJudgeOverview; },
+    get updatePlayPauseBtn(){ return updatePlayPauseBtn; }
+  });
+  var mediaController = window.DBLiveMedia.create({
+    get camConv(){ return camConv; },
+    get camJoinNoticeShown(){ return camJoinNoticeShown; },
+    set camJoinNoticeShown(value){ camJoinNoticeShown = value; },
+    get checkOpponentPresence(){ return checkOpponentPresence; },
+    get clearOppGone(){ return clearOppGone; },
+    get CUSTOM_TRACK_OK(){ return CUSTOM_TRACK_OK; },
+    get dropTile(){ return dropTile; },
+    get ensureTile(){ return ensureTile; },
+    get hideSelfPip(){ return hideSelfPip; },
+    get hintTrack(){ return hintTrack; },
+    get isAssignedRoundSeat(){ return isAssignedRoundSeat; },
+    get isAudienceName(){ return isAudienceName; },
+    get isBoardShare(){ return isBoardShare; },
+    get isSilentWatcher(){ return isSilentWatcher; },
+    get liveJourney(){ return liveJourney; },
+    get markCamMode(){ return markCamMode; },
+    get modGuard(){ return modGuard; },
+    set modGuard(value){ modGuard = value; },
+    get noteOppGone(){ return noteOppGone; },
+    get paintRoundQuiet(){ return paintRoundQuiet; },
+    get paintTray(){ return paintTray; },
+    get publishTrackFor(){ return publishTrackFor; },
+    get room(){ return room; },
+    get seatLabel(){ return seatLabel; },
+    get setRoomNote(){ return setRoomNote; },
+    get showSelfPip(){ return showSelfPip; },
+    get startGuard(){ return startGuard; },
+    get state(){ return state; },
+    get toast(){ return toast; }
+  });
+  var connectionController = window.DBLiveConnection.create({
+    get aimJudgeEyes(){ return aimJudgeEyes; },
+    get armGuestWall(){ return armGuestWall; },
+    get audCam(){ return audCam; },
+    get buildRoomUI(){ return buildRoomUI; },
+    get camConv(){ return camConv; },
+    get camJoinNoVideoNotice(){ return camJoinNoVideoNotice; },
+    get dropTile(){ return dropTile; },
+    get ensureAvatarCam(){ return ensureAvatarCam; },
+    get liveJourney(){ return liveJourney; },
+    get myRoomName(){ return myRoomName; },
+    get noteOppSaidGone(){ return noteOppSaidGone; },
+    get onGuardCleared(){ return onGuardCleared; },
+    get paintRoom(){ return paintRoom; },
+    get paintTray(){ return paintTray; },
+    get publishTrackFor(){ return publishTrackFor; },
+    get reassertMask(){ return reassertMask; },
+    get room(){ return room; },
+    get showGuardReviewCard(){ return showGuardReviewCard; },
+    get startRoomShots(){ return startRoomShots; },
+    get state(){ return state; },
+    get teardownCamPipeline(){ return teardownCamPipeline; },
+    get tuneSendQuality(){ return tuneSendQuality; },
+    get wireAudienceReceiveSettings(){ return wireAudienceReceiveSettings; }
+  });
+  var presenceController = window.DBLivePresence.create({
+    get audCam(){ return audCam; },
+    get finishRound(){ return finishRound; },
+    get firebaseDb(){ return firebaseDb; },
+    get getRoundDocRef(){ return getRoundDocRef; },
+    get hideNoShow(){ return hideNoShow; },
+    get isSpectator(){ return isSpectator; },
+    get mySide(){ return mySide; },
+    get NOSHOW_GRACE_MS(){ return NOSHOW_GRACE_MS; },
+    get OPP_QUIET_MS(){ return OPP_QUIET_MS; },
+    get paintAudCamsToggle(){ return paintAudCamsToggle; },
+    get paintPrivacyToggle(){ return paintPrivacyToggle; },
+    get publicNameOf(){ return publicNameOf; },
+    get QUIET_MS(){ return QUIET_MS; },
+    get reportRoundOver(){ return reportRoundOver; },
+    get room(){ return room; },
+    get SEAT_HB_MS(){ return SEAT_HB_MS; },
+    get showNoShow(){ return showNoShow; },
+    get state(){ return state; },
+    get toast(){ return toast; },
+    get WATCH_COUNT_CAP(){ return WATCH_COUNT_CAP; },
+    get WATCH_HB_MS(){ return WATCH_HB_MS; },
+    get WATCH_STALE_MS(){ return WATCH_STALE_MS; },
+    get watchMyCallRequest(){ return watchMyCallRequest; }
+  });
+  var verdictController = window.DBLiveVerdict.create({
+    get $(){ return $; },
+    get capFinish(){ return capFinish; },
+    get clearBallotRecovery(){ return clearBallotRecovery; },
+    get cloudRecordingPost(){ return cloudRecordingPost; },
+    get currentPublicAvatarIdentity(){ return currentPublicAvatarIdentity; },
+    get deepRfdSlotHtml(){ return deepRfdSlotHtml; },
+    get endRecordingAfterReactions(){ return endRecordingAfterReactions; },
+    get ensureGuestAuth(){ return ensureGuestAuth; },
+    get escHtml(){ return escHtml; },
+    get firebaseDb(){ return firebaseDb; },
+    get flowOfferHtml(){ return flowOfferHtml; },
+    get FORMATS(){ return FORMATS; },
+    get generateClashMap(){ return generateClashMap; },
+    get getRoundDocRef(){ return getRoundDocRef; },
+    get isFourTeam(){ return isFourTeam; },
+    get isSpectator(){ return isSpectator; },
+    get judgeHtml(){ return judgeHtml; },
+    get judgePlain(){ return judgePlain; },
+    get liveJourney(){ return liveJourney; },
+    get loadRoomShift(){ return loadRoomShift; },
+    get localRoundEvidence(){ return localRoundEvidence; },
+    get logMyRoundSpeeches(){ return logMyRoundSpeeches; },
+    get mySide(){ return mySide; },
+    get openShareClipModal(){ return openShareClipModal; },
+    get prefill(){ return prefill; },
+    get publicAvatarHtml(){ return publicAvatarHtml; },
+    get publicNameOf(){ return publicNameOf; },
+    get reelShowBallot(){ return reelShowBallot; },
+    get renderRecTail(){ return renderRecTail; },
+    get renderRoundNotes(){ return renderRoundNotes; },
+    get replayNoteHtml(){ return replayNoteHtml; },
+    get roomShiftSlotHtml(){ return roomShiftSlotHtml; },
+    get showJudgeAtTop(){ return showJudgeAtTop; },
+    get sideBench(){ return sideBench; },
+    get startBallotReadAloud(){ return startBallotReadAloud; },
+    get state(){ return state; },
+    get stopBallotWaitCue(){ return stopBallotWaitCue; },
+    get stripTerminal(){ return stripTerminal; },
+    get teamDisplayName(){ return teamDisplayName; },
+    get toast(){ return toast; },
+    get tournamentContentAskHtml(){ return tournamentContentAskHtml; },
+    get updateConsentStatus(){ return updateConsentStatus; },
+    get updateRoundGuide(){ return updateRoundGuide; },
+    get validateLeaderboardEligibility(){ return validateLeaderboardEligibility; }
+  });
+
   'use strict';
 
   // ── Format spec. Slimmed from /practice (no AI rules, both sides
@@ -6983,213 +7147,13 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var y = $('extYes'); if (y) y.onclick = function(){ answerExt(true); };
     var n = $('extNo'); if (n) n.onclick = function(){ answerExt(false); };
   }
-  function drawTimer(){
-    var elapsed = getElapsed();
-    updateJudgeOverview();
-    var remaining = state.timerTotalSec - elapsed;
-    var num = $('timerNum'), bar = $('timerBar');
-    if (!num) return;
-    if (openMode()){
-      // Just argue: elapsed, nothing else. No target, no warn, no
-      // overtime note, no judge cutoff.
-      num.textContent = fmtTime(elapsed);
-      num.className = 'timer-num' + (state.timerState === 'paused' ? ' paused' : '');
-      if (bar){ bar.style.width = '0%'; bar.className = 'timer-bar'; }
-      var oc = $('rmbTimerNum');
-      if (oc){ oc.textContent = num.textContent; oc.className = 'rmb-timer-num' + (state.timerState === 'paused' ? ' paused' : ''); }
-      var on = $('overtimeNote'); if (on) on.hidden = true;
-      return;
-    }
-    num.textContent = fmtTime(Math.max(0, Math.ceil(remaining)));
-    var pct = Math.min(100, Math.max(0, 100 * elapsed / Math.max(1, state.timerTotalSec)));
-    bar.style.width = pct + '%';
-    var warnClass = '';
-    if (state.timerState === 'paused') warnClass = 'paused';
-    else if (remaining <= 0) warnClass = 'over';
-    else if (remaining < 30 && state.timerState === 'running') warnClass = 'warn';
-    num.className = 'timer-num' + (warnClass ? ' ' + warnClass : '');
-    bar.className = 'timer-bar' + (warnClass && warnClass !== 'paused' ? ' ' + warnClass : '');
-    var motionClock = $('rmbTimerNum');
-    if (motionClock){
-      motionClock.textContent = num.textContent;
-      motionClock.className = 'rmb-timer-num' + (warnClass ? ' ' + warnClass : '');
-    }
-    // Overtime costs speaker points (judge prompts carry the scale), so
-    // the room is told WHILE it is happening rather than discovering the
-    // deduction on the ballot. Factual for everyone in the room; clears
-    // itself when the speech ends or the clock resets.
-    var otNote = $('overtimeNote');
-    if (otNote){
-      var showOt = state.timerState === 'running' && remaining < -OVERTIME_GRACE_SEC;
-      if (showOt && otNote.hidden){
-        otNote.textContent = 'Over time. From here the judge stops counting new arguments, and your score drops the longer this runs.';
-        otNote.hidden = false;
-      } else if (!showOt && !otNote.hidden){
-        otNote.hidden = true;
-      }
-      // The judge cutoff (2026-08-31, the founder: "judge stops
-      // considering"): the moment the grace runs out, the SPEAKER's
-      // client records where the transcript stood. endSpeech splits the
-      // text there with a [TIME EXPIRED] marker and every ballot builder
-      // is told the material below it is off the flow. A granted
-      // extension clears the mark (applyTimeExt), so words inside the
-      // agreed window count.
-      if (showOt && isMyTurn() && !isSpectator() && state.overCut[state.speechIdx] === undefined){
-        var box = $('speechText');
-        state.overCut[state.speechIdx] = box ? String(box.value || '').length : 0;
-      }
-    }
-    try { renderExtUI(); } catch(e){}
-  }
-  function prepareTimer(targetSec){
-    stopTimer();
-    // Loading a new speech clears any stale talking-before-start reminder.
-    try { hideStartCueReminder(); } catch(e){}
-    state.timerTotalSec = targetSec;
-    state._extApplied = 0;
-    state.timerElapsed = 0;
-    state.timerStart = 0;
-    state.timerState = 'ready';
-    drawTimer();
-    updatePlayPauseBtn();
-    var hint = $('readyHint');
-    if (hint) hint.style.display = '';
-  }
+  function drawTimer(){ return timersController.drawTimer.apply(this, arguments); }
+  function prepareTimer(){ return timersController.prepareTimer.apply(this, arguments); }
   function liveJourney(stage, detail){
     DBLiveJourney.event(stage, Object.assign({ surface: 'live', room: state.room, round_started_at: state.roundStartedAt || 0, format: state.formatKey, speech: state.speechIdx, role: isSpectator() ? 'viewer' : 'participant' }, detail || {}));
   }
-  function startSpeechTimer(){
-    if (conversationIsFinishing()) return;
-    liveJourney('speech_start_requested', { timer: state.timerState });
-    if (state.isDuo && state.lastRoundDoc && state.lastRoundDoc.teamEnding) return;
-    if (state.isDuo && !state.teamLockedAt){
-      if (state.teamStartPending) return;
-      if (!teamSeatControls){toast('Team seats are loading. Try again in a moment.');return;}
-      state.teamStartPending = true;
-      teamSeatControls.begin(state.formatKey).then(function(){
-        state.teamStartPending = false; state.teamLockedAt = Date.now(); startSpeechTimer();
-      }).catch(function(e){state.teamStartPending = false;toast(e.message);});
-      return;
-    }
-    // The voice judge is a PRE-ROUND helper (2026-09-06, Aidan: "it cant
-    // happen once a round has started"). Pressing Start is the decision
-    // to argue the resolution on screen, so it sends the judge away rather
-    // than being refused by it.
-    if (window.RoomTopic && window.RoomTopic.isPending()){ try { window.RoomTopic.dismiss(); } catch(e){} }
-    if (state.timerState === 'running' || state.timerState === 'ended') return;
-    // A modal is not a security boundary. Tournament Speech 1 also stops
-    // here unless the server-backed room state says the required capture
-    // is already live. A tournament-shaped URL waits for the admission
-    // response instead of briefly falling through as an ordinary room.
-    if (state.phase === 'round' && state.speechIdx === 0 && !isSpectator()
-        && state.recordingRequired !== false){
-      if (state.recordingRequired === null){
-        liveJourney('speech_start_blocked', { reason: 'recording_check' });
-        toast('Checking the tournament recording before Speech 1.');
-        return;
-      }
-      if (!cloudRec.doc || cloudRec.doc.recordingStatus !== 'recording'){
-        liveJourney('speech_start_blocked', { reason: 'recording_consent' });
-        showCloudRecordingConsent();
-        if (cloudRec.doc && cloudRec.doc.recordingConsents
-            && state.user && cloudRec.doc.recordingConsents[state.user.uid] === true){
-          holdMandatoryRecordingModal();
-        }
-        toast('Speech 1 opens when the required tournament recording is live.');
-        return;
-      }
-    }
-    // 2026-08-18 (the founder): the judge has to be settled before the round
-    // starts. judgeLockKey() is 'chair' when both benches sit on the
-    // untouched default (that IS agreement, no friction added) and ''
-    // only when the two picks differ, which is the one state the round
-    // must not start in: someone would be judged by a lens they never
-    // accepted. Speech 1 only; mid-round the picks are already locked.
-    // The motion is not settled until the draft says it is. Starting on
-    // it would run the round on a motion the strikes were about to
-    // overrule, and rewrite both sides mid-speech when they landed.
-    // ...and it has to SAY so. A bare return here reads as a dead button:
-    // measured on real rounds, this is the beat where people press Start,
-    // nothing happens, and they conclude the site is broken ("is button
-    // not working?", "you have to start it bro, I don't know what to tell
-    // you", "we should reload"). The draft is the normal path for every
-    // spar-matched pair, so silence here is the common case, not the edge.
-    if (state.phase === 'round' && state.speechIdx === 0 && !isSpectator()
-        && window.__lrDraftPending && window.__lrDraftPending()){
-      liveJourney('speech_start_blocked', { reason: 'topic_pending' });
-      var dHint = $('readyHint');
-      if (dHint){
-        dHint.style.display = '';
-        dHint.innerHTML = '<strong>Finish the draft first.</strong> '
-          + 'One of you opened a motion draft, and the resolution is not settled until it closes. '
-          + 'Then press Start to begin Speech 1.';
-      }
-      toast('The topic is still being chosen. Once it is settled, press Start.');
-      var dBoard = document.getElementById('draftBoard');
-      if (dBoard && dBoard.scrollIntoView) dBoard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
-    }
-    if (state.phase === 'round' && state.speechIdx === 0 && !isSpectator() && !judgeLockKey()){
-      liveJourney('speech_start_blocked', { reason: 'judge_agreement' });
-      state.judgeDraftOpen = true;
-      renderJudgeDraft();
-      var jHint = $('readyHint');
-      if (jHint){
-        jHint.style.display = '';
-        jHint.innerHTML = '<strong>Settle the judge first.</strong> You and your opponent picked different judge types. Pick the same option above, or reset to Standard. Then start the round.';
-      }
-      var jd = document.getElementById('judgeDraft');
-      if (jd && jd.scrollIntoView) jd.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
-    }
-    hidePrepBanner();   // prep is over once a speech actually starts
-    var wasReady = state.timerState === 'ready';
-    state.timerStart = Date.now();
-    state.timerState = 'running';
-    liveJourney('speech_started', { mic_available: !!(state.micSupport && state.micSupport.available) });
-    // While someone is actually speaking, the panel collapses to the two
-    // things anyone looks at: the clock and the transcript. Everything
-    // else in there is SETUP, and setup is over.
-    document.body.classList.add('speech-live');
-    document.body.classList.add('round-running');
-    foldAidesForSpeech();
-    state.timerInterval = setInterval(drawTimer, 200);
-    drawTimer();
-    updatePlayPauseBtn();
-    var hint = $('readyHint');
-    if (hint) hint.style.display = 'none';
-    // A speech going live makes any between-speech judge remark stale.
-    if (wasReady){ try { clearFloorRemark(); } catch(e){} }
-    // Auto-engage the mic when the active speaker starts the speech.
-    // Only on the ready→running transition (not on resume from pause —
-    // if they hit pause they may have explicitly killed the mic) and
-    // only when it's actually their turn (otherwise we're an off-side
-    // viewer mirroring the timer state and shouldn't grab the mic).
-    // Skipped on no-mic browsers + when the user has unticked the
-    // 'Auto-mic' toggle in the speech panel.
-    if (wasReady && isMyTurn() && !state.micActive && state.autoMic && state.micSupport && state.micSupport.available){
-      try { setMicActive(true); } catch(e){ console.warn('[mic auto]', e); }
-    }
-    // Mirror the timer state to the off-side speaker. The remote peer
-    // reads this and starts its own ticking display so they can see
-    // the active speaker's clock count up.
-    publishTimerState();
-    // Refresh the public preview promptly when the debate actually starts.
-    try { pushRoomShot(); } catch(e){}
-  }
-  function pauseSpeechTimer(){
-    if (state.timerState !== 'running') return;
-    state.timerElapsed += (Date.now() - state.timerStart) / 1000;
-    state.timerStart = 0;
-    state.timerState = 'paused';
-    document.body.classList.remove('speech-live');
-    document.body.classList.remove('round-running');
-    restoreAidesAfterSpeech();
-    if (state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
-    drawTimer();
-    updatePlayPauseBtn();
-    publishTimerState();
-  }
+  function startSpeechTimer(){ return timersController.startSpeechTimer.apply(this, arguments); }
+  function pauseSpeechTimer(){ return timersController.pauseSpeechTimer.apply(this, arguments); }
 
   // Mirror the active speaker's timer to the round doc so the off-side
   // (and spectators) can render the same elapsed clock locally. We use
@@ -7198,57 +7162,13 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // applyRemoteTimer) instead of trusting the raw value. Off-side
   // reconstructs elapsed = accumulatedMs + (Date.now() - rebased start)
   // when state==='running', accumulatedMs alone when 'paused'/'ready'.
-  function publishTimerState(){
-    if (isSpectator()) return;
-    if (!isMyTurn()) return;
-    var ref = getRoundDocRef();
-    if (!ref) return;
-    var payload = {
-      currentTimer: {
-        speechIdx: state.speechIdx,
-        state: state.timerState,
-        startMs: state.timerState === 'running' ? state.timerStart : 0,
-        accumulatedMs: Math.round(state.timerElapsed * 1000),
-        totalSec: state.timerTotalSec,
-        // updatedAtMs lets the off-side detect a stale timer from a
-        // prior speech and ignore it across speech boundaries.
-        updatedAtMs: Date.now(),
-        updatedAtServer: firebase.firestore.FieldValue.serverTimestamp(),
-      },
-    };
-    ref.set(payload, { merge: true }).catch(function(e){ console.warn('[timer sync]', e); });
-  }
+  function publishTimerState(){ return timersController.publishTimerState.apply(this, arguments); }
 
   // Run the off-side's local timer interval driven by the remote
   // currentTimer payload. We compute elapsed against the active
   // speaker's clock and re-render every 200ms — same cadence as
   // drawTimer's local interval, so the readout looks identical.
-  function applyRemoteTimer(t){
-    if (!t || typeof t !== 'object') return;
-    if (t.speechIdx !== state.speechIdx) return; // stale from a prior speech
-    if (t.state === 'running' && (!Number.isFinite(t.startMs) || t.startMs <= 0)) return;
-    // Arrival time is not clock skew: a watcher may join minutes after
-    // this write. Translate the original start via the shared server clock.
-    state.remoteTimerPayload = t;
-    state.timerTotalSec = t.totalSec || state.timerTotalSec;
-    state.timerState = t.state || 'ready';
-    state.timerElapsed = (t.accumulatedMs || 0) / 1000;
-    state.timerStart = t.state === 'running'
-      ? (window.DBRoomClock ? DBRoomClock.localStart(t) : t.startMs)
-      : 0;
-    if (state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
-    if (state.timerState === 'running'){
-      state.timerInterval = setInterval(drawTimer, 200);
-      // Off-side mirror: the speech is live, drop any stale judge remark.
-      try { clearFloorRemark(); } catch(e){}
-    }
-    // Setup is over for the person listening as well, so the settled
-    // configuration collapses on their screen too. NOT speech-live: they
-    // are not delivering anything, so their aides stay where they are.
-    document.body.classList.toggle('round-running', state.timerState === 'running');
-    drawTimer();
-    updatePlayPauseBtn();
-  }
+  function applyRemoteTimer(){ return timersController.applyRemoteTimer.apply(this, arguments); }
   document.addEventListener('room-clock-ready', function(){
     if (state.remoteTimerPayload && (isSpectator() || !isMyTurn())) applyRemoteTimer(state.remoteTimerPayload);
   });
@@ -7644,10 +7564,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     window.__lrOpen = { seg: openSeg, tick: openSegTick, merged: openMergedText, mine: openMyText, state: state, isMyTurn: isMyTurn, isSpectator: isSpectator, openMode: openMode,
       setPeer: function(segs, skew){ state.openPeerSegs = segs; state.openPeerSkew = skew || 0; } };
   }
-  function stopTimer(){
-    if (state.timerInterval){ clearInterval(state.timerInterval); state.timerInterval = null; }
-    state.timerState = 'ended';
-  }
+  function stopTimer(){ return timersController.stopTimer.apply(this, arguments); }
   // Display preference only. Never move the call element or touch its tracks.
   var roundFocusSelected = false, roundFocusStarted = false, roundFocusRoom = '', roundFocusScroll = 0;
   var roundFocusPhone = window.matchMedia('(max-width:760px)');
@@ -10607,75 +10524,16 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // it drops back to VGA while its separate 960x540 canvas stays crisp.
   // Both cap at 24fps: a talking face gets no useful detail from 60fps,
   // while encode cost scales almost directly with the frame count.
-  function captureConstraints(mode, facing){
-    var avatar = mode === 'avatar';
-    return {
-      width: { ideal: avatar ? 640 : 1280 },
-      height: { ideal: avatar ? 480 : 720 },
-      frameRate: { ideal: 24, max: 30 },
-      facingMode: facing && facing !== 'user' ? { ideal: facing } : 'user'
-    };
-  }
-  function applyCaptureProfile(c, mode){
-    var track = c && c.srcStream && c.srcStream.getVideoTracks && c.srcStream.getVideoTracks()[0];
-    if (!track || typeof track.applyConstraints !== 'function') return Promise.resolve();
-    return track.applyConstraints(captureConstraints(mode, room.facing || 'user')).catch(function(e){
-      console.warn('[camera profile]', e && e.message);
-    });
-  }
+  function captureConstraints(){ return mediaController.captureConstraints.apply(this, arguments); }
+  function applyCaptureProfile(){ return mediaController.applyCaptureProfile.apply(this, arguments); }
 
   // A debater is the thing everyone in the room is looking at. Publish a
   // three-layer ladder so Daily can lower bitrate or resolution without
   // freezing the picture, then let the room's adaptive-simulcast setting
   // choose the layer per receiver. CPU protection can temporarily lower
   // maxQuality without rebuilding the camera.
-  function tuneSendQuality(maxQuality){
-    var call = room.call;
-    if (room.viewer || !call || typeof call.updateSendSettings !== 'function') return;
-    var avatar = camConv.mode === 'avatar';
-    var settings = {
-      video: {
-        maxQuality: maxQuality || 'high',
-        allowAdaptiveLayers: true,
-        encodings: {
-          low: { maxBitrate: 180000, scaleResolutionDownBy: 4, maxFramerate: 15 },
-          medium: { maxBitrate: avatar ? 650000 : 800000, scaleResolutionDownBy: 2, maxFramerate: 24 },
-          high: { maxBitrate: avatar ? 1400000 : 2200000, scaleResolutionDownBy: 1, maxFramerate: 24 }
-        }
-      }
-    };
-    try {
-      var p = call.updateSendSettings(settings);
-      if (p && p.catch) p.catch(function(e){ console.warn('[Daily send settings]', e && e.message); });
-    } catch(e){}
-  }
-  function ensureAvatarCam(mode){
-    // Single-flight on the PROMISE, not the resolved instance: the
-    // joined-meeting unify call and a quick Avatar tap otherwise race
-    // into two parallel pipelines (two camera captures, two draw loops,
-    // and a published track that isn't the one in the self-check tile).
-    if (camConv.camP) return camConv.camP;
-    // Camera pixels go to the room ONLY in 'camera' (passthrough) mode;
-    // in 'avatar' mode they feed the on-device face tracker and nothing
-    // else. Camera failure can degrade to audio-only; microphone failure
-    // must remain visible so the person can allow it and retry.
-    camConv.camP = navigator.mediaDevices.getUserMedia({ audio: true, video: captureConstraints(mode || 'camera', room.facing || 'user') })
-      .catch(function(e){ liveJourney('media_capture_failed', { code: e.name || 'unknown', scope: 'camera_and_microphone' }); return navigator.mediaDevices.getUserMedia({ audio: true, video: false }); })
-      .catch(function(e){ liveJourney('media_microphone_failed', { code: e.name || 'unknown' }); throw e; })
-      .then(function(ms){
-        return Promise.resolve().then(function(){ return window.DebateCam.start(ms, { mode: mode || 'avatar', label: seatLabel() }); }).catch(function(e){
-          // The camera renderer can fail after microphone permission
-          // succeeded. Preserve the working audio-only fallback.
-          ms.getVideoTracks().forEach(function(t){ t.stop(); });
-          if (room.joinPending) e.liveAudio = ms.getAudioTracks()[0];
-          else ms.getAudioTracks().forEach(function(t){ t.stop(); });
-          throw e;
-        });
-      })
-      .then(function(c){ camConv.cam = c; startGuard(c); return c; })
-      .catch(function(e){ camConv.camP = null; throw e; });
-    return camConv.camP;
-  }
+  function tuneSendQuality(){ return mediaController.tuneSendQuality.apply(this, arguments); }
+  function ensureAvatarCam(){ return mediaController.ensureAvatarCam.apply(this, arguments); }
   // ── Safety watchdog: on-device NSFW detection over the raw camera.
   // Only meaningful while the published mode is 'camera' (avatar/off
   // never transmit camera pixels). On a trip: cut the feed, tell the
@@ -10995,154 +10853,18 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   //    which is what lets the browser ask again, and rebuilds the
   //    pipeline around the SAME audio track so the transcriber's
   //    borrowed mic (srvBorrowTrack) never dies mid-speech.
-  function retryCameraAcquire(){
-    return navigator.mediaDevices.getUserMedia({ video: captureConstraints('camera', room.facing || 'user') })
-      .then(function(vs){
-        var old = camConv.cam;
-        var vTrack = vs.getVideoTracks()[0];
-        var audio = [];
-        try {
-          if (old && old.srcStream){
-            old.srcStream.getAudioTracks().forEach(function(t){
-              audio.push(t);
-              // cam.stop() stops every track on its stream; pulling the
-              // shared mic off first is what keeps it alive.
-              try { old.srcStream.removeTrack(t); } catch(e){}
-            });
-          }
-        } catch(e){}
-        var combined = new MediaStream([vTrack].concat(audio));
-        camConv.camP = Promise.resolve()
-          .then(function(){ if (old) try { old.stop(); } catch(e){} })
-          .then(function(){ return window.DebateCam.start(combined, { mode: 'camera', label: seatLabel() }); })
-          .then(function(c){ camConv.cam = c; startGuard(c); return c; })
-          .catch(function(e){ camConv.camP = null; throw e; });
-        return camConv.camP;
-      });
-  }
+  function retryCameraAcquire(){ return mediaController.retryCameraAcquire.apply(this, arguments); }
   // Say what is actually wrong instead of pointing at chrome that does
   // not exist. The permissions API separates "blocked for this site"
   // (needs the address-bar toggle; no prompt will ever appear) from
   // "camera busy or absent" (retryable).
-  function camDeniedToast(){
-    var generic = 'Could not start your camera. If nothing asked for permission, it is blocked for this site: click the camera or padlock icon in the address bar, allow it, then press Camera again.';
-    try {
-      if (navigator.permissions && navigator.permissions.query){
-        navigator.permissions.query({ name: 'camera' }).then(function(st){
-          toast(st.state === 'denied'
-            ? 'Your camera is blocked for this site. Click the camera or padlock icon in the address bar, allow it, then press Camera again.'
-            : 'Could not start your camera. It may be in use by another app. Close anything else using it, then press Camera again.');
-        }).catch(function(){ toast(generic); });
-        return;
-      }
-    } catch(e){}
-    toast(generic);
-  }
+  function camDeniedToast(){ return mediaController.camDeniedToast.apply(this, arguments); }
   // One honest line at join time when the room got sound and no picture,
   // so the person knows it happened and what fixes it.
   var camJoinNoticeShown = false;
-  function camJoinNoVideoNotice(){
-    if (camJoinNoticeShown) return;
-    camJoinNoticeShown = true;
-    toast('You joined with your mic only. Your camera looks blocked or busy; press Camera above the video to turn it on.');
-    try { gtag('event', 'live_round_join_no_video'); } catch(e){}
-  }
+  function camJoinNoVideoNotice(){ return mediaController.camJoinNoVideoNotice.apply(this, arguments); }
 
-  function setCamMode(m){
-    var frame = state.dailyFrame;
-    if (!frame || m === camConv.mode) return;
-    if (m === 'avatar'){
-      // Fail CLOSED, never open. The mask cannot be published on this
-      // surface (see CUSTOM_TRACK_OK), and the honest state for someone
-      // asking to be anonymous is camera off, not camera on.
-      if (!CUSTOM_TRACK_OK){
-        if (camConv.cam) try { camConv.cam.setMode('off'); } catch(e){}
-        try { frame.setLocalVideo(false); } catch(e){}
-        markCamMode('off');
-        hideSelfPip();
-        toast('Avatar mode is off while the room is rebuilt to carry it. Your camera is off, so nothing is being sent.');
-        return;
-      }
-      if (!window.DebateCam){ toast('Avatar mode is still loading, try again in a second'); return; }
-      frame.getInputDevices().then(function(d){
-        if (d && d.camera && d.camera.deviceId) camConv.savedVideoId = d.camera.deviceId;
-      }).catch(function(){});
-      ensureAvatarCam('avatar').then(function(c){
-        return applyCaptureProfile(c, 'avatar').then(function(){
-          c.setMode('avatar');
-          return frame.setInputDevicesAsync({ videoSource: publishTrackFor(c, 'avatar') });
-        });
-      }).then(function(){
-        frame.setLocalVideo(true);
-        markCamMode('avatar');
-        tuneSendQuality(room.cpuHigh ? 'medium' : 'high');
-        camConv.maskAsserted = true;
-        showSelfPip();
-        toast('Avatar on. The room sees only the animated mask, never your camera. The corner tile is your view of it.');
-        try { gtag('event', 'live_round_avatar_on'); } catch(e){}
-      }).catch(function(e){
-        console.warn('[avatar]', e);
-        // Fail CLOSED. If the mask cannot be published, the honest state
-        // is camera off, never the raw feed under an Avatar label.
-        try { frame.setLocalVideo(false); } catch(e2){}
-        if (camConv.cam) try { camConv.cam.setMode('off'); } catch(e3){}
-        markCamMode('off');
-        hideSelfPip();
-        toast('Avatar could not start here, so your camera was turned off instead');
-      });
-    } else if (m === 'camera'){
-      // Preferred: passthrough through the parent-owned canvas so the
-      // safety watchdog sees what the room sees. Fall back to Daily's
-      // internal device restore if the pipeline is unavailable.
-      // The old gate here (camConv.cam || camConv.unified !== false)
-      // routed a fully-degraded join into the raw cycleCamera branch,
-      // which publishes the DEVICE camera past the parent pipeline and
-      // its safety watchdog. While the custom stack exists, Camera
-      // always goes through the pipeline; the retry inside covers the
-      // degraded case properly.
-      if (CUSTOM_TRACK_OK && window.DebateCam){
-        ensureAvatarCam('camera').then(function(c){
-          var hasVideo = c.srcStream && c.srcStream.getVideoTracks && c.srcStream.getVideoTracks().length;
-          // Cached audio-only pipeline: the camera half failed at join.
-          // Re-ask for the camera now, in the click's gesture context.
-          if (!hasVideo) return retryCameraAcquire();
-          return c;
-        }).then(function(c){
-          return applyCaptureProfile(c, 'camera').then(function(){
-            c.setMode('camera');
-            return frame.setInputDevicesAsync({ videoSource: publishTrackFor(c, 'camera') }).then(function(){
-              frame.setLocalVideo(true);
-              markCamMode('camera');
-              tuneSendQuality(room.cpuHigh ? 'medium' : 'high');
-              hideSelfPip();
-            });
-          });
-        }).catch(function(e){
-          console.warn('[camera passthrough]', e);
-          camDeniedToast();
-        });
-      } else {
-        var restore = camConv.savedVideoId
-          ? frame.setInputDevicesAsync({ videoDeviceId: camConv.savedVideoId })
-          : frame.cycleCamera();
-        Promise.resolve(restore).then(function(){
-          frame.setLocalVideo(true);
-          markCamMode('camera');
-          tuneSendQuality(room.cpuHigh ? 'medium' : 'high');
-          hideSelfPip();
-        }).catch(function(e){
-          console.warn('[camera restore]', e);
-          camDeniedToast();
-        });
-      }
-    } else {
-      if (camConv.cam) try { camConv.cam.setMode('off'); } catch(e){}
-      frame.setLocalVideo(false);
-      markCamMode('off');
-      hideSelfPip();
-      toast('Camera off. Your mic is unaffected.');
-    }
-  }
+  function setCamMode(){ return mediaController.setCamMode.apply(this, arguments); }
 
   // Daily's prebuilt owns its own camera button, device picker, and
   // auto-recovery (including the high-CPU "turn off your camera" flow).
@@ -11150,38 +10872,11 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // canvas track, which puts the raw feed on stage while the bar still
   // says Avatar. Watch the local participant and re-push the mask the
   // moment anything else goes live. The cooldown keeps it loop-proof.
-  function reassertMask(ev){
-    var p = ev && ev.participant;
-    if (!p || !p.local) return;
-    if (camConv.mode !== 'avatar' || !camConv.cam || !state.dailyFrame) return;
-    var v = p.tracks && p.tracks.video;
-    if (!v || v.state !== 'playable'){ camConv.maskAsserted = false; return; }
-    var live = v.persistentTrack || v.track || null;
-    if (live && camConv.cam.videoTrack && live.id === camConv.cam.videoTrack.id){
-      camConv.maskAsserted = true;
-      return;
-    }
-    // Track objects can be withheld across the iframe boundary; when we
-    // cannot compare ids, re-assert only on the off -> playable edge.
-    if (!live && camConv.maskAsserted) return;
-    var now = Date.now();
-    if (camConv.reassertAt && now - camConv.reassertAt < 1500) return;
-    camConv.reassertAt = now;
-    camConv.maskAsserted = true;
-    state.dailyFrame.setInputDevicesAsync({ videoSource: hintTrack(camConv.cam.videoTrack, 'avatar') })
-      .catch(function(e){ console.warn('[avatar reassert]', e); });
-  }
+  function reassertMask(){ return mediaController.reassertMask.apply(this, arguments); }
   // Full stop on leave: kill the guard and the canvas pipeline, release
   // the camera + mic (recording light off), and reset so a rejoin
   // rebuilds from scratch instead of reusing a dead canvas track.
-  function teardownCamPipeline(){
-    hideSelfPip();
-    if (modGuard){ try { modGuard.stop(); } catch(e){} modGuard = null; }
-    if (camConv.cam){ try { camConv.cam.stop(); } catch(e){} }
-    camConv.cam = null; camConv.camP = null; camConv.unified = false;
-    camConv.maskAsserted = false;
-    markCamMode('camera');
-  }
+  function teardownCamPipeline(){ return mediaController.teardownCamPipeline.apply(this, arguments); }
 
   // ── The room, rendered by us (call object mode) ────────────────────
   // Seated debaters run DailyIframe.createCallObject instead of the
@@ -11211,124 +10906,17 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     receiveCap:'inherit', lastHealthKey:'',
   };
 
-  function setRoomNote(msg){
-    if (!room.note) return;
-    room.note.classList.remove('cv-note--card');
-    room.note.textContent = msg || '';
-    room.note.style.display = msg ? '' : 'none';
-  }
-  function paintMediaHealth(){
-    var el = room.qualityEl;
-    if (!el) return;
-    var msg = '';
-    var bad = room.networkState === 'bad';
-    if (bad){
-      msg = room.viewer
-        ? 'Poor connection. Keeping audio clear and lowering video quality.'
-        : 'Poor connection. Video quality will adjust while audio stays prioritized.';
-    } else if (room.networkState === 'warning'){
-      msg = room.viewer
-        ? 'Connection is unstable. Lowering video quality for smoother playback.'
-        : 'Connection is unstable. Video quality is adjusting automatically.';
-    } else if (room.cpuHigh){
-      msg = room.viewer
-        ? 'This device is busy. Lowering playback quality.'
-        : 'This device is busy. Lowering camera quality.';
-    }
-    el.className = 'cv-quality' + (msg ? ' is-visible' : '') + (bad ? ' is-bad' : '');
-    el.innerHTML = msg ? '<i aria-hidden="true"></i><span></span>' : '';
-    var span = el.querySelector('span');
-    if (span) span.textContent = msg;
-  }
-  function wantedReceiveCap(){
-    if (room.networkState === 'bad') return 0;
-    if (room.networkState === 'warning' || room.cpuHigh) return 1;
-    return 'inherit';
-  }
-  function applyViewerReceiveCap(){
-    var call = room.call;
-    if (!room.viewer || !call || typeof call.updateReceiveSettings !== 'function') return;
-    var cap = wantedReceiveCap();
-    if (room.receiveCap === cap) return;
-    room.receiveCap = cap;
-    // Keep shared screens at the room default so small text stays legible.
-    // Only camera video steps down under receiver pressure.
-    var settings = { '*': { video: { layer: cap } } };
-    try {
-      var p = call.updateReceiveSettings(settings);
-      if (p && p.catch) p.catch(function(e){ console.warn('[Daily receive settings]', e && e.message); });
-    } catch(e){}
-  }
-  function rememberMediaHealth(){
-    var key = room.networkState + '|' + (room.cpuHigh ? 'high' : 'low') + '|' + room.networkReasons.join(',');
-    if (key === room.lastHealthKey) return;
-    room.lastHealthKey = key;
-    var call = room.call;
-    var read = call && typeof call.getNetworkStats === 'function'
-      ? call.getNetworkStats().catch(function(){ return null; })
-      : Promise.resolve(null);
-    read.then(function(result){
-      // Local support hook only. Connection details never leave the tab.
-      window.__lrMediaDiagnostics = {
-        network: room.networkState,
-        reasons: room.networkReasons.slice(0),
-        cpu: room.cpuHigh ? 'high' : 'low',
-        viewer: room.viewer,
-        sdk: window.DebatableDaily ? window.DebatableDaily.version : '',
-        source: window.DebatableDaily ? window.DebatableDaily.source() : '',
-        stats: result && result.stats ? result.stats : null
-      };
-      console.info('[Daily media health]', window.__lrMediaDiagnostics);
-    });
-  }
-  function onNetworkQuality(ev){
-    var next = ev && ev.networkState;
-    if (!next && ev && ev.threshold){
-      next = ev.threshold === 'very-low' ? 'bad' : (ev.threshold === 'low' ? 'warning' : 'good');
-    }
-    if (['good','warning','bad','unknown'].indexOf(next) < 0) next = 'unknown';
-    room.networkState = next;
-    room.networkReasons = ev && Array.isArray(ev.networkStateReasons) ? ev.networkStateReasons.slice(0, 4) : [];
-    applyViewerReceiveCap();
-    paintMediaHealth();
-    rememberMediaHealth();
-  }
-  function onCpuLoad(ev){
-    room.cpuHigh = !!(ev && ev.cpuLoadState === 'high');
-    if (room.viewer) applyViewerReceiveCap();
-    else tuneSendQuality(room.cpuHigh ? 'medium' : 'high');
-    paintMediaHealth();
-    rememberMediaHealth();
-  }
+  function setRoomNote(){ return connectionController.setRoomNote.apply(this, arguments); }
+  function paintMediaHealth(){ return connectionController.paintMediaHealth.apply(this, arguments); }
+  function wantedReceiveCap(){ return connectionController.wantedReceiveCap.apply(this, arguments); }
+  function applyViewerReceiveCap(){ return connectionController.applyViewerReceiveCap.apply(this, arguments); }
+  function rememberMediaHealth(){ return connectionController.rememberMediaHealth.apply(this, arguments); }
+  function onNetworkQuality(){ return connectionController.onNetworkQuality.apply(this, arguments); }
+  function onCpuLoad(){ return connectionController.onCpuLoad.apply(this, arguments); }
   /* The end-state of a call, with the two things someone in it actually
      wants next. Both are stated because the pane going black is exactly
      when a debater cannot tell whether they just quit the tournament. */
-  function setRoomExit(title, sub){
-    if (!room.note) return;
-    room.note.innerHTML = '';
-    room.note.classList.add('cv-note--card');
-    var h = document.createElement('div');
-    h.className = 'cv-exit-h'; h.textContent = title;
-    var p = document.createElement('p');
-    p.className = 'cv-exit-p'; p.textContent = sub;
-    var row = document.createElement('div');
-    row.className = 'cv-exit-row';
-    var again = document.createElement('button');
-    again.type = 'button';
-    again.className = 'cv-exit-btn cv-exit-btn--go';
-    again.textContent = 'Rejoin the room';
-    again.addEventListener('click', function(){
-      setRoomNote('Connecting to the video room.');
-      joinRoomCall();
-    });
-    var back = document.createElement('a');
-    back.className = 'cv-exit-btn';
-    back.href = '/live';
-    back.textContent = 'Back to the board';
-    row.appendChild(again); row.appendChild(back);
-    room.note.appendChild(h); room.note.appendChild(p); room.note.appendChild(row);
-    room.note.style.display = '';
-  }
+  function setRoomExit(){ return connectionController.setRoomExit.apply(this, arguments); }
   function isAudienceName(n){ return String(n || '').indexOf('Audience · ') === 0; }
   // Watchers join under this exact name and publish nothing at all. They
   // are normally invisible, because create-daily-room mints them a token
@@ -11371,25 +10959,11 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var seat = (state.mySideHint === 'con') ? state.conName : state.proName;
     return String(seat || 'Debater').slice(0, 40) || 'Debater';
   }
-  function trackOf(slot){
-    if (!slot || slot.state !== 'playable') return null;
-    return slot.persistentTrack || slot.track || null;
-  }
+  function trackOf(){ return mediaController.trackOf.apply(this, arguments); }
   // Assign only when the underlying track actually changed. Re-setting
   // srcObject on every repaint restarts decode and makes the tile blink
   // on every participant-updated event, which fire several a second.
-  function attachTrack(el, track, play){
-    if (!track){
-      if (el.srcObject) el.srcObject = null;
-      return;
-    }
-    var cur = el.srcObject && el.srcObject.getTracks && el.srcObject.getTracks()[0];
-    if (cur && cur.id === track.id) return;
-    el.srcObject = new MediaStream([track]);
-    if (play) { play(el); return; }
-    var p = el.play && el.play();
-    if (p && p.catch) p.catch(function(){});
-  }
+  function attachTrack(){ return mediaController.attachTrack.apply(this, arguments); }
   function buildRoomUI(shell){
     if (room.wrap) return;
     var wrap = document.createElement('div');
@@ -11561,469 +11135,22 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var drv = boardDriverUid();
     return !!drv && !!p.user_id && p.user_id === drv;
   }
-  function paintTile(t, p, opts){
-    var name = (opts.screen ? 'Screen · ' : '') + (p.user_name || (p.local ? 'You' : 'Debater'));
-    if (p.local && !opts.screen){
-      name = (p.user_name || 'You') + ' (you)';
-      // This tile renders the track the room is receiving, so in Avatar
-      // mode it is also the proof that the mask is what went out.
-      if (camConv.mode === 'avatar') name += ' · what the room sees';
-    }
-    if (t.name.textContent !== name) t.name.textContent = name;
-    var letter = (String(p.user_name || 'D').trim().charAt(0) || 'D').toUpperCase();
-    if (t.initial.textContent !== letter) t.initial.textContent = letter;
-    var slot = opts.screen ? (p.tracks && p.tracks.screenVideo) : (p.tracks && p.tracks.video);
-    var track = trackOf(slot);
-    attachTrack(t.video, track);
-    t.el.classList.toggle('is-dark', !track);
-    t.el.classList.toggle('is-screen', !!opts.screen);
-    t.el.classList.toggle('is-self', !!p.local && !opts.screen);
-    t.el.classList.toggle('is-speaking', !opts.screen && !!room.active && room.active === p.session_id);
-    // The local tile mirrors in camera mode because a self-view that does
-    // not mirror reads as someone else. The avatar canvas carries baked
-    // text, so mirroring it would render that text backwards.
-    t.el.classList.toggle('is-mirror', !!p.local && !opts.screen && camConv.mode === 'camera');
-    var muted = !opts.screen && !p.local && !trackOf(p.tracks && p.tracks.audio);
-    t.muted.style.display = muted ? '' : 'none';
-  }
+  function paintTile(){ return mediaController.paintTile.apply(this, arguments); }
   // Remote audio is ours to play in call object mode; the prebuilt UI used
   // to do it. The local participant is deliberately never given an audio
   // element, which is the whole reason this room does not echo.
-  function paintAudio(list){
-    var seen = {};
-    list.forEach(function(p){
-      if (p.local) return;
-      // The mic, plus the voice judge the topic host publishes as a
-      // custom track named "judge" (js/room-topic.js, 2026-09-06). Same
-      // element rules: one <audio> per track, never for ourselves.
-      [['audio', p.tracks && p.tracks.audio], ['judge', p.tracks && p.tracks.judge]].forEach(function(pair){
-        var track = trackOf(pair[1]);
-        if (!track) return;
-        var key = pair[0] === 'audio' ? p.session_id : p.session_id + ':' + pair[0];
-        seen[key] = true;
-        var a = room.audios[key];
-        if (!a){
-          a = document.createElement('audio');
-          a.autoplay = true; a.playsInline = true;
-          a.setAttribute('playsinline', '');
-          room.audioHost.appendChild(a);
-          room.audios[key] = a;
-        }
-        attachTrack(a, track, pair[0] === 'judge' && window.RoomTopic ? window.RoomTopic.playRemote : null);
-        if (room.viewer){
-          // Start immediately. Some browsers may still enforce their own
-          // autoplay policy, but the spectator surface never interrupts the
-          // broadcast with a separate sound-gate button.
-          var pr = a.play && a.play();
-          if (pr && pr.catch) pr.catch(function(){});
-        }
-      });
-    });
-    Object.keys(room.audios).forEach(function(sid){
-      if (seen[sid]) return;
-      try { room.audios[sid].srcObject = null; room.audios[sid].remove(); } catch(e){}
-      delete room.audios[sid];
-    });
-  }
-  function paintRoom(){
-    var call = room.call;
-    if (!call || !room.stage) return;
-    var ps;
-    try { ps = call.participants() || {}; } catch(e){ return; }
-    var list = [], seats = [], auds = [], screens = [];
-    Object.keys(ps).forEach(function(k){
-      var p = ps[k];
-      if (!p || !p.session_id) return;
-      if (isSilentWatcher(p)) return;
-      list.push(p);
-      if (isAudienceName(p.user_name)) auds.push(p); else seats.push(p);
-      if (trackOf(p.tracks && p.tracks.screenVideo) && !isBoardShare(p)) screens.push(p);
-    });
-    // 2026-09-01, the founder off a screenshot of himself twice in one
-    // room ("dont make this double camera option possible"): a person
-    // whose earlier tab or connection has not been reaped yet shows up
-    // as a SECOND tile with their name and a black picture, and the grid
-    // dutifully grows to three. One person is one tile. Records sharing
-    // a user_id collapse to the one that is local, else the one with a
-    // live camera, else the newest. The dropped record leaves the audio
-    // list too, so a ghost cannot double a voice either.
-    (function dedupeByIdentity(){
-      var byUid = {};
-      seats.forEach(function(p){
-        var uid = p.user_id || '';
-        if (!uid) return;
-        (byUid[uid] = byUid[uid] || []).push(p);
-      });
-      var drop = {};
-      Object.keys(byUid).forEach(function(uid){
-        var group = byUid[uid];
-        if (group.length < 2) return;
-        group.sort(function(a, b){
-          var al = a.local ? 1 : 0, bl = b.local ? 1 : 0;
-          if (al !== bl) return bl - al;
-          var av = trackOf(a.tracks && a.tracks.video) ? 1 : 0;
-          var bv = trackOf(b.tracks && b.tracks.video) ? 1 : 0;
-          if (av !== bv) return bv - av;
-          return (b.joined_at ? +new Date(b.joined_at) : 0) - (a.joined_at ? +new Date(a.joined_at) : 0);
-        });
-        group.slice(1).forEach(function(p){ drop[p.session_id] = true; });
-      });
-      if (!Object.keys(drop).length) return;
-      var keepP = function(p){ return !drop[p.session_id]; };
-      seats = seats.filter(keepP);
-      screens = screens.filter(keepP);
-      list = list.filter(keepP);
-    })();
-    // A watcher is not on the stage. Their own participant record exists
-    // (they are joined, just sending nothing), and rendering it is what
-    // put an empty "Guest (You)" tile in front of every round.
-    if (room.viewer){
-      var notMe = function(p){ return !p.local; };
-      seats = seats.filter(notMe);
-      screens = screens.filter(notMe);
-      auds = auds.filter(notMe);
-      var assigned = seats.filter(isAssignedRoundSeat);
-      // Require a complete known pair before excluding unmatched records.
-      // With only one known name in a legacy room, keeping the fallback is
-      // better than hiding the other actual speaker. A normal 1v1 has both
-      // names or both UIDs and drops any third record here.
-      if (state.isDuo || assigned.length >= Math.min(2, seats.length)) seats = assigned;
-    }
-    // Local last in a debater room. In audience mode put a live camera at
-    // the front of the broadcast stage, preferring the active speaker
-    // when both seats have video. The second assigned seat becomes the
-    // reaction window through spectator-mode CSS.
-    seats.sort(function(a, b){
-      if (room.viewer){
-        var av = trackOf(a.tracks && a.tracks.video) ? 4 : 0;
-        var bv = trackOf(b.tracks && b.tracks.video) ? 4 : 0;
-        if (room.active && a.session_id === room.active) av += 2;
-        if (room.active && b.session_id === room.active) bv += 2;
-        if (av !== bv) return bv - av;
-      }
-      if (!!a.local !== !!b.local) return a.local ? 1 : -1;
-      return String(a.session_id) < String(b.session_id) ? -1 : 1;
-    });
-    if (room.viewer){
-      var seatLimit = state.isDuo ? 4 : 2;
-      seats = seats.slice(0, seatLimit);
-    }
-    var keep = {};
-    screens.forEach(function(p){
-      var key = 'screen:' + p.session_id;
-      keep[key] = true;
-      paintTile(ensureTile(room.stage, key, p.local), p, { screen:true });
-    });
-    seats.forEach(function(p){
-      var key = 'seat:' + p.session_id;
-      keep[key] = true;
-      var t = ensureTile(room.stage, key, p.local);
-      paintTile(t, p, {});
-      // appendChild is a no-op for media playback but updates DOM order
-      // when the active camera changes, so CSS can keep the broadcast's
-      // main picture and reaction window in the right places.
-      if (room.viewer) room.stage.appendChild(t.el);
-    });
-    auds.forEach(function(p){
-      var key = 'aud:' + p.session_id;
-      keep[key] = true;
-      paintTile(ensureTile(room.aud, key, p.local), p, {});
-    });
-    Object.keys(room.tiles).forEach(function(key){ if (!keep[key]) dropTile(key); });
-    /* Self view, 2026-08-19 per the founder ("make it small or hideable"): in a
-       plain 1v1 with nothing shared, the local tile leaves the grid and
-       becomes a corner thumbnail so the opponent holds the whole stage.
-       It is left in the grid for 2v2, for a real screen share, and in the
-       mini/pip shells, all of which have their own cramped layouts.
-       Because the tile goes out of flow, it also comes out of data-n, or
-       the grid keeps a column open for a tile that is no longer in it. */
-    // 2026-09-03 (the founder's phone sketch): on a phone both seats stay in
-    // the flow side by side and the speaker's tile grows, so the corner
-    // self-view is desktop only.
-    var phoneTiles = !!(window.matchMedia && window.matchMedia('(max-width:900px)').matches);
-    var mini = !room.viewer && seats.length === 2 && screens.length === 0 && !room.selfHidden && !phoneTiles
-      && !document.body.classList.contains('lr-mini')
-      && !document.body.classList.contains('lr-pip');
-    room.stage.classList.toggle('self-mini', mini);
-    room.stage.classList.toggle('self-off', !room.viewer && !!room.selfHidden);
-    var inFlow = seats.length + screens.length
-      - ((mini || room.selfHidden) ? seats.filter(function(p){ return p.local; }).length : 0);
-    room.stage.setAttribute('data-n', String(Math.max(1, inFlow)));
-    room.stage.classList.toggle('has-screen', screens.length > 0);
-    paintAudio(list);
-    var local = ps.local;
-    // The board publishes through the local screen track, so this used to
-    // read true whenever a recording was running and the tray offered
-    // "Stop sharing" for a share the debater never started. Pressing it
-    // would have torn the layout out of the recording mid-round.
-    room.boardLocal = !!(local && trackOf(local.tracks && local.tracks.screenVideo) && isBoardShare(local));
-    room.sharing = !!(local && trackOf(local.tracks && local.tracks.screenVideo)) && !room.boardLocal;
-    if (local && local.tracks && local.tracks.audio) room.micOn = local.audio !== false;
-    paintTray();
-    // Live participant truth feeds the presence prompts: the round doc's
-    // 30s seat beat can lag a real join by several seconds, and the
-    // "Looking for your debater" strip has sat on screen while the
-    // opponent was already on camera. Audience cams were split out of
-    // `seats` above, so a remote seat here is a debater.
-    var remoteSeats = seats.filter(function(p){ return !p.local; }).length;
-    if (remoteSeats > 0) room.everHadRemote = true;
-    if (room.remoteSeats !== remoteSeats){
-      var wasSeated = room.remoteSeats > 0;
-      room.remoteSeats = remoteSeats;
-      // The video room is the fastest thing this page can observe about
-      // somebody walking out: Daily drops their participant in about a
-      // second, where the seat beat takes a beat and an unannounced
-      // departure used to take the full quiet window. Leaving the CALL is
-      // not leaving the ROUND, though (the tray's Leave call keeps you in
-      // it), so this only starts a short clock. opponentHasLeft() still
-      // requires their heartbeat to have stopped with it.
-      if (wasSeated && remoteSeats === 0) noteOppGone(12000);
-      else if (remoteSeats > 0) clearOppGone();
-      try { checkOpponentPresence(); } catch(e){}
-      try { paintRoundQuiet(); } catch(e){}
-    }
-    // "Waiting to join" is wrong once someone HAS been here: an opponent
-    // who drops mid-round gets a message that says what happened instead
-    // of the fresh-room copy.
-    if (room.joined && room.viewer){
-      setRoomNote(seats.length ? '' : 'Waiting for the debaters to turn their cameras on.');
-    } else if (room.joined) setRoomNote(seats.length > 1 ? ''
-      : (room.everHadRemote
-        ? 'Your opponent’s connection dropped. Their seat is held; they can rejoin from the same link.'
-        : 'Waiting for the other debater to join.'));
-  }
+  function paintAudio(){ return mediaController.paintAudio.apply(this, arguments); }
+  function paintRoom(){ return mediaController.paintRoom.apply(this, arguments); }
   // Front/rear switch. The published track is the DebateCam canvas, so a
   // flip cannot go through Daily's device picker: it has to rebuild the
   // pipeline on the other camera and republish. Everything downstream
   // reads camConv.cam through a getter, so the watchdog, the self-check
   // tile and the room still all follow the new canvas.
-  function flipCamera(){
-    if (!CUSTOM_TRACK_OK || !window.DebateCam || !state.dailyFrame) return;
-    var btn = document.getElementById('cvFlip');
-    if (btn) btn.disabled = true;
-    var want = room.facing === 'user' ? 'environment' : 'user';
-    var mode = camConv.mode === 'avatar' ? 'avatar' : 'camera';
-    var old = camConv.cam;
-    navigator.mediaDevices.getUserMedia({ audio: true, video: captureConstraints(mode, want) })
-      .then(function(ms){ return window.DebateCam.start(ms, { mode: mode, label: seatLabel() }); })
-      .then(function(c){
-        camConv.cam = c;
-        camConv.camP = Promise.resolve(c);
-        room.facing = want;
-        return state.dailyFrame.setInputDevicesAsync({ videoSource: publishTrackFor(c, mode) }).then(function(){
-          if (camConv.mode !== 'off') state.dailyFrame.setLocalVideo(true);
-          tuneSendQuality(room.cpuHigh ? 'medium' : 'high');
-          if (camConv.mode === 'avatar') showSelfPip();
-          if (old && old !== c) try { old.stop(); } catch(e){}
-          paintRoom();
-        });
-      })
-      .catch(function(e){
-        console.warn('[flip camera]', e);
-        toast('Could not switch cameras');
-      })
-      .then(function(){ if (btn) btn.disabled = false; });
-  }
-  function joinWith(videoSource, audioSource){
-    // The token key is OMITTED rather than set to undefined when there is
-    // none: daily-js validates on the key's presence, so `token:undefined`
-    // fails with "token should be a string" and takes the whole join with
-    // it. Tokenless joins are a real case (create-daily-room returns no
-    // token when Firebase is unreachable), so this is not hypothetical.
-    var props = {
-      url: state.dailyUrl,
-      userName: room.viewer ? 'Watching' : myRoomName(),
-      videoSource: videoSource,
-    };
-    // No device is opened for a watcher, in either direction. That is
-    // what keeps the browser from ever asking them for a camera, and it
-    // is also the only honest name to join under: the token already
-    // carries hasPresence:false, so nobody in the round sees them at all.
-    if (room.viewer) props.audioSource = false;
-    else if (audioSource) props.audioSource = audioSource;
-    if (typeof room.token === 'string' && room.token) props.token = room.token;
-    return room.call.join(props).then(function(r){
-      tuneSendQuality();
-      return r;
-    }).catch(function(e){
-      liveJourney('call_join_failed', { code: e.name || 'unknown' });
-      console.warn('[Daily join]', e);
-      setRoomExit('Could not join the video room.',
-        'Your round is unaffected. The speeches and the decision do not run through the video.');
-      room.joined = false;
-      paintTray();
-    });
-  }
-  function joinRoomCall(){
-    if (!room.call || room.joined || room.joinPending) return;
-    room.joinPending = true;
-    if (room.fallbackAudioTrack){ room.fallbackAudioTrack.stop(); room.fallbackAudioTrack = null; }
-    liveJourney('call_join_started');
-    setRoomNote('Connecting to the video room.');
-    var pending;
-    if (room.viewer){
-      camConv.unified = false;
-      pending = joinWith(false);
-    } else {
-      camConv.unified = true;
-      // An unanswered browser permission prompt has no built-in timeout.
-      // Keep it pending, but give the person an explanation after 10s.
-      var permissionHint = setTimeout(function(){
-        if (!room.joined){
-          setRoomNote('Allow microphone access in your browser to join. Camera access is optional.');
-          liveJourney('media_permission_wait');
-        }
-      }, 10000);
-      pending = ensureAvatarCam('camera').then(function(c){
-        clearTimeout(permissionHint);
-        var audio = c.srcStream && c.srcStream.getAudioTracks()[0];
-        var hasVideo = c.srcStream && c.srcStream.getVideoTracks().length;
-        if (!audio || audio.readyState === 'ended') throw new Error('Microphone unavailable');
-        liveJourney('media_ready', { camera: !!hasVideo, microphone: true });
-        // Pass the capture already granted to us. Leaving audioSource out
-        // asks Daily to open the microphone a second time, which can fail
-        // on devices that cannot service two captures at once.
-        return joinWith(hasVideo ? publishTrackFor(c, 'camera') : false, audio).then(function(){
-          if (room.joined && !hasVideo) camJoinNoVideoNotice();
-        });
-      }).catch(function(e){
-        clearTimeout(permissionHint);
-        camConv.unified = false;
-        camConv.camP = null;
-        if (e.liveAudio && e.liveAudio.readyState !== 'ended'){
-          room.fallbackAudioTrack = e.liveAudio;
-          liveJourney('media_renderer_failed', { code: e.name || 'unknown' });
-          return joinWith(false, e.liveAudio).then(function(){
-            if (room.joined) camJoinNoVideoNotice();
-            else { e.liveAudio.stop(); room.fallbackAudioTrack = null; }
-          });
-        }
-        liveJourney('call_media_blocked', { code: e.name || 'unknown' });
-        setRoomExit('Your microphone did not start.',
-          'Allow microphone access for this site in your browser, or close another app using it. Then rejoin. Camera access is optional.');
-        room.joined = false;
-        paintTray();
-      });
-    }
-    return Promise.resolve(pending).then(function(){ room.joinPending = false; });
-  }
-  function teardownRoom(){
-    if (room.fallbackAudioTrack){ room.fallbackAudioTrack.stop(); room.fallbackAudioTrack = null; }
-    Object.keys(room.tiles).forEach(dropTile);
-    Object.keys(room.audios).forEach(function(sid){
-      try { room.audios[sid].srcObject = null; room.audios[sid].remove(); } catch(e){}
-      delete room.audios[sid];
-    });
-    room.joined = false;
-    room.networkState = 'unknown';
-    room.networkReasons = [];
-    room.cpuHigh = false;
-    room.receiveCap = 'inherit';
-    room.lastHealthKey = '';
-    paintMediaHealth();
-  }
-  function mountCallObject(shell, token, viewer){
-    var call = window.DailyIframe.createCallObject({ subscribeToTracksAutomatically: true });
-    room.call = call;
-    room.token = token || '';
-    room.viewer = !!viewer;
-    // state.dailyFrame is the handle every camera path publishes through.
-    // A watcher has no camera to publish, and leaving it null is what
-    // keeps the avatar pipeline, the flip, and the mask reassert from
-    // finding anything to act on.
-    if (!viewer) state.dailyFrame = call;
-    // The link interceptor and the pop-out guard both read this. It stays
-    // true for the call object: there is no iframe to look for, and
-    // reparenting the pane into a Document PiP window would move every
-    // <video> across documents mid-round.
-    window.__lrDailyWrapper = true;
-    buildRoomUI(shell);
-    call.on('joined-meeting', function(){
-      liveJourney('call_joined');
-      room.joined = true;
-      paintTray();
-      setRoomNote('');
-      armGuestWall();
-      // The canvas track went in with join(), so there is nothing to
-      // publish here. A camera on stage means the room still has a
-      // picture worth posting to the homepage strip.
-      if (!room.viewer){
-        if (camConv.cam) startRoomShots();
-        try { gtag('event', 'live_round_cam_unified'); } catch(e){}
-      }
-      paintRoom();
-      if (window.__lrRefreshDraft) window.__lrRefreshDraft();
-    });
-    call.on('participant-joined', function(){
-      paintRoom();
-      if (window.__lrAnnounceDraft) window.__lrAnnounceDraft();
-    });
-    call.on('participant-updated', function(ev){ paintRoom(); if (!room.viewer) reassertMask(ev); });
-    call.on('app-message', function(ev){
-      var data = ev && ev.data;
-      if (!data || typeof data !== 'object') return;
-      if (data.t === 'topic-caption'){
-        var topicSender = call.participants()[ev.fromId];
-        if (topicSender && window.RoomTopic) window.RoomTopic.receive(data, topicSender.user_id);
-        return;
-      }
-      if (data.t === 'guard-review'){ try { showGuardReviewCard(); } catch(e){} }
-      else if (data.t === 'guard-clear'){ try { onGuardCleared(); } catch(e){} }
-      else if (data.t === 'seat-left'){ try { noteOppSaidGone(data.uid); } catch(e){} }
-      else if (data.t === 'draft-changed' && data.room === state.room){
-        var sender = call.participants()[ev.fromId];
-        if (sender && sender.user_id && (sender.user_id === state.proUid || sender.user_id === state.conUid)){
-          if (window.__lrDraftChanged) window.__lrDraftChanged(data.revision);
-        }
-      }
-    });
-    call.on('participant-left', paintRoom);
-    call.on('track-started', paintRoom);
-    call.on('track-stopped', paintRoom);
-    call.on('network-quality-change', onNetworkQuality);
-    call.on('cpu-load-change', onCpuLoad);
-    call.on('active-speaker-change', function(ev){
-      room.active = (ev && ev.activeSpeaker && ev.activeSpeaker.peerId) || '';
-      paintRoom();
-      // paintRoom moves the .is-speaking class; the gaze follows it here
-      // rather than waiting for the next timer transition, which is what
-      // makes the judge look like it is tracking the room in real time.
-      if (state.phase === 'round') { try { aimJudgeEyes(); } catch(e){} }
-    });
-    call.on('camera-error', function(ev){ console.warn('[Daily camera]', ev && ev.errorMsg); });
-    call.on('error', function(ev){
-      liveJourney('call_error', { code: (ev && ev.error && ev.error.type) || 'unknown' });
-      console.warn('[Daily]', ev);
-      if (room.viewer){
-        setRoomExit('The video dropped.',
-          'The round carries on. Rejoin the video, or keep following the clock and the transcript.');
-      } else {
-        setRoomExit('The video room dropped.',
-          'Your round is still running. Rejoin when you are ready, or carry on from the board.');
-      }
-      room.joined = false;
-      paintTray();
-    });
-    call.on('left-meeting', function(){
-      room.joined = false;
-      teardownRoom();
-      // The audience-camera path leaves and rejoins the same call object
-      // to swap tokens; that leave is not the watcher stopping.
-      if (room.viewer && audCam.rejoining) return;
-      if (room.viewer){
-        setRoomExit('You stopped watching the video.',
-          'The round is still running. The clock, the transcript and the decision keep arriving here.');
-      } else {
-        teardownCamPipeline();
-        setRoomExit('You left the video room.',
-          'You are still in the round. Your speeches, the clock and the decision are unaffected.');
-      }
-      paintTray();
-    });
-    wireAudienceReceiveSettings(call);
-    joinRoomCall();
-    return call;
-  }
+  function flipCamera(){ return mediaController.flipCamera.apply(this, arguments); }
+  function joinWith(){ return connectionController.joinWith.apply(this, arguments); }
+  function joinRoomCall(){ return connectionController.joinRoomCall.apply(this, arguments); }
+  function teardownRoom(){ return connectionController.teardownRoom.apply(this, arguments); }
+  function mountCallObject(){ return connectionController.mountCallObject.apply(this, arguments); }
 
   // ── The spectator's stage: a screen you watch, not a call you are in
   //
@@ -14181,93 +13308,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   function localRoundEvidence(){
     return { format: state.formatKey, speeches: state.log };
   }
-  function renderUnresolvedBallot(noWinner){
-    liveJourney('result_unresolved', { reason: typeof noWinner === 'string' ? noWinner : ((noWinner && noWinner.resolution) || 'unresolved') });
-    clearBallotRecovery();
-    if (typeof noWinner === 'string') noWinner = { resolution: noWinner };
-    noWinner = noWinner && typeof noWinner === 'object' ? noWinner : {};
-    state.ballotUnresolved = noWinner;
-    state.phase = 'ballot-unresolved';
-    updateRoundGuide();
-    $('phaseLabel').innerHTML = '<span class="dot" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span> No winner';
-    $('roundView').classList.add('hidden');
-    $('ballotView').classList.remove('hidden');
-    try { showJudgeAtTop(); } catch(e){}
-    $('ballotResult').classList.add('hidden');
-    stopBallotWaitCue();
-    var host = $('ballotLoading');
-    host.classList.remove('hidden');
-    if (noWinner.outcome === 'no_contest'){
-      state.lastBallot = null;
-      host.innerHTML = '<div style="max-width:620px;margin:0 auto;text-align:center">'
-        + '<div class="verdict-headline">No winner</div>'
-        + '<p style="font-size:1rem;line-height:1.6;color:var(--text-dim)">' + escHtml(noWinner.reason) + '</p>'
-        + '<p style="font-size:.84rem;color:var(--text-dim)">No scores, wins, losses or rating changes are recorded.</p>'
-        + '<a class="btn" href="/live">Back to live debates</a></div>';
-      try { capFinish(null); } catch(e){}
-      try { endRecordingAfterReactions(); renderRecTail(); } catch(e){}
-      return;
-    }
-    var proName = String(noWinner.proName || state.proName || 'For');
-    var conName = String(noWinner.conName || state.conName || 'Against');
-    var tally = noWinner.tally && typeof noWinner.tally === 'object' ? noWinner.tally : {};
-    var proVotes = Math.max(0, Number(tally.pro) || 0);
-    var conVotes = Math.max(0, Number(tally.con) || 0);
-    var votesCast = Math.max(0, Number(noWinner.votesCast) || (proVotes + conVotes));
-    var panelSize = Math.max(votesCast, Number(noWinner.panelSize) || votesCast);
-    var missing = Math.max(0, Number(noWinner.missing) || (panelSize - votesCast));
-    var reason = String(noWinner.reason || 'No side reached the required majority, so the panel did not record a winner.');
-    var judgeReasons = Array.isArray(noWinner.judgeReasons) ? noWinner.judgeReasons : [];
-    var hasProPoints = typeof noWinner.proPoints === 'number' && isFinite(noWinner.proPoints);
-    var hasConPoints = typeof noWinner.conPoints === 'number' && isFinite(noWinner.conPoints);
-    var pointsHtml = hasProPoints || hasConPoints
-      ? '<div class="points-grid" style="margin-top:18px;text-align:left">'
-          + '<div class="points-card">'
-            + '<div class="name">' + escHtml(proName) + '</div>'
-            + '<div class="pts">' + (hasProPoints ? escHtml(String(noWinner.proPoints)) : 'n/a') + '</div>'
-            + '<div class="pts-label">Argument score · out of 100</div>'
-          + '</div>'
-          + '<div class="points-card">'
-            + '<div class="name">' + escHtml(conName) + '</div>'
-            + '<div class="pts">' + (hasConPoints ? escHtml(String(noWinner.conPoints)) : 'n/a') + '</div>'
-            + '<div class="pts-label">Argument score · out of 100</div>'
-          + '</div>'
-        + '</div>'
-      : '';
-    var splitHtml = votesCast
-      ? '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px">'
-          + '<span style="padding:6px 10px;border-radius:999px;border:1px solid rgba(74,222,128,.35);background:rgba(74,222,128,.08);color:#86efac;font-size:.72rem;font-weight:800">' + escHtml(proName) + ' ' + proVotes + '</span>'
-          + '<span style="padding:6px 10px;border-radius:999px;border:1px solid rgba(248,113,113,.35);background:rgba(248,113,113,.08);color:#fca5a5;font-size:.72rem;font-weight:800">' + escHtml(conName) + ' ' + conVotes + '</span>'
-          + (missing ? '<span style="padding:6px 10px;border-radius:999px;border:1px solid var(--border);color:var(--text-dim);font-size:.72rem;font-weight:800">' + missing + ' missing</span>' : '')
-        + '</div>'
-      : '';
-    var reasonsHtml = judgeReasons.map(function(vote, index){
-      var side = vote.winner === 'pro' ? proName : conName;
-      var issue = String(vote.decidingIssue || '');
-      var rfd = String(vote.rfd || 'No written reason returned.');
-      var brain = vote.model ? councilBrainName(vote.model) : 'Judge ' + (index + 1);
-      return '<div style="text-align:left;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.025);margin-top:10px">'
-        + '<div style="font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim)">' + escHtml(brain) + ' voted for ' + escHtml(side) + '</div>'
-        + (issue ? '<div style="font-size:.84rem;font-weight:800;color:var(--text);margin-top:7px">Deciding issue: ' + escHtml(issue) + '</div>' : '')
-        + '<div style="font-size:.82rem;line-height:1.6;color:var(--text-dim);margin-top:7px;white-space:pre-wrap">' + judgeHtml(rfd) + '</div>'
-        + '</div>';
-    }).join('');
-    var legacyWhy = !judgeReasons.length
-      ? '<div style="text-align:left;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.025);font-size:.78rem;line-height:1.55;color:var(--text-dim);margin-top:10px">This round was judged before per-judge split reasons were saved.</div>'
-      : '';
-    host.innerHTML = '<div style="max-width:720px;margin:0 auto">'
-      + '<div style="font-size:.66rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--amber)">No winner</div>'
-      + '<div style="color:var(--text);font-weight:900;font-size:1.35rem;line-height:1.2;margin-top:7px">The panel did not reach a majority.</div>'
-      + '<div style="font-size:.84rem;line-height:1.55;margin-top:10px;color:var(--text-dim)">' + escHtml(reason) + '</div>'
-      + splitHtml
-      + pointsHtml
-      + '<div style="text-align:left;font-size:.68rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-top:22px">Why the judges disagreed</div>'
-      + reasonsHtml + legacyWhy
-      + '<div style="font-size:.76rem;margin-top:16px;color:var(--text-ghost)">' + (state.isDuo ? '2v2 results do not change the 1v1 leaderboard.' : 'The ladder records a draw<span id="afterRatingSlot"></span>.') + '</div>'
-      + '<div style="margin-top:18px"><a class="btn" href="/live">Back to live debates</a></div>'
-      + '</div>';
-    try { renderAfterRating(); } catch(e){}
-  }
+  function renderUnresolvedBallot(){ return verdictController.renderUnresolvedBallot.apply(this, arguments); }
   function scheduleBallotRecovery(roundData, delayOverride){
     if (state.lastBallot || state.ballotUnresolved || state.ballotRecoveryTimer) return;
     if (state.ballotRecoveryAttempts >= BALLOT_RECOVERY_MAX_ATTEMPTS) return;
@@ -14614,29 +13655,12 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // as a win and reported the judge as broken. BallotRead.summaryFrom
   // leads with the call composed from fields already on the ballot;
   // nothing here invents.
-  function ballotSummaryRead(b){
-    var winnerName = '';
-    if (b && b.winner === 'pro') winnerName = teamDisplayName('pro');
-    else if (b && b.winner === 'con') winnerName = teamDisplayName('con');
-    if (window.BallotRead && BallotRead.summaryFrom){
-      return BallotRead.summaryFrom(b, { winnerName: winnerName });
-    }
-    var s = (b && typeof b.summary === 'string') ? b.summary.trim() : '';
-    if (s) return s;
-    var fs = (window.BallotRead && BallotRead.firstSentences)
-      ? BallotRead.firstSentences(b && b.rfd, 2) : '';
-    return fs || (b && b.rfd) || '';
-  }
+  function ballotSummaryRead(){ return verdictController.ballotSummaryRead.apply(this, arguments); }
 
   // Mount the reading-depth control on whichever ballot body just
   // rendered. renderBallotBody replaces the whole node, so this runs
   // after every render; mount() drops the stale pair itself.
-  function mountBallotRead(){
-    if (!window.BallotRead) return;
-    var host = document.getElementById('ballotReadHost');
-    var body = document.getElementById('ballotReadBlock');
-    if (host && body) BallotRead.mount(host, body, { surface: 'live-round' });
-  }
+  function mountBallotRead(){ return verdictController.mountBallotRead.apply(this, arguments); }
 
   function renderDeepRfd(){
     var slot = document.getElementById('deepRfdSlot');
@@ -15751,105 +14775,9 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // ballot DOM. Re-entries from Firestore snapshots fall straight
   // through with state.ballotRevealMode preserved so a re-render
   // doesn't yank the user back to the interstitial.
-  function renderBallot(b){
-    if (!RoundEvidence.assess(localRoundEvidence()).ok){
-      renderUnresolvedBallot(RoundEvidence.noContest(localRoundEvidence()));
-      return;
-    }
-    if (!state.journeyResult){ state.journeyResult = true; liveJourney('result_received'); }
-    state.lastBallot = b || null;
-    // Both clients pass through here (the generating debater directly,
-    // the other via the Firestore sync), so this is the one choke point
-    // where each side can flush its own consented speeches.
-    try { logMyRoundSpeeches(b); } catch(e){}
-    try { capFinish(b); } catch(e){}
-    // A rendered ballot is a completed round, so this is where the
-    // research-corpus opt-in gets asked (the module counts rounds and
-    // asks on the second one, after a delay, once ever). Seated
-    // debaters only: a spectator did not debate, and their rounds are
-    // not what the corpus is made of. renderBallot runs long after
-    // parse, so the deferred module is loaded by now and a direct call
-    // is safe.
-    try { if (mySide() && typeof window.noteRoundComplete === 'function') window.noteRoundComplete(); } catch(e){}
-    // Pin phase so the Firestore snapshot guard (state.phase ===
-    // 'ballot-rendered') stops re-firing renderBallot. Without this,
-    // generateBallot's success path enters renderBallot first while
-    // state.phase is still 'ballot'; the snapshot then re-triggers
-    // and restarts staged-reveal animations or clobbers a user who
-    // is mid-interstitial.
-    state.phase = 'ballot-rendered';
-    updateRoundGuide();
-    try { renderRoundNotes(); showJudgeAtTop(); } catch(e){}
-    // The recording's clock runs off the VERDICT, not off this screen.
-    // Both hooks live above the interstitial return on purpose: the reel
-    // is footage for people who were not in the room, so it must not
-    // wait on whether the local debater has pressed through their own
-    // reveal choice.
-    try { endRecordingAfterReactions(); renderRecTail(); } catch(e){ console.warn('[recording]', e); }
-    try { reelShowBallot(b); } catch(e){ console.warn('[reel]', e); }
-    if (!state.ballotRevealMode){
-      showBallotInterstitial(b);
-      return;
-    }
-    renderBallotBody(b, state.ballotRevealMode);
-    // The audience aggregate is a footnote to the ballot, so it is
-    // fetched after the verdict is on screen rather than raced with it.
-    // First read is delayed: spectators restate in the seconds AFTER the
-    // ballot lands, so an instant fetch reads a tally nobody has filled.
-    try { setTimeout(loadRoomShift, 6000); } catch(e){}
-    // The clash map reads the whole transcript, so it can only be drawn
-    // once the round is over. Fired here rather than on the toggle so it
-    // is usually ready by the time somebody opens the flow.
-    try { setTimeout(generateClashMap, 1200); } catch(e){}
-  }
+  function renderBallot(){ return verdictController.renderBallot.apply(this, arguments); }
 
-  function showBallotInterstitial(b){
-    stopBallotWaitCue();
-    $('ballotLoading').classList.add('hidden');
-    var result = $('ballotResult');
-    result.classList.remove('hidden');
-    result.classList.remove('ballot-staged');
-    // Spectators get a slimmer interstitial since the dramatic-reveal
-    // controls are most useful to the speakers themselves. Spectators
-    // still get the choice so they can sync their watch to whoever
-    // shouts "reveal" first, minus read-aloud: the judge speaking is the
-    // debaters' moment, and a watcher's autoplay is blocked anyway.
-    var slim = isSpectator();
-    result.innerHTML =
-      '<div class="ballot-interstitial">' +
-        '<div class="bi-eyebrow">Decision ready</div>' +
-        '<div class="bi-headline">The judge has decided.</div>' +
-        (slim
-          ? '<div class="bi-sub">Reveal shows the decision beat-by-beat.</div>'
-            + '<div class="bi-actions">'
-            + '<button class="btn btn-primary" id="biDramaticBtn" type="button">Reveal the decision</button>'
-            + '</div>'
-          : '<div class="bi-sub">Pick how you want to see it. Dramatic reveals the decision beat-by-beat; read-aloud plays the decision.</div>'
-            + '<div class="bi-actions">'
-            + '<button class="btn btn-primary" id="biRevealBtn" type="button">Read aloud</button>'
-            + '<button class="btn" id="biDramaticBtn" type="button">Dramatic reveal</button>'
-            + '</div>') +
-        '<div class="bi-ghost"><button id="biInstantBtn" type="button">or skip the suspense, show me now</button></div>' +
-      '</div>';
-    var dramaticBtn = $('biDramaticBtn');
-    var revealBtn = $('biRevealBtn');
-    var instantBtn = $('biInstantBtn');
-    if (dramaticBtn) dramaticBtn.addEventListener('click', function(){
-      state.ballotRevealMode = 'staged';
-      try { gtag('event', 'ballot_reveal_mode', { mode: 'staged', format: state.formatKey }); } catch(e){}
-      renderBallotBody(b, 'staged');
-    });
-    if (revealBtn) revealBtn.addEventListener('click', function(){
-      state.ballotRevealMode = 'read-aloud';
-      try { gtag('event', 'ballot_reveal_mode', { mode: 'read-aloud', format: state.formatKey }); } catch(e){}
-      renderBallotBody(b, 'read-aloud');
-    });
-    if (instantBtn) instantBtn.addEventListener('click', function(){
-      state.ballotRevealMode = 'instant';
-      try { gtag('event', 'ballot_reveal_mode', { mode: 'instant', format: state.formatKey }); } catch(e){}
-      renderBallotBody(b, 'instant');
-    });
-  }
+  function showBallotInterstitial(){ return verdictController.showBallotInterstitial.apply(this, arguments); }
 
   // Render the actual ballot DOM. Mode controls whether the sections
   // get .ballot-section[data-stage] wrappers (CSS staggers their
@@ -15861,138 +14789,11 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // per-seat speaker scores, per-team feedback, and the full RFD.
   // Called from renderBallotBody when the ballot shape carries a
   // teamRanking[] array.
-  function renderBpBallotBody(b, f, result, mode, staged){
-    var SIDE_KEYS = ['og','oo','cg','co'];
-    var SIDE_SHORT = { og:'OG', oo:'OO', cg:'CG', co:'CO' };
-    var SIDE_COLOR = { og:'#4ade80', oo:'#fca5a5', cg:'#86efac', co:'#fecaca' };
-    var SPEECH_OF_SIDE = { og:['PM','DPM'], oo:['LO','DLO'], cg:['MG','GW'], co:['MO','OW'] };
-    function teamName(side){
-      if (state.teamNames && state.teamNames[side]) return state.teamNames[side];
-      if (side === 'og') return state.proName || 'OG';
-      if (side === 'oo') return state.conName || 'OO';
-      return f.sideLabels[side] || (SIDE_SHORT[side] || side);
-    }
-    var ranking = b.teamRanking.slice().sort(function(a, c){ return (a.rank||9) - (c.rank||9); });
-    var scores = b.speakerScores || {};
-    var feedback = b.teamFeedback || {};
-    var topTeam = ranking[0] || {};
-    var topSide = String(topTeam.side || '').toLowerCase();
+  function renderBpBallotBody(){ return verdictController.renderBpBallotBody.apply(this, arguments); }
 
-    var rankRows = ranking.map(function(r){
-      var side = String(r.side || '').toLowerCase();
-      var seats = SPEECH_OF_SIDE[side] || [];
-      var seatScores = seats.map(function(code){
-        var s = scores[code];
-        return '<span class="bp-seat"><span class="bp-seat-code">' + escHtml(code) + '</span><span class="bp-seat-score">' + (typeof s === 'number' ? s.toFixed(1) : '—') + '</span></span>';
-      }).join('');
-      return '<div class="bp-rank-row bp-rank-' + r.rank + '" style="border-left-color:' + SIDE_COLOR[side] + '">'
-        + '<div class="bp-rank-num">' + r.rank + '</div>'
-        + '<div class="bp-rank-body">'
-          + '<div class="bp-rank-team">' + escHtml(r.label || f.sideLabels[side] || side) + ' <span class="bp-rank-team-name">' + escHtml(teamName(side)) + '</span></div>'
-          + '<div class="bp-rank-summary">' + escHtml(r.summary || '') + '</div>'
-          + '<div class="bp-rank-seats">' + seatScores + '</div>'
-        + '</div>'
-      + '</div>';
-    }).join('');
+  function councilBrainName(){ return verdictController.councilBrainName.apply(this, arguments); }
 
-    var feedbackRows = SIDE_KEYS.map(function(side){
-      var fb = feedback[side];
-      if (!fb) return '';
-      return '<div class="bp-fb"><div class="bp-fb-head" style="color:' + SIDE_COLOR[side] + '">' + escHtml(f.sideLabels[side] || SIDE_SHORT[side]) + ' <span style="color:var(--text-dim);font-weight:600">· ' + escHtml(teamName(side)) + '</span></div><div class="bp-fb-body">' + escHtml(fb) + '</div></div>';
-    }).join('');
-
-    result.innerHTML =
-      '<style>'
-        + '.bp-result{padding:8px 0}'
-        + '.bp-verdict{display:flex;align-items:center;gap:14px;padding:18px 22px;background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(34,197,94,.02));border:1px solid rgba(34,197,94,.32);border-radius:14px;margin-bottom:18px}'
-        + '.bp-verdict-eyebrow{font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#4ade80}'
-        + '.bp-verdict-headline{font-size:1.4rem;font-weight:900;color:var(--text);line-height:1.2;margin-top:4px}'
-        + '.bp-verdict-headline em{font-style:normal;color:#4ade80}'
-        + '.bp-rank-row{display:flex;gap:14px;align-items:flex-start;padding:14px 18px;border:1px solid var(--border);border-left:4px solid;border-radius:10px;background:rgba(255,255,255,.02);margin-bottom:10px}'
-        + '.bp-rank-num{font-size:2.4rem;font-weight:900;line-height:1;width:50px;text-align:center;color:var(--text);flex-shrink:0}'
-        + '.bp-rank-1 .bp-rank-num{color:#fde68a;text-shadow:0 0 18px rgba(253,224,71,.45)}'
-        + '[data-theme="light"] .bp-rank-1 .bp-rank-num{color:#a16207;text-shadow:none}'
-        + '.bp-rank-body{flex:1;min-width:0}'
-        + '.bp-rank-team{font-size:.95rem;font-weight:800;color:var(--text);margin-bottom:4px}'
-        + '.bp-rank-team-name{font-weight:600;color:var(--text-dim);font-size:.84rem}'
-        + '.bp-rank-summary{font-size:.84rem;color:var(--text-dim);line-height:1.5;margin-bottom:8px}'
-        + '.bp-rank-seats{display:flex;gap:10px;flex-wrap:wrap}'
-        + '.bp-seat{display:inline-flex;align-items:baseline;gap:4px;padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--border)}'
-        + '.bp-seat-code{font-size:.6rem;font-weight:800;letter-spacing:.08em;color:var(--text-dim)}'
-        + '.bp-seat-score{font-size:.78rem;font-weight:800;color:var(--text)}'
-        + '.bp-rfd{padding:18px 22px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:12px;margin:18px 0;font-size:.92rem;line-height:1.65;color:var(--text);white-space:pre-wrap}'
-        + '.bp-fb{padding:14px 18px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card);margin-bottom:10px}'
-        + '.bp-fb-head{font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}'
-        + '.bp-fb-body{font-size:.86rem;color:var(--text);line-height:1.55}'
-      + '</style>'
-      + '<div class="bp-result">'
-        + '<div class="bp-verdict"' + (staged ? ' data-stage="0"' : '') + '>'
-          + '<div style="flex:1">'
-            + '<div class="bp-verdict-eyebrow">Decision · ' + escHtml(f.name) + '</div>'
-            + '<div class="bp-verdict-headline"><em>' + escHtml(f.sideLabels[topSide] || SIDE_SHORT[topSide]) + '</em> takes the round</div>'
-          + '</div>'
-        + '</div>'
-        + '<div class="ballot-section"' + (staged ? ' data-stage="1"' : '') + '>'
-          + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px">Team ranking</h3>'
-          + rankRows
-        + '</div>'
-        + '<div class="ballot-section" id="ballotReadBlock"' + (staged ? ' data-stage="2"' : '') + '>'
-          + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 10px">Why they won</h3>'
-          + '<div id="ballotReadHost"></div>'
-          + '<div data-read-tier="summary"><div class="bp-rfd">' + judgeHtml(ballotSummaryRead(b) || '(no decision text)') + '</div></div>'
-          + '<div data-read-tier="ballot"><div class="bp-rfd">' + judgeHtml(b.rfd || '(no written decision)') + '</div></div>'
-          + '<div id="deepRfdSlot" data-read-tier="full">' + deepRfdSlotHtml() + '</div>'
-          + flowOfferHtml()
-          + roomShiftSlotHtml()
-        + '</div>'
-        + (feedbackRows ? '<div class="ballot-section"' + (staged ? ' data-stage="3"' : '') + '>'
-            + '<h3 style="font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim);margin:18px 0 10px">Team feedback</h3>'
-            + feedbackRows
-          + '</div>' : '')
-      + '</div>';
-  }
-
-  function councilBrainName(model){
-    var m = String(model || '');
-    if (/^claude/i.test(m)) return 'Anthropic Claude (' + m + ')';
-    if (/^gpt/i.test(m)) return 'OpenAI GPT (' + m + ')';
-    if (/^gemini/i.test(m)) return 'Google Gemini (' + m + ')';
-    if (/^grok/i.test(m)) return 'xAI Grok (' + m + ')';
-    if (/^deepseek/i.test(m)) return 'DeepSeek (' + m + ')';
-    return m || 'model not named';
-  }
-
-  function ballotCouncilHtml(b){
-    try {
-      var p = b && b.panel;
-      if (!p) return '';
-      var models = Array.isArray(p.models) ? p.models.filter(Boolean) : [];
-      var names = models.length ? models.map(councilBrainName).map(escHtml).join(' · ') : 'Model not recorded';
-      if (p.resolution === 'single'){
-        return '<div class="ballot-council"><div class="bc-head">Single-brain decision</div>' +
-          '<p class="bc-models">' + names + '</p>' +
-          '<p class="bc-method">' + (p.degraded ? 'The council could not reach quorum, so the stamped fallback wrote this decision.' : 'One brain wrote this decision.') +
-          ' <a href="/judge-integrity">How judging works</a></p></div>';
-      }
-      var cast = Number(p.votesCast) || 0;
-      var wanted = Number(p.jurorsWanted) || Number(p.panelSize) || cast;
-      var tally = p.tally || {};
-      var carried = Math.max(Number(tally.a) || 0, Number(tally.b) || 0);
-      var head = p.unanimous && !p.degraded
-        ? 'AI council · unanimous, ' + cast + ' of ' + cast
-        : 'AI council · ' + carried + ' matching votes from ' + cast + ' cast' + (p.degraded && wanted > cast ? ', ' + (wanted - cast) + ' seat unavailable' : '');
-      var dissents = Array.isArray(p.dissents) ? p.dissents : [];
-      var dissentHtml = dissents.map(function(d){
-        var side = d.winner === 'pro' ? (state.proName || 'For') : (state.conName || 'Against');
-        return '<div class="bc-dissent"><strong>Dissent · ' + escHtml(councilBrainName(d.model)) + ' · for ' + escHtml(side) + '</strong>' +
-          '<p>' + judgeHtml(d.rfd || 'No written dissent returned.') + '</p></div>';
-      }).join('');
-      return '<div class="ballot-council"><div class="bc-head">' + escHtml(head) + '</div>' +
-        '<p class="bc-models">Brains used: ' + names + '</p>' +
-        '<p class="bc-method">Same transcript and rubric, one vote per brain. Two matching votes carry. Scores and scorecard axes are panel medians, and dissent is kept separate. <a href="/judge-integrity#decision">Read the method</a>.</p>' +
-        dissentHtml + '</div>';
-    } catch(e){ return ''; }
-  }
+  function ballotCouncilHtml(){ return verdictController.ballotCouncilHtml.apply(this, arguments); }
 
   // Judge's scorecard: every side owns a full 1-10 scale on every axis.
   // These are not shares of one ten-point pool: two excellent speeches
@@ -16001,95 +14802,9 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // before the schema carried dimensions, and any model that ignores
   // the field, degrade to the exact pre-scorecard layout. Spectators
   // render the same ballot doc, so bettors see the same math.
-  function dimScorecardHtml(b){
-    try {
-      var dm = b && b.dimensions;
-      if (!dm) return '';
-      // Core 4 axes must all validate or nothing renders (old-ballot
-      // degrade). strategy/persuasion arrived with the 1-100 speaks
-      // rework and render only when the ballot carries them, so
-      // pre-rework ballots keep their exact 4-row scorecard.
-      var AXES = [['clarity','Clarity'],['reasoning','Reasoning'],['responsiveness','Clash'],['weighing','Weighing'],['strategy','Strategy'],['persuasion','Persuasion']];
-      var rows = [], persuasionShown = false;
-      for (var i = 0; i < AXES.length; i++){
-        var optional = i >= 4;
-        var a = dm[AXES[i][0]];
-        var pv = a && Number(a.pro), cv = a && Number(a.con);
-        if (!a || !isFinite(pv) || !isFinite(cv)){
-          if (optional) continue;
-          return '';
-        }
-        if (AXES[i][0] === 'persuasion') persuasionShown = true;
-        pv = Math.max(1, Math.min(10, pv)); cv = Math.max(1, Math.min(10, cv));
-        rows.push(
-          '<div style="display:grid;grid-template-columns:minmax(0,96px) minmax(0,1fr);gap:10px;align-items:center;margin:7px 0">' +
-            '<span style="font-size:.8rem;font-weight:600;opacity:.85">' + AXES[i][1] + '</span>' +
-            // minmax(0,72px) on the name track: an auto max sizes to the
-            // longest name and pushes the bars out of the card on a
-            // phone; the ellipsis on the span only works once the track
-            // itself can shrink.
-            '<span style="display:grid;grid-template-columns:minmax(0,72px) minmax(0,1fr) 38px;gap:5px 8px;align-items:center">' +
-              '<span style="font-size:.68rem;font-weight:700;color:#22c55e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(state.proName) + '</span>' +
-              '<span style="height:7px;border-radius:99px;overflow:hidden;background:rgba(127,127,127,.2)"><i style="display:block;height:100%;width:' + (pv * 10) + '%;background:#22c55e;border-radius:inherit"></i></span>' +
-              '<b style="font-size:.72rem;color:#22c55e;font-variant-numeric:tabular-nums;text-align:right">' + escHtml(String(pv)) + '/10</b>' +
-              '<span style="font-size:.68rem;font-weight:700;color:#ef4444;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(state.conName) + '</span>' +
-              '<span style="height:7px;border-radius:99px;overflow:hidden;background:rgba(127,127,127,.2)"><i style="display:block;height:100%;width:' + (cv * 10) + '%;background:#ef4444;border-radius:inherit"></i></span>' +
-              '<b style="font-size:.72rem;color:#ef4444;font-variant-numeric:tabular-nums;text-align:right">' + escHtml(String(cv)) + '/10</b>' +
-            '</span>' +
-          '</div>'
-        );
-      }
-      return '<div class="dim-scorecard" style="margin:0 0 18px;border:1px solid rgba(127,127,127,.28);border-radius:12px;padding:13px 16px 9px">' +
-        '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px">' +
-          '<span style="font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.65">Judge&#39;s scorecard</span>' +
-          '<span style="font-size:.74rem;opacity:.72">Each category is scored independently from 1 to 10</span>' +
-        '</div>' +
-        rows.join('') +
-        (persuasionShown
-          ? '<p style="margin:9px 0 2px;padding-top:9px;border-top:1px solid rgba(127,127,127,.2);font-size:.7rem;line-height:1.5;color:var(--text-dim)">Persuasion measures concrete stakes and an understandable, checkable world. It never scores charm, confidence, fluency, polish, accent, or delivery, and it can decide only a tie the flow left level.' + ((b.panel && b.panel.resolution !== 'single') ? ' The value shown is the panel median.' : '') + '</p>'
-          : '') +
-      '</div>';
-    } catch(e){ return ''; }
-  }
+  function dimScorecardHtml(){ return verdictController.dimScorecardHtml.apply(this, arguments); }
 
-  function tournamentScoringHtml(b){
-    var ts = b && b.tournamentScoring;
-    if (!ts || !ts.pro || !ts.con) return '';
-    function modeLabel(mode){
-      if (mode === 'camera') return 'Camera';
-      if (mode === 'avatar') return 'Avatar';
-      if (mode === 'off') return 'Off or dark';
-      if (mode === 'mixed') return 'Mixed modes';
-      return 'Mode not verified';
-    }
-    function signed(n){
-      n = Number(n) || 0;
-      return n > 0 ? '+' + n : (n < 0 ? '−' + Math.abs(n) : '0');
-    }
-    function sideLine(name, score){
-      var pace = Number(score.paceWpm);
-      var camRating = Number(score.ratingAdjustment) || 0;
-      return '<div style="padding:10px 12px;border-radius:10px;background:rgba(127,127,127,.08)">' +
-        '<strong style="display:block;font-size:.82rem;margin-bottom:3px">' + escHtml(name) + '</strong>' +
-        '<span style="font-size:.78rem">' + escHtml(String(score.argumentPoints)) +
-          ' argument ' + signed(score.presenceAdjustment) + ' ' + escHtml(modeLabel(score.cameraMode)) +
-          ' = <strong>' + escHtml(String(score.standingPoints)) + ' standings points</strong></span>' +
-        (camRating < 0
-          ? '<span style="display:block;margin-top:4px;font-size:.7rem;color:var(--text-dim)">Event rating: ' + signed(camRating) + ' for debating without a camera this round.</span>'
-          : '') +
-        (isFinite(pace) && pace > 0
-          ? '<span style="display:block;margin-top:4px;font-size:.7rem;color:var(--text-dim)">Calculated pace: ' + pace + ' WPM' + (score.spreading ? ', spreading flagged' : '') + '.</span>'
-          : '') +
-      '</div>';
-    }
-    return '<div class="ballot-section" data-stage="1" style="margin:0 0 18px;border:1px solid rgba(127,127,127,.28);border-radius:12px;padding:13px 16px">' +
-      '<div style="font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.65;margin-bottom:9px">Tournament standings points</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px">' +
-        sideLine(state.proName, ts.pro) + sideLine(state.conName, ts.con) +
-      '</div>' +
-      '<p style="margin:9px 0 0;font-size:.7rem;line-height:1.5;color:var(--text-dim)">Camera choice moves your event rating each round: camera on 0, Avatar −10, Off or dark −20. Standings points use Camera +2, Avatar −1, Off −3. Mixed use is weighted by speech time, and neither adjustment ever changes the winner. Pace above ' + escHtml(String(ts.spreadingThresholdWpm || 250)) + ' WPM is flagged; the AI lowers an argument score only when density makes the reasoning hard to follow.</p>' +
-    '</div>';
-  }
+  function tournamentScoringHtml(){ return verdictController.tournamentScoringHtml.apply(this, arguments); }
 
   // ── after the round: the personalized next step ─────────────────
   // The minutes after a verdict decide whether a loss is an exit or a
@@ -16100,68 +14815,12 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // way to go again. Spectators get nothing: the round is not theirs to
   // run back. BP 4-team rounds skip it (renderBpBallotBody returns
   // before this renders; a 1-2-3-4 ordering has no single "you lost").
-  function afterRoundBandHtml(b){
-    var ms = mySide();
-    if (!ms || isSpectator() || !b || (b.winner !== 'pro' && b.winner !== 'con')) return '';
-    var iWon = b.winner === ms;
-    var oppUid  = ms === 'pro' ? state.conUid  : state.proUid;
-    var oppName = ms === 'pro' ? state.conName : state.proName;
-    var issue = String(b.decidingIssue || '').trim().replace(/\.$/, '');
-    var rematchHref = (oppUid && String(oppUid).length >= 8)
-      ? '/challenges?to=' + encodeURIComponent(oppUid) + '&name=' + encodeURIComponent(oppName || 'Debater')
-      : '/spar?format=' + encodeURIComponent(state.formatKey);
-    var newHref = '/spar?format=' + encodeURIComponent(state.formatKey);
-    // A tournament round is NOT a spar round, and this band did not know
-    // that: it offered a primary 'Next opponent' pointing at the open
-    // /spar queue, which walks an entrant straight OUT of the event they
-    // are competing in, while the tray below simultaneously offered the
-    // correct 'Next round -> /tournament?ready=1'. Two primaries, two
-    // destinations, one of them wrong. The band keeps its close (outcome,
-    // deciding issue, rating) and hands the forward action to the tray,
-    // which already resolves the right queue. Rematch is meaningless here
-    // anyway: tournament pairings are assigned, not chosen.
-    var isTourney = (prefill.source || '') === 'tournament' && !!prefill.tkey;
-    if (!state._afterViewFired){
-      state._afterViewFired = true;
-      try { gtag('event', 'after_round_view', { outcome: iWon ? 'win' : 'loss', surface: 'live', format: state.formatKey }); } catch(e){}
-    }
-    var line;
-    if (iWon){
-      line = issue
-        ? 'It turned on ' + escHtml(stripTerminal(issue)) + ', and you held that ground. Hold it against the next person.'
-        : 'You held the deciding ground. Hold it against the next person.';
-    } else {
-      line = issue
-        ? 'It turned on ' + escHtml(stripTerminal(issue)) + '. That is the thread to pull. Run it back and take it away from them.'
-        : 'One clash decided it, and the decision names it. Run it back and take it away from them.';
-    }
-    return '' +
-      '<div class="ballot-section after-round' + (iWon ? ' after-won' : ' after-lost') + '" data-stage="3" id="afterRoundBand">' +
-        '<div class="after-eyebrow">' + (iWon ? 'You took the round' : 'You dropped the round') + '<span id="afterRatingSlot"></span></div>' +
-        '<p class="after-line">' + line + '</p>' +
-        (isTourney ? '' :
-        '<div class="rfd-actions" style="margin-top:12px">' +
-          (iWon
-            ? '<a class="btn btn-primary" href="' + newHref + '" data-after="new">Next opponent →</a>' +
-              '<a class="btn" href="' + rematchHref + '" data-after="rematch">Run it back vs ' + escHtml(oppName || 'them') + '</a>'
-            : '<a class="btn btn-primary" href="' + rematchHref + '" data-after="rematch">Run it back vs ' + escHtml(oppName || 'them') + '</a>' +
-              '<a class="btn" href="' + newHref + '" data-after="new">New opponent</a>') +
-        '</div>') +
-      '</div>';
-  }
+  function afterRoundBandHtml(){ return verdictController.afterRoundBandHtml.apply(this, arguments); }
   // Fills the rating slot in the after-round band. Called on render and
   // again when the round doc delivers ratingChanges (live-judge writes
   // them a beat after the ballot). Most rounds never rate (consent or an
   // AI seat), and then the slot simply stays empty.
-  function renderAfterRating(){
-    var slot = document.getElementById('afterRatingSlot');
-    if (!slot || !state.ratingChanges || !state.user) return;
-    var mine = state.ratingChanges[state.user.uid];
-    if (!mine || typeof mine.after !== 'number') return;
-    var up = (mine.delta || 0) >= 0;
-    slot.innerHTML = ' · Rating <strong style="color:' + (up ? 'var(--green,#22c55e)' : 'var(--accent,#ef4444)') + '">' +
-      Math.round(mine.after) + '</strong> (' + (up ? '+' : '') + (mine.delta != null ? mine.delta : 0) + ')';
-  }
+  function renderAfterRating(){ return verdictController.renderAfterRating.apply(this, arguments); }
 
   // ── Post-ballot friend prompt (2026-08-31) ─────────────────────────
   // Friendships come from rounds, not browsing: the ballot is the one
@@ -16170,501 +14829,9 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // is in this filler so the ballot paint never waits on it. Colors are
   // explicit because this page defines only --bg/--text/--accent
   // (--panel/--surface fall back to white here; measured 2026-08-26).
-  function fillFriendSlot(){
-    try {
-      if (!document.getElementById('friendSlot')) return;
-      // Armed once per page: the ballot body re-renders on reveal-mode
-      // changes and recreates the slot node, so the guard lives on the
-      // function and the watcher re-queries the node on every paint.
-      if (fillFriendSlot._armed) return;
-      var ms = mySide();
-      if (!ms || isSpectator()) return;
-      if (state.proUid2 || state.conUid2) return;          // 1v1 only
-      var me = state.user || (firebase.auth && firebase.auth().currentUser);
-      if (!me || me.isAnonymous) return;                    // named accounts only
-      var oppUid = ms === 'pro' ? state.conUid : state.proUid;
-      var oppName = ms === 'pro' ? (state.conName || 'Your opponent') : (state.proName || 'Your opponent');
-      if (!oppUid || oppUid === me.uid || oppUid === 'ai') return;
-      if (!window.DBFriends) return;
-      fillFriendSlot._armed = true;
-      var db2 = firebase.firestore();
-      window.DBFriends.init({ db: db2, uid: me.uid });
-      var painted = '';
-      window.DBFriends.watch(function(v){
-        if (v.status !== 'ready') return;
-        var slot = document.getElementById('friendSlot');
-        if (!slot) return;
-        var st = window.DBFriends.statusWith(oppUid);
-        if (st === painted && slot.innerHTML !== '') return;
-        painted = st;
-        var inner = '';
-        if (st === 'friends') {
-          inner = '<span style="font-weight:700">You and ' + escHtml(oppName) + ' are friends.</span> '
-            + '<a href="/friends" style="color:var(--accent,#f87171);font-weight:700">Your friends →</a>';
-        } else if (st === 'outgoing') {
-          inner = 'Friend request sent to ' + escHtml(oppName) + '. They can accept from Notifications.';
-        } else if (st === 'incoming') {
-          inner = '<span style="font-weight:700">' + escHtml(oppName) + ' already asked to be friends.</span> '
-            + '<button class="btn btn-primary" id="friendAcceptBtn" type="button" style="margin-left:8px">Accept</button>';
-        } else {
-          inner = '<span style="font-weight:700">Good round?</span> Keep the opponent. '
-            + '<button class="btn btn-primary" id="friendAddBtn" type="button" style="margin-left:8px">🤝 Add ' + escHtml(oppName) + ' as a friend</button>';
-        }
-        slot.innerHTML = '<div style="margin:14px 0;padding:12px 14px;border:1px solid rgba(127,127,127,.3);'
-          + 'border-radius:12px;font-size:.92rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' + inner + '</div>';
-        var addBtn = document.getElementById('friendAddBtn');
-        if (addBtn) addBtn.onclick = function(){
-          addBtn.disabled = true;
-          var myPub = (window.daPublicName ? window.daPublicName(me) : null) || 'A debater';
-          window.DBFriends.request(oppUid, oppName, myPub).then(function(){
-            try { gtag('event', 'friend_request_sent', { event_category: 'friends', event_label: 'ballot' }); } catch (e) {}
-          }).catch(function(){ addBtn.disabled = false; });
-        };
-        var accBtn = document.getElementById('friendAcceptBtn');
-        if (accBtn) accBtn.onclick = function(){
-          accBtn.disabled = true;
-          var myPub = (window.daPublicName ? window.daPublicName(me) : null) || 'A debater';
-          window.DBFriends.accept(oppUid, myPub).catch(function(){ accBtn.disabled = false; });
-        };
-      });
-    } catch (e) { console.warn('[friend slot]', e); }
-  }
+  function fillFriendSlot(){ return verdictController.fillFriendSlot.apply(this, arguments); }
 
-  function renderBallotBody(b, mode){
-    // Peak-end. The after-round band IS this page's closing beat: it names
-    // the outcome, names the deciding issue, and carries ONE outcome-aware
-    // forward action (won -> next opponent, lost -> run it back). The tray
-    // further down was independently rendering its own 'Next opponent',
-    // also styled primary, about a screen below the band's. So the same
-    // action appeared twice and, with 'Save round' also primary, the
-    // post-ballot region carried THREE primary buttons and none of them
-    // read as the one thing to do next. Captured here so the tray can ask
-    // whether a forward action is already on screen rather than guess.
-    var afterBand = afterRoundBandHtml(b);
-    var staged = mode === 'staged' || mode === 'read-aloud';
-    // Hand the verdict to the reel so the recording gets it too. No-op
-    // on every client that is not driving one.
-    try { reelShowBallot(b); } catch(e){ console.warn('[reel]', e); }
-    stopBallotWaitCue();
-    $('ballotLoading').classList.add('hidden');
-    var result = $('ballotResult');
-    result.classList.remove('hidden');
-    try {
-      var crit = $('ballotCritique'), critA = $('ballotCritiqueLink');
-      if (critA) critA.href = '/judge-integrity?from=live' + (state.room ? '&round=' + encodeURIComponent(state.room) : '') + '#critiques';
-      if (crit) crit.classList.remove('hidden');
-    } catch(e){}
-    if (staged) result.classList.add('ballot-staged');
-    else result.classList.remove('ballot-staged');
-    // Fire-and-forget TTS request. Starts in parallel with the staged
-    // CSS animations so the voice usually catches the verdict reveal
-    // around stage 0–1. Failure is silent (toast), the staged reveal
-    // still plays.
-    if (mode === 'read-aloud'){
-      try { startBallotReadAloud(b); } catch(e){ console.warn('[read-aloud]', e); }
-    }
-    var f = FORMATS[state.formatKey];
-    // 4-team ballot path. Render the 1-2-3-4 ranking + per-seat
-    // speaker scores + per-team feedback. Falls back to the 2-side
-    // body if the ballot didn't actually come back as 4-team-shaped
-    // (e.g., the model returned the old schema by mistake).
-    if (isFourTeam(f) && Array.isArray(b.teamRanking) && b.teamRanking.length === 4){
-      renderBpBallotBody(b, f, result, mode, staged);
-      try { mountBallotRead(); } catch(e){ console.warn('[ballot read]', e); }
-      return;
-    }
-    var winnerName = teamDisplayName(b.winner === 'pro' ? 'pro' : 'con');
-    var winnerUid = b.winner === 'pro' ? state.proUid : state.conUid;
-    var winnerSide = b.winner === 'pro' ? f.sideLabels[f.sides[0]] : f.sideLabels[f.sides[1]];
-    var loserName  = teamDisplayName(b.winner === 'pro' ? 'con' : 'pro');
-    var loserSide  = b.winner === 'pro' ? f.sideLabels[f.sides[1]] : f.sideLabels[f.sides[0]];
-    var validity = validateLeaderboardEligibility();
-    var myPointsForLb = null;
-    if (state.user){
-      if (state.user.uid === (state.proUid || '')) myPointsForLb = b.proPoints;
-      else if (state.user.uid === (state.conUid || '')) myPointsForLb = b.conPoints;
-    }
-    var lbBlock;
-    if (state.isDuo){
-      lbBlock = '<div class="lb-consent"><div class="lb-body"><strong>Team result</strong>Both teammates share the verdict and score. 2v2 results do not change the 1v1 leaderboard.</div></div>';
-    } else if (validity.ok){
-      // The round is ALREADY on the board by the time this renders. The
-      // control is the way back off, not the way on, which is the whole
-      // 2026-08-24 change: a played round is a record by default.
-      lbBlock =
-        '<label class="lb-consent" for="lbConsentCheckbox">' +
-          '<input type="checkbox" id="lbConsentCheckbox" checked />' +
-          '<div class="lb-body">' +
-            '<strong>This round is on the public leaderboard</strong>' +
-            'Your result' + (typeof myPointsForLb === 'number' ? ' and ' + myPointsForLb + '/100' : '') +
-            ' are counted on /leaderboard, whatever the outcome. Untick to keep this one off; it only affects your own row, and your opponent decides theirs.' +
-            '<span class="lb-status" id="lbConsentStatus"></span>' +
-          '</div>' +
-        '</label>';
-    } else {
-      lbBlock =
-        '<label class="lb-consent invalid">' +
-          '<input type="checkbox" disabled />' +
-          '<div class="lb-body">' +
-            '<strong>Not recorded on the leaderboard</strong>' +
-            escHtml(validity.reason) + '. Every other round goes on the board whether it was won, lost, or scrappy.' +
-          '</div>' +
-        '</label>';
-    }
-    result.innerHTML =
-      '<div class="verdict ballot-section ' + (b.winner === 'pro' ? 'pro' : 'con') + '" data-stage="0">' +
-        publicAvatarHtml(winnerUid, winnerName, 54) +
-        '<div class="verdict-headline">' + escHtml(winnerName) + (state.isDuo ? ' win</div>' : ' wins</div>') +
-        '<div class="verdict-sub">' + escHtml(winnerSide) + ' over ' + escHtml(loserSide) + ' (' + escHtml(loserName) + ')</div>' +
-      '</div>' +
-      ballotCouncilHtml(b) +
-      // Current public ballots always use the 1-100 scale.
-      '<div class="points-grid ballot-section" data-stage="1">' +
-        '<div class="points-card">' +
-          '<div class="name">' + escHtml(teamDisplayName('pro')) + ' · ' + escHtml(f.sideLabels[f.sides[0]]) + '</div>' +
-          '<div class="pts">' + (b.proPoints != null ? escHtml(String(b.proPoints)) : 'n/a') + '</div>' +
-          '<div class="pts-label">Argument score · out of 100</div>' +
-        '</div>' +
-        '<div class="points-card">' +
-          '<div class="name">' + escHtml(teamDisplayName('con')) + ' · ' + escHtml(f.sideLabels[f.sides[1]]) + '</div>' +
-          '<div class="pts">' + (b.conPoints != null ? escHtml(String(b.conPoints)) : 'n/a') + '</div>' +
-          '<div class="pts-label">Argument score · out of 100</div>' +
-        '</div>' +
-      '</div>' +
-      tournamentScoringHtml(b) +
-      // Reading depth. The judge writes the same decision at three
-      // depths and printing all three at once is what made a ballot
-      // read as a wall of text. One renders at a time; the verdict,
-      // the points and the scorecard sit outside the switch because
-      // they are the ballot at any depth.
-      '<div class="rfd ballot-section" data-stage="2" id="ballotReadBlock">' +
-        '<div id="ballotReadHost"></div>' +
-        dimScorecardHtml(b) +
-        '<div data-read-tier="summary">' +
-          '<h3>The short version</h3>' +
-          '<p style="white-space:pre-wrap">' + judgeHtml(ballotSummaryRead(b) || '(no decision text)') + '</p>' +
-        '</div>' +
-        '<div data-read-tier="ballot">' +
-          '<h3>Why they won</h3>' +
-          '<p style="white-space:pre-wrap">' + judgeHtml(b.rfd || '(no written decision)') + '</p>' +
-        '</div>' +
-        '<div id="deepRfdSlot" data-read-tier="full">' + deepRfdSlotHtml() + '</div>' +
-        // Per-speaker feedback rides read-min, not the ballot tier: a
-        // reader who escalates to the full ballot must not LOSE their
-        // own personalised notes, which is what nesting them inside the
-        // exclusive ballot tier did.
-        '<div data-read-min="ballot">' +
-          (b.proFeedback ? '<h3 style="margin-top:18px">For ' + escHtml(teamDisplayName('pro')) + '</h3><p>' + judgeHtml(b.proFeedback) + '</p>' : '') +
-          (b.conFeedback ? '<h3 style="margin-top:14px">For ' + escHtml(teamDisplayName('con')) + '</h3><p>' + judgeHtml(b.conFeedback) + '</p>' : '') +
-        '</div>' +
-        flowOfferHtml() +
-        roomShiftSlotHtml() +
-      '</div>' +
-      afterBand +
-      // Friend slot (2026-08-31): filled after render by fillFriendSlot().
-      // Empty div here so the ask never blocks the ballot paint; the
-      // roomShiftSlot / deepRfdSlot pattern. Guards live in the filler.
-      '<div id="friendSlot" data-stage="3"></div>' +
-      '<div class="ballot-section" data-stage="3">' +
-      tournamentContentAskHtml() +
-      lbBlock +
-      '<div class="rfd-actions">' +
-        '<button class="btn" id="saveRoundBtn" type="button">💾 Save round to my record</button>' +
-        '<button class="btn" id="copyBallotBtn" type="button">Copy decision</button>' +
-        // Share clip — generates a 9:16 PNG with motion + verdict +
-        // best line + watermark. The viral hook: post-round, one tap
-        // and you have a Reels/TikTok-ready card. Surfaces for every
-        // round, not just /spar (a /live round that ends in a sharp
-        // win is also worth sharing).
-        '<button class="btn" id="shareClipBtn" type="button" title="Generate a 9:16 share card with the motion, decision, and your best line">📲 Share clip</button>' +
-        replayNoteHtml() +
-        '<button class="btn" id="publishDiscBtn" type="button" title="Publish your speeches so other people can read and reuse them">🌐 Publish to Community</button>' +
-        // Next opponent — only surfaces for /spar-sourced rounds.
-        // Routes back to the queue, preserving the format so the next
-        // round happens in the same surface. Re-queue, not forfeit
-        // (round is already over).
-        // Where you go next, and on a tournament day this is the
-        // load-bearing control on the whole screen. A drop-in entrant
-        // finishing a five-minute round has to rejoin the queue to get
-        // another one, and until this existed the only route was
-        // remembering the tournament URL and finding the Ready button
-        // again. `?ready=1` does that rejoin in the same tap.
-        ((prefill.source || '') === 'tournament' && prefill.tkey
-          ? '<a class="btn btn-primary" href="/tournament?t=' + encodeURIComponent(prefill.tkey) + '&ready=1" id="nextRoundBtn" style="background:var(--green);border-color:var(--green);box-shadow:0 6px 24px rgba(34,197,94,.32)">Next round →</a>'
-            + '<a class="btn" href="/tournament?t=' + encodeURIComponent(prefill.tkey) + '">Standings</a>'
-          : ((prefill.source || '').indexOf('spar') === 0 && !afterBand)
-          ? '<a class="btn btn-primary" href="/spar?format=' + encodeURIComponent(state.formatKey) + '" id="nextOpponentBtn" style="background:var(--green);border-color:var(--green);box-shadow:0 6px 24px rgba(34,197,94,.32)">Next opponent →</a>'
-          : ((prefill.source || '').indexOf('spar') === 0)
-          ? ''
-          : '<a class="btn" href="/live">Back to board</a>'
-        ) +
-      '</div>' + // .rfd-actions
-      '</div>'; // .ballot-section[data-stage="3"]
-    try { mountBallotRead(); } catch(e){ console.warn('[ballot read]', e); }
-    try { fillFriendSlot(); } catch(e){ console.warn('[friend slot]', e); }
-
-    // Spectators don't get the save-to-record button — the round is
-    // not theirs to log against their personal speaker history. Same
-    // applies to the leaderboard consent checkbox + the publish-to-
-    // disclosures button (none of those are theirs to fire). Hide
-    // the whole set so the UI doesn't dangle broken controls.
-    if (isSpectator()){
-      var sb = document.getElementById('saveRoundBtn');
-      if (sb) sb.remove();
-      var lbc = document.querySelector('.lb-consent');
-      if (lbc) lbc.remove();
-      var pdb = document.getElementById('publishDiscBtn');
-      if (pdb) pdb.remove();
-      // A watcher has no entry, so "Next round" would send them to a
-      // queue that answers "register for this tournament first".
-      // Standings, which is theirs to read, stays.
-      var nrb = document.getElementById('nextRoundBtn');
-      if (nrb) nrb.remove();
-    }
-
-    // Mandatory tournament capture is private by default. A seated person
-    // may separately approve the public Watch replay after seeing the round;
-    // the server publishes only once every recorded seat has agreed.
-    var publishReplayBtn = document.getElementById('publishTournamentReplayBtn');
-    if (publishReplayBtn){
-      publishReplayBtn.addEventListener('click', function(){
-        publishReplayBtn.disabled = true;
-        publishReplayBtn.textContent = 'Saving…';
-        cloudRecordingPost({ action: 'publish-consent', consent: true }).then(function(result){
-          publishReplayBtn.textContent = result && result.publishAllowed
-            ? 'Approved for Watch'
-            : 'Approved, waiting on the other person';
-          toast(result && result.publishAllowed
-            ? 'Replay approved. It will appear on Watch after processing.'
-            : 'You approved the replay. It stays private until everyone in the round approves.');
-        }).catch(function(error){
-          publishReplayBtn.disabled = false;
-          publishReplayBtn.textContent = 'Approve Watch replay';
-          toast((error && error.message) || 'Could not save replay approval.');
-        });
-      });
-    }
-
-    // After-round band: clicks tagged by outcome (the after-loss D30
-    // read lives or dies on this), rating slot filled if the deltas
-    // already arrived on the doc before the ballot rendered.
-    Array.prototype.forEach.call(document.querySelectorAll('#afterRoundBand [data-after]'), function(a){
-      a.addEventListener('click', function(){
-        try {
-          var band = document.getElementById('afterRoundBand');
-          gtag('event', 'after_round_next', {
-            action: a.getAttribute('data-after'),
-            outcome: band && band.classList.contains('after-won') ? 'win' : 'loss',
-            surface: 'live',
-          });
-        } catch(e){}
-      });
-    });
-    try { renderAfterRating(); } catch(e){}
-
-    // Publish-to-/disclosures handler. Builds the speaker's own
-    // speeches into a single text blob and writes a shared_cases doc
-    // with visibility:'public'. Idempotent on (uid, room) so re-clicks
-    // just update the same doc instead of spamming the board.
-    var pubBtn = $('publishDiscBtn');
-    if (pubBtn) pubBtn.addEventListener('click', function(){
-      if (!firebaseDb || !state.user){
-        toast('Guest access is still starting.');
-        if (!state.user && typeof ensureGuestAuth === 'function') ensureGuestAuth().catch(function(){});
-        return;
-      }
-      var ms = mySide();
-      var f = FORMATS[state.formatKey];
-      // Filter the speech log to MY speeches (the ones tied to my side).
-      // The opponent's text isn't mine to disclose — even on a
-      // publicly-resolved round, a disclosure only carries the
-      // publisher's own arguments.
-      var mine = (state.log || []).filter(function(e){
-        if (!ms) return true;
-        var spIsFirstSide = sideBench(f, e.side) === 'gov';
-        return (ms === 'pro' && spIsFirstSide) || (ms === 'con' && !spIsFirstSide);
-      });
-      var fullText = mine.map(function(e){ return '[' + (e.code || '') + ']\n' + (e.text || ''); }).join('\n\n');
-      if (!fullText.trim()){ toast('No speeches to publish yet.'); return; }
-      var shortName = publicNameOf(state.user);
-      var sideLabel = ms ? f.sideLabels[ms === 'pro' ? f.sides[0] : f.sides[1]] : '';
-      // Closed-over publish writer. Runs once the safety guard
-      // resolves (or immediately if the guard isn't available).
-      var runPublish = function(){
-        pubBtn.textContent = 'Publishing…';
-        pubBtn.disabled = true;
-        firebaseDb.collection('shared_cases').doc(state.user.uid + '_' + state.room).set({
-          teamId: null,
-          sharedBy: shortName,
-          sharedByUid: state.user.uid,
-          authorUid: state.user.uid,
-          motion: state.motion || 'Untitled',
-          side: sideLabel,
-          format: f.name,
-          depth: '',
-          output: fullText,
-          sharedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          visibility: 'public',
-          sourceRound: state.room,
-        }, { merge: true }).then(function(){
-          pubBtn.textContent = '✓ Published · view';
-          pubBtn.disabled = false;
-          pubBtn.onclick = function(){ window.open('/community', '_blank'); };
-          try { gtag('event', 'disclosure_publish', { format: state.formatKey, source: 'live_round' }); } catch(e){}
-          toast('✓ Published to Community.');
-        }).catch(function(e){
-          console.warn('[publishDisc]', e);
-          pubBtn.textContent = '🌐 Publish to Community';
-          pubBtn.disabled = false;
-          toast('Publish failed: ' + (e.message || 'unknown'));
-        });
-      };
-      // Quality / safety floor + LLM classifier. Word-list local
-      // check is instant; LLM classify fires server-side only if
-      // local passed AND we have an auth token. fullCheck fails open
-      // on network errors so a blip never blocks a real publisher.
-      var input = { motion: state.motion, output: fullText };
-      if (window.disclosureGuard && window.disclosureGuard.fullCheck){
-        state.user.getIdToken().then(function(token){
-          window.disclosureGuard.fullCheck(input, token).then(function(check){
-            if (!check.ok){ toast(check.reason); return; }
-            runPublish();
-          });
-        }).catch(function(){ runPublish(); });
-      } else if (window.disclosureGuard){
-        var localOnly = window.disclosureGuard.check(input);
-        if (!localOnly.ok){ toast(localOnly.reason); return; }
-        runPublish();
-      } else {
-        runPublish();
-      }
-    });
-
-    // Share-clip handler. Renders a 9:16 PNG card with the round's
-    // verdict + motion + your best line, then offers it via Web
-    // Share API (mobile, one-tap to Reels/IG/X) with a download
-    // fallback for desktop. The viral hook for the matchmaking
-    // flywheel: post-round, the user has a Reels-ready trophy in
-    // <2s, no editor required.
-    var shareBtn = $('shareClipBtn');
-    if (shareBtn) shareBtn.addEventListener('click', function(){
-      try { gtag('event', 'share_clip_open', { format: state.formatKey, won: b.winner === mySide() }); } catch(e){}
-      openShareClipModal(b);
-    });
-    // The tournament content ask's clip button: same generator, its own
-    // GA4 tag so the ask's pull can be read against the quiet button's.
-    var tournClipBtn = $('tournClipBtn');
-    if (tournClipBtn) tournClipBtn.addEventListener('click', function(){
-      try { gtag('event', 'share_clip_open', { format: state.formatKey, won: b.winner === mySide(), via: 'tournament_ask' }); } catch(e){}
-      openShareClipModal(b);
-    });
-
-    // Save round to Firestore (saved_rounds/{uid}_{room}). One per
-    // user per round. Idempotent — clicking twice just re-writes
-    // the same doc with an updated savedAt timestamp.
-    //
-    // Leaderboard is now decoupled: clicking Save also publishes the
-    // user's consent flag to the round doc. The actual leaderboard
-    // write fires from the snapshot listener once BOTH sides have
-    // consented — see the leaderboardConsent block in onRoundSnapshot.
-    var saveBtn = $('saveRoundBtn');
-    if (saveBtn) saveBtn.addEventListener('click', function(){
-      if (!firebaseDb || !state.user){
-        toast('Guest access is still starting.');
-        if (!state.user && typeof ensureGuestAuth === 'function') ensureGuestAuth().catch(function(){});
-        return;
-      }
-      var docId = state.user.uid + '_' + state.room;
-      // Who the saver was in this round, and whether they won, recorded
-      // as data rather than left to be re-derived from names later.
-      //
-      // The profile used to work this out by comparing userName against
-      // winnerName. That can never match: userName is the full display
-      // name ("Noor Jain") while proName/conName/winnerName carry the
-      // shortened public form ("Noor J."), and they come from different
-      // producers (this page vs the spar handoff). The comparison
-      // therefore failed on every live round, and a failed comparison
-      // was read as a loss, so winners saw their wins recorded as
-      // losses. mySide() resolves off proUid/conUid, which is the
-      // authoritative signal and is already on the page.
-      var savedSide = mySide();
-      var savedDoc = {
-        uid: state.user.uid,
-        userName: publicNameOf(state.user),
-        userSide: savedSide || '',
-        outcome: (savedSide && b.winner) ? (b.winner === savedSide ? 'win' : 'loss') : '',
-        proUid: state.proUid || '',
-        conUid: state.conUid || '',
-        source: 'live-round',
-        avatarIdentity: currentPublicAvatarIdentity(),
-        userEmail: state.user.email || '',
-        room: state.room,
-        motion: state.motion,
-        format: state.formatKey,
-        formatName: f.name,
-        proName: state.proName,
-        conName: state.conName,
-        speeches: state.log,
-        ballot: b,
-        winnerName: winnerName,
-        winnerSide: winnerSide,
-        savedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      };
-      firebaseDb.collection('saved_rounds').doc(docId).set(savedDoc).then(function(){
-        toast('✓ Round saved to your record.');
-        saveBtn.textContent = '✓ Saved to record';
-        saveBtn.disabled = true;
-      }).catch(function(e){
-        console.warn('[save round]', e);
-        toast('Save failed: ' + (e.message || 'unknown'));
-      });
-
-    });
-    // The leaderboard control acts on the spot rather than riding the
-    // save button, because it now means "take this down" and a takedown
-    // that waits for another button to be pressed is not a takedown.
-    // false is the only value written; true clears the opt-out. The
-    // Firestore rule on leaderboardConsent lets a writer touch their own
-    // key only, so this cannot reach into the opponent's row.
-    var lbBox = document.getElementById('lbConsentCheckbox');
-    if (lbBox && !lbBox.disabled){
-      lbBox.addEventListener('change', function(){
-        var ref = getRoundDocRef();
-        if (!ref || !state.user) return;
-        var keep = !!lbBox.checked;
-        var patch = {};
-        patch['leaderboardConsent.' + state.user.uid] = keep;
-        ref.set({ leaderboardConsent: {} }, { merge: true })
-          .then(function(){ return ref.update(patch); })
-          .then(function(){ updateConsentStatus(keep ? 'posted' : 'off'); })
-          .catch(function(e){
-            console.warn('[lb opt-out]', e);
-            lbBox.checked = !keep;
-            toast('Could not change that just now.');
-          });
-        try { gtag('event', 'live_round_lb_optout', { keep: keep ? 1 : 0 }); } catch(e){}
-      });
-    }
-    $('copyBallotBtn').addEventListener('click', function(){
-      var f = FORMATS[state.formatKey];
-      var lines = [
-        'Live Round Decision, ' + f.name,
-        'Motion: ' + state.motion,
-        '',
-        winnerName + ' (' + winnerSide + ') wins.',
-        '',
-        state.proName + ': ' + (b.proPoints != null ? b.proPoints + '/100' : ''),
-        state.conName + ': ' + (b.conPoints != null ? b.conPoints + '/100' : ''),
-        '',
-        'Why they won: ' + judgePlain(b.rfd || ''),
-        '',
-        state.proName + ': ' + judgePlain(b.proFeedback || ''),
-        state.conName + ': ' + judgePlain(b.conFeedback || ''),
-        state.rfdDeep ? '\nFULL DECISION:\n' + judgePlain(state.rfdDeep) : '',
-      ].join('\n');
-      try { navigator.clipboard.writeText(lines); toast('Decision copied to clipboard.'); } catch(e){ toast('Couldn\'t copy.'); }
-    });
-  }
+  function renderBallotBody(){ return verdictController.renderBallotBody.apply(this, arguments); }
 
   // ── Wire setup form
   $('proName').addEventListener('input', function(){ state.proName = this.value; if (!state.teamNames) state.teamNames = {}; state.teamNames.og = this.value; updateRoomStage(); updateStartBtn(); });
@@ -16943,542 +15110,14 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     }
     window.__lrRenderMotionProposal = renderMotionProposal;
 
-    // ── MOTION DRAFT (the pre-round negotiation) ─────────────────────
-    // The strike beat is gone (2026-09-02, the founder). One debater
-    // OFFERS a motion, the other ANSWERS it, and every answer costs
-    // something. Take it and you pick your side. Send it back once and
-    // they owe you a different one, and you still pick your side. Counter
-    // with your own and they pick which motion runs AND which bench they
-    // take. One person decides the motion, the other decides the side,
-    // whichever branch you walk.
-    //
-    // The server (round-draft.mjs, over lib/motion-draft.mjs) owns every
-    // decision. This file renders what the round doc says and posts
-    // intent; it never computes a phase or a side, because a client that
-    // could decide its own side would decide to win. There is no blindness
-    // left to enforce, because there is no simultaneous move left: every
-    // beat has exactly one actor and everything on the doc is already
-    // public to the room.
-    var DF_SEC = { offer: 16, respond: 14, counter: 14, choose: 10, side: 9 }; // must match motion-draft.mjs
-    var DRAFT_MOTION_MIN = 12, DRAFT_MOTION_MAX = 200;   // must match MOTION_MIN/MAX
-    var dfBusy = false, dfTimer = 0, dfOpened = false, dfLastPhase = '', dfPreviousFocus = null;
-    // Composer state for the offer and counter beats. Survives a re-render,
-    // because the board repaints on every round snapshot and losing a
-    // half-typed motion to somebody else's write would be the board eating
-    // the one thing it just asked for.
-    var dfWriteOpen = false, dfWriteText = '', dfErr = '';
-    var dfRevision = -1, dfLatestRound = null, dfLastSyncAt = 0;
-    var dfRead = null, dfReadAgain = false, dfReadAt = 0, dfReadTimer = 0, dfExpireAt = 0;
-
-    // The API reply and the subscription carry the same server revision.
-    // Keep unrelated snapshot fields, but never let a delayed snapshot put
-    // an old draft, motion, or pair of seats back over a newer decision.
-    window.__lrMergeDraftSnapshot = function(d){
-      var revision = Number(d.draftRevision) || 0;
-      dfLastSyncAt = Date.now();
-      if (revision < dfRevision) return Object.assign({}, d, dfLatestRound);
-      dfRevision = revision;
-      dfLatestRound = {};
-      ['draft', 'draftRevision', 'draftPhaseAt', 'motion', 'proUid', 'conUid', 'proName', 'conName'].forEach(function(key){
-        if (Object.prototype.hasOwnProperty.call(d, key)) dfLatestRound[key] = d[key];
-      });
-      return d;
-    };
-    function dfAnnounce(){
-      try {
-        if (state.dailyFrame) state.dailyFrame.sendAppMessage({ t:'draft-changed', room:state.room, revision:dfRevision }, '*');
-      } catch(e){} // Firestore remains the delivery path before video joins.
-    }
-    // Daily is a wake-up signal only. All state still comes from Firestore
-    // or the authenticated endpoint, never from another browser's message.
-    function dfRefresh(){
-      if (dfRead){ dfReadAgain = true; return dfRead; }
-      var ref = getRoundDocRef();
-      if (!ref || document.hidden) return Promise.resolve();
-      if (Date.now() - dfReadAt < 250){
-        if (!dfReadTimer) dfReadTimer = setTimeout(function(){ dfReadTimer = 0; dfRefresh(); }, 250);
-        return Promise.resolve();
-      }
-      dfReadAt = Date.now();
-      dfRead = ref.get({ source:'server' }).then(function(doc){
-        if (doc && doc.exists) onRoundSnapshot(doc.data() || {});
-      }).catch(function(e){ console.warn('[Draft sync] refresh failed', e); }).then(function(){
-        dfRead = null;
-        if (dfReadAgain){ dfReadAgain = false; dfRefresh(); }
-      });
-      return dfRead;
-    }
-    window.__lrRefreshDraft = dfRefresh;
-    window.__lrDraftChanged = function(revision){
-      if (Number.isSafeInteger(revision) && revision > dfRevision) dfRefresh();
-    };
-    window.__lrAnnounceDraft = function(){ if (dfPending()) dfAnnounce(); };
-    document.addEventListener('visibilitychange', function(){ if (!document.hidden) dfRefresh(); });
-
-    function dfDraft(){ return state.draft || null; }
-    function dfPhase(){ var d = dfDraft(); return d ? String(d.phase || '') : ''; }
-    function dfPending(){ var ph = dfPhase(); return ph && ph !== 'done'; }
-    function dfMyUid(){ return (state.user && state.user.uid) || ''; }
-    function dfIAmDebater(){ return !isSpectator() && !!dfMyUid(); }
-    function dfTable(){ var d = dfDraft(); return (d && d.table) || []; }
-    function dfPool(){ var d = dfDraft(); return (d && d.pool) || []; }
-    function dfMotionText(id){
-      var hit = dfTable().filter(function(m){ return m.id === id; })[0];
-      return hit ? hit.text : '';
-    }
-    // Mirrors offerablePool(): the suggestions minus anything already on the
-    // table, so the motion just sent back cannot be offered straight back.
-    function dfOfferable(){
-      var taken = {};
-      dfTable().forEach(function(m){ taken[String(m.text || '').toLowerCase()] = true; });
-      return dfPool().filter(function(m){ return !taken[String(m.text || '').toLowerCase()]; });
-    }
-    function dfContenders(){
-      var d = dfDraft(); if (!d) return [];
-      return [d.offerId, d.counterId].filter(Boolean).map(dfMotionText).map(function(t, i){
-        return { id: (i === 0 ? d.offerId : d.counterId), text: t };
-      }).filter(function(m){ return m.text; });
-    }
-    function dfActor(){
-      var d = dfDraft(); if (!d) return '';
-      if (d.phase === 'offer') return d.offerUid;
-      if (d.phase === 'respond' || d.phase === 'counter') return d.respondUid;
-      if (d.phase === 'choose') return d.offerUid;
-      if (d.phase === 'side') return d.sideUid;
-      return '';
-    }
-    function dfMine(){ return dfActor() === dfMyUid(); }
-    function dfNameFor(uid){
-      if (uid === dfMyUid()) return 'You';
-      if (uid === state.proUid) return state.proName || 'For';
-      if (uid === state.conUid) return state.conName || 'Against';
-      return 'Your opponent';
-    }
-    function dfOtherName(){
-      var d = dfDraft(); if (!d) return 'Your opponent';
-      return dfNameFor(d.offerUid === dfMyUid() ? d.respondUid : d.offerUid);
-    }
-    function dfCanWrite(){
-      var d = dfDraft();
-      return !!(d && !d.poolLocked);
-    }
-    function dfErrText(code, message){
-      return ({
-        blocked: message || 'That motion is off limits here. Try a different one.',
-        too_short: 'Give it a few more words.',
-        too_long: 'Keep it under ' + DRAFT_MOTION_MAX + ' characters.',
-        duplicate: 'That one is already on the table.',
-        bad_motion: 'That motion is not available any more.',
-        pool_locked: 'This tournament runs its published motions only.',
-        no_veto_left: 'You have used your one send-back.',
-        not_your_call: 'That call is not yours this round.',
-        wrong_phase: 'That step has moved on.',
-        stale_draft: 'The topic choice has moved on.',
-      })[code] || 'Could not do that. Try again.';
-    }
-
-    function dfPost(action, extra){
-      if (!state.user || !state.user.getIdToken) return Promise.reject(new Error('no-user'));
-      var payload = Object.assign({ action:action, room:state.room }, extra || {});
-      if (action !== 'open' && dfRevision >= 0) payload.draftRevision = dfRevision;
-      return state.user.getIdToken().then(function(tok){
-        return fetch('/api/round-draft', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
-          body: JSON.stringify(payload),
-        });
-      }).then(function(r){ return r.json().catch(function(){ return {}; }); }).then(function(res){
-        if (res && res.round){
-          // Apply the committed topic and seats together before closing the
-          // board. Waiting for a second network delivery caused split screens.
-          if ((Number(res.round.draftRevision) || 0) > dfRevision){
-            try { onRoundSnapshot(Object.assign({}, state.lastRoundDoc || {}, res.round)); }
-            catch(e){ console.warn('[Draft sync] round repaint failed', e); }
-          }
-          dfAnnounce();
-        }
-        return res;
-      });
-    }
-
-    // Ask the server to open one. It refuses unless the pair was stamped
-    // eligible at match time, so a /live challenge round or a direct link
-    // keeps the motion its poster chose and this is a no-op there.
-    // On demand only. The round starts on whatever motion the pair arrived
-    // with; this is the "we do not know what to argue" door, opened from the
-    // resolution bar by either debater. The server still refuses a room
-    // that was not stamped eligible at match time, and that refusal has to
-    // be SAID here, because a button that does nothing reads as broken.
-    function dfOpen(){
-      if (dfDraft()){ toast('A draft is already running.'); return; }
-      if (!dfIAmDebater()){ toast('Only a seated debater can open a draft.'); return; }
-      if (state.speechIdx > 0 || (state.log && state.log.length)){ toast('The round has started. The topic is locked.'); return; }
-      if (dfOpened) return;
-      dfOpened = true;
-      try { gtag('event', 'live_round_draft_open_manual'); } catch(e){}
-      dfPost('open').then(function(res){
-        dfOpened = false;
-        var code = res && (res.ok === false ? res.reason : res.error);
-        if (code){
-          toast(code === 'not_eligible'
-            ? 'This room was not matched through the queue, so there is no draft here. Choose Spin a topic to suggest a different one.'
-            : dfErrText(code));
-        }
-      }).catch(function(){ dfOpened = false; toast('Could not open a draft. Try again.'); });
-    }
-
-    function dfClock(){
-      var d = dfDraft(); if (!d || !d.phaseAt) return null;
-      var total = (DF_SEC[d.phase] || 9) * 1000;
-      return Math.max(0, Math.ceil((d.phaseAt + total - Date.now()) / 1000));
-    }
-    // The clock is what the beat is FOR, so zero always does something.
-    // Only the debater whose own clock ran out asks the server to expire
-    // the first two beats: before the answer, one person has moved and
-    // resolving for the other is how a room opens onto an empty chair. Past
-    // the answer either side may, because both have proven they are here.
-    function dfOnZero(){
-      if (dfBusy || !dfIAmDebater() || Date.now() - dfExpireAt < 2000) return;
-      var d = dfDraft(); if (!d) return;
-      var eitherMay = d.phase === 'counter' || d.phase === 'choose' || d.phase === 'side'
-        || (d.phase === 'offer' && !!d.response);
-      if (!eitherMay && !dfMine()) return;
-      dfBusy = true;
-      dfExpireAt = Date.now();
-      dfPost('expire').catch(function(){}).then(function(){ dfBusy = false; renderDraft(); });
-    }
-
-    function dfHost(){
-      var el = document.getElementById('draftBoard');
-      if (el) return el;
-      el = document.createElement('div');
-      el.id = 'draftBoard';
-      el.className = 'draft-board hidden';
-      el.setAttribute('role', 'dialog');
-      el.setAttribute('aria-modal', 'true');
-      el.setAttribute('aria-labelledby', 'dfTitle');
-      el.tabIndex = -1;
-      document.body.appendChild(el);
-      return el;
-    }
-
-    // big=true renders the sub as the motion line: the resolution is the
-    // one thing on this card a person has to actually read before they
-    // pick, so it is set at headline weight, not caption weight
-    // (2026-09-04, the founder: "make text much larger for proposed
-    // resolution").
-    function dfHead(step, title, sub, big){
-      return '<div class="df-head"><span class="df-step">' + step + '</span>'
-        + '<h3 id="dfTitle">' + title + '</h3><p' + (big ? ' class="df-head-motion"' : '') + '>' + sub + '</p>'
-        + (dfErr ? '<div class="df-status error" role="alert">' + escHtml(dfErr) + '</div>' : '')
-        + (dfBusy ? '<div class="df-status" role="status">Sending…</div>' : '') + '</div>';
-    }
-    function dfClockHtml(){
-      var left = dfClock();
-      if (left === null) return '';
-      return '<div class="df-clock' + (left <= 3 ? ' hot' : '') + '" aria-label="Time remaining"><b id="dfSecs">' + left + '</b>s</div>';
-    }
-    function dfWaiting(step, title, sub, big){
-      return '<div class="df-card">' + dfHead(step, title, sub, big) + dfClockHtml() + '</div>';
-    }
-    // The composer, shared by the offer beat and the counter beat because
-    // "name the motion you want" is the same act either way.
-    function dfComposer(){
-      var cards = dfOfferable().map(function(m, i){
-        return '<button type="button" class="df-motion" data-df-pool="' + escHtml(m.id)
-          + '" style="--i:' + i + '"><span class="df-motion-copy">' + escHtml(m.text)
-          + (m.recommended ? '<span class="df-tag">Suggested for this match</span>' : '')
-          + '</span><span class="df-offer-action">Offer →</span></button>';
-
-      }).join('');
-      var write = '';
-      if (dfCanWrite()){
-        write = dfWriteOpen
-          ? '<div class="df-add open">'
-            + '<label for="dfWriteInput" class="df-add-hint">Your topic</label>'
-            + '<input type="text" id="dfWriteInput" maxlength="' + DRAFT_MOTION_MAX + '" placeholder="e.g. Homework should be banned." value="' + escHtml(dfWriteText) + '" autocomplete="off" />'
-            + '<div class="df-add-row"><button type="button" class="df-add-go" id="dfWriteGo">Offer this topic</button>'
-            + '<button type="button" class="df-add-cancel" id="dfWriteCancel">Cancel</button></div>'
-            + '</div>'
-          : '<button type="button" class="df-add-open" id="dfWriteOpen">+ Write your own topic</button>';
-      }
-      return (dfWriteOpen ? '' : '<div class="df-motions">' + cards + '</div>') + write
-        + '<div class="df-foot">' + dfClockHtml()
-        + '<span class="df-foot-note">A suggestion is offered when time runs out.</span></div>';
-    }
-
-    function renderDraft(){
-      var host = dfHost();
-      var d = dfDraft();
-      if (!d || !dfPending() || state.phase === 'ballot' || state.speechIdx > 0){
-        var wasDrafting = document.body.classList.contains('drafting');
-        host.className = 'draft-board hidden';
-        host.innerHTML = '';
-        document.body.classList.remove('drafting');
-        // The settled resolution is the last beat of the draft. If its
-        // text arrived while the modal board covered the room, reveal it
-        // now rather than spending the pop underneath an invisible bar.
-        if (wasDrafting && window.__lrRevealResolution){
-          requestAnimationFrame(function(){ window.__lrRevealResolution(true); });
-        }
-        if (dfTimer){ clearInterval(dfTimer); dfTimer = 0; }
-        if (dfPreviousFocus && dfPreviousFocus.isConnected) dfPreviousFocus.focus();
-        dfPreviousFocus = null;
-        return;
-      }
-      if (!document.body.classList.contains('drafting')) dfPreviousFocus = document.activeElement;
-      host.setAttribute('aria-busy', dfBusy ? 'true' : 'false');
-      document.body.classList.add('drafting');
-      host.className = 'draft-board';
-      requestAnimationFrame(function(){
-        if (!host.classList.contains('hidden') && !host.contains(document.activeElement)) host.focus();
-      });
-      if (!dfTimer) dfTimer = setInterval(function(){
-        var left = dfClock();
-        var n = document.getElementById('dfSecs');
-        if (n) n.textContent = left === null ? '' : left;
-        var c = n && n.parentNode;
-        if (c && left !== null && left <= 3) c.classList.add('hot');
-        // While choosing, recover a delayed/missed stream within two
-        // seconds. The timer ends with the draft; normal rooms do not poll.
-        if (!document.hidden && Date.now() - Math.max(dfLastSyncAt, dfReadAt) >= 2000) dfRefresh();
-        if (left === 0) dfOnZero();
-      }, 250);
-
-      // A spectator watches; they hold no power here and a board full of
-      // buttons they cannot press would be a lie about who decides.
-      if (!dfIAmDebater()){
-        host.innerHTML = '<div class="df-card">'
-          + dfHead('Pre-round', 'They’re choosing a topic together.',
-                   'They agree on a topic, then pick who argues for and against it.')
-          + '</div>';
-        return;
-      }
-
-      var ph = d.phase;
-      var replacing = ph === 'offer' && d.response === 'back';
-
-      if (ph === 'offer'){
-        if (!dfMine()){
-          host.innerHTML = dfWaiting('Step 1 of 2',
-            escHtml(dfOtherName()) + (replacing ? ' is picking a new topic.' : ' is suggesting a topic.'),
-            replacing
-              ? 'Their next topic is final. You pick your side.'
-              : 'You can accept it or suggest a change next.');
-          return;
-        }
-        host.innerHTML = '<div class="df-card">'
-          + dfHead('Step 1 of 2',
-                   replacing ? 'Suggest a new topic.' : 'What should you debate?',
-                   replacing
-                     ? 'Tap a topic to offer it. This one is final, and ' + escHtml(dfOtherName()) + ' picks their side.'
-                     : 'Tap a topic to offer it. If ' + escHtml(dfOtherName()) + ' accepts, they pick their side.')
-          + dfComposer()
-          + '</div>';
-        dfFocusWrite();
-        return;
-      }
-
-      if (ph === 'respond'){
-        var offered = dfMotionText(d.offerId);
-        if (!dfMine()){
-          host.innerHTML = dfWaiting('Step 1 of 2',
-            'Waiting for ' + escHtml(dfOtherName()) + ' to answer.',
-            escHtml(offered), true);
-          return;
-        }
-        var vetoLeft = Number(d.vetoesLeft || 0) > 0;
-        host.innerHTML = '<div class="df-card">'
-          + dfHead('Step 1 of 2', 'Want to debate this?',
-                   escHtml(dfOtherName()) + ' suggested this topic.')
-          + '<div class="df-offer">' + escHtml(offered) + '</div>'
-          + '<div class="df-choices">'
-          + '<button type="button" class="df-choice take" data-df-respond="take"><b>Yes, pick my side →</b><i>Agree on this topic and choose for or against.</i></button>'
-          + (vetoLeft
-            ? '<button type="button" class="df-choice back" data-df-respond="back"><b>Ask for another</b><i>Their next topic is final. You still pick your side. Once per round.</i></button>'
-            : '<button type="button" class="df-choice back" disabled><b>Ask for another</b><i>Already used this round.</i></button>')
-          + '<button type="button" class="df-choice counter" data-df-respond="counter"><b>Suggest my own</b><i>They choose between both topics, then pick their side.</i></button>'
-          + '</div>'
-          + '<div class="df-foot">' + dfClockHtml() + '</div></div>';
-        return;
-      }
-
-      if (ph === 'counter'){
-        if (!dfMine()){
-          host.innerHTML = dfWaiting('Step 1 of 2',
-            escHtml(dfOtherName()) + ' is suggesting another topic.',
-            'You choose between both topics, then pick your side.');
-          return;
-        }
-        host.innerHTML = '<div class="df-card">'
-          + dfHead('Step 1 of 2', 'Suggest another topic.',
-                   'Tap a topic to offer it. ' + escHtml(dfOtherName()) + ' chooses between both topics, then picks their side.')
-          + dfComposer()
-          + '</div>';
-        dfFocusWrite();
-        return;
-      }
-
-      if (ph === 'choose'){
-        var list = dfContenders();
-        if (!dfMine()){
-          host.innerHTML = dfWaiting('Step 1 of 2',
-            escHtml(dfOtherName()) + ' is choosing between the two.',
-            'They choose the topic and their side. You take the other side.');
-          return;
-        }
-        host.innerHTML = '<div class="df-card">'
-          + dfHead('Step 1 of 2', 'Which topic should you debate?',
-                   'Tap one to choose it. You pick your side next.')
-          + '<div class="df-motions">' + list.map(function(m, i){
-              return '<button type="button" class="df-motion" data-df-motion="' + escHtml(m.id)
-                + '" style="--i:' + i + '">' + escHtml(m.text)
-                + '<span class="df-tag">' + (i === 0 ? 'Yours' : 'Theirs') + '</span></button>';
-            }).join('') + '</div>'
-          + '<div class="df-foot">' + dfClockHtml() + '</div></div>';
-        return;
-      }
-
-      if (ph === 'side'){
-        var motion = dfMotionText(d.motionId);
-        if (!dfMine()){
-          host.innerHTML = dfWaiting('Step 2 of 2',
-            escHtml(dfNameFor(d.sideUid)) + ' is picking their side.',
-            escHtml(motion), true);
-          return;
-        }
-        host.innerHTML = '<div class="df-card">'
-          + dfHead('Step 2 of 2', 'Pick your side.',
-                   escHtml(motion), true)
-          + '<div class="df-sides">'
-          + '<button type="button" class="df-side pro" data-df-side="pro"><b>For</b><i>I’ll support this claim</i></button>'
-          + '<button type="button" class="df-side con" data-df-side="con"><b>Against</b><i>I’ll challenge this claim</i></button>'
-          + '</div><div class="df-foot">' + dfClockHtml() + '</div></div>';
-      }
-    }
-
-    function dfFocusWrite(){
-      if (!dfWriteOpen) return;
-      var inp = document.getElementById('dfWriteInput');
-      if (inp && document.activeElement !== inp){
-        try { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } catch(e){}
-      }
-    }
-
-    function dfSendOffer(payload){
-      if (dfBusy) return;
-      dfBusy = true;
-      dfErr = '';
-      renderDraft();
-      dfPost('offer', payload).then(function(res){
-        if (res && res.ok){
-          dfWriteOpen = false; dfWriteText = '';
-          try { gtag('event', 'live_draft_offer', { format: state.formatKey, written: payload.text ? 1 : 0 }); } catch(e){}
-        } else {
-          dfErr = dfErrText(res && res.reason, res && res.message);
-        }
-      }).catch(function(){ dfErr = dfErrText(); })
-        .then(function(){ dfBusy = false; renderDraft(); });
-    }
-
-    document.addEventListener('input', function(ev){
-      if (ev.target && ev.target.id === 'dfWriteInput') dfWriteText = ev.target.value;
-    }, true);
-    document.addEventListener('keydown', function(ev){
-      var host = document.getElementById('draftBoard');
-      if (host && !host.classList.contains('hidden') && ev.key === 'Tab'){
-        var controls = host.querySelectorAll('button:not([disabled]), input:not([disabled])');
-        var first = controls[0], last = controls[controls.length - 1];
-        if (!first){ ev.preventDefault(); host.focus(); }
-        else if (ev.shiftKey && (document.activeElement === first || document.activeElement === host || !host.contains(document.activeElement))){ ev.preventDefault(); last.focus(); }
-        else if (!ev.shiftKey && (document.activeElement === last || document.activeElement === host || !host.contains(document.activeElement))){ ev.preventDefault(); first.focus(); }
-      }
-      if (!ev.target || ev.target.id !== 'dfWriteInput') return;
-      if (ev.key === 'Enter'){
-        ev.preventDefault();
-        var t = String(dfWriteText || '').replace(/\s+/g, ' ').trim();
-        if (t.length < DRAFT_MOTION_MIN){ dfErr = dfErrText('too_short'); renderDraft(); return; }
-        dfSendOffer({ text: t });
-      } else if (ev.key === 'Escape'){
-        ev.preventDefault(); dfWriteOpen = false; dfWriteText = ''; dfErr = ''; renderDraft();
-      }
-    }, true);
-
-    // One delegated listener for the whole board, so a re-render never
-    // leaves a dead handler behind.
-    document.addEventListener('click', function(ev){
-      var host = document.getElementById('draftBoard');
-      if (!host || host.classList.contains('hidden') || !host.contains(ev.target)) return;
-      if (dfBusy) return;
-      if (ev.target.closest('#dfWriteOpen')){ dfWriteOpen = true; dfErr = ''; renderDraft(); return; }
-      if (ev.target.closest('#dfWriteCancel')){ dfWriteOpen = false; dfWriteText = ''; dfErr = ''; renderDraft(); return; }
-      if (ev.target.closest('#dfWriteGo')){
-        var t = String(dfWriteText || '').replace(/\s+/g, ' ').trim();
-        if (t.length < DRAFT_MOTION_MIN){ dfErr = dfErrText('too_short'); renderDraft(); return; }
-        dfSendOffer({ text: t });
-        return;
-      }
-      var pool = ev.target.closest('[data-df-pool]');
-      if (pool){
-        dfSendOffer({ poolId: pool.getAttribute('data-df-pool') });
-        return;
-      }
-      var answer = ev.target.closest('[data-df-respond]');
-      if (answer){
-        if (dfBusy) return;
-        dfBusy = true;
-        dfErr = '';
-        var choice = answer.getAttribute('data-df-respond');
-        renderDraft();
-        dfPost('respond', { choice: choice }).then(function(res){
-          if (res && !res.ok) dfErr = dfErrText(res.reason, res.message);
-          try { gtag('event', 'live_draft_respond', { choice: choice, format: state.formatKey }); } catch(e){}
-        }).catch(function(){ dfErr = 'Could not send your choice. Try again.'; }).then(function(){ dfBusy = false; renderDraft(); });
-        return;
-      }
-      var pick = ev.target.closest('[data-df-motion]');
-      if (pick){
-        if (dfBusy) return;
-        dfBusy = true;
-        dfErr = '';
-        renderDraft();
-        dfPost('motion', { motionId: pick.getAttribute('data-df-motion') })
-          .then(function(res){ if (res && !res.ok) dfErr = dfErrText(res.reason, res.message); })
-          .catch(function(){ dfErr = 'Could not send your choice. Try again.'; }).then(function(){ dfBusy = false; renderDraft(); });
-        return;
-      }
-      var side = ev.target.closest('[data-df-side]');
-      if (side){
-        if (dfBusy) return;
-        dfBusy = true;
-        dfErr = '';
-        renderDraft();
-        dfPost('side', { side: side.getAttribute('data-df-side') })
-          .then(function(res){ if (res && !res.ok) dfErr = dfErrText(res.reason, res.message); })
-          .catch(function(){ dfErr = 'Could not send your choice. Try again.'; }).then(function(){ dfBusy = false; renderDraft(); });
-      }
-    }, true);
-
-    // Snapshot hook. The round doc and committed API reply share one path.
-    window.__lrRenderDraft = function(d){
-      var next = d && d.draft ? Object.assign({}, d.draft) : null;
-      if (next && d.draftPhaseAt && d.draftPhaseAt.toMillis) next.phaseAt = d.draftPhaseAt.toMillis();
-      state.draft = next;
-      var now = next ? String(next.phase || '') : '';
-      // A new beat clears the composer: a pool card selected on the offer
-      // beat means nothing on the counter beat, and carrying it across
-      // would arm a button with somebody else's intent.
-      if (now !== dfLastPhase){
-        dfWriteOpen = false; dfWriteText = ''; dfErr = '';
-        requestAnimationFrame(function(){ var host = dfHost(); if (dfPending()) host.focus(); });
-      }
-      dfLastPhase = now;
-      renderDraft();
-    };
-    window.__lrDraftPending = dfPending;
-    window.__lrOpenDraft = dfOpen;
-
-    // ── Motion context (US / world) ──────────────────────────────────
+window.DBLiveDraft.attach({
+    get escHtml(){ return escHtml; },
+    get getRoundDocRef(){ return getRoundDocRef; },
+    get isSpectator(){ return isSpectator; },
+    get onRoundSnapshot(){ return onRoundSnapshot; },
+    get state(){ return state; },
+    get toast(){ return toast; }
+  });    // ── Motion context (US / world) ──────────────────────────────────
     // Some motions have the same answer everywhere; others turn on where
     // they apply ("ban private schools", "abolish the electoral college").
     // When two people MATCH on one of the second kind, both agree on a
@@ -19136,161 +16775,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // number, so one enormous room can't quietly become the expensive case
   // this whole change exists to avoid.
   var WATCH_COUNT_CAP = 1000;
-  function watchersRef(){
-    var r = getRoundDocRef();
-    return r ? r.collection('watchers') : null;
-  }
-  function startWatchPresence(){
-    if (state.watchInit) return;
-    if (!state.user || !firebaseDb) return;
-    var col = watchersRef();
-    if (!col) return;
-    state.watchInit = true;
-
-    // (a) I'm a spectator → write + heartbeat my presence. Only once
-    // admitted: an unadmitted watcher is at the door, not in the
-    // audience, and counting them would inflate the number the
-    // debaters use to decide whether the room is worth opening up.
-    if (isSpectator() && state.admitted) startSpectatorBeat();
-
-    // (b) Nobody subscribes to the watchers collection. The count arrives
-    // on the round doc, which every client in the room already has a
-    // listener on, so rendering it costs a spectator nothing. Seated
-    // debaters compute it in seatBeat below; see the note there.
-
-    // Only a seated participant can open this round to spectators.
-    if (!isSpectator()){
-      var tog = document.getElementById('privacyToggle');
-      if (tog) tog.addEventListener('click', function(){
-        if (!state.isPrivate || tog.disabled) return;
-        var ref = getRoundDocRef();
-        if (!ref) return;
-        state.privacyBusy = true;
-        tog.disabled = true;
-        tog.textContent = 'Making public…';
-        ref.update({ isPrivate: false }).then(function(){
-          state.isPrivate = false;
-          toast('Round is public. People can now find and watch it.');
-        }).catch(function(e){
-          console.warn('[watch] make public failed', e);
-          toast('Could not make this round public. Try again.');
-        }).then(function(){ state.privacyBusy = false; paintPrivacyToggle(); });
-      });
-      var camsTog = document.getElementById('audCamsToggle');
-      if (camsTog) camsTog.addEventListener('click', function(){
-        var ref = getRoundDocRef();
-        if (!ref) return;
-        var next = state.allowAudienceCams === false;
-        camsTog.disabled = true;
-        ref.update({ allowAudienceCams: next }).then(function(){
-          state.allowAudienceCams = next;
-          paintAudCamsToggle();
-        }).catch(function(){ toast('Could not update audience cameras.'); })
-          .then(function(){ camsTog.disabled = false; });
-      });
-      paintPrivacyToggle();
-    }
-
-    // (d) Seated debaters heartbeat their presence onto the round doc
-    // itself (separate from the watchers subcollection). /spar's "Watch a
-    // live round" list reads this to tell a live room from an abandoned
-    // one: when both debaters close their tabs the beat stops and the
-    // round ages off the watch list within ~1.5 cycles, instead of
-    // lingering 30 min on createdAt (the old ghost-room bug). Server
-    // stamped; stops once a ballot exists — a finished round shouldn't
-    // keep advertising as live.
-    if (!isSpectator()){
-      var rref = getRoundDocRef();
-      if (rref){
-        var seatBeatN = 0;
-        var seatBeat = function(){
-          if (state.phase === 'ballot' || state.phase === 'ballot-rendered') return;
-          // Presence cannot create a partial room before privacy and seats save.
-          if (!state.roundDocSeen || !state.dailyMounted) return;
-          // A beat already in flight when the seat is marked empty would
-          // land with a LATER server timestamp and quietly undo the mark,
-          // which is the one way this could fail closed.
-          if (state.seatLeftMarked) return;
-          var beat = { lastSeenAt: firebase.firestore.FieldValue.serverTimestamp() };
-          // Per-uid presence so each debater can tell whether the OTHER has
-          // actually entered the room — the single lastSeenAt can't, since
-          // either side writes it. Nested-map merge preserves the opponent's
-          // entry. Only signed-in debaters key in (the no-show prompt is for
-          // identified human-vs-human rounds).
-          if (state.user && state.user.uid){
-            beat.seatSeen = {};
-            beat.seatSeen[state.user.uid] = firebase.firestore.FieldValue.serverTimestamp();
-          }
-          // Fold the audience count into this same write so the whole room
-          // gets it through the round-doc listener it already has, instead
-          // of every viewer subscribing to the watchers collection. The
-          // freshness filter runs SERVER-side, so stale heartbeats are
-          // never fetched; `ts` is a plain field, so Firestore's automatic
-          // single-field index covers it and there is no composite index
-          // to deploy. Both debaters do this (2x a small number is still a
-          // small number) rather than running a leader election that could
-          // strand the count when the leader's tab dies.
-          var wcol = watchersRef();
-          seatBeatN++;
-          if (!wcol || (seatBeatN % 3) !== 1){ rref.set(beat, { merge: true }).catch(function(){}); return; }
-          wcol.where('ts', '>', new Date(Date.now() - WATCH_STALE_MS))
-              .limit(WATCH_COUNT_CAP + 1)
-              .get()
-              .then(function(snap){
-                beat.watchCount = snap.size;
-                beat.watchCountCapped = snap.size > WATCH_COUNT_CAP;
-              })
-              .catch(function(){ /* count is optional; never block the beat */ })
-              .then(function(){
-                if (state.seatLeftMarked) return;   // re-checked after the await
-                rref.set(beat, { merge: true }).catch(function(){});
-              });
-        };
-        seatBeat();
-        state.seatHbInterval = setInterval(seatBeat, SEAT_HB_MS);
-        window.addEventListener('pagehide', function(){
-          if (state.seatHbInterval){ clearInterval(state.seatHbInterval); state.seatHbInterval = null; }
-          markSeatLeft();
-        });
-        // pagehide is not only "goodbye". iOS fires it when the browser is
-        // backgrounded and then restores the page from bfcache, so a mark
-        // written there has to be undone the moment the page comes back —
-        // otherwise going to check a text message would end your round.
-        // Resuming the beat is the whole repair: the next heartbeat is
-        // newer than the mark, and every reader ignores a mark older than
-        // the seat's last beat.
-        window.addEventListener('pageshow', function(e){
-          if (!e || !e.persisted) return;
-          state.seatLeftMarked = false;
-          seatBeat();
-          if (!state.seatHbInterval) state.seatHbInterval = setInterval(seatBeat, SEAT_HB_MS);
-        });
-        // Round-abandonment beacon: a debater leaving mid-round is the
-        // one exit nothing records. Fires only when the round genuinely
-        // started ('round' phase; 'ballot'/'ballot-rendered' mean it
-        // finished) so a normal post-ballot departure never counts.
-        // Registered here because this branch only runs for a seated
-        // debater with a synced round doc, which is exactly the
-        // population whose exits matter.
-        if (!state.exitBeaconWired){
-          state.exitBeaconWired = true;
-          window.addEventListener('pagehide', function(){
-            if (!window.RoundExit) return;
-            if (state.phase !== 'round') return;
-            var oppUid = (typeof noShowOpponentUid === 'function') ? noShowOpponentUid() : '';
-            RoundExit.beacon({
-              surface: 'live',
-              stage: state.phase || 'speech',
-              roundId: state.room,
-              speechIdx: state.speechIdx,
-              elapsed: state.roundStartedAt ? Math.round((Date.now() - state.roundStartedAt) / 1000) : 0,
-              oppSeen: !!(oppUid && state.seatSeen && state.seatSeen[oppUid]),
-            });
-          });
-        }
-      }
-    }
-  }
+  function watchersRef(){ return presenceController.watchersRef.apply(this, arguments); }
+  function startWatchPresence(){ return presenceController.startWatchPresence.apply(this, arguments); }
   // ── Leaving the round says so, instead of going quiet ─────────────
   // Presence was heartbeat-only: stop beating and everyone waits out the
   // 100s staleness window before the round stops reading as live. So a
@@ -19309,32 +16795,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // (leaveRoundThen below); on pagehide it usually lands and sometimes
   // does not, and the staleness window is still there underneath for
   // every case it misses.
-  function markSeatLeft(){
-    try {
-      if (state.seatLeftMarked) return Promise.resolve();
-      if (isSpectator()) return Promise.resolve();
-      // A finished round is not an abandoned one. Past the ballot there
-      // is nothing left to leave, and watch-live already drops it.
-      if (state.phase === 'ballot' || state.phase === 'ballot-rendered') return Promise.resolve();
-      var uid = state.user && state.user.uid;
-      var rref = getRoundDocRef();
-      if (!uid || !rref) return Promise.resolve();
-      state.seatLeftMarked = true;
-      if (state.seatHbInterval){ clearInterval(state.seatHbInterval); state.seatHbInterval = null; }
-      // Say it out loud first. The data channel is already open, so this
-      // reaches the other side in milliseconds and, unlike the Firestore
-      // write below, it does not need the browser to keep an unload alive
-      // long enough to finish a request. Belt and braces: the mark is
-      // still what a reader trusts, this is what makes it arrive fast.
-      try {
-        if (room.call && room.joined) room.call.sendAppMessage({ t: 'seat-left', uid: uid }, '*');
-      } catch(e){}
-      var patch = { seatLeft: {} };
-      patch.seatLeft[uid] = firebase.firestore.FieldValue.serverTimestamp();
-      try { gtag('event', 'live_round_seat_left', { format: state.formatKey, speech: state.speechIdx }); } catch(e){}
-      return rref.set(patch, { merge: true }).catch(function(){});
-    } catch(e){ return Promise.resolve(); }
-  }
+  function markSeatLeft(){ return presenceController.markSeatLeft.apply(this, arguments); }
   // The dock, the site shell and the topbar "Back to board" all live in a
   // separate IIFE further down the file, so the deliberate exits reach the
   // mark through here. Bounded: the round doc is small and the write is
@@ -19364,34 +16825,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     req: 'none', reqUnsub: null, reqSending: false,
   };
 
-  function startSpectatorBeat(){
-    if (state.specBeatOn) return;
-    if (!state.user || !firebaseDb) return;
-    var col = watchersRef();
-    if (!col) return;
-    state.specBeatOn = true;
-    var mine = col.doc(state.user.uid);
-    var beat = function(){
-      var payload = {
-        name: publicNameOf(state.user),
-        ts: firebase.firestore.FieldValue.serverTimestamp(),
-      };
-      // Camera spectators keep a camAt heartbeat in the same doc; the
-      // server counts fresh camAt entries to enforce the audience-cam
-      // slot cap. Plain set() (no merge) so turning the camera off
-      // drops the field on the next beat.
-      if (audCam.active) payload.camAt = firebase.firestore.FieldValue.serverTimestamp();
-      mine.set(payload).catch(function(){});
-    };
-    audCam.beatNow = beat;
-    // The request listener needs a signed-in uid, which may not have
-    // existed when the pill was built. Idempotent, so a second call is
-    // free.
-    if (audCam.pill) watchMyCallRequest();
-    beat();
-    state.watchHbInterval = setInterval(beat, WATCH_HB_MS);
-    window.addEventListener('pagehide', function(){ mine.delete().catch(function(){}); });
-  }
+  function startSpectatorBeat(){ return presenceController.startSpectatorBeat.apply(this, arguments); }
 
   // ── Audience cameras: a verified spectator can BE SEEN watching ──
   // Camera access is server-granted. In a casual round, an explicitly
@@ -21052,42 +18486,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // is detected by the opponent's uid simply not being in the presence
   // map — no timestamp math, so no clock-skew false positives.
   var NOSHOW_GRACE_MS = 28000;   // let the opponent navigate in from /spar first
-  function noShowOpponentUid(){
-    var me = state.user && state.user.uid; if (!me) return '';
-    if (me === state.proUid) return state.conUid || '';
-    if (me === state.conUid) return state.proUid || '';
-    return '';
-  }
-  function checkOpponentPresence(){
-    var me = state.user && state.user.uid;
-    var oppUid = noShowOpponentUid();
-    // Pre-speech covers BOTH phases on purpose. Spar rounds auto-start
-    // (phase flips to 'round' within a second of arrival), so the old
-    // setup-only gate made every prompt below unreachable on exactly the
-    // surface the matchmaker feeds: an opener sat in an empty room with
-    // no explanation. Funnel read 2026-08-18: half of matched rounds
-    // still had an empty chair, and nobody in the room was ever told.
-    var preSpeech = state.phase === 'setup' ||
-      (state.phase === 'round' && state.speechIdx === 0 && state.timerState === 'ready');
-    // Only identified human-vs-human rounds, pre-speech, non-spectator.
-    var eligible = me && oppUid && oppUid !== me && !isSpectator() && preSpeech;
-    if (!eligible){ hideNoShow(); return; }
-    // Trust the signal only once MY OWN presence write has round-tripped.
-    // If the write is denied (rules) or hasn't landed, seatSeen[me] is
-    // absent — bail rather than false-fire "opponent hasn't joined" at
-    // everyone. This makes the feature degrade safely.
-    if (!(state.seatSeen && state.seatSeen[me])) { hideNoShow(); return; }
-    if (state.seatSeen[oppUid]) { hideNoShow(); return; }
-    // The Daily room is ground truth ahead of the doc beat: a remote
-    // debater already on camera is present, whatever the 30s seat
-    // heartbeat has round-tripped so far.
-    if (room && room.remoteSeats > 0) { hideNoShow(); return; }
-    // Normal arrival and an explicit choice to wait stay quiet. Only a
-    // missing opponent past the grace period gets the no-show exit controls.
-    if (Date.now() - state.arrivedAtMs < NOSHOW_GRACE_MS){ hideNoShow(); return; }
-    if (state.noShowSnoozeUntil && Date.now() < state.noShowSnoozeUntil) { return; }
-    showNoShow(oppUid);
-  }
+  function noShowOpponentUid(){ return presenceController.noShowOpponentUid.apply(this, arguments); }
+  function checkOpponentPresence(){ return presenceController.checkOpponentPresence.apply(this, arguments); }
 
   // ── Is anybody still debating? (the quiet-room strip) ─────────────
   // The debaters have had a full no-show apparatus since 2026-08-11
@@ -21114,195 +18514,31 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // writes seatLeft[uid] the moment a debater actually walks out, so the
   // other side hears about it in the next snapshot instead of waiting
   // out QUIET_MS. Inference is the fallback for a tab that just died.
-  function tsMs(v){
-    if (!v) return 0;
-    if (typeof v.toMillis === 'function') return v.toMillis();
-    if (typeof v.getTime === 'function') return v.getTime();
-    if (typeof v.seconds === 'number') return v.seconds * 1000;
-    if (typeof v === 'number') return v;
-    return 0;
-  }
+  function tsMs(){ return presenceController.tsMs.apply(this, arguments); }
   // When was the opponent last in the room, by their OWN heartbeat? 0
   // when there is no identified opponent to ask about (hotseat rounds,
   // direct links with no uids) or before my own presence write has
   // round-tripped, which is the same trust rule checkOpponentPresence
   // uses: an unproven read must never accuse anyone of leaving.
-  function oppLastSeenMs(){
-    var me = state.user && state.user.uid;
-    var opp = noShowOpponentUid();
-    if (!me || !opp || isSpectator()) return 0;
-    if (!(state.seatSeen && state.seatSeen[me] && state.seatSeen[opp])) return 0;
-    return tsMs(state.seatSeen[opp]);
-  }
-  function opponentHasLeft(){
-    var seen = oppLastSeenMs();
-    if (!seen) return false;
-    // The mark counts only while it is NEWER than their last beat, so
-    // someone who leaves and comes back clears it by beating again. Both
-    // values are SERVER-stamped, so this is one clock against itself —
-    // which is why this can afford timestamp math where the no-show
-    // check next door deliberately cannot.
-    var left = tsMs(state.seatLeft && state.seatLeft[noShowOpponentUid()]);
-    if (left && left >= seen) return true;
-    // Fast path: they dropped out of the video room (or said outright
-    // that they were leaving) and their heartbeat has not moved since.
-    // The stamp check is what keeps this honest — anyone who merely left
-    // the call and stayed on the page keeps beating, the stamp advances
-    // past oppSeenAtGone, and this stops applying on its own.
-    if (state.oppGoneAt && seen <= state.oppSeenAtGone &&
-        (Date.now() - state.oppGoneAt) > state.oppGoneWaitMs) return true;
-    var mine = tsMs(state.seatSeen[state.user.uid]);
-    return mine > 0 && (mine - seen) > OPP_QUIET_MS;
-  }
+  function oppLastSeenMs(){ return presenceController.oppLastSeenMs.apply(this, arguments); }
+  function opponentHasLeft(){ return presenceController.opponentHasLeft.apply(this, arguments); }
   // Arm the fast path. waitMs is how much benefit of the doubt the signal
   // earns: a dropped video participant might be a reconnect, so it waits
   // out a beat; an explicit "I am leaving" over the data channel is the
   // person telling us, so it waits only long enough for a beat already in
   // flight to land and contradict it.
-  function noteOppGone(waitMs){
-    var seen = oppLastSeenMs();
-    if (!seen) return;                       // nothing proven about that seat yet
-    if (state.oppGoneAt && waitMs >= state.oppGoneWaitMs) return;  // keep the stronger signal
-    state.oppGoneAt = Date.now();
-    state.oppGoneWaitMs = waitMs;
-    state.oppSeenAtGone = seen;
-  }
-  function clearOppGone(){
-    state.oppGoneAt = 0; state.oppGoneWaitMs = 0; state.oppSeenAtGone = 0;
-  }
-  function noteOppSaidGone(uid){
-    if (!uid || uid !== noShowOpponentUid()) return;
-    noteOppGone(2500);
-    try { paintRoundQuiet(); } catch(e){}
-    try { checkOpponentPresence(); } catch(e){}
-  }
+  function noteOppGone(){ return presenceController.noteOppGone.apply(this, arguments); }
+  function clearOppGone(){ return presenceController.clearOppGone.apply(this, arguments); }
+  function noteOppSaidGone(){ return presenceController.noteOppSaidGone.apply(this, arguments); }
   // The Daily room is ground truth ahead of the doc beat, exactly as in
   // checkOpponentPresence: a debater whose seat heartbeat has not
   // round-tripped yet is still visibly in the room, and calling that
   // room empty over a live picture of them is the failure this copies
   // its guard from. Audience cams are already split out of `seats`, so a
   // remote seat is a debater.
-  function roomIsQuiet(){
-    if (state.phase === 'ballot' || state.phase === 'ballot-rendered') return false;
-    if (state.hasBallot) return false;
-    if (room && room.remoteSeats > 0) return false;
-    // A SEATED debater cannot answer this from `lastSeenAt`: they write
-    // it themselves every 30 seconds, so it is never stale in the one
-    // browser that needs it to be, and the debater branch of this strip
-    // — the half written for an opponent who leaves mid-round — could
-    // never fire for anybody. Their question is about the other chair,
-    // and the per-uid presence map is what answers it.
-    if (!isSpectator() && mySide()) return opponentHasLeft();
-    // No beat has EVER landed. That is only evidence once I have been
-    // here long enough for one to have arrived; before that it is just a
-    // page that has not finished loading.
-    if (!state.seatLastSeenMs) return (Date.now() - state.arrivedAtMs) > QUIET_MS;
-    return (Date.now() - state.seatLastSeenMs) > QUIET_MS;
-  }
-  function quietForMins(){
-    // Same split: a debater is counting the opponent's absence, not the
-    // age of their own heartbeat, which is always seconds old.
-    var since = (!isSpectator() && mySide() && oppLastSeenMs())
-      || state.seatLastSeenMs || state.arrivedAtMs;
-    return Math.max(1, Math.round((Date.now() - since) / 60000));
-  }
-  function paintRoundQuiet(){
-    var el = document.getElementById('roundQuiet');
-    if (!el) return;
-    var quiet = roomIsQuiet();
-    if (!quiet){
-      // A debater came back. The strip goes, and so does my own report
-      // outcome: the claim it recorded is no longer the state of the
-      // room, and leaving "you marked this over" on screen under a live
-      // round would be the page arguing with itself.
-      if (!el.hidden){ el.hidden = true; el.innerHTML = ''; }
-      state.quietDone = '';
-      return;
-    }
-    var mins = quietForMins();
-    // An ending is only current if no debater has beaten since it was
-    // stamped. A round closed while empty, rejoined, played on and left
-    // quiet again is quiet on its OWN account, not on the strength of a
-    // stamp its own debaters falsified by coming back; it gets the
-    // report button again rather than an ending nobody filed for it.
-    var ended = state.endedAtMs > 0 && state.endedAtMs >= state.seatLastSeenMs;
-    var html;
-    if (isSpectator()){
-      if (state.quietDone === 'ended' || ended){
-        html = '<b>This round is over.</b>' +
-          '<span class="rq-sub">Nobody is in the room. It has stopped showing as live.</span>' +
-          '<span class="rq-row">' +
-            '<a class="rq-btn" href="/live">Find a live round</a>' +
-            '<a class="rq-btn rq-quiet" href="/spar">Debate someone yourself</a>' +
-          '</span>';
-      } else if (state.quietDone === 'still_live'){
-        html = '<b>Reported.</b>' +
-          '<span class="rq-sub">Someone is still seated, so the round stays open. The debaters can see that the audience thinks it is finished.</span>';
-      } else if (state.quietDone === 'judged'){
-        html = '<b>This round already has a decision.</b>' +
-          '<span class="rq-sub">It finished properly. Scroll down for the decision.</span>';
-      } else {
-        html = '<b>Nobody has been in this room for ' + mins + ' ' + (mins === 1 ? 'minute' : 'minutes') + '.</b>' +
-          '<span class="rq-sub">The debaters may have closed their tabs. You can say the round is over, which stops it showing as live to anyone else.</span>' +
-          '<span class="rq-row">' +
-            '<button type="button" class="rq-btn" id="rqReport"' + (state.quietBusy ? ' disabled' : '') + '>' +
-              (state.quietBusy ? 'Reporting…' : 'Report the round as over') + '</button>' +
-            '<a class="rq-btn rq-quiet" href="/live">Find another round</a>' +
-          '</span>';
-      }
-    } else {
-      // A seated debater alone in the room. They already have the
-      // no-show prompt when the round has not started; this covers the
-      // other half: an opponent who leaves MID-round. What is new is
-      // that the audience's read reaches them, and that the round has an
-      // ending they can reach from here — a clock running against an
-      // empty chair used to have no way out except closing the tab,
-      // which is what left finished debates advertising as live.
-      var declared = !!(state.seatLeft && state.seatLeft[noShowOpponentUid()]);
-      var judgeable = (state.log || []).some(function(l){
-        return l && !l.skipped && l.text && String(l.text).trim().length > 40;
-      });
-      html = '<b style="letter-spacing:.05em">YOU ARE THE ONLY ONE HERE.</b>' +
-        '<span class="rq-sub">' +
-        (declared
-          ? 'Your opponent left the round.'
-          : 'Your opponent has not been seen for ' + mins + ' ' + (mins === 1 ? 'minute' : 'minutes') + '.') +
-        ' Their seat is held, they can rejoin from the same link.' +
-        (state.overReports > 0
-          ? ' ' + state.overReports + ' in the audience ' + (state.overReports === 1 ? 'has' : 'have') + ' said this round looks over.'
-          : '') + '</span>' +
-        '<span class="rq-row">' +
-          // The ballot costs a real model call and reads the transcript,
-          // so it is only offered when speeches actually happened. An
-          // abandoned room with nothing said in it has nothing to judge,
-          // and pretending otherwise would put a verdict on silence.
-          (judgeable
-            ? '<button type="button" class="rq-btn" id="rqEnd">End the round and get the decision</button>'
-            : '') +
-          '<a class="rq-btn rq-quiet" href="/spar">Find someone else</a>' +
-        '</span>';
-    }
-    if (el.innerHTML !== html){ el.innerHTML = html; }
-    el.hidden = false;
-    var btn = document.getElementById('rqReport');
-    if (btn && !btn.dataset.wired){
-      btn.dataset.wired = '1';
-      btn.addEventListener('click', reportRoundOver);
-    }
-    var endBtn = document.getElementById('rqEnd');
-    if (endBtn && !endBtn.dataset.wired){
-      endBtn.dataset.wired = '1';
-      endBtn.addEventListener('click', function(){
-        // finishRound() is the ordinary end of every round: it stops the
-        // recording, flips the doc to the ballot phase for both screens,
-        // and judges the transcript as it stands. Nothing special-cases
-        // an abandoned round, which is the point — the speeches that were
-        // given are the speeches that get judged.
-        try { gtag('event', 'live_round_end_after_walkout', { format: state.formatKey, speech: state.speechIdx }); } catch(e){}
-        try { finishRound(); } catch(e){ console.warn('[quiet room] finishRound', e); }
-      });
-    }
-  }
+  function roomIsQuiet(){ return presenceController.roomIsQuiet.apply(this, arguments); }
+  function quietForMins(){ return presenceController.quietForMins.apply(this, arguments); }
+  function paintRoundQuiet(){ return presenceController.paintRoundQuiet.apply(this, arguments); }
   function reportRoundOver(){
     if (state.quietBusy) return;
     if (!state.user || !state.user.getIdToken){

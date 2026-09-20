@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readPageSource } from './lib/page-source.mjs';
 // Guards for lib/judge-delivery.mjs, run by the pre-commit hook.
 //
 // The promise this file protects is the one a debater cannot check for
@@ -9,7 +10,6 @@
 // is nobody.
 //
 // Run: node scripts/test-judge-delivery.mjs
-import { readFileSync } from 'node:fs';
 import {
   MANNERS, DETAILS, MANNER_KEYS, DETAIL_KEYS, MANNER_FLOOR,
   DEFAULT_MANNER, DEFAULT_DETAIL,
@@ -101,7 +101,7 @@ t('takeDelivery survives a missing body', takeDelivery(null).manner === DEFAULT_
 // Delivery is register and length. If it ever starts naming tests,
 // weighing order or point values, two files decide the same thing and
 // the published rubric stops being the whole method.
-const deliverySrc = readFileSync(new URL('../app/netlify/functions/lib/judge-delivery.mjs', import.meta.url), 'utf8');
+const deliverySrc = readPageSource(new URL('../app/netlify/functions/lib/judge-delivery.mjs', import.meta.url), 'utf8');
 const bodyOnly = deliverySrc.split('export const DEFAULT_MANNER')[1] || '';
 for (const banned of ['comparative', 'symmetry', 'terminaliz', 'half-call', 'rubric']) {
   t('delivery does not redefine the method: ' + banned, !new RegExp(banned, 'i').test(bodyOnly));
@@ -111,7 +111,7 @@ for (const banned of ['comparative', 'symmetry', 'terminaliz', 'half-call', 'rub
 // client mirror is a hand-written file and will drift otherwise; that is
 // exactly how /judge shipped paradigms its own dropdown could not select
 // (2026-08-12).
-const clientOpts = readFileSync(new URL('../app/js/judge-options.js', import.meta.url), 'utf8');
+const clientOpts = readPageSource(new URL('../app/js/judge-options.js', import.meta.url), 'utf8');
 function clientKeys(group) {
   const at = clientOpts.indexOf(group + ': {');
   if (at < 0) return [];
@@ -143,7 +143,7 @@ for (const k of DETAIL_KEYS) {
   if (m) t('client deep matches server for ' + k, (m[1] === 'true') === DETAILS[k].deep);
 }
 
-const judgeHtml = readFileSync(new URL('../app/judge.html', import.meta.url), 'utf8');
+const judgeHtml = readPageSource(new URL('../app/judge.html', import.meta.url), 'utf8');
 function pickerValues(id) {
   const at = judgeHtml.indexOf('id="' + id + '"');
   if (at < 0) return [];
@@ -169,7 +169,7 @@ t('the /judge page sends the detail field', judgeHtml.includes('_judgeDetail'));
 // that last part the server's LENGTH block defaults to medium and
 // argues with the client's own schema, which is the state this page
 // shipped in before the control existed.
-const liveHtml = readFileSync(new URL('../app/live-round.html', import.meta.url), 'utf8');
+const liveHtml = readPageSource(new URL('../app/live-round.html', import.meta.url), 'utf8');
 const liveTable = liveHtml.slice(liveHtml.indexOf('var BALLOT_DETAILS = {'), liveHtml.indexOf('var JUDGE_RULES = {'));
 t('the live round has a ballot-length table', liveTable.length > 200);
 const liveKeys = [...liveTable.matchAll(/^    ([a-z]+): \{$/gm)].map((m) => m[1]);
@@ -182,8 +182,8 @@ for (const k of DETAIL_KEYS) {
 }
 const liveSends = (liveHtml.match(/_judgeDetail:/g) || []).length;
 t('the live ballot request sends the agreed length', liveSends >= 1);
-const liveServer = readFileSync(new URL('../app/netlify/functions/live-judge.mjs', import.meta.url), 'utf8');
-const explanationServer = readFileSync(new URL('../app/netlify/functions/private-judge.mjs', import.meta.url), 'utf8');
+const liveServer = readPageSource(new URL('../app/netlify/functions/live-judge.mjs', import.meta.url), 'utf8');
+const explanationServer = readPageSource(new URL('../app/netlify/functions/private-judge.mjs', import.meta.url), 'utf8');
 t('live explanation length is frozen with the server ballot', liveServer.includes("detail: String(d.ballotDetail || 'medium')") && explanationServer.includes('normalizeDetail(source.detail)'));
 t('the live round skips the long ballot on a length that is not deep',
   /bdDeep\.deep === false/.test(liveHtml));

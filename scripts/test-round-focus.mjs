@@ -1,7 +1,8 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-const source=readFileSync('app/live-round.html','utf8');
+const source=readPageSource('app/live-round.html','utf8');
 const start=source.indexOf('  var roundFocusSelected =');
 const end=source.indexOf('  function updatePlayPauseBtn(){',start);
 assert.ok(start>0 && end>start);

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
+import { readPageSource } from './lib/page-source.mjs';
 // The ballot is the product. These guards stop a prompt cleanup from
 // quietly turning it back into a result plus a speech summary.
 
-import { readFileSync } from 'node:fs';
 
-const read = (path) => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
+const read = (path) => readPageSource(new URL('../' + path, import.meta.url), 'utf8');
 const live = read('app/netlify/functions/live-judge.mjs');
 const asyncSweep = read('app/netlify/functions/async-sweep.mjs');
 const oneOff = read('app/judge.html');

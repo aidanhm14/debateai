@@ -1,5 +1,5 @@
+import { readPageSource } from './lib/page-source.mjs';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import vm from 'node:vm';
 import RoundEvidence from '../app/js/round-evidence.js';
@@ -45,7 +45,7 @@ assert.equal(eligibility('live', { ...draw, speeches: [] }).ok, false);
 
 // Run the real client fallback and renderer. No network, billing or browser
 // writes are allowed to produce a ballot from missing evidence.
-const page = readFileSync('app/live-round.html', 'utf8');
+const page = readPageSource('app/live-round.html', 'utf8');
 function fn(name) {
   const start = page.indexOf('  function ' + name + '(');
   assert.ok(start >= 0, name);
@@ -62,10 +62,14 @@ const client = { liveJourney(){}, RoundEvidence, state: { log: [], formatKey: 'q
   capFinish(){}, endRecordingAfterReactions(){}, renderRecTail(){},
   getRoundDocRef: () => ({ update: async v => { writes.push(v); } }),
   firebase: { firestore: { FieldValue: { delete: () => null, serverTimestamp: () => 123 } } },
-  fetch: async () => { fetches++; throw Error('An empty round reached a provider'); }, console,
+  fetch: async () => { fetches++; throw Error('An empty round reached a provider'); }, console, window: {},
 };
 vm.createContext(client);
-for (const name of ['localRoundEvidence', 'renderUnresolvedBallot', 'generateBallot', 'renderBallot', 'publishBallot', 'validateLeaderboardEligibility']) vm.runInContext(fn(name), client);
+for (const name of ['localRoundEvidence', 'generateBallot', 'publishBallot', 'validateLeaderboardEligibility']) vm.runInContext(fn(name), client);
+vm.runInContext(readPageSource('app/js/live-room/verdict.js'), client);
+const verdict=client.window.DBLiveVerdict.create(client);
+client.renderUnresolvedBallot=verdict.renderUnresolvedBallot;
+client.renderBallot=verdict.renderBallot;
 client.generateBallot();
 assert.equal(fetches, 0);
 assert.equal(writes[0].ballotUnresolved.outcome, 'no_contest');
