@@ -114,13 +114,18 @@ const locked={state:{phase:'round'},isSpectator:()=>false,isMyTurn:()=>false};
 vm.createContext(locked);vm.runInContext(helper('endSpeech','  function finishRound('),locked);locked.endSpeech();
 const elements={};
 const element=id=>elements[id]||(elements[id]={hidden:false,innerHTML:'',setAttribute(){}});
-const plan={state:{phase:'round',formatKey:'quick',speechIdx:0,timerState:'ready'},
+const plan={state:{phase:'round',formatKey:'quick',speechIdx:0,timerState:'ready',proName:'Sam',conName:'Jordan'},
   $:element,mySide:()=> 'con',isSpectator:()=>false,escHtml:s=>s,fmtTime:n=>`${n/60}:00`,
+  speakerNameFor:(f,i)=>f.speeches[i].side==='pro'?'Sam':'Jordan',
   FORMATS:{quick:{speeches:[{side:'pro',time:300},{side:'con',time:300},{side:'pro',time:180},{side:'con',time:180}]}}};
 vm.createContext(plan);vm.runInContext(helper('paintRoundPlan','  // Which seat speaks'),plan);plan.paintRoundPlan();
 assert.match(element('roundOwnSide').innerHTML,/You argue AGAINST/,'own side is independent of the first speaker');
 assert.match(element('roundPlan').innerHTML,/2\. Against \(you\)/);
 assert.match(element('roundPlan').innerHTML,/4\. Against \(you\)/);
+assert.match(element('roundSidePair').innerHTML,/FOR<\/b><span>Sam/);
+assert.match(element('roundSidePair').innerHTML,/AGAINST<\/b><span>Jordan <small>\(you\)/);
+assert.match(element('roundPlan').innerHTML,/1\. For<\/b><span class="plan-person">Sam/);
+assert.match(element('roundPlan').innerHTML,/2\. Against \(you\)<\/b><span class="plan-person">Jordan/);
 plan.state.speechIdx=3;plan.state.timerState='running';plan.paintRoundPlan();
 assert.match(element('roundPlan').innerHTML,/<li aria-current="step"><b>4\. Against \(you\)/);
 let modesPainted=0;

@@ -23,6 +23,8 @@
 <script defer src="/js/ballot-read.js"></script>
 <script src="/js/round-evidence.js"></script>
 <script defer src="/js/round-export.js"></script>
+<script defer src="/js/round-flow.js"></script>
+<link rel="stylesheet" href="/css/round-flow.css">
 <title>Live Round · Debatable</title>
 <script>/* Broadcast view (?stage=1): class lands pre-paint so the chrome never flashes in. */
 if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className+=' stage-mode';</script>
@@ -3858,6 +3860,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
             </span>
             <div class="rmb-motion" id="rmbMotion">&#8212;</div>
             <div class="round-own-side" id="roundOwnSide" aria-live="polite" hidden></div>
+            <div class="round-side-pair" id="roundSidePair" aria-label="Who argues each side"></div>
+            <div class="round-flow-entry"><button type="button" class="round-flow-trigger" data-round-flow><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><path d="M19 4h3v16h-3M4 8h1m7 0h1M4 12h1m7 0h1"/></svg>View round flow</button><span>Arguments and notes for each speech</span></div>
             <!-- 2026-09-07: the "What This House means" link rides the
                  resolution it explains. renderHouseGloss() fills this and
                  #rmbHouse; #rmbHouse is hidden by CSS whenever this one
@@ -4210,6 +4214,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
             <div class="rn-head">
               <strong>Round notes</strong>
               <span id="rnSub">Quick notes. Shared by both sides.</span>
+              <button type="button" class="round-flow-trigger" data-round-flow>View round flow</button>
               <button type="button" class="rn-export" data-round-export>Export to Google Docs</button>
               <button type="button" class="rn-off" id="rnOffBtn">Hide</button>
             </div>
@@ -4252,7 +4257,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       </div>
       <div id="ballotResult" class="hidden"></div>
       <div id="ballotNotesHost"></div>
-      <div style="padding:14px 22px"><button type="button" class="rn-export" data-round-export>Export round to Google Docs</button></div>
+      <div class="round-flow-entry" style="padding:14px 22px"><button type="button" class="round-flow-trigger" data-round-flow>View round flow</button><button type="button" class="rn-export" data-round-export>Export round to Google Docs</button></div>
       <!-- 2026-09-07, per the founder: the ask for critiques lands right
            after the judged round, linked to the critique form on
            /judge-integrity with this room's id. Revealed with the ballot
@@ -5636,6 +5641,13 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     own.hidden=isSpectator()||!side;
     own.setAttribute('data-side',side||'');
     own.innerHTML=side ? '<strong>You argue '+(side==='pro'?'FOR':'AGAINST')+'</strong><span>'+(side==='pro'?'Defend this claim.':'Challenge this claim.')+'</span>' : '';
+    var pair=$('roundSidePair');
+    if(pair) pair.innerHTML=['pro','con'].map(function(s){
+      var people=(s==='pro'?state.proName:state.conName)||'Waiting for someone';
+      if(state.isDuo) people += ' & '+((s==='pro'?state.proName2:state.conName2)||'Teammate');
+      return '<div class="round-side-person" data-side="'+s+'"><b>'+(s==='pro'?'FOR':'AGAINST')+'</b><span>'+escHtml(people)+(side===s&&!isSpectator()?' <small>(you)</small>':'')+'</span></div>';
+    }).join('');
+    try { syncRoundFlow(); } catch(e){}
     var choosing=state.speechIdx===0&&state.timerState==='ready'&&!isSpectator();
     if(f.open&&!choosing){
       plan.innerHTML='<p>Open conversation. Both mics on. '+(state.isDuo?'Finish when the group is done.':'Both people agree before the decision.')+'</p>';
@@ -5645,7 +5657,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     plan.innerHTML='<p><strong>'+(choosing?'Timed option: ':'')+speeches.length+' speeches'+(state.formatKey==='quick'||f.open?' · 16 minutes':'')+'</strong>'+(choosing?'':' · Then the decision')+'</p><ol>'+speeches.map(function(sp,i){
       var active=!choosing&&!f.open&&i===state.speechIdx;
       var label=sp.side==='pro'?'For':'Against';
-      return '<li'+(active?' aria-current="step"':'')+'><b>'+(i+1)+'. '+label+(side===sp.side&&!isSpectator()?' (you)':'')+'</b><span>'+escHtml(fmtTime(sp.time))+' · '+(i<2?'Opening':'Closing')+'</span></li>';
+      var person=speakerNameFor(f.open?FORMATS.quick:f,i);
+      return '<li'+(active?' aria-current="step"':'')+'><b>'+(i+1)+'. '+label+(side===sp.side&&!isSpectator()?' (you)':'')+'</b><span class="plan-person">'+escHtml(person)+'</span><span>'+escHtml(fmtTime(sp.time))+' · '+(i<2?'Opening':'Closing')+'</span></li>';
     }).join('')+'</ol>';
   }
 
@@ -12542,6 +12555,23 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       feedback: state.lastBallot || state.rfdDeep || '' });
   });
 
+  function syncRoundFlow(){
+    if(!window.DBRoundFlow)return;
+    var f=FORMATS[state.formatKey];if(!f)return;
+    window.DBRoundFlow.update({room:state.room,owner:state.user&&state.user.uid||'',
+      motion:state.motion,names:{pro:state.proName,con:state.conName},
+      mySide:isSpectator()?'':mySide(),open:!!f.open,
+      speeches:(f.speeches||[]).map(function(sp,i){return {side:sp.side,name:sp.name,speakerName:speakerNameFor(f,i)};}),
+      notes:state.roundNotes||[],log:state.log||[],pending:state.rnPending||{},
+      index:state.speechIdx,running:state.timerState==='running',finished:state.phase.indexOf('ballot')===0});
+  }
+  document.addEventListener('click',function(event){
+    var button=event.target&&event.target.closest&&event.target.closest('[data-round-flow]');
+    if(!button)return;
+    syncRoundFlow();
+    if(window.DBRoundFlow)window.DBRoundFlow.open();
+  });
+
   // ── Round notes ────────────────────────────────────────
   // After every finished speech, the AI writes neutral shared bullets
   // of what the speaker said, including their reasons and examples. The acting debater's client generates (it holds the freshest
@@ -12641,6 +12671,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     det.open = true;
   }
   function renderRoundNotes(){
+    try { syncRoundFlow(); } catch(e){}
     var sec = $('roundNotes');
     var list = $('rnList');
     if (!sec || !list) return;
@@ -12687,7 +12718,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
           + (pts ? '<ul class="rn-points">' + pts + '</ul>' : rnStatusRow('No points could be summarized from this transcript.'))
           + '</details>';
       }).join('');
-      return '<section class="rn-side-group"><h3>' + escHtml(label) + '</h3>'
+      return '<section class="rn-side-group"><h3>' + escHtml(label) + ' · ' + escHtml(side === 'pro' || side === 'gov' ? state.proName || label : state.conName || label) + '</h3>'
         + (content || rnStatusRow('Notes appear after this side speaks.')) + '</section>';
     }).join('');
     pendingIdx.sort(function(a,b){ return a-b; }).forEach(function(k){
@@ -15417,7 +15448,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     // needs two real speeches, the notes index needs notes.
     if (!notes.length && log.length < 2) return '';
     return '<div class="ballot-section" data-stage="3" style="margin-top:14px">' +
-      '<button class="btn" id="flowOfferBtn" type="button">See the flow · argument map</button>' +
+      '<button class="btn" id="flowOfferBtn" type="button">See argument connections</button>' +
       '<div id="flowMap" hidden></div>' +
     '</div>';
   }
@@ -15452,11 +15483,11 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     if (map.hidden){
       map.innerHTML = flowMapHtml() || '<div class="fm-row" data-n="">No notes were taken this round.</div>';
       map.hidden = false;
-      btn.textContent = 'Hide the flow';
+      btn.textContent = 'Hide argument connections';
       try { gtag('event', 'ballot_flow_open', { surface: 'live', format: state.formatKey }); } catch(e){}
     } else {
       map.hidden = true;
-      btn.textContent = 'See the flow · argument map';
+      btn.textContent = 'See argument connections';
     }
   });
 
