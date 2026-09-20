@@ -1,3 +1,5 @@
+> **September 20 release preparation:** See [RELEASE_READINESS_2026-09-20.md](RELEASE_READINESS_2026-09-20.md) for the current artifact, device results and remaining steps. Build 11 is verified; a completed iPhone round was confirmed by Aidan on September 10. Google, Apple and email accounts now access live video. Older workflow statements below are historical. Apple login, the physical safety recording and store submission remain pending.
+
 # Responding to the 2026-08-25 rejection of build 10
 
 Updated 2026-09-06 against current source and Claude's same-day handoff.

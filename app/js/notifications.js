@@ -111,7 +111,16 @@
   function daB64ToU8(b){ var p = '='.repeat((4 - b.length % 4) % 4); var s = (b + p).replace(/-/g, '+').replace(/_/g, '/'); var raw = atob(s); var arr = new Uint8Array(raw.length); for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i); return arr; }
   function daCurrentUser(){ try { return window.firebase && window.firebase.auth && window.firebase.auth().currentUser; } catch (_) { return null; } }
   // True inside the Capacitor native app (iOS/Android shell), false on web.
-  function daIsNative(){ try { return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); } catch (_) { return false; } }
+  function daIsNative(){
+    try {
+      // Match native-bridge: the remote shell can report false through
+      // Capacitor while its own user-agent marker still identifies the app.
+      if (window.__DB_NATIVE) return true;
+      var ua = navigator.userAgent || '';
+      if (/ DebatableApp\//.test(ua) || new RegExp(' Debate' + 'ItApp/').test(ua)) return true;
+      return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    } catch (_) { return false; }
+  }
   // Native push: WKWebView has no Web Push, so the iOS/Android app registers an
   // FCM token via @capacitor-firebase/messaging and we deliver through FCM
   // (lib/fcm.mjs). Same push_subscribe endpoint, native branch. Tap routing

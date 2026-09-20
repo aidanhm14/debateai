@@ -151,6 +151,29 @@ await pending; assert.equal(opened[0], '/messages?thread=a_b&src=push&pk=dm');
 
 // In-page badge and toast remain, while the DM's OS banner comes from push.
 const source = readFileSync(new URL('../app/js/notifications.js', import.meta.url), 'utf8');
+// A remote Capacitor page can return false from isNativePlatform while
+// native-bridge has identified the shell. The notification button must
+// still request FCM registration instead of the unavailable Web Push API.
+for (const scenario of [
+  { name: 'bridge flag', flag: true, ua: 'iPhone', capacitor: false, expected: true },
+  { name: 'shell marker before bridge', flag: false, ua: 'iPhone DebatableApp/1.0', capacitor: false, expected: true },
+  { name: 'legacy shell', flag: false, ua: 'iPhone Debate' + 'ItApp/1.0', capacitor: false, expected: true },
+  { name: 'native Capacitor', flag: false, ua: 'Android', capacitor: true, expected: true },
+  { name: 'ordinary Safari', flag: false, ua: 'iPhone Safari', capacitor: false, expected: false },
+]) {
+  const calls = [];
+  const context = {
+    window: { __DB_NATIVE: scenario.flag, Capacitor: { isNativePlatform: () => scenario.capacitor } },
+    navigator: { userAgent: scenario.ua }, Promise,
+    daRegisterNativePush: async ask => { calls.push(ask); return true; },
+  };
+  vm.runInNewContext(source.slice(source.indexOf('  function daIsNative()'), source.indexOf('  // Native push:'))
+    + source.slice(source.indexOf('  function daAskNotify()'), source.indexOf('  // Register this browser/device'))
+    + '\nthis.ask = daAskNotify;', context);
+  assert.equal(await context.ask(), scenario.expected, scenario.name);
+  assert.equal(calls.length, scenario.expected ? 1 : 0, scenario.name);
+  if (calls.length) assert.equal(calls[0], true, 'only a button gesture asks permission');
+}
 const client = { myUid: 'b', prevUnread: {}, firstSnap: true, dmRows: [], dmUnread: 0, panel: null, pageEl: null,
   daIsMuted: () => false, renderBadge() {}, threadDisplay: () => ({ name: 'Public Alias' }), announce: (...args) => client.announced.push(args), announced: [] };
 vm.runInNewContext(source.slice(source.indexOf('    function onThreads('), source.indexOf('    // ── panel', source.indexOf('    function onThreads('))) + '\nthis.onThreads = onThreads;', client);
