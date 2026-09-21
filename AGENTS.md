@@ -95,7 +95,8 @@ queue or first guest round. The foreground page, pairing endpoint and
 Firestore queue create/update rules enforce Google, Apple, or email.
 The first three optional Match Desk questions can precede this gate;
 the waiting screen and real invitations require an account. The gate
-shows an “Example invite” with the supplied fictional Sydney profile,
+shows an “Example invite” from fictional Sydney with the Daybreak picture
+from the profile album (updated at Aidan's request on 2026-09-21),
 clearly labeled as a preview. It never claims a real person sent that
 example. Signing in resumes the saved search; signing out cancels it.
 This supersedes the September 7 guest-round allowance and its in-call

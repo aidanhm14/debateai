@@ -44,7 +44,8 @@
 > requires Google, Apple, or email sign-in. The old first guest round is
 > closed in the page, server matcher and Firestore queue permissions. The
 > first three optional Match Desk questions still save locally before the
-> account door. That door shows Sydney's supplied fictional profile with
+> account door. That door shows fictional Sydney with the profile album's
+> Daybreak picture (Aidan, 2026-09-21),
 > “Example invite” and explicit preview copy; it is not a claimed personal
 > challenge. Sign-in resumes the search, and sign-out stops pending queue
 > work. This supersedes the September 7 guest lane for new matches while
