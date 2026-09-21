@@ -102,6 +102,8 @@
 
   function startSpeechTimer(){
     if (conversationIsFinishing()) return;
+    var blocked = context.roundStartBlock ? context.roundStartBlock() : '';
+    if (blocked){ toast(blocked); return; }
     liveJourney('speech_start_requested', { timer: context.state.timerState });
     if (context.state.isDuo && context.state.lastRoundDoc && context.state.lastRoundDoc.teamEnding) return;
     if (context.state.isDuo && !context.state.teamLockedAt){

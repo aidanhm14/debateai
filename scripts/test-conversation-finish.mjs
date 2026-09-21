@@ -130,7 +130,7 @@ assert.match(element('roundPlan').innerHTML,/2\. Against \(you\)<\/b><span class
 plan.state.speechIdx=3;plan.state.timerState='running';plan.paintRoundPlan();
 assert.match(element('roundPlan').innerHTML,/<li aria-current="step"><b>4\. Against \(you\)/);
 let modesPainted=0;
-const controls={paintRoundPlan(){},paintModeDoors(){modesPainted++;},updatePlayPauseBtnCore(){return;},updateRoundFocus(){}};
+const controls={paintRoundReadiness(){},paintRoundPlan(){},paintModeDoors(){modesPainted++;},updatePlayPauseBtnCore(){return;},updateRoundFocus(){}};
 vm.createContext(controls);vm.runInContext(helper('updatePlayPauseBtn','  function updatePlayPauseBtnCore'),controls);controls.updatePlayPauseBtn();
 assert.equal(modesPainted,1,'the waiting speaker still gets the initial mode choices');
 const modes={state:{phase:'round',speechIdx:0,timerState:'ready'},openMode:()=>false,

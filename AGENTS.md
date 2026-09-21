@@ -1,5 +1,8 @@
 # AGENTS.md
 
+
+> **Recording-review round clarity (Aidan, 2026-09-21).** New ordinary matches default to conversation; timed speeches are an optional disclosure. This supersedes the September 20 timed default. Saved rounds, explicit timed links and tournament formats retain their format. On phones the topic, own assigned side and current action stay together at the viewport edge, including finish requests and confirmation. The first local start waits for the call to join, the authenticated opponent seat to connect and a live local microphone track. Readiness never starts the clock automatically or accepts a finish request. Microphone testing uses the existing call track; sound recovery and reconnect are explicit actions. Judging scrolls its result into view, and a delayed decision exposes server recovery without changing evidence, entitlement or panel rules. The historical private-round failure remains unconfirmed.
+
 ## Staged frontend extraction (2026-09-21)
 
 The landing markup remains in `app/landing.html`; its section scripts now

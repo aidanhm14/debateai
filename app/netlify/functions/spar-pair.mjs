@@ -546,7 +546,7 @@ export default async (request) => {
   if (action === 'solo') {
     if (!DRAFT_ENABLED) return jsonResponse({ ok: false, reason: 'draft_off' }, 200, request);
     const AI_UID = 'ai';
-    const fmt = VALID_FORMATS.has(format) ? format : 'quick';
+    const fmt = VALID_FORMATS.has(format) ? format : 'open';
     const rawSeed = String(body?.seed || '');
     const seedPrefix = 'solo:' + myUid + ':';
 

@@ -3932,10 +3932,18 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
              gate. Filled by window.__lrRenderReady from the round
              snapshot; hidden on every path that does not need it. -->
         <div class="ready-beat" id="readyBeat" hidden></div>
+        <div class="round-readiness" id="roundReadiness" role="status" hidden></div>
+        <details class="round-audio-help" id="roundAudioHelp">
+          <summary>Check microphone or fix sound</summary>
+          <p id="roundMicTest" role="status">Test your microphone before starting. The call is already live.</p>
+          <div class="row"><button type="button" class="btn" id="roundTestMic">Test microphone</button><button type="button" class="btn" id="roundEnableSound">Enable sound</button><button type="button" class="btn" id="roundReconnect">Reconnect call</button></div>
+        </details>
+        <div class="round-action-dock" id="roundActionDock">
+        <div class="round-mobile-context" id="roundMobileContext"><strong id="roundMobileSide"></strong><span id="roundMobileTopic"></span><span id="roundMobileStatus" role="status"></span></div>
         <div class="conversation-finish" id="conversationFinish" hidden>
           <p id="conversationFinishText" role="status"></p>
           <div class="row">
-            <button class="btn btn-end" id="conversationFinishAccept" type="button" hidden>Finish together</button>
+            <button class="btn btn-end" id="conversationFinishAccept" type="button" hidden>Yes, finish the round</button>
             <button class="btn" id="conversationFinishCancel" type="button" hidden>Keep talking</button>
             <button class="btn" id="conversationFinishRetry" type="button" hidden>Retry saving</button>
           </div>
@@ -3950,7 +3958,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
              the round is running the transport is the one button below. -->
         <div class="row mode-doors" id="modeDoors" data-anim-scope hidden>
           <button class="btn btn-play" id="startConvoBtn" type="button">▶ Start conversation</button>
-          <button class="btn btn-play" id="startFormalBtn" type="button">▶ Start timed speeches</button>
+          <details class="round-mode-options"><summary>Optional: timed speeches</summary><button class="btn" id="startFormalBtn" type="button">Start timed speeches</button></details>
         </div>
         <div class="row speech-actions">
           <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start my speech</button>
@@ -3965,6 +3973,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
                round long, and in amber it read as a live, urgent action beside
                End. It is the quiet exit now, dim text and a hairline border. -->
           <button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:var(--text-dim);border-color:var(--border,rgba(128,128,128,.28));background:transparent;font-weight:600">Next →</button>
+        </div>
         </div>
         <div class="ready-hint" id="readyHint">Starts the timer and mic.</div>
         <div class="room-resources"><div class="round-flow-entry"><button type="button" class="round-flow-trigger" data-round-flow><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><path d="M19 4h3v16h-3M4 8h1m7 0h1M4 12h1m7 0h1"/></svg>View round map</button></div><button type="button" class="rn-export" id="openRoundNotes" aria-controls="roundNotes">Round notes</button><button type="button" id="roomChatBtn" aria-label="Open round chat" aria-controls="audPanel">Chat</button></div>
@@ -4241,7 +4250,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     <div id="ballotView" class="hidden">
       <div id="ballotLoading" class="ballot-loading">
         <div class="spinner"></div>
-        <div style="font-size:.92rem;font-weight:700;color:var(--text)">The judge is deciding…</div>
+        <div id="ballotLoadingTitle" style="font-size:.92rem;font-weight:700;color:var(--text)">The judge is deciding…</div>
         <div style="font-size:.74rem;margin-top:6px">Comparing both sides. The decision appears here.</div>
         <!-- Doherty threshold. The judge call runs 15-25s and this screen was a
              STATIC spinner for all of it, on the one beat the whole round was
@@ -4420,6 +4429,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     get clearFloorRemark(){ return clearFloorRemark; },
     get cloudRec(){ return cloudRec; },
     get conversationIsFinishing(){ return conversationIsFinishing; },
+    get roundStartBlock(){ return roundStartBlock; },
     get fmtTime(){ return fmtTime; },
     get foldAidesForSpeech(){ return foldAidesForSpeech; },
     get getElapsed(){ return getElapsed; },
@@ -5040,7 +5050,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   var prefill = {
     motion: qs.get('motion') || '',
     background: qs.get('background') || '',
-    format: (String(qs.get('format') || '').toLowerCase() === 'open') ? 'open' : 'quick',
+    format: (String(qs.get('format') || '').toLowerCase() === 'quick') ? 'quick' : 'open',
     pro:    qs.get('pro')    || '',
     con:    qs.get('con')    || '',
     proUid: qs.get('proUid') || '',
@@ -5746,11 +5756,11 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var expired = f && f.phase === 'requested' && now >= f.expiresAt;
     var requested = f && f.phase === 'requested' && !expired;
     var finishing = f && (f.phase === 'flushing' || f.phase === 'completed');
-    panel.hidden = !eligible || !(requested || finishing || ui.error);
+    panel.hidden = !eligible || !(requested || finishing || ui.error || ui.busy);
     var mine = f && state.user && f.by === state.user.uid;
     var message = requested ? (mine
       ? 'Waiting for the other person to agree. You can both keep talking.'
-      : 'The other person wants to finish. Are you done speaking?') : '';
+      : 'The other person wants to finish. Are you done speaking?') : (ui.busy ? 'Sending your finish request…' : '');
     if (finishing) message = f.ready && f.ready[mySide()]
       ? 'Your words are saved. Waiting for the other person’s final transcript. No decision yet.'
       : 'You both agreed to finish. Saving the final words before judging.';
@@ -5761,7 +5771,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     ['conversationFinishAccept','conversationFinishCancel','conversationFinishRetry'].forEach(function(id){$(id).disabled=ui.busy||ui.flushing;});
     if (eligible){
       var end = $('endSpeechBtn'); end.disabled = !!(ui.busy || requested || finishing);
-      end.textContent = requested ? 'Finish requested' : finishing ? 'Saving final words…' : 'Ask to finish →';
+      end.textContent = requested ? 'Finish requested' : finishing ? 'Saving final words…' : ui.busy ? 'Sending request…' : 'Ask to finish round';
       $('playPauseBtn').disabled = !!finishing;
       if (finishing) {
         $('playPauseBtn').textContent='Conversation finished'; $('speechText').disabled=true;
@@ -5812,7 +5822,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     }).join('');
     try { syncRoundFlow(); } catch(e){}
     var choosing=state.speechIdx===0&&state.timerState==='ready'&&!isSpectator();
-    if(f.open&&!choosing){
+    if(f.open){
       plan.innerHTML='<p>Open conversation. Both mics on. '+(state.isDuo?'Finish when the group is done.':'Both people agree before the decision.')+'</p>';
       return;
     }
@@ -6603,7 +6613,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         micHint.hidden = !noMic;
       }
       if (skipBtn){ skipBtn.disabled = false; skipBtn.style.display = openMode() ? 'none' : ''; }
-      if (endBtn){ endBtn.disabled = false; endBtn.style.display = ''; endBtn.textContent = openMode() ? (sharedConversationFinish() ? 'Ask to finish →' : 'Finish conversation →') : (state.speechIdx === f.speeches.length - 1 ? 'Finish round →' : 'End my speech →'); endBtn.className = 'btn btn-end'; }
+      if (endBtn){ endBtn.disabled = false; endBtn.style.display = ''; endBtn.textContent = openMode() ? (sharedConversationFinish() ? 'Ask to finish round' : 'Finish conversation →') : (state.speechIdx === f.speeches.length - 1 ? 'Finish round →' : 'End my speech →'); endBtn.className = 'btn btn-end'; }
       if (openMode() && ta && !noMic) ta.placeholder = 'Your words appear here as you talk. Type instead if you would rather.';
       var pp = $('playPauseBtn'); if (pp){ pp.disabled = false; pp.style.display = ''; }
       if (hint){
@@ -6642,12 +6652,15 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // Bring the decision into view when the round ends, including on phones.
   function showJudgeAtTop(){
     updateRoomStage();
+    armJudgingRecoveryNotice();
     requestAnimationFrame(function(){
       var panel = $('panel');
-      var overview = document.querySelector('.judge-overview');
+      var overview = $('ballotView');
       if (panel) panel.scrollTop = 0;
       if (overview && window.matchMedia('(max-width:1000px)').matches){
         overview.scrollIntoView({ block: 'start', behavior: 'instant' });
+        overview.setAttribute('tabindex', '-1');
+        overview.focus({ preventScroll: true });
       }
     });
   }
@@ -7233,6 +7246,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // Set the mode for both screens, then start if this seat is allowed to.
   function startInMode(key){
     if (!FORMATS[key] || isSpectator()) return;
+    var blocked = roundStartBlock();
+    if (blocked){ paintRoundReadiness(); toast(blocked); return; }
     if (tournamentControlsLocked()){ toast('The tournament fixes the round type.'); return; }
     if (state.formatKey !== key){
       state.formatKey = key;
@@ -7604,6 +7619,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     // timed rounds keep the current speaker's single start control.
     try { paintModeDoors(); } catch(e){}
     updatePlayPauseBtnCore();
+    paintRoundReadiness();
     updateRoundFocus();
     // After the core, never before: the core rewrites btn.className
     // wholesale, which would drop the awaiting classes.
@@ -10870,6 +10886,86 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // Spectators use this same call-object stage in receive-only mode. The
   // audience-camera path still rides Prebuilt because it is the one path
   // where a watcher explicitly chooses to join the room with devices.
+  // Readiness uses the authenticated Daily seat, never a name or audience count.
+  // It gates the first local start only; remote clock updates and saved rounds
+  // keep their existing behavior.
+  function roundConnectionState(){
+    if (qs.has('design')) return { ready:true, text:'Connected · Ready to start' };
+    if (!room || !room.joined || !room.call) return { ready:false, text:'Connecting. Join the call before starting.' };
+    var ps;
+    try { ps = room.call.participants() || {}; } catch(e){ return { ready:false, text:'Reconnecting to the call.' }; }
+    var peerUid = mySide() === 'pro' ? state.conUid : state.proUid;
+    var peer = peerUid && Object.keys(ps).some(function(k){ return ps[k] && !ps[k].local && ps[k].user_id === peerUid; });
+    if (!peer) return { ready:false, text:'Waiting for your opponent to connect.' };
+    var local = ps.local, audio = local && local.tracks && local.tracks.audio;
+    var track = audio && (audio.persistentTrack || audio.track);
+    if (!track || track.readyState !== 'live') return { ready:false, text:'Connected. Check your microphone before starting.' };
+    return { ready:true, text:'Connected · Ready to start' };
+  }
+  function roundStartBlock(){
+    if (!state.room || state.isDuo || isSpectator() || state.speechIdx !== 0 || state.timerState !== 'ready') return '';
+    var connection = roundConnectionState();
+    return connection.ready ? '' : connection.text;
+  }
+  function paintRoundReadiness(){
+    var status = $('roundReadiness');
+    if (!status || !state || !room) return;
+    var visible = state.phase === 'round' && !isSpectator() && !state.isDuo;
+    status.hidden = !visible;
+    $('roundAudioHelp').hidden = !visible;
+    if (!visible) return;
+    var connection = roundConnectionState();
+    var initial = state.speechIdx === 0 && state.timerState === 'ready';
+    var label = connection.ready && !initial ? 'Connected' : connection.text;
+    if (status.textContent !== label) status.textContent = label;
+    var blocked = roundStartBlock();
+    ['startConvoBtn','startFormalBtn'].forEach(function(id){ $(id).disabled = !!blocked; });
+    // The normal renderer owns turn/finish locks. Only add the connection lock.
+    var play = $('playPauseBtn');
+    if (initial && !conversationIsFinishing()) play.disabled = !!blocked || (!openMode() && !isMyTurn());
+    var side = mySide();
+    $('roundMobileSide').setAttribute('data-side', side || '');
+    $('roundMobileSide').textContent = side ? 'You’re arguing ' + (side === 'pro' ? 'FOR' : 'AGAINST') : 'Your side is being assigned';
+    $('roundMobileTopic').textContent = state.motion || '';
+    var mobileStatus = $('roundMobileStatus');
+    var next = blocked || (initial ? (isMyTurn() ? 'Ready. Start when you both want to begin.' : 'Ready. Waiting for the first speaker.') : label);
+    if (mobileStatus.textContent !== next) mobileStatus.textContent = next;
+  }
+  var roundMicTestUntil = 0, roundMicHeard = false;
+  $('roundTestMic').addEventListener('click', function(){
+    if (!room || !room.joined){ $('roundMicTest').textContent = 'Join the call first, then test your microphone.'; return; }
+    if (!room.call || typeof room.call.startLocalAudioLevelObserver !== 'function'){ $('roundMicTest').textContent = 'Microphone testing is unavailable. Ask the other person if they can hear you.'; return; }
+    roundMicTestUntil = Date.now() + 10000; roundMicHeard = false;
+    $('roundMicTest').textContent = 'Say a few words. Listening for your microphone for 10 seconds…';
+    startCueLevels(true);
+    setTimeout(function(){
+      if (Date.now() < roundMicTestUntil) return;
+      if (!roundMicHeard) $('roundMicTest').textContent = 'No sound detected. Unmute your microphone, check browser access, then try again.';
+      if (!startCueAwaiting()) startCueLevels(false);
+    }, 10100);
+  });
+  $('roundEnableSound').addEventListener('click', function(){
+    var sounds = room && room.audioHost ? Array.from(room.audioHost.querySelectorAll('audio')) : [];
+    Promise.all(sounds.map(function(a){ return a.play(); })).then(function(){
+      $('roundMicTest').textContent = sounds.length ? 'Sound enabled. Check your volume and ask the other person to speak.' : 'No incoming audio yet. Wait for the other person or reconnect the call.';
+    }).catch(function(){ $('roundMicTest').textContent = 'Sound could not start. Check your output device or reconnect the call.'; });
+  });
+  $('roundReconnect').addEventListener('click', function(){
+    var button = this, call = room && room.call;
+    if (!call){ $('roundMicTest').textContent = 'The call is still loading. Try again in a moment.'; return; }
+    button.disabled = true;
+    $('roundMicTest').textContent = 'Reconnecting the call…';
+    Promise.resolve().then(function(){ if (room.joined) return call.leave(); }).then(function(){
+      room.joined = false; return joinRoomCall();
+    }).then(function(){ $('roundMicTest').textContent = room.joined ? 'Reconnected. Check that you can hear each other.' : 'Could not reconnect. Check microphone access and try again.'; })
+      .catch(function(){ $('roundMicTest').textContent = 'Could not reconnect. Check your connection and try again.'; })
+      .finally(function(){ button.disabled = false; paintRoundReadiness(); });
+  });
+  setInterval(paintRoundReadiness, 1000);
+  if (window.ResizeObserver) new ResizeObserver(function(entries){
+    var height = entries[0].target.getBoundingClientRect().height;
+    document.body.style.setProperty('--round-dock-height', Math.ceil(height) + 'px');
+  }).observe($('roundActionDock'));
   var room = {
     call:null, wrap:null, stage:null, aud:null, tray:null, note:null,
     audioHost:null, tiles:{}, audios:{}, active:'', joined:false,
@@ -13141,6 +13237,36 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     return base + Math.floor(Math.random() * 1500);
   }
 
+  var judgingNoticeTimer = null;
+  function armJudgingRecoveryNotice(){
+    if (judgingNoticeTimer || state.phase !== 'ballot') return;
+    judgingNoticeTimer = setTimeout(function(){
+      judgingNoticeTimer = null;
+      if (state.phase !== 'ballot' || state.lastBallot || state.ballotUnresolved) return;
+      showJudgingRecoveryNotice();
+    }, 90000);
+  }
+  function showJudgingRecoveryNotice(){
+    if (state.lastBallot || state.ballotUnresolved || $('privateJudgeRetry') || $('ballotRetryBtn')) return;
+    stopBallotWaitCue();
+    var host = $('ballotLoading');
+    if (!host || host.classList.contains('hidden')) return;
+    var spinner = host.querySelector('.spinner'); if (spinner) spinner.hidden = true;
+    var title = $('ballotLoadingTitle'); if (title) title.textContent = 'The decision is delayed';
+    ballotStatus('The decision is delayed. You can check for a result or ask the server to retry.');
+    var retry = $('judgeRecoveryAction');
+    if (!retry){
+      retry = document.createElement('button'); retry.id = 'judgeRecoveryAction';
+      retry.type = 'button'; retry.className = 'btn'; retry.textContent = 'Check decision / retry';
+      retry.style.marginTop = '14px';
+      retry.addEventListener('click', function(){
+        if (!state.user || !state.user.getIdToken){ ballotStatus('Sign in again to recover the decision.'); return; }
+        state.ballotRecoveryAttempts = 0; clearBallotRecovery();
+        requestBallotRecovery();
+      });
+      host.appendChild(retry);
+    }
+  }
   function ballotStatus(msg){
     var host = $('ballotLoading');
     if (!host) return;
@@ -13166,10 +13292,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // path can hand back a server panel, so "three judges are voting" would
   // be false on one of the two paths. Everything here is true on both.
   var BALLOT_WAIT_MSGS = [
-    'Reading both transcripts in full, not skimming for a winner.',
-    'Weighing the clash, line by line.',
-    'Working out what actually settled the round.',
-    'Writing the decision.',
+    'Judging is in progress. The result will appear here.',
   ];
   var ballotWaitTimers = [];
   function stopBallotWaitCue(){
@@ -13206,7 +13329,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       stopBallotWaitCue();
       var el = document.getElementById('ballotWaitCue');
       if (!el) return;
-      el.textContent = 'Still going. A close round takes longer to write.';
+      el.textContent = 'Judging is taking longer than usual. The result will appear here.';
       el.classList.add('is-on');
       try { if (typeof gtag === 'function') gtag('event', 'live_ballot_wait_slow'); } catch(e){}
     }, 40000));
@@ -13286,15 +13409,23 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       scheduleBallotRecovery({ ballotPendingAt: Date.now() - BALLOT_RECOVERY_GRACE_MS }, 2500);
       return;
     }
+    if (state.ballotRecoveryRequest) return;
+    state.ballotRecoveryRequest = true;
+    var retry = $('judgeRecoveryAction'); if (retry) retry.disabled = true;
+    var controller = new AbortController();
+    var timeout;
+    var deadline = new Promise(function(resolve, reject){
+      timeout = setTimeout(function(){ controller.abort(); reject(new Error('Judging recovery timed out')); }, 45000);
+    });
     state.ballotRecoveryAttempts += 1;
     ballotStatus('The decision stalled. Asking the server to resume judging.');
-    user.getIdToken().then(function(token){
+    Promise.race([deadline, Promise.resolve().then(function(){ return user.getIdToken(); }).then(function(token){
       return fetch('/api/live-judge', {
-        method: 'POST',
+        method: 'POST', signal: controller.signal,
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify({ room: state.room }),
       });
-    }).then(function(r){ return r.json(); }).then(function(res){
+    }).then(function(r){ return r.json(); })]).then(function(res){
       if (res && res.ok && res.ballot){
         renderBallot(res.ballot);
         return;
@@ -13311,7 +13442,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         if (res.code === 'judge_incomplete'){
           var missing = Math.max(1, Number(res.missing) || 1);
           if (state.ballotRecoveryAttempts >= BALLOT_RECOVERY_MAX_ATTEMPTS){
-            ballotStatus('The transcript is saved. The panel is still missing a vote. Either debater can try the server again.');
+            showJudgingRecoveryNotice();
+            ballotStatus('The panel is still missing a vote. Try the server again.');
             return;
           }
           ballotStatus(missing === 1
@@ -13348,12 +13480,15 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       if (state.ballotRecoveryAttempts < BALLOT_RECOVERY_MAX_ATTEMPTS){
         scheduleBallotRecovery({ ballotPendingAt: Date.now() - BALLOT_RECOVERY_GRACE_MS }, 15000);
       } else {
-        ballotStatus('The transcript is saved. A server retry is still available from either debater.');
+        showJudgingRecoveryNotice();
       }
     }).catch(function(){
       if (state.ballotRecoveryAttempts < BALLOT_RECOVERY_MAX_ATTEMPTS){
         scheduleBallotRecovery({ ballotPendingAt: Date.now() - BALLOT_RECOVERY_GRACE_MS }, 15000);
-      }
+      } else { showJudgingRecoveryNotice(); }
+    }).finally(function(){
+      clearTimeout(timeout); state.ballotRecoveryRequest = false;
+      var retry = $('judgeRecoveryAction'); if (retry) retry.disabled = false;
     });
   }
 
@@ -18783,6 +18918,10 @@ window.DBLiveDraft.attach({
   function onStartCueLevel(ev){
     if (!startCue.lvlCall) return;
     var lvl = (ev && typeof ev.audioLevel === 'number') ? ev.audioLevel : 0;
+    if (Date.now() < roundMicTestUntil && lvl > 0.02){
+      roundMicHeard = true;
+      $('roundMicTest').textContent = 'Microphone detected your voice. Ask the other person if they can hear you.';
+    }
     // Accumulate speech, decay silence, so a cough or a door does not
     // add up to a speech over a long ready state.
     if (lvl >= CUE_LOUD) startCue.loudMs = Math.min(CUE_LOUD_MS + 600, startCue.loudMs + CUE_LVL_MS);
@@ -18918,7 +19057,7 @@ window.DBLiveDraft.attach({
     if (b) b.classList.remove('lr-await', 'lr-await-hot');
     startCue.hot = false;
     startCue.sig = '';
-    startCueLevels(false);
+    startCueLevels(Date.now() < roundMicTestUntil);
   }
 
   // ── ROUND OPENING beat (2026-09-01) ────────────────────────────────
@@ -19258,7 +19397,7 @@ window.DBLiveDraft.attach({
     };
 
     function seed(){
-      state.formatKey = (prefill.format === 'open') ? 'open' : 'quick';
+      state.formatKey = ['ballot','deciding','silent','closing'].indexOf(scene) >= 0 ? 'quick' : prefill.format;
       state.motion = MOTION;
       state.background = '';
       state.proName = 'Sam'; state.conName = 'Jordan';
@@ -19441,6 +19580,7 @@ window.DBLiveDraft.attach({
         return;
       }
       if (scene === 'closing'){
+        state.formatKey='quick';
         state.mySideHint='con';state.log=[logEntry(0,P1,287),logEntry(1,C1,296),logEntry(2,P2,171)];
         enterRound(3,{text:C1,watching:3,clock:60});return;
       }
