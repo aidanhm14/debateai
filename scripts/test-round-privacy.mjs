@@ -9,11 +9,11 @@ let saved=null, writes=[];
 const state={motion:'Free public transit',formatKey:'open',proUid:'a',conUid:'b',proName:'A',conName:'B',user:{uid:'a'},isPrivate:true};
 const firestore=()=>({runTransaction:async fn=>fn({get:async()=>({exists:!!saved,data:()=>saved}),set:(ref,data)=>writes.push(structuredClone(data))})});
 firestore.FieldValue={serverTimestamp:()=>123};
-const ctx={state,isSpectator:()=>false,getRoundDocRef:()=>({}),firebase:{firestore},publicNameOf:()=> 'A',currentPublicAvatarIdentity:()=>null,DBRoomTeams:Teams,gtag:()=>{},console};
+const ctx={state,prefill:{isPrivate:false},isSpectator:()=>false,getRoundDocRef:()=>({}),firebase:{firestore},publicNameOf:()=> 'A',currentPublicAvatarIdentity:()=>null,DBRoomTeams:Teams,gtag:()=>{},console};
 vm.createContext(ctx);vm.runInContext(init,ctx);
 for(const localPrivacy of [true,false,undefined]){
  state.isPrivate=localPrivacy;writes=[];
- await ctx.publishRoundInit();assert.equal(writes[0].isPrivate,true,'fresh round is private even after a partial local snapshot');
+ await ctx.publishRoundInit();assert.equal(writes[0].isPrivate,false,'fresh ordinary round is public even after a partial local snapshot');
 }
 for(const privacy of [true,false,undefined])for(const speechIdx of [0,2]){
  saved={proUid:'a',conUid:'b',isPrivate:privacy,speechIdx};writes=[];
@@ -21,7 +21,9 @@ for(const privacy of [true,false,undefined])for(const speechIdx of [0,2]){
  await ctx.publishRoundInit();
  assert.ok(writes.every(w=>!Object.hasOwn(w,'isPrivate')),'reload never writes visibility');
 }
-assert.ok(page.includes('isPrivate: true,'),'query string cannot default a new room public');
+ctx.prefill.isPrivate=true;saved=null;writes=[];
+await ctx.publishRoundInit();assert.equal(writes[0].isPrivate,true,'explicit private invite remains private');
+ctx.prefill.isPrivate=false;
 assert.ok(!page.includes('id="privacyMenu"'),'no visibility menu');
 assert.ok(!page.includes('nudgedUnlisted'),'no repeated unlisted nag');
 assert.ok(page.includes('Promise.resolve(publishRoundInit()).then(mountDaily)'),'privacy saves before video credentials');
@@ -94,13 +96,29 @@ releaseRound();await new Promise(resolve=>setImmediate(resolve));
 assert.equal(calls.length,0,'completed seat check still waits for the ban check');
 releaseBans();assert.equal((await pendingAdmission).status,200);
 deps.getDb=originalDb;
-console.log('Round privacy: private creation, saved visibility on both reload paths, seat-only admission, direct Daily protection, public receive-only access and closed failure paths passed.');
+console.log('Round privacy: public creation, explicit private invites, saved visibility on both reload paths, seat-only admission, direct Daily protection, public receive-only access and closed failure paths passed.');
 
 const { draftFixture } = await import('./test-support/draft-fixture.mjs');
 const early = draftFixture();early.rows.delete('live_rounds/room');
 await early.action('a','open');
-assert.equal(early.round().isPrivate,true,'draft-created rooms start private too');
-assert.deepEqual([early.round().proUid,early.round().conUid].sort(),['a','b'],'both assigned seats can read the private draft');
+assert.equal(early.round().isPrivate,false,'draft-created ordinary rooms start public too');
+assert.deepEqual([early.round().proUid,early.round().conUid].sort(),['a','b'],'both assigned seats stay intact');
 const published = draftFixture();published.rows.get('live_rounds/room').isPrivate=false;
 await published.action('a','open');assert.equal(published.round().isPrivate,false,'draft does not change existing visibility');
 console.log('Round privacy: draft-first creation and saved public draft visibility passed.');
+
+// Both directions use the same participant control, with failed writes
+// leaving the saved visibility intact and the button usable for retry.
+const wire=page.slice(page.indexOf("      if (tog) tog.addEventListener('click', function(){"),page.indexOf("      var camsTog = document.getElementById('audCamsToggle');"));
+for(const initial of [true,false])for(const fail of [false,true]){
+ let click,painted=0,patch;
+ const button={disabled:false,addEventListener:(event,fn)=>{click=fn;}};
+ const local={isPrivate:initial};
+ vm.runInNewContext(wire,{tog:button,context:{state:local},getRoundDocRef:()=>({update:async value=>{patch=value;if(fail)throw Error('offline');}}),toast:()=>{},console:{warn:()=>{}},paintPrivacyToggle:()=>{painted++;button.disabled=false;}});
+ click();assert.equal(button.disabled,true);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(patch.isPrivate,!initial);
+ assert.equal(local.isPrivate,fail?initial:!initial);
+ assert.equal(local.privacyBusy,false);assert.equal(button.disabled,false);assert.equal(painted,1);
+}
+console.log('Round privacy: both toggle directions and failed-write recovery passed.');

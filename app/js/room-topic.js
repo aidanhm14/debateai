@@ -539,7 +539,7 @@
   };
   document.addEventListener('click', function(e) { if (e.target.closest('#rmbTalkBtn')) window.RoomTopic.open(); });
   ['pointerover', 'focusin'].forEach(function(type) {
-    document.addEventListener(type, function(e) { if (e.target.closest('#rmbTalkBtn, #rmbToolsLabel')) prepareVoice(); });
+    document.addEventListener(type, function(e) { if (e.target.closest('#rmbTalkBtn')) prepareVoice(); });
   });
   setInterval(function() {
     if (voice && !ctx().canChoose) { close(); stopVoice(); }

@@ -43,7 +43,7 @@ export async function joinChallengeRoom(db, ref, uid, now = Date.now()) {
         challengeId: ref.id, motion: c.claim, background: c.description || '', format: 'quick',
         proUid: pro.uid, conUid: con.uid, proName: pro.name || 'For', conName: con.name || 'Against',
         posterUid: c.creator.uid, posterName: c.creator.name || 'Someone',
-        status: 'round', speechIdx: 0, isPrivate: true,
+        status: 'round', speechIdx: 0, isPrivate: c.visibility === 'private',
         createdAt: new Date(now), roundStartedAt: now,
       });
     }
@@ -57,7 +57,7 @@ export async function joinChallengeRoom(db, ref, uid, now = Date.now()) {
       proUid: current.proUid || pro.uid, conUid: current.conUid || con.uid,
       pro: current.proName || pro.name || 'For', con: current.conName || con.name || 'Against',
     });
-    if (current.isPrivate === true || !round.exists) params.set('private', '1');
+    if (current.isPrivate === true || (!round.exists && c.visibility === 'private')) params.set('private', '1');
     return { room, url: '/live-round?' + params.toString() };
   });
 }

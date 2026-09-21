@@ -17,9 +17,9 @@ See that directory's README before moving more responsibilities. Keep
 server draft/judge policy and stored-round compatibility in their existing
 modules. Browser fixtures exercise the shipped controllers directly.
 
-> **Debate online entry (Aidan, 2026-09-20).** `/debate-online` is a single screen with the existing search-intent headline, one animated “Meet someone” link to `/spar`, and a short private-by-default note. No how-it-works sections, FAQ, example videos, activity counters or competing account popups. Keep semantic HTML, canonical metadata and accurate structured data. Button motion is finite and respects reduced motion. Small screens fit without scrolling; enlarged text may scroll to keep controls accessible.
+> **Debate online entry (Aidan, 2026-09-20).** `/debate-online` is a single screen with the existing search-intent headline, one animated “Meet someone” link to `/spar`, and a short note explaining public rounds and the Make private control. No how-it-works sections, FAQ, example videos, activity counters or competing account popups. Keep semantic HTML, canonical metadata and accurate structured data. Button motion is finite and respects reduced motion. Small screens fit without scrolling; enlarged text may scroll to keep controls accessible.
 
-> **Private rounds by default (Aidan, 2026-09-19).** New live rounds start private, with “Private round”, “No spectators” and one “Make public” button. Publishing is an explicit participant action for that round; rejoining never overwrites it. Private round transcripts and video are participant-only, including direct links and stage views. Audience-camera controls live inside Chat, and the old visibility menu and unlisted nudge are retired. Ordinary live-round visibility does not select the separate /private and /squad judging allowance. Existing rounds keep their saved visibility.
+> **Public rounds by default (Aidan, 2026-09-21).** New ordinary live rounds start public, with “Public round”, “People can watch live” and one “Make private” button. Either participant can switch between public and private in one tap. Existing rounds keep their saved visibility on rejoin; explicit `/private` and `/squad` invitations remain private. Private transcripts and video remain participant-only, including direct links and stage views. Audience-camera controls stay inside Chat. Recording still requires its existing consent. This replaces the September 19 private-by-default decision.
 
 > **Resolution logic (Aidan, 2026-09-19).** Before adding or rewriting a suggested topic, state a credible argument for each side in one plain sentence. Both arguments must answer the exact same claim without changing its facts or adding a hidden condition. Prefer a concrete action with a real cost or competing value; calling something "rude" is not enough to establish that conflict. Moral and relationship questions are still welcome. Example verdicts must address the displayed claim: do not substitute suspicion for confirmed knowledge, treat a voluntary choice as a mandate, or invent a transition that the proposal does not require. This applies to cover examples, authored pools and AI topic suggestions.
 
@@ -182,8 +182,13 @@ missing transcription is not proof of a dropped response. The published
 score weights and panel pins. Never edit a historical rubric in place.
 
 Before the first speech, “Debate something else” is the single visible
-entry to topic changes. It expands Spin a motion, Ask the judge, and Draft one
-together; the draft supports an offer, veto or counter.
+entry to topic changes. As of September 21 it offers only “Spin another topic”
+and “Propose a topic”. Spins include the server-stamped Match Desk suggestion
+pool alongside general topics; private answers never enter the response or judge.
+Propose opens the existing typed topic editor; the
+other person must accept before the resolution changes. The voice topic
+helper and manual draft entry are retired from this menu. The voice
+implementation described below remains only for compatibility with active talks.
 
 **Ask the judge is a VOICE in the room, not a modal (2026-09-06, Aidan on
 the 09-02 popup: "this is horrible ... not another pop up to read").** One

@@ -161,8 +161,8 @@ export async function runDraftAction(db, uid, body) {
       }, { merge: true });
       tx.set(roundRef, {
         // A draft may win the race to create the room. Keep that first
-        // document private and readable by both assigned participants.
-        ...(!roundSnap.exists ? { isPrivate: true, proUid: uids[0], conUid: uids[1] } : {}),
+        // document public, with both assigned participant seats intact.
+        ...(!roundSnap.exists ? { isPrivate: false, proUid: uids[0], conUid: uids[1] } : {}),
         draft: publicDraft(draft, phaseAt),
         draftRevision: revision,
         draftPhaseAt: FieldValue.serverTimestamp(),

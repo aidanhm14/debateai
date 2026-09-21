@@ -37,22 +37,23 @@
     // listener on, so rendering it costs a spectator nothing. Seated
     // debaters compute it in seatBeat below; see the note there.
 
-    // Only a seated participant can open this round to spectators.
+    // Only a seated participant can change this round's visibility.
     if (!isSpectator()){
       var tog = document.getElementById('privacyToggle');
       if (tog) tog.addEventListener('click', function(){
-        if (!context.state.isPrivate || tog.disabled) return;
+        if (tog.disabled) return;
+        var next = !context.state.isPrivate;
         var ref = getRoundDocRef();
         if (!ref) return;
         context.state.privacyBusy = true;
         tog.disabled = true;
-        tog.textContent = 'Making public…';
-        ref.update({ isPrivate: false }).then(function(){
-          context.state.isPrivate = false;
-          toast('Round is public. People can now find and watch it.');
+        tog.textContent = 'Updating…';
+        ref.update({ isPrivate: next }).then(function(){
+          context.state.isPrivate = next;
+          toast(next ? 'Round is private. Only participants can enter.' : 'Round is public. People can now find and watch it.');
         }).catch(function(e){
-          console.warn('[watch] make public failed', e);
-          toast('Could not make this round public. Try again.');
+          console.warn('[watch] visibility change failed', e);
+          toast('Could not change round privacy. Try again.');
         }).then(function(){ context.state.privacyBusy = false; paintPrivacyToggle(); });
       });
       var camsTog = document.getElementById('audCamsToggle');

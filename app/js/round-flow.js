@@ -74,7 +74,7 @@
   function ensureDialog(){
     if (dialog) return;
     dialog=document.createElement('dialog');dialog.className='round-flow-dialog';dialog.setAttribute('aria-labelledby','roundFlowTitle');
-    dialog.innerHTML='<div class="rf-shell"><header class="rf-header"><div><p class="rf-eyebrow">Speech by speech</p><h2 id="roundFlowTitle">Round flow</h2></div><button type="button" class="rf-close" aria-label="Close round flow" autofocus>Close <span aria-hidden="true">×</span></button></header><p class="rf-motion"></p><div class="rf-people"></div><p class="rf-help"></p><div class="rf-board" role="region" aria-label="Speech flow. Scroll horizontally to follow the round." tabindex="0"></div><footer class="rf-footer"><span class="rf-storage" role="status"></span><span>AI summaries may miss details. Check the transcript.</span></footer></div>';
+    dialog.innerHTML='<div class="rf-shell"><header class="rf-header"><div><p class="rf-eyebrow">Speech by speech</p><h2 id="roundFlowTitle">Round map</h2></div><button type="button" class="rf-close" aria-label="Close round map" autofocus>Close <span aria-hidden="true">×</span></button></header><p class="rf-motion"></p><div class="rf-people"></div><p class="rf-help"></p><div class="rf-board" role="region" aria-label="Speech flow. Scroll horizontally to follow the round." tabindex="0"></div><footer class="rf-footer"><span class="rf-storage" role="status"></span><span>AI summaries may miss details. Check the transcript.</span></footer></div>';
     document.body.appendChild(dialog);
     dialog.querySelector('.rf-close').addEventListener('click',function(){dialog.close();});
     dialog.addEventListener('click',function(event){if(event.target===dialog)dialog.close();});

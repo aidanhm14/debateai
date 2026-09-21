@@ -21,12 +21,12 @@ function check(name, condition) {
 }
 
 check('search title keeps the query and brand', title.startsWith('Debate Online ') && title.endsWith(' | Debatable'));
-check('description describes the current private human entry', description.includes('Debate online') && description.includes('Rounds start private'));
+check('description describes the current public human entry', description.includes('Debate online') && description.includes('Rounds start public'));
 check('one unchanged human-intent headline is in the raw HTML', h1 === 'Debate online with a real person.' && (page.match(/<h1\b/g) || []).length === 1);
 const main = body.match(/<main[^>]*>([\s\S]*?)<\/main>/)?.[1] || '';
 const actions = [...main.matchAll(/<a\b([^>]+)>([\s\S]*?)<\/a>/g)];
 check('the only main action works without JavaScript', actions.length === 1 && actions[0][1].includes('href="/spar?from=debate-online"') && actions[0][2].includes('Meet someone'));
-check('round privacy stays visible beside the action', main.includes('Rounds start private.') && main.includes('Go public when you choose.'));
+check('round privacy stays visible beside the action', main.includes('Rounds start public.') && main.includes('Make yours private anytime.'));
 check('no explainer or competing product controls return', !/<(?:section|details|video|form)\b/.test(body) && !body.includes('onlineActivity'));
 check('the layout can grow for enlarged text instead of clipping controls', page.includes('100svh') && !/overflow\s*:\s*hidden/.test(page));
 check('motion has a reduced-motion fallback', page.includes('prefers-reduced-motion:reduce'));
