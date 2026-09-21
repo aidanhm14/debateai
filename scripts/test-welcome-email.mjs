@@ -55,12 +55,14 @@ ok('the unsubscribe link rides the onboarding stream', () => assert.match(html, 
 ok('subject is lowercase and short', () => { assert.equal(SUBJECT, SUBJECT.toLowerCase()); assert.ok(SUBJECT.length < 60); });
 
 const client = readFileSync(new URL('../app/js/auth-modal.js', import.meta.url), 'utf8');
-ok('the client fires the welcome the moment a sign-up completes', () => {
+ok('the client queues the welcome when signup completes', () => {
   assert.match(client, /fetch\('\/api\/welcome-email'/, 'auth-modal must call /api/welcome-email');
   assert.match(client, /keepalive: true/, 'the call must survive the navigation that follows sign-in');
 });
 const sweep = readFileSync(new URL('../app/netlify/functions/scheduled-welcome-sweep.mjs', import.meta.url), 'utf8');
 ok('the sweep is scheduled', () => assert.match(sweep, /schedule: '[^']+'/));
+const queue = readFileSync(new URL('../app/netlify/functions/scheduled-welcome-queue.mjs', import.meta.url), 'utf8');
+ok('the delivery queue runs each minute', () => assert.match(queue, /schedule: '\* \* \* \* \*'/));
 
 console.log(`welcome-email: ${n} checks passed`);
 

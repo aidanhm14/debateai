@@ -11,6 +11,7 @@ import { gmailConfig, sendGmailWelcome, welcomeMessageId } from './gmail-welcome
 // Accounts created before this never get the automatic welcome. The
 // catch-up campaign (admin-signup-welcome.mjs) owns the older cohort.
 export const WELCOME_SINCE_MS = Date.parse('2026-09-03T00:00:00Z');
+export const WELCOME_DELAY_MS = 5 * 60_000;
 
 export const STREAM = 'onboarding';
 export const SUBJECT = 'welcome to debatable';
@@ -45,7 +46,7 @@ const EXCLUDE_DOMAINS = new Set([
  * (the shape lib/auth-admin.mjs returns). profile = user_profiles doc data
  * or null. Returns { ok:true } or { ok:false, reason }.
  */
-export function welcomeEligibility(user, profile, nowMs = Date.now()) {
+export function welcomeRecipientEligibility(user, profile) {
   if (!user) return { ok: false, reason: 'no_user' };
   if (user.disabled) return { ok: false, reason: 'disabled' };
   const providers = (user.providerData || []).map(p => p && p.providerId).filter(Boolean);
@@ -54,6 +55,13 @@ export function welcomeEligibility(user, profile, nowMs = Date.now()) {
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, reason: 'no_email' };
   if (EXCLUDE_DOMAINS.has(email.split('@')[1])) return { ok: false, reason: 'excluded_domain' };
   if (user.emailVerified !== true) return { ok: false, reason: 'email_unverified' };
+  if (profile && isOptedOut(profile, STREAM)) return { ok: false, reason: 'opted_out' };
+  return { ok: true };
+}
+
+export function welcomeEligibility(user, profile, nowMs = Date.now()) {
+  const recipient = welcomeRecipientEligibility(user, profile);
+  if (!recipient.ok) return recipient;
   const created = user.metadata && user.metadata.creationTime ? Date.parse(user.metadata.creationTime) : NaN;
   if (!Number.isFinite(created)) return { ok: false, reason: 'no_created_at' };
   const since = usesGmail() ? Date.parse(process.env.WELCOME_GMAIL_SINCE || '') : WELCOME_SINCE_MS;
@@ -61,9 +69,9 @@ export function welcomeEligibility(user, profile, nowMs = Date.now()) {
   if (created < since) return { ok: false, reason: 'before_launch' };
   if (created > nowMs + 5 * 60_000) return { ok: false, reason: 'created_in_future' };
   if (profile) {
+    if (profile.personalGmailWelcomeSentAt) return { ok: false, reason: 'already_sent' };
     if (profile.signupWelcomeSentAt) return { ok: false, reason: 'already_sent' };
     if (profile.openAnnounceSentAt || profile.openRallySentAt) return { ok: false, reason: 'already_emailed' };
-    if (isOptedOut(profile, STREAM)) return { ok: false, reason: 'opted_out' };
   }
   return { ok: true };
 }
@@ -109,9 +117,19 @@ export async function sendWelcomeTo(db, user, { source = 'unknown', sender, now 
       const profile = snap.exists ? (snap.data() || {}) : null;
       const elig = welcomeEligibility(user, profile, now());
       if (!elig.ok) return { reason: elig.reason };
+      if (profile?.personalGmailWelcomeClaimedAt) return { reason: 'delivery_needs_review' };
       const record = await tx.get(delivery);
       const state = record.exists ? record.data() : {};
       if (['dispatching', 'uncertain', 'sent'].includes(state.status)) return { reason: state.status === 'sent' ? 'already_sent' : 'delivery_needs_review' };
+      const sendAfter = Date.parse(user.metadata.creationTime) + WELCOME_DELAY_MS;
+      if (sendAfter > now()) {
+        // Auth owns the signup time. Reloads and repeated triggers never reset
+        // this deadline, and waiting consumes no Gmail sending capacity.
+        if (state.status !== 'pending' || state.nextAttemptAt !== sendAfter) {
+          tx.set(delivery, { status: 'pending', nextAttemptAt: sendAfter, source });
+        }
+        return { reason: 'queued', sendAfter };
+      }
       if (state.nextAttemptAt > now()) return { reason: 'retry_later' };
       // Respect an in-flight send from the previous deployed implementation.
       const legacyClaim = profile?.signupWelcomeClaimedAt?.toMillis?.() || 0;
@@ -119,7 +137,11 @@ export async function sendWelcomeTo(db, user, { source = 'unknown', sender, now 
       if (gmail) {
         const budgetSnap = await tx.get(budget);
         const reservations = (budgetSnap.data()?.reservations || []).filter(t => t > now() - 86400_000);
-        if (reservations.length >= cap) return { reason: 'daily_cap' };
+        if (reservations.length >= cap) {
+          tx.set(delivery, { status: 'pending', source,
+            nextAttemptAt: Math.max(now() + 60_000, Math.min(...reservations) + 86400_000) });
+          return { reason: 'daily_cap' };
+        }
         tx.set(budget, { reservations: [...reservations, now()] });
       }
       // Dispatching is durable BEFORE the external call. A crash after acceptance
@@ -136,7 +158,8 @@ export async function sendWelcomeTo(db, user, { source = 'unknown', sender, now 
     console.error('[welcome-email] claim failed');
     return { sent: false, reason: 'claim_failed' };
   }
-  if (!claim.claimed) return { sent: false, reason: claim.reason };
+  if (!claim.claimed) return { sent: false, reason: claim.reason,
+    ...(claim.sendAfter ? { sendAfter: claim.sendAfter } : {}) };
 
   let result;
   try {
@@ -159,7 +182,7 @@ export async function sendWelcomeTo(db, user, { source = 'unknown', sender, now 
     const uncertain = result.ambiguous || (!gmail && (String(result.reason).startsWith('fetch-failed') || result.status >= 500));
     try {
       await delivery.set({ status: uncertain ? 'uncertain' : 'retry', reason: result.reason || 'send_failed',
-        nextAttemptAt: now() + (result.quotaExhausted ? 86400_000 : 30 * 60_000) }, { merge: true });
+        nextAttemptAt: uncertain ? FieldValue.delete() : now() + (result.quotaExhausted ? 86400_000 : 30 * 60_000) }, { merge: true });
       if (!uncertain) await ref.set({ signupWelcomeClaimedAt: FieldValue.delete() }, { merge: true });
     } catch { console.error('[welcome-email] failed to save delivery failure; dispatch stays held'); }
     return { sent: false, reason: result.reason || 'send_failed', quotaExhausted: !!result.quotaExhausted,

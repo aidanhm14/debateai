@@ -1,7 +1,9 @@
 # Personal Gmail signup welcome
 
-Each verified signup calls `POST /api/welcome-email` and gets one separate
-message addressed only to that person. The existing half-hour sweep recovers
+Each verified signup calls `POST /api/welcome-email`, which stores a delivery
+due five minutes after the server's Auth creation time. A minute worker sends
+one separate message per person, normally five to six minutes after signup,
+even if the browser is closed. The existing half-hour sweep recovers
 missed triggers and definitive failures. No historical email campaign is started
 when Gmail is activated. Phone-only accounts cannot receive an email.
 
@@ -56,6 +58,7 @@ and the provider receipt. It contains no message body or OAuth token. Gmail may
 replace the submitted Message-ID, as observed in the owner test on 2026-09-21.
 
 - `sent`: accepted by the provider; the shared `signupWelcomeSentAt` stamp is set.
+- `pending`: waits for its `nextAttemptAt`, without reserving Gmail capacity.
 - `retry`: definitely rejected or never dispatched. Retry after its stored delay.
 - `dispatching` or `uncertain`: do not automatically replay. Inspect Gmail Sent
   using the recipient's Auth email, subject `welcome to debatable`, and the
@@ -76,6 +79,20 @@ codes without credentials or message bodies.
 Tests: `node scripts/test-welcome-email.mjs` includes concurrent sends, ambiguous
 network outcomes, failed receipt persistence, retry delays, rate caps, opt-outs,
 verified-email eligibility, MIME headers, and all four meeting times.
+
+## Explicit historical follow-up
+
+Aidan authorized the new personal note for the last 150 signup accounts on
+2026-09-21. `welcome_campaigns/{id}` stores the frozen UID list, approval status
+and expiry; clients cannot write it. The admin-only `/api/admin/gmail-welcome`
+sends one member at a time, using Gmail's existing private server connection.
+It does not accept a recipient email or create/expand campaigns. Unverified
+addresses and opt-outs are skipped. Older unversioned welcome stamps are
+preserved; this note gets `personalGmailWelcomeSentAt` plus its separate
+`gmail_campaign_deliveries` receipt. Prior copies of the current note are not
+sent again, and ambiguous delivery stays held. The follow-up allowance is 150
+per rolling day, separate from the 100 automatic signup welcomes. Close the
+manifest after the requested run so it cannot be reused.
 
 ## References
 

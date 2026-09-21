@@ -2,7 +2,9 @@
  *
  * The client calls this the moment a sign-up completes (auth-modal.js
  * finishSignIn, keepalive fetch, so the navigation that follows does not
- * cancel it). It can only ever mail the CALLER, once: the recipient is the
+ * cancel it). A fresh signup is queued until five minutes after Auth's
+ * creationTime; scheduled-welcome-queue sends it even if the tab closes.
+ * It can only ever mail the CALLER, once: the recipient is the
  * verified token's own account, eligibility is decided from Auth's own
  * record of when that account was created, and the stamp lives on the
  * profile doc. So the worst a hostile caller can do is send themselves

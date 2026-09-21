@@ -1,7 +1,7 @@
 # soul.md. Debatable · itsdebatable.com
 
 > **Personal signup welcome (Aidan, 2026-09-21).** Each signup triggers one
-> separate email from `aidandavidhollinger@gmail.com` once its server OAuth
+> separate email about five minutes after signup from `aidandavidhollinger@gmail.com` once its server OAuth
 > connection is configured. The private note may introduce and sign off as
 > Aidan; public-site founder anonymity is unchanged. It asks people to return
 > at one of four daily 9 pm local sessions (New York, London, India, Sydney),
@@ -11,6 +11,14 @@
 > promise of avoiding spam or landing in Primary. Keep the existing per-account
 > welcome stamp, and hold uncertain deliveries for review rather than resend.
 > This supersedes the September 3 welcome copy and its no-header instruction.
+> Same-day follow-up: Aidan explicitly requested this new personal note, sent
+> individually now, to the last 150 signup accounts. Freeze that cohort; skip
+> unverified addresses, opt-outs and prior copies of this new note. The older
+> unversioned welcome is not this note. Track the follow-up separately and keep
+> old welcome stamps. An admin-only send requires a server-approved manifest
+> of at most 150 accounts. Its 150/day budget is separate from automatic
+> signups' 100/day budget. New signup delivery uses a durable five-minute queue
+> checked every minute, so leaving the site does not cancel it.
 
 
 > **Concurrent-use readiness (Aidan, 2026-09-21).** Target 100 people debating in 50 rooms. Use a 200-person total Daily room ceiling for now, including speakers, spectators and approved audience-camera guests; the earlier 500-spectator target is deferred after Daily rejected the larger room size on the current plan. Recovery runs through an authenticated background worker dispatched by the minute schedule, with server-only job state, a bounded number of worker slots, expiring dispatch reservations and durable retry delays. The same live judge still owns evidence, season pins, verdicts and settlement. The pending-round scan rotates past abandoned documents instead of hiding all rooms beyond the first 40. Real provider tests have a $25 maximum budget for this implementation pass; simulated checks alone do not establish live capacity.

@@ -743,11 +743,21 @@ cd /Users/aidanhm && git worktree remove /tmp/ship-<slug> --force
 lib/welcome-email.mjs            the template, the eligibility rule, claim+send+stamp
 welcome-email.mjs                POST /api/welcome-email, fired by auth-modal.js on sign-up
 scheduled-welcome-sweep.mjs      every 30 min, catches sign-ins the client path missed
+scheduled-welcome-queue.mjs      every minute, sends jobs due five minutes after signup
+admin-gmail-welcome.mjs          admin-only, one recipient from a frozen approved cohort
 scripts/test-welcome-email.mjs   runs in the pre-commit hook
 ```
 
-- **One separate message per signup.** The signup endpoint is the primary trigger;
-  the scheduled sweep only recovers missed or definitively rejected sends.
+- **One separate message about five minutes after signup.** The signup endpoint
+  stores a due time from Auth's creation time; it never sleeps in the browser.
+  A minute worker sends due jobs. The half-hour sweep recovers missed triggers.
+- **Explicit last-150 follow-up (2026-09-21, Aidan).** This new personal note may
+  follow an older unversioned welcome. `welcome_campaigns` freezes the approved
+  cohort (at most 150, expiring); the admin endpoint cannot expand it. Use
+  `gmail_campaign_deliveries` and `personalGmailWelcomeSentAt` for this note,
+  leaving the old signup stamp alone. Honor verification, opt-outs and existing
+  copies of the new note. Its separate 150/day budget leaves automatic signup
+  welcomes at 100/day. Both send paths share profile claims to prevent races.
 - **Gmail transport (2026-09-21, Aidan).** `WELCOME_TRANSPORT=gmail` sends through
   the Gmail API as `aidandavidhollinger@gmail.com`. It needs the private
   `WELCOME_GMAIL_OAUTH` JSON, `EMAIL_UNSUB_SECRET`, and a `WELCOME_GMAIL_SINCE`
