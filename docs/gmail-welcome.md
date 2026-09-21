@@ -51,15 +51,18 @@ has not been established merely because this code is deployed.
 ## Delivery records and recovery
 
 `welcome_deliveries/{uid}` is server-only under the existing default-deny
-Firestore rules. It records state, provider, source, stable RFC Message-ID, and
-the provider receipt. It contains no message body or OAuth token.
+Firestore rules. It records state, provider, source, submitted RFC Message-ID,
+and the provider receipt. It contains no message body or OAuth token. Gmail may
+replace the submitted Message-ID, as observed in the owner test on 2026-09-21.
 
 - `sent`: accepted by the provider; the shared `signupWelcomeSentAt` stamp is set.
 - `retry`: definitely rejected or never dispatched. Retry after its stored delay.
-- `dispatching` or `uncertain`: do not automatically replay. Search Gmail Sent
-  for `rfc822msgid:welcome.HASH@itsdebatable.com` using the recorded Message-ID.
-  If found, reconcile the receipt and profile stamp. Only clear the hold after
-  establishing that no message was accepted; wait if the result is inconclusive.
+- `dispatching` or `uncertain`: do not automatically replay. Inspect Gmail Sent
+  using the recipient's Auth email, subject `welcome to debatable`, and the
+  record's `startedAt` window. The submitted Message-ID is only an additional
+  search hint; absence of that ID does not prove Gmail rejected the message.
+  If found, reconcile the Gmail receipt and profile stamp. Only clear the hold
+  after establishing that no message was accepted; keep the hold if inconclusive.
 - A receipt-write failure remains held as `dispatching`. Re-running the signup
   endpoint will not resend it. Gmail does not provide an exactly-once send API.
 

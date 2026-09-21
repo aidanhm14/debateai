@@ -756,7 +756,9 @@ scripts/test-welcome-email.mjs   runs in the pre-commit hook
 - The existing `signupWelcomeSentAt` profile stamp remains shared with the
   catch-up campaign. `welcome_deliveries/{uid}` is the server-only delivery record.
   Concurrent sends claim it transactionally. `dispatching` or `uncertain` MUST
-  NOT be replayed automatically: inspect Gmail Sent by its stored Message-ID first.
+  NOT be replayed automatically: inspect Gmail Sent by recipient, subject and
+  dispatch time. Gmail can replace the submitted Message-ID; an empty search
+  for that ID is not proof of non-delivery.
   The rolling Gmail cap defaults to 100 reservations per 24 hours, leaving room
   for personal mail. It is not a statement of Google's current account limit.
 - Only verified, enabled accounts with an email are eligible. Opt-outs are checked

@@ -27,8 +27,9 @@ export function gmailRawMessage({ to, subject, text, uid, unsubscribe, now = new
   ].join('\r\n')).toString('base64url');
 }
 
-// No mailbox-read permission. Ambiguous send responses need a human to check
-// Sent using the stable Message-ID; Gmail does not promise idempotent sends.
+// No mailbox-read permission. Ambiguous sends need a human to check Sent by
+// recipient, subject and time. Gmail may replace our submitted Message-ID and
+// does not promise idempotent sends.
 export async function sendGmailWelcome(message, fetcher = fetch) {
   const oauth = gmailConfig();
   if (!oauth) return { ok: false, reason: 'gmail_not_connected' };

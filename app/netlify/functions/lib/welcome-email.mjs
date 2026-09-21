@@ -123,8 +123,8 @@ export async function sendWelcomeTo(db, user, { source = 'unknown', sender, now 
         tx.set(budget, { reservations: [...reservations, now()] });
       }
       // Dispatching is durable BEFORE the external call. A crash after acceptance
-      // must not let the sweep resend. A deterministic Message-ID aids review;
-      // it is not an idempotency guarantee from Gmail.
+      // must not let the sweep resend. This is the submitted Message-ID only;
+      // Gmail may replace it, so review also requires recipient/subject/time.
       tx.set(delivery, {
         status: 'dispatching', startedAt: now(), source,
         provider: gmail ? 'gmail' : 'resend', messageId: welcomeMessageId(user.uid),
