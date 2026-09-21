@@ -1,50 +1,26 @@
-/* lib/welcome-email.mjs
- *
- * The welcome email every new account gets, and the one rule for who gets
- * it. Two entry points share this file so they cannot drift:
- *
- *   welcome-email.mjs             POST /api/welcome-email. The client calls
- *                                 it the moment sign-up completes, so the
- *                                 email lands while the tab is still open.
- *   scheduled-welcome-sweep.mjs   every 30 minutes. Catches every account
- *                                 the client path missed (a native sign-in,
- *                                 a tournament page's own popup, a closed
- *                                 tab, a failed fetch).
- *
- * Built 2026-09-03 (Aidan: "send an email congratulating and introducing
- * debatable when people sign up so it lands in their main. explain the
- * story, the vision, need for contributions").
- *
- * LANDING IN PRIMARY is the design constraint, and every choice below
- * serves it: one recipient per send, a verified sender on the domain the
- * person just signed up on, a plain text/plain part, no images, no
- * buttons, no tracking pixel, few links, and a Reply-To that reaches a
- * human. Gmail sorts on shape and on behaviour, and a reply is the
- * strongest signal there is, which is why the email asks for one.
- *
- * ONE SEND PER ACCOUNT, EVER. The stamp is user_profiles.signupWelcomeSentAt,
- * the same field admin-signup-welcome.mjs (the catch-up campaign for the
- * pre-2026-09-03 cohort) reads as "already emailed", so the two can never
- * double-mail. A Firestore transaction claims the send before Resend is
- * called, which is what stops the client path and the sweep racing each
- * other onto one inbox.
- *
- * ELIGIBILITY is a pure function (welcomeEligibility) so the guard can
- * test it without Auth or Firestore: created on or after the launch date,
- * a real provider (never anonymous), an email on the account, and not a
- * relay or test address. Phone accounts have no email and are excluded
- * by that rule rather than by name.
+/* One welcome per signup. The client trigger and recovery sweep share the
+ * profile stamp and a server-only delivery record. Gmail is enabled explicitly
+ * after OAuth setup; an uncertain dispatch is held for review, never replayed.
  */
 
 import { FieldValue } from './firestore.mjs';
-import { esc, sendEmail, renderFooter, brandHeader, isOptedOut, SITE_URL } from './email.mjs';
+import { esc, sendEmail, toText, unsubUrl, isOptedOut, SITE_URL } from './email.mjs';
+
+import { gmailConfig, sendGmailWelcome, welcomeMessageId } from './gmail-welcome.mjs';
 
 // Accounts created before this never get the automatic welcome. The
 // catch-up campaign (admin-signup-welcome.mjs) owns the older cohort.
 export const WELCOME_SINCE_MS = Date.parse('2026-09-03T00:00:00Z');
 
 export const STREAM = 'onboarding';
-export const SUBJECT = 'welcome to debatable, and why it exists';
+export const SUBJECT = 'welcome to debatable';
+export const FEEDBACK_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSeIaqv8NvUsUdZI8VWFya05cQFS_Q_1hhe13L4cafRBShMkow/viewform';
+export const usesGmail = () => process.env.WELCOME_TRANSPORT === 'gmail';
+export function welcomeReady() {
+  return usesGmail()
+    ? !!(gmailConfig() && process.env.EMAIL_UNSUB_SECRET && Number.isFinite(Date.parse(process.env.WELCOME_GMAIL_SINCE || '')))
+    : !!process.env.RESEND_API_KEY;
+}
 
 // From: the domain the person just signed up on. itsdebatable.com has
 // been a verified Resend sender since 2026-08-19 and the sign-in link
@@ -71,14 +47,18 @@ const EXCLUDE_DOMAINS = new Set([
  */
 export function welcomeEligibility(user, profile, nowMs = Date.now()) {
   if (!user) return { ok: false, reason: 'no_user' };
+  if (user.disabled) return { ok: false, reason: 'disabled' };
   const providers = (user.providerData || []).map(p => p && p.providerId).filter(Boolean);
   if (!providers.length || providers.every(p => p === 'anonymous')) return { ok: false, reason: 'anonymous' };
   const email = String(user.email || '').trim().toLowerCase();
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, reason: 'no_email' };
   if (EXCLUDE_DOMAINS.has(email.split('@')[1])) return { ok: false, reason: 'excluded_domain' };
+  if (user.emailVerified !== true) return { ok: false, reason: 'email_unverified' };
   const created = user.metadata && user.metadata.creationTime ? Date.parse(user.metadata.creationTime) : NaN;
   if (!Number.isFinite(created)) return { ok: false, reason: 'no_created_at' };
-  if (created < WELCOME_SINCE_MS) return { ok: false, reason: 'before_launch' };
+  const since = usesGmail() ? Date.parse(process.env.WELCOME_GMAIL_SINCE || '') : WELCOME_SINCE_MS;
+  if (!Number.isFinite(since)) return { ok: false, reason: 'gmail_start_not_configured' };
+  if (created < since) return { ok: false, reason: 'before_launch' };
   if (created > nowMs + 5 * 60_000) return { ok: false, reason: 'created_in_future' };
   if (profile) {
     if (profile.signupWelcomeSentAt) return { ok: false, reason: 'already_sent' };
@@ -96,112 +76,104 @@ export function firstNameOf(user, profile) {
   return first;
 }
 
-// ── Template ─────────────────────────────────────────────────────────────
-// Voice rules that bind here: no em-dashes, no preface, no banned phrases,
-// no traction numbers, no beta-free claims (billing is live), no founder
-// name or credential (anonymous since 2026-08-22), "people" not "debaters"
-// for the crowd. Plain paragraphs and text links only: a button, an image
-// or a pixel is what tips Gmail toward Promotions.
+// These are coordinated meeting times, not a claim measured traffic is high.
 export function renderWelcome({ firstName, uid }) {
-  const p = (inner) => `<p style="font-size:15.5px;line-height:1.6;margin:0 0 16px">${inner}</p>`;
-  const a = (href, text) => `<a href="${href}" style="color:#dc2626">${text}</a>`;
-  return `
-<div style="max-width:560px;margin:0 auto;padding:28px 22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#26262b">
-  ${brandHeader()}
-  ${p(`Hey${firstName ? ' ' + esc(firstName) : ''},`)}
-
-  ${p(`You are in. Welcome to Debatable.`)}
-
-  ${p(`Here is what you joined: a place to argue with a real person, live, on one question, and get a written decision on who won and why. A round takes about ten minutes.`)}
-
-  ${p(`<strong>Why it exists.</strong> Debate has always been rationed by judges. A round only counts if someone sits through it and writes out a decision, and there have never been enough of those people, so most arguments never get judged at all. We built this from inside competitive debate, and the shortage we kept running into was not people who wanted to argue. It was verdicts. A judge that reads the whole round and shows its reasoning changes that math. Anyone can get a decision, on any question, any time.`)}
-
-  ${p(`<strong>Where it is going.</strong> We want Debatable to be where people go to argue something out in public. A ladder you climb round by round. Replays and clips. An audience that watches and calls it. Eventually, rounds against the people you already watch. A reputation earned across many rounds, not one weekend's opinion.`)}
-
-  ${p(`<strong>What we need from you.</strong> Three things, and they are all small.`)}
-
-  ${p(`1. Argue a round. Even one. Everything on the site gets better when rounds happen.`)}
-  ${p(`2. Reply to this email with what broke or what confused you. Replies go to a person, not a queue, and every one gets read. What you send decides what gets built next.`)}
-  ${p(`3. Bring one person. A round needs two, and the queue is only as alive as the people in it.`)}
-
-  ${p(`If you want to back the build directly, the Individual plan is $10 a year at ${a(`${SITE_URL}/pricing`, 'itsdebatable.com/pricing')}. No pressure. Rounds and replies help more.`)}
-
-  ${p(`You are early, and it is on the record. We keep a note of who was here first, so when this grows into something bigger, your part in that history comes with it.`)}
-
-  ${p(`Start here: ${a(`${SITE_URL}/spar`, 'a live round on video')}, or ${a(`${SITE_URL}/practice`, 'an AI opponent right now')} if nobody is waiting.`)}
-
-  ${p(`See you in a round.<br>Debatable`)}
-
-  ${renderFooter({
-    uid,
-    stream: STREAM,
-    reason: 'You are getting this because you just made a Debatable account.',
-  })}
-</div>`;
+  const link = unsubUrl(uid, STREAM);
+  const paragraphs = [
+    `Hey${firstName ? ' ' + firstName : ''},`,
+    "Thanks for joining Debatable. I'm Aidan, the person building it.",
+    "The biggest thing we need right now is more people online at the same time. We're getting people together every day at:",
+    '9 pm Eastern time (New York)\n9 pm London time\n9 pm India time (IST)\n9 pm Sydney time',
+    "These are four separate sessions, each at 9 pm local time. Pick whichever works for you and give people a few minutes to arrive.",
+    `Come back for a round: ${SITE_URL}/spar`,
+    "If you have a friend who'd enjoy arguing something out, bring them along. Even one extra person makes it easier for someone else to find a round.",
+    `I'd really like to know what you think. What worked, what broke, and what would make you come back? Here's the feedback form: ${FEEDBACK_URL}`,
+    'You can also reply to this email. It comes straight to me.',
+    'Aidan',
+    'You received this because you signed up for Debatable. ' + (link ? `Unsubscribe: ${link}` : 'Reply to opt out.'),
+  ];
+  return paragraphs.map(p => '<p>' + esc(p).replaceAll('\n', '<br>') + '</p>').join('\n');
 }
 
-/**
- * Claim, send, stamp. Returns { sent:boolean, reason }.
- *
- * The claim is a transaction on the profile doc: read, refuse if any stamp
- * is present, write signupWelcomeClaimedAt. Only the caller that wins the
- * claim calls Resend. A failed send releases the claim so the sweep can
- * retry; a successful one writes signupWelcomeSentAt, which is the stamp
- * every reader tests.
- */
-export async function sendWelcomeTo(db, user, { source = 'unknown' } = {}) {
+export async function sendWelcomeTo(db, user, { source = 'unknown', sender, now = Date.now } = {}) {
+  if (!welcomeReady() && !sender) return { sent: false, reason: 'welcome_not_configured' };
+  const gmail = usesGmail();
   const ref = db.collection('user_profiles').doc(user.uid);
-  let profile = null;
-  let claimed = false;
+  const delivery = db.collection('welcome_deliveries').doc(user.uid);
+  const budget = db.collection('config').doc('welcome_gmail_budget');
+  const cap = Math.min(400, Math.max(1, Number.parseInt(process.env.WELCOME_GMAIL_DAILY_CAP || '100', 10) || 100));
+  let claim;
   try {
-    await db.runTransaction(async (tx) => {
+    claim = await db.runTransaction(async tx => {
       const snap = await tx.get(ref);
-      profile = snap.exists ? (snap.data() || {}) : null;
-      const elig = welcomeEligibility(user, profile);
-      if (!elig.ok) { claimed = elig.reason; return; }
-      // A claim younger than 10 minutes belongs to a send in flight; older
-      // than that it is a crashed lambda and the sweep may take it over.
-      const c = profile && profile.signupWelcomeClaimedAt;
-      const cMs = c && typeof c.toMillis === 'function' ? c.toMillis() : 0;
-      if (cMs && Date.now() - cMs < 10 * 60_000) { claimed = 'claimed'; return; }
+      const profile = snap.exists ? (snap.data() || {}) : null;
+      const elig = welcomeEligibility(user, profile, now());
+      if (!elig.ok) return { reason: elig.reason };
+      const record = await tx.get(delivery);
+      const state = record.exists ? record.data() : {};
+      if (['dispatching', 'uncertain', 'sent'].includes(state.status)) return { reason: state.status === 'sent' ? 'already_sent' : 'delivery_needs_review' };
+      if (state.nextAttemptAt > now()) return { reason: 'retry_later' };
+      // Respect an in-flight send from the previous deployed implementation.
+      const legacyClaim = profile?.signupWelcomeClaimedAt?.toMillis?.() || 0;
+      if (legacyClaim && now() - legacyClaim < 10 * 60_000) return { reason: 'claimed' };
+      if (gmail) {
+        const budgetSnap = await tx.get(budget);
+        const reservations = (budgetSnap.data()?.reservations || []).filter(t => t > now() - 86400_000);
+        if (reservations.length >= cap) return { reason: 'daily_cap' };
+        tx.set(budget, { reservations: [...reservations, now()] });
+      }
+      // Dispatching is durable BEFORE the external call. A crash after acceptance
+      // must not let the sweep resend. A deterministic Message-ID aids review;
+      // it is not an idempotency guarantee from Gmail.
+      tx.set(delivery, {
+        status: 'dispatching', startedAt: now(), source,
+        provider: gmail ? 'gmail' : 'resend', messageId: welcomeMessageId(user.uid),
+      });
       tx.set(ref, { signupWelcomeClaimedAt: FieldValue.serverTimestamp() }, { merge: true });
-      claimed = true;
+      return { profile, claimed: true };
     });
-  } catch (err) {
-    console.error('[welcome-email] claim failed for', user.uid, err.message);
+  } catch {
+    console.error('[welcome-email] claim failed');
     return { sent: false, reason: 'claim_failed' };
   }
-  if (claimed !== true) return { sent: false, reason: claimed };
+  if (!claim.claimed) return { sent: false, reason: claim.reason };
 
-  const res = await sendEmail({
-    to: user.email,
-    subject: SUBJECT,
-    html: renderWelcome({ firstName: firstNameOf(user, profile), uid: user.uid }),
-    uid: user.uid,
-    // 'welcome' is deliberately not one of the bulk streams in
-    // lib/email.mjs, so no List-Unsubscribe headers ride along: this is a
-    // one-to-one note, and the footer carries a working unsubscribe link
-    // on the onboarding stream. Opt-out is still honoured above.
-    stream: 'welcome',
-    from: FROM,
-    replyTo: REPLY_TO,
-  });
-  if (!res.ok) {
-    console.error('[welcome-email] send failed for', user.uid, res.reason, res.message || '');
-    try { await ref.set({ signupWelcomeClaimedAt: FieldValue.delete() }, { merge: true }); } catch {}
-    return { sent: false, reason: res.reason || 'send_failed', quotaExhausted: !!res.quotaExhausted };
+  let result;
+  try {
+    // Recheck opt-out after claiming, before handing anything to the provider.
+    const fresh = await ref.get();
+    if (!welcomeEligibility(user, fresh.exists ? fresh.data() : null, now()).ok) {
+      await delivery.set({ status: 'suppressed' }, { merge: true });
+      await ref.set({ signupWelcomeClaimedAt: FieldValue.delete() }, { merge: true });
+      return { sent: false, reason: 'suppressed' };
+    }
+    const html = renderWelcome({ firstName: firstNameOf(user, claim.profile), uid: user.uid });
+    const message = { to: user.email, subject: SUBJECT, html, text: toText(html), uid: user.uid,
+      unsubscribe: unsubUrl(user.uid, STREAM), stream: STREAM, from: FROM, replyTo: REPLY_TO };
+    result = await (sender || (gmail ? sendGmailWelcome : sendEmail))(message);
+  } catch {
+    result = { ok: false, reason: 'delivery_exception', ambiguous: true };
+  }
+  if (!result.ok) {
+    // Resend's historical network error does not distinguish acceptance either.
+    const uncertain = result.ambiguous || (!gmail && (String(result.reason).startsWith('fetch-failed') || result.status >= 500));
+    try {
+      await delivery.set({ status: uncertain ? 'uncertain' : 'retry', reason: result.reason || 'send_failed',
+        nextAttemptAt: now() + (result.quotaExhausted ? 86400_000 : 30 * 60_000) }, { merge: true });
+      if (!uncertain) await ref.set({ signupWelcomeClaimedAt: FieldValue.delete() }, { merge: true });
+    } catch { console.error('[welcome-email] failed to save delivery failure; dispatch stays held'); }
+    return { sent: false, reason: result.reason || 'send_failed', quotaExhausted: !!result.quotaExhausted,
+      needsReview: !!uncertain };
   }
   try {
-    await ref.set({
-      signupWelcomeSentAt: FieldValue.serverTimestamp(),
-      signupWelcomeSource: source,
-      signupWelcomeClaimedAt: FieldValue.delete(),
-    }, { merge: true });
-  } catch (err) {
-    // The email went out. A missing stamp risks a second copy from the
-    // sweep, so it is logged loudly rather than swallowed.
-    console.error('[welcome-email] STAMP FAILED after send for', user.uid, err.message);
-    return { sent: true, reason: 'stamp_failed' };
+    await db.runTransaction(async tx => {
+      tx.set(delivery, { status: 'sent', sentAt: now(), providerId: result.id || null }, { merge: true });
+      tx.set(ref, { signupWelcomeSentAt: FieldValue.serverTimestamp(), signupWelcomeSource: source,
+        signupWelcomeProvider: gmail ? 'gmail' : 'resend', signupWelcomeClaimedAt: FieldValue.delete() }, { merge: true });
+    });
+  } catch {
+    console.error('[welcome-email] receipt persistence failed; dispatch stays held for review');
+    return { sent: true, reason: 'stamp_failed', needsReview: true };
   }
   return { sent: true, reason: 'sent' };
 }

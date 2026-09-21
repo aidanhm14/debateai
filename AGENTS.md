@@ -746,18 +746,31 @@ scheduled-welcome-sweep.mjs      every 30 min, catches sign-ins the client path 
 scripts/test-welcome-email.mjs   runs in the pre-commit hook
 ```
 
-- **The stamp is `user_profiles.signupWelcomeSentAt`**, shared with the
-  catch-up campaign `admin-signup-welcome.mjs`, so neither can double-mail.
-  A transaction claims the send first (`signupWelcomeClaimedAt`, 10-minute
-  lease). Do not add a third sender that reads a different field.
-- **Primary-inbox shape is the point.** No images, no buttons, no pixel, at
-  most four links, a plain-text part, Reply-To on a read inbox, and NO
-  List-Unsubscribe headers (`stream:'welcome'` is not in the bulk list in
-  `lib/email.mjs` on purpose; the footer carries the unsubscribe link). The
-  guard pins these. Making it look like a newsletter is how it stops
-  landing where it was asked to land.
-- **Copy rules apply and are tested:** no em-dashes, no banned phrases, no
-  founder name or credential, "people" not "debaters", canonical price only.
+- **One separate message per signup.** The signup endpoint is the primary trigger;
+  the scheduled sweep only recovers missed or definitively rejected sends.
+- **Gmail transport (2026-09-21, Aidan).** `WELCOME_TRANSPORT=gmail` sends through
+  the Gmail API as `aidandavidhollinger@gmail.com`. It needs the private
+  `WELCOME_GMAIL_OAUTH` JSON, `EMAIL_UNSUB_SECRET`, and a `WELCOME_GMAIL_SINCE`
+  activation timestamp. There is no fallback to Resend in Gmail mode. Existing
+  Resend sending continues until the transport is switched deliberately.
+- The existing `signupWelcomeSentAt` profile stamp remains shared with the
+  catch-up campaign. `welcome_deliveries/{uid}` is the server-only delivery record.
+  Concurrent sends claim it transactionally. `dispatching` or `uncertain` MUST
+  NOT be replayed automatically: inspect Gmail Sent by its stored Message-ID first.
+  The rolling Gmail cap defaults to 100 reservations per 24 hours, leaving room
+  for personal mail. It is not a statement of Google's current account limit.
+- Only verified, enabled accounts with an email are eligible. Opt-outs are checked
+  before claiming and again before sending. The Gmail activation date prevents
+  an unrequested catch-up campaign when switching providers.
+- The private welcome may identify and sign off as Aidan under his explicit
+  September 21 request. This does not change public-site founder anonymity.
+  Include the four daily 9 pm local sessions (New York, London, India, Sydney),
+  feedback form, and invite-a-friend ask. These are coordinated meeting times,
+  not measured traffic claims. Gmail gets plain text with no images or tracking.
+  Keep the visible unsubscribe and one-click headers. Inbox placement is never
+  guaranteed. This supersedes the September 3 welcome's no-header rule.
+- Setup and recovery: `docs/gmail-welcome.md`. Tests run through
+  `scripts/test-welcome-email.mjs` in the pre-commit hook.
 
 ## Motion draft (in the ROOM, on demand)
 

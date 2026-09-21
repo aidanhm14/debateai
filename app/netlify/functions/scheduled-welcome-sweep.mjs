@@ -17,12 +17,12 @@
 
 import { getDb } from './lib/firestore.mjs';
 import { listAllAuthUsers } from './lib/auth-admin.mjs';
-import { welcomeEligibility, sendWelcomeTo, WELCOME_SINCE_MS } from './lib/welcome-email.mjs';
+import { welcomeEligibility, sendWelcomeTo, WELCOME_SINCE_MS, welcomeReady } from './lib/welcome-email.mjs';
 
 const RUN_CAP = Math.max(1, parseInt(process.env.WELCOME_SWEEP_CAP || '30', 10) || 30);
 
 export default async () => {
-  const dry = process.env.WELCOME_SWEEP_ENABLED === '0' || !process.env.RESEND_API_KEY;
+  const dry = process.env.WELCOME_SWEEP_ENABLED === '0' || !welcomeReady();
   let users;
   try { users = await listAllAuthUsers(); }
   catch (err) {

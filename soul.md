@@ -1,5 +1,18 @@
 # soul.md. Debatable · itsdebatable.com
 
+> **Personal signup welcome (Aidan, 2026-09-21).** Each signup triggers one
+> separate email from `aidandavidhollinger@gmail.com` once its server OAuth
+> connection is configured. The private note may introduce and sign off as
+> Aidan; public-site founder anonymity is unchanged. It asks people to return
+> at one of four daily 9 pm local sessions (New York, London, India, Sydney),
+> bring a friend, and use the existing feedback form or reply. These are
+> coordinated meeting times, not an analytics claim. Use plain text, verified
+> recipient addresses, working unsubscribe links and one-click headers. No
+> promise of avoiding spam or landing in Primary. Keep the existing per-account
+> welcome stamp, and hold uncertain deliveries for review rather than resend.
+> This supersedes the September 3 welcome copy and its no-header instruction.
+
+
 > **Concurrent-use readiness (Aidan, 2026-09-21).** Target 100 people debating in 50 rooms. Use a 200-person total Daily room ceiling for now, including speakers, spectators and approved audience-camera guests; the earlier 500-spectator target is deferred after Daily rejected the larger room size on the current plan. Recovery runs through an authenticated background worker dispatched by the minute schedule, with server-only job state, a bounded number of worker slots, expiring dispatch reservations and durable retry delays. The same live judge still owns evidence, season pins, verdicts and settlement. The pending-round scan rotates past abandoned documents instead of hiding all rooms beyond the first 40. Real provider tests have a $25 maximum budget for this implementation pass; simulated checks alone do not establish live capacity.
 
 > **Simple topic choices (Aidan, 2026-09-21).** “Debate something else” now has only “Spin another topic” and “Propose a topic”. Spins mix the existing general bank with the server-stamped suggestions drawn from both people’s Match Desk answers, without exposing the answers or sending them to the judge. The latter opens a typed proposal for the other person to accept. There is no voice topic-helper entry or speculative audio setup on this menu. The normal round judge and its evidence rules are unchanged. “View round map” replaces the visible round-flow label.

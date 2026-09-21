@@ -178,6 +178,8 @@ export async function getAuthUserByUid(uid) {
   return {
     uid: u.localId,
     email: u.email || null,
+    emailVerified: u.emailVerified === true,
+    disabled: !!u.disabled,
     displayName: u.displayName || null,
     providerData: (u.providerUserInfo || []).map(p => ({ providerId: p.providerId })),
     metadata: {
@@ -233,6 +235,7 @@ export async function listAllAuthUsers({ pageSize = 1000, maxPages = 50 } = {}) 
         // almost nobody (6 of 128 on the day this was added). Additive
         // only — existing callers that ignore these fields are unaffected.
         email: u.email || null,
+        emailVerified: u.emailVerified === true,
         disabled: !!u.disabled,
         displayName: u.displayName || null,
         providerData: (u.providerUserInfo || []).map(p => ({ providerId: p.providerId })),

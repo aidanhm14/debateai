@@ -1,0 +1,85 @@
+# Personal Gmail signup welcome
+
+Each verified signup calls `POST /api/welcome-email` and gets one separate
+message addressed only to that person. The existing half-hour sweep recovers
+missed triggers and definitive failures. No historical email campaign is started
+when Gmail is activated. Phone-only accounts cannot receive an email.
+
+Sender and reply address: **aidandavidhollinger@gmail.com**. First names come
+from account/profile names, with `Hey,` as the fallback. The email contains four
+daily 9 pm sessions in New York, London, India and Sydney local time, the existing
+Debatable feedback form, and an invitation to bring a friend. No tracking pixel,
+AI-invented personal details, attachments or newsletter layout.
+
+## One-time Google connection
+
+1. In the Debatable Google Cloud project, enable the **Gmail API**. Configure an
+   OAuth consent app for the owner's use and include
+   `https://www.googleapis.com/auth/gmail.send`, `openid`, and `email`.
+   It does not need permission to read, delete, or organize email.
+2. Use an OAuth **Desktop app** client and download its client JSON into a
+   private local directory, outside the repository. For continuous operation,
+   the consent app must be in production. Google issues refresh tokens that
+   expire after seven days for an external app left in testing mode.
+3. Run the following from the repository, replacing the private paths:
+
+   ```sh
+   node scripts/connect-welcome-gmail.mjs --client-json /private/client.json --output /private/gmail.env
+   ```
+
+4. Open the Google link printed by the helper and approve with
+   **aidandavidhollinger@gmail.com**. The helper uses PKCE and state, listens
+   only on the loopback interface, verifies the Google account, and writes a
+   mode-0600 file. It never prints tokens, sends mail, or enables production.
+5. Import `WELCOME_GMAIL_OAUTH` from that file into the existing Netlify site's
+   **production Functions** environment as a secret. Keep the existing
+   `EMAIL_UNSUB_SECRET`. Never paste tokens into a task, commit, screenshot,
+   browser URL, or deploy log. Check the function environment size before
+   adding the secret because this repository has an AWS environment size limit.
+6. Send a test to the owner through `sendGmailWelcome`, using the owner's UID
+   and existing signed unsubscribe URL. Confirm it appears in Gmail Sent with
+   the correct sender and that replies return to this mailbox. Inbox placement
+   at another provider is a separate observation, not something this proves.
+7. Set `WELCOME_GMAIL_SINCE` to the current UTC ISO timestamp and
+   `WELCOME_TRANSPORT=gmail`, then deploy. This only admits new accounts from
+   activation onward. Existing welcome stamps remain honored. No Resend
+   fallback is used in Gmail mode.
+
+Until step 7, the existing Resend sender remains in use. The Gmail connection
+has not been established merely because this code is deployed.
+
+## Delivery records and recovery
+
+`welcome_deliveries/{uid}` is server-only under the existing default-deny
+Firestore rules. It records state, provider, source, stable RFC Message-ID, and
+the provider receipt. It contains no message body or OAuth token.
+
+- `sent`: accepted by the provider; the shared `signupWelcomeSentAt` stamp is set.
+- `retry`: definitely rejected or never dispatched. Retry after its stored delay.
+- `dispatching` or `uncertain`: do not automatically replay. Search Gmail Sent
+  for `rfc822msgid:welcome.HASH@itsdebatable.com` using the recorded Message-ID.
+  If found, reconcile the receipt and profile stamp. Only clear the hold after
+  establishing that no message was accepted; wait if the result is inconclusive.
+- A receipt-write failure remains held as `dispatching`. Re-running the signup
+  endpoint will not resend it. Gmail does not provide an exactly-once send API.
+
+The rolling cap defaults to **100 send reservations per 24 hours**, configurable
+with `WELCOME_GMAIL_DAILY_CAP` up to 400. It leaves room for personal email but
+cannot measure mail sent outside this system. Google's account limits still
+apply; a reservation is consumed even if the send fails. Over-cap messages wait
+for recovery rather than disappearing. Delivery failure logs contain reason
+codes without credentials or message bodies.
+
+Tests: `node scripts/test-welcome-email.mjs` includes concurrent sends, ambiguous
+network outcomes, failed receipt persistence, retry delays, rate caps, opt-outs,
+verified-email eligibility, MIME headers, and all four meeting times.
+
+## References
+
+- [Google: Gmail API send scope](https://developers.google.com/workspace/gmail/api/auth/scopes)
+- [Google: desktop OAuth with loopback callback](https://developers.google.com/identity/protocols/oauth2/native-app)
+- [Google: refresh-token lifetime](https://developers.google.com/identity/protocols/oauth2)
+- [Google: sender guidelines](https://support.google.com/mail/answer/81126)
+- [Google: personal Gmail sending limits](https://support.google.com/mail/answer/22839)
+
+Real Gmail sending does not guarantee avoiding spam or landing in Primary.
