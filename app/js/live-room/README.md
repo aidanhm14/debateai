@@ -31,3 +31,8 @@ Relevant checks: `live-room-modules`, `round-draft-sync`, `speech-countdown`,
 source/runtime suites under `scripts`. The media tests stub devices and
 Daily at their boundaries; they do not verify real media transport. Full
 page `?design=` scenes allow appearance comparisons without live rounds.
+
+Remote audio removal is shared by participant refresh and call teardown
+through `media.removeAudio`. It detaches both microphone and judge tracks
+from their elements and drops the registry entries; Daily retains track
+ownership. Unused page adapters were removed after checking lexical callers.

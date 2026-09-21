@@ -309,6 +309,11 @@
     t.muted.style.display = muted ? '' : 'none';
   }
 
+  function removeAudio(sid){
+    try { context.room.audios[sid].srcObject = null; context.room.audios[sid].remove(); } catch(e){}
+    delete context.room.audios[sid];
+  }
+
   function paintAudio(list){
     var seen = {};
     list.forEach(function(p){
@@ -341,8 +346,7 @@
     });
     Object.keys(context.room.audios).forEach(function(sid){
       if (seen[sid]) return;
-      try { context.room.audios[sid].srcObject = null; context.room.audios[sid].remove(); } catch(e){}
-      delete context.room.audios[sid];
+      removeAudio(sid);
     });
   }
 
@@ -542,6 +546,6 @@
       .then(function(){ if (btn) btn.disabled = false; });
   }
 
-  return { captureConstraints, applyCaptureProfile, tuneSendQuality, ensureAvatarCam, retryCameraAcquire, camDeniedToast, camJoinNoVideoNotice, setCamMode, reassertMask, teardownCamPipeline, trackOf, attachTrack, paintTile, paintAudio, paintRoom, flipCamera };
+  return { captureConstraints, applyCaptureProfile, tuneSendQuality, ensureAvatarCam, retryCameraAcquire, camDeniedToast, camJoinNoVideoNotice, setCamMode, reassertMask, teardownCamPipeline, trackOf, attachTrack, paintTile, removeAudio, paintAudio, paintRoom, flipCamera };
   } };
 })();

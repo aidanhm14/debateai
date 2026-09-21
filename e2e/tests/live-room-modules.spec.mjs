@@ -92,6 +92,26 @@ test('spectators never capture devices and connection recovery restores playback
   expect(await page.evaluate(() => fixture.room.joined)).toBe(false);
 });
 
+for (const action of ['participant leaves', 'call closes']) {
+  test(`remote microphone and judge audio stop playing when ${action}`, async ({ page }) => {
+    await mediaRoom(page);
+    const result = await page.evaluate(action => {
+      const nodes = ['peer', 'peer:judge'].map(key => {
+        const audio = document.createElement('audio');
+        audio.srcObject = new MediaStream();
+        document.body.appendChild(audio);
+        fixture.room.audios[key] = audio;
+        return audio;
+      });
+      if (action === 'participant leaves') fixture.paintAudio([]);
+      else fixture.teardownRoom();
+      return { retained: Object.keys(fixture.room.audios),
+        attached: nodes.map(node => node.isConnected), sources: nodes.map(node => node.srcObject) };
+    }, action);
+    expect(result).toEqual({ retained: [], attached: [false, false], sources: [null, null] });
+  });
+}
+
 test('presence waits for initialized rooms, cannot revive a departed seat, and resumes after bfcache restore', async ({ page }) => {
   await page.clock.install();
   await page.setContent('<div id="roundQuiet" hidden></div>');

@@ -4495,6 +4495,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     get paintTray(){ return paintTray; },
     get publishTrackFor(){ return publishTrackFor; },
     get reassertMask(){ return reassertMask; },
+    get removeAudio(){ return mediaController.removeAudio; },
     get room(){ return room; },
     get showGuardReviewCard(){ return showGuardReviewCard; },
     get startRoomShots(){ return startRoomShots; },
@@ -7162,7 +7163,6 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // applyRemoteTimer) instead of trusting the raw value. Off-side
   // reconstructs elapsed = accumulatedMs + (Date.now() - rebased start)
   // when state==='running', accumulatedMs alone when 'paused'/'ready'.
-  function publishTimerState(){ return timersController.publishTimerState.apply(this, arguments); }
 
   // Run the off-side's local timer interval driven by the remote
   // currentTimer payload. We compute elapsed against the active
@@ -10524,8 +10524,6 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // it drops back to VGA while its separate 960x540 canvas stays crisp.
   // Both cap at 24fps: a talking face gets no useful detail from 60fps,
   // while encode cost scales almost directly with the frame count.
-  function captureConstraints(){ return mediaController.captureConstraints.apply(this, arguments); }
-  function applyCaptureProfile(){ return mediaController.applyCaptureProfile.apply(this, arguments); }
 
   // A debater is the thing everyone in the room is looking at. Publish a
   // three-layer ladder so Daily can lower bitrate or resolution without
@@ -10640,23 +10638,6 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       'False alarm, cleared',
       'Your opponent confirmed nothing inappropriate is going on. You can turn your camera back on from the camera bar.'
     );
-  }
-  function showModerationCard(title, body){
-    var shell = $('callShell') || $('jitsiPane');
-    if (!shell) return;
-    var d = document.createElement('div');
-    d.style.cssText = 'position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.88);padding:24px;';
-    var card = document.createElement('div');
-    card.style.cssText = 'max-width:460px;text-align:center;background:#131317;border:1px solid rgba(221,46,46,.5);border-radius:16px;padding:26px 28px;';
-    var h = document.createElement('div');
-    h.style.cssText = 'font-size:1.12rem;font-weight:800;color:#fff;margin-bottom:8px;';
-    h.textContent = title;
-    var p = document.createElement('div');
-    p.style.cssText = 'font-size:.9rem;color:rgba(255,255,255,.75);line-height:1.55;';
-    p.textContent = body;
-    card.appendChild(h); card.appendChild(p);
-    d.appendChild(card);
-    shell.appendChild(d);
   }
   // ── Report sheet: peer reports for what a classifier can't judge.
   // Explicit content removes immediately; behavior categories remove at
@@ -10853,12 +10834,10 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   //    which is what lets the browser ask again, and rebuilds the
   //    pipeline around the SAME audio track so the transcriber's
   //    borrowed mic (srvBorrowTrack) never dies mid-speech.
-  function retryCameraAcquire(){ return mediaController.retryCameraAcquire.apply(this, arguments); }
   // Say what is actually wrong instead of pointing at chrome that does
   // not exist. The permissions API separates "blocked for this site"
   // (needs the address-bar toggle; no prompt will ever appear) from
   // "camera busy or absent" (retryable).
-  function camDeniedToast(){ return mediaController.camDeniedToast.apply(this, arguments); }
   // One honest line at join time when the room got sound and no picture,
   // so the person knows it happened and what fixes it.
   var camJoinNoticeShown = false;
@@ -10907,16 +10886,9 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   };
 
   function setRoomNote(){ return connectionController.setRoomNote.apply(this, arguments); }
-  function paintMediaHealth(){ return connectionController.paintMediaHealth.apply(this, arguments); }
-  function wantedReceiveCap(){ return connectionController.wantedReceiveCap.apply(this, arguments); }
-  function applyViewerReceiveCap(){ return connectionController.applyViewerReceiveCap.apply(this, arguments); }
-  function rememberMediaHealth(){ return connectionController.rememberMediaHealth.apply(this, arguments); }
-  function onNetworkQuality(){ return connectionController.onNetworkQuality.apply(this, arguments); }
-  function onCpuLoad(){ return connectionController.onCpuLoad.apply(this, arguments); }
   /* The end-state of a call, with the two things someone in it actually
      wants next. Both are stated because the pane going black is exactly
      when a debater cannot tell whether they just quit the tournament. */
-  function setRoomExit(){ return connectionController.setRoomExit.apply(this, arguments); }
   function isAudienceName(n){ return String(n || '').indexOf('Audience · ') === 0; }
   // Watchers join under this exact name and publish nothing at all. They
   // are normally invisible, because create-daily-room mints them a token
@@ -11135,11 +11107,9 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var drv = boardDriverUid();
     return !!drv && !!p.user_id && p.user_id === drv;
   }
-  function paintTile(){ return mediaController.paintTile.apply(this, arguments); }
   // Remote audio is ours to play in call object mode; the prebuilt UI used
   // to do it. The local participant is deliberately never given an audio
   // element, which is the whole reason this room does not echo.
-  function paintAudio(){ return mediaController.paintAudio.apply(this, arguments); }
   function paintRoom(){ return mediaController.paintRoom.apply(this, arguments); }
   // Front/rear switch. The published track is the DebateCam canvas, so a
   // flip cannot go through Daily's device picker: it has to rebuild the
@@ -11147,7 +11117,6 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // reads camConv.cam through a getter, so the watchdog, the self-check
   // tile and the room still all follow the new canvas.
   function flipCamera(){ return mediaController.flipCamera.apply(this, arguments); }
-  function joinWith(){ return connectionController.joinWith.apply(this, arguments); }
   function joinRoomCall(){ return connectionController.joinRoomCall.apply(this, arguments); }
   function teardownRoom(){ return connectionController.teardownRoom.apply(this, arguments); }
   function mountCallObject(){ return connectionController.mountCallObject.apply(this, arguments); }
@@ -11565,10 +11534,6 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // on; the 'lr-floor-judge' preference and its switch are retired.
   function floorJudgeOn(){ return true; }
   var _floorRemarkShownIdx = -1;
-  function floorJudgeStatus(txt){
-    var el = $('railJudgeStatusText');
-    if (el) el.textContent = txt;
-  }
   function clearFloorRemark(){
     var old = document.getElementById('floorRemark');
     if (old) old.remove();
@@ -11613,10 +11578,6 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       // One paragraph: cut it into sentences so it still reads as notes.
       : (t.match(/[^.!?]+[.!?]*/g) || [t]));
     return out.map(trimFloorBullet).filter(function(b){ return b.length > 1; }).slice(0, FLOOR_BULLETS_MAX);
-  }
-  // Kept for the round-doc write, which stores the text as given.
-  function trimFloorRemark(raw){
-    return floorRemarkBullets(raw).map(function(b){ return '- ' + b; }).join('\n');
   }
   function renderFloorRemark(remark){
     if (!remark || remark.kind !== 'round-summary' || typeof remark.idx !== 'number' || !remark.text) return;
@@ -13655,12 +13616,10 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // as a win and reported the judge as broken. BallotRead.summaryFrom
   // leads with the call composed from fields already on the ballot;
   // nothing here invents.
-  function ballotSummaryRead(){ return verdictController.ballotSummaryRead.apply(this, arguments); }
 
   // Mount the reading-depth control on whichever ballot body just
   // rendered. renderBallotBody replaces the whole node, so this runs
   // after every render; mount() drops the stale pair itself.
-  function mountBallotRead(){ return verdictController.mountBallotRead.apply(this, arguments); }
 
   function renderDeepRfd(){
     var slot = document.getElementById('deepRfdSlot');
@@ -14777,7 +14736,6 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // doesn't yank the user back to the interstitial.
   function renderBallot(){ return verdictController.renderBallot.apply(this, arguments); }
 
-  function showBallotInterstitial(){ return verdictController.showBallotInterstitial.apply(this, arguments); }
 
   // Render the actual ballot DOM. Mode controls whether the sections
   // get .ballot-section[data-stage] wrappers (CSS staggers their
@@ -14789,11 +14747,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // per-seat speaker scores, per-team feedback, and the full RFD.
   // Called from renderBallotBody when the ballot shape carries a
   // teamRanking[] array.
-  function renderBpBallotBody(){ return verdictController.renderBpBallotBody.apply(this, arguments); }
 
-  function councilBrainName(){ return verdictController.councilBrainName.apply(this, arguments); }
 
-  function ballotCouncilHtml(){ return verdictController.ballotCouncilHtml.apply(this, arguments); }
 
   // Judge's scorecard: every side owns a full 1-10 scale on every axis.
   // These are not shares of one ten-point pool: two excellent speeches
@@ -14802,9 +14757,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // before the schema carried dimensions, and any model that ignores
   // the field, degrade to the exact pre-scorecard layout. Spectators
   // render the same ballot doc, so bettors see the same math.
-  function dimScorecardHtml(){ return verdictController.dimScorecardHtml.apply(this, arguments); }
 
-  function tournamentScoringHtml(){ return verdictController.tournamentScoringHtml.apply(this, arguments); }
 
   // ── after the round: the personalized next step ─────────────────
   // The minutes after a verdict decide whether a loss is an exit or a
@@ -14815,7 +14768,6 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // way to go again. Spectators get nothing: the round is not theirs to
   // run back. BP 4-team rounds skip it (renderBpBallotBody returns
   // before this renders; a 1-2-3-4 ordering has no single "you lost").
-  function afterRoundBandHtml(){ return verdictController.afterRoundBandHtml.apply(this, arguments); }
   // Fills the rating slot in the after-round band. Called on render and
   // again when the round doc delivers ratingChanges (live-judge writes
   // them a beat after the ballot). Most rounds never rate (consent or an
@@ -14829,9 +14781,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // is in this filler so the ballot paint never waits on it. Colors are
   // explicit because this page defines only --bg/--text/--accent
   // (--panel/--surface fall back to white here; measured 2026-08-26).
-  function fillFriendSlot(){ return verdictController.fillFriendSlot.apply(this, arguments); }
 
-  function renderBallotBody(){ return verdictController.renderBallotBody.apply(this, arguments); }
 
   // ── Wire setup form
   $('proName').addEventListener('input', function(){ state.proName = this.value; if (!state.teamNames) state.teamNames = {}; state.teamNames.og = this.value; updateRoomStage(); updateStartBtn(); });
@@ -16775,7 +16725,6 @@ window.DBLiveDraft.attach({
   // number, so one enormous room can't quietly become the expensive case
   // this whole change exists to avoid.
   var WATCH_COUNT_CAP = 1000;
-  function watchersRef(){ return presenceController.watchersRef.apply(this, arguments); }
   function startWatchPresence(){ return presenceController.startWatchPresence.apply(this, arguments); }
   // ── Leaving the round says so, instead of going quiet ─────────────
   // Presence was heartbeat-only: stop beating and everyone waits out the
@@ -18514,13 +18463,11 @@ window.DBLiveDraft.attach({
   // writes seatLeft[uid] the moment a debater actually walks out, so the
   // other side hears about it in the next snapshot instead of waiting
   // out QUIET_MS. Inference is the fallback for a tab that just died.
-  function tsMs(){ return presenceController.tsMs.apply(this, arguments); }
   // When was the opponent last in the room, by their OWN heartbeat? 0
   // when there is no identified opponent to ask about (hotseat rounds,
   // direct links with no uids) or before my own presence write has
   // round-tripped, which is the same trust rule checkOpponentPresence
   // uses: an unproven read must never accuse anyone of leaving.
-  function oppLastSeenMs(){ return presenceController.oppLastSeenMs.apply(this, arguments); }
   function opponentHasLeft(){ return presenceController.opponentHasLeft.apply(this, arguments); }
   // Arm the fast path. waitMs is how much benefit of the doubt the signal
   // earns: a dropped video participant might be a reconnect, so it waits
@@ -18536,8 +18483,6 @@ window.DBLiveDraft.attach({
   // room empty over a live picture of them is the failure this copies
   // its guard from. Audience cams are already split out of `seats`, so a
   // remote seat is a debater.
-  function roomIsQuiet(){ return presenceController.roomIsQuiet.apply(this, arguments); }
-  function quietForMins(){ return presenceController.quietForMins.apply(this, arguments); }
   function paintRoundQuiet(){ return presenceController.paintRoundQuiet.apply(this, arguments); }
   function reportRoundOver(){
     if (state.quietBusy) return;
@@ -18929,10 +18874,6 @@ window.DBLiveDraft.attach({
         }, 10000);
       }
     }, 1000);
-  }
-  function startCueGo(via){
-    try { gtag('event', 'live_start_cue_click', { format: state.formatKey, via: via, hot: !!startCue.hot, speech: state.speechIdx }); } catch(e){}
-    startSpeechTimer();
   }
   function clearStartCue(){
     hideStartCueReminder();

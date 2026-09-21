@@ -15,6 +15,7 @@
   var paintTray = function(){ return context.paintTray.apply(this, arguments); };
   var publishTrackFor = function(){ return context.publishTrackFor.apply(this, arguments); };
   var reassertMask = function(){ return context.reassertMask.apply(this, arguments); };
+  var removeAudio = function(){ return context.removeAudio.apply(this, arguments); };
   var showGuardReviewCard = function(){ return context.showGuardReviewCard.apply(this, arguments); };
   var startRoomShots = function(){ return context.startRoomShots.apply(this, arguments); };
   var teardownCamPipeline = function(){ return context.teardownCamPipeline.apply(this, arguments); };
@@ -232,10 +233,7 @@
   function teardownRoom(){
     if (context.room.fallbackAudioTrack){ context.room.fallbackAudioTrack.stop(); context.room.fallbackAudioTrack = null; }
     Object.keys(context.room.tiles).forEach(dropTile);
-    Object.keys(context.room.audios).forEach(function(sid){
-      try { context.room.audios[sid].srcObject = null; context.room.audios[sid].remove(); } catch(e){}
-      delete context.room.audios[sid];
-    });
+    Object.keys(context.room.audios).forEach(removeAudio);
     context.room.joined = false;
     context.room.networkState = 'unknown';
     context.room.networkReasons = [];
