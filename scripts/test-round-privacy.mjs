@@ -73,6 +73,27 @@ assert.equal((await join('outsider','debater')).status,403,'public visibility do
 failToken=true;assert.equal((await join('outsider','viewer')).status,503,'no tokenless fallback');failToken=false;
 failRead=true;assert.equal((await join('a','debater')).status,503);failRead=false;
 round=null;assert.equal((await join('outsider','viewer')).status,409,'no view of a not-yet-initialized round');
+// Slow admission reads start together, but never issue credentials early.
+round={isPrivate:true,proUid:'a',conUid:'b',posterUid:'a'};calls=[];
+const originalDb=deps.getDb;
+let releaseBans, releaseRound;
+const bans=new Promise(resolve=>{releaseBans=resolve;});
+const roundWait=new Promise(resolve=>{releaseRound=resolve;});
+const started=[];
+deps.getDb=()=>({collection:name=>({doc:()=>({get:async()=>{
+  started.push(name);
+  if(name==='video_bans')await bans;
+  if(name==='live_rounds')await roundWait;
+  return {exists:name==='live_rounds',data:()=>round};
+}})})});
+const pendingAdmission=join('a','debater');
+for(let i=0;i<30&&!started.includes('live_rounds');i++)await new Promise(resolve=>setImmediate(resolve));
+assert.ok(started.includes('video_bans')&&started.includes('live_rounds'),'seat lookup does not wait for ban lookup');
+assert.equal(calls.length,0,'pending checks cannot issue video credentials');
+releaseRound();await new Promise(resolve=>setImmediate(resolve));
+assert.equal(calls.length,0,'completed seat check still waits for the ban check');
+releaseBans();assert.equal((await pendingAdmission).status,200);
+deps.getDb=originalDb;
 console.log('Round privacy: private creation, saved visibility on both reload paths, seat-only admission, direct Daily protection, public receive-only access and closed failure paths passed.');
 
 const { draftFixture } = await import('./test-support/draft-fixture.mjs');

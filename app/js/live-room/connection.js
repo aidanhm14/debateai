@@ -163,7 +163,9 @@
     if (context.room.viewer) props.audioSource = false;
     else if (audioSource) props.audioSource = audioSource;
     if (typeof context.room.token === 'string' && context.room.token) props.token = context.room.token;
-    return context.room.call.join(props).then(function(r){
+    return Promise.resolve(context.room.loadPending).then(function(){
+      return context.room.call.join(props);
+    }).then(function(r){
       tuneSendQuality();
       return r;
     }).catch(function(e){
@@ -182,6 +184,15 @@
     if (context.room.fallbackAudioTrack){ context.room.fallbackAudioTrack.stop(); context.room.fallbackAudioTrack = null; }
     liveJourney('call_join_started');
     setRoomNote('Connecting to the video room.');
+    // Daily's call engine is a second download after the small SDK. Load
+    // it while the browser opens devices, without requesting any itself.
+    var call = context.room.call;
+    context.room.loadPending = Promise.resolve().then(function(){
+      if (typeof call.load === 'function') return call.load();
+    }).catch(function(e){
+      // join() owns the visible retry/error path and can retry a failed load.
+      liveJourney('call_preload_failed', { code: (e && e.name) || 'unknown' });
+    });
     var pending;
     if (context.room.viewer){
       context.camConv.unified = false;

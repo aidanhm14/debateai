@@ -185,7 +185,14 @@ export default async (req) => {
     console.error('[create-daily-room] site-wide hourly room cap hit (' + globalCap + ')');
     return jsonResponse(503, { error: 'Video rooms are at capacity right now. Try again in a few minutes.' });
   }
-  const ban = await banFor(who.uid ? [who.key, who.ipKey] : [who.ipKey]);
+  // These reads are independent. Keep every admission check, but pay for
+  // their slowest response once instead of adding three network waits.
+  const [ban, admission, roundRead] = await Promise.all([
+    banFor(who.uid ? [who.key, who.ipKey] : [who.ipKey]),
+    tournamentAdmission(name),
+    Promise.resolve().then(() => withDeadline(getDb().collection('live_rounds').doc(name).get(), 3000))
+      .then(snap => ({ snap }), () => ({ error: true })),
+  ]);
   if (ban) {
     return jsonResponse(403, {
       banned: true,
@@ -199,17 +206,17 @@ export default async (req) => {
   // this record before either link exists. Unlike the general safety reads
   // above, the admission check fails closed because guessing a room name
   // must never produce a participant token.
-  const admission = await tournamentAdmission(name);
   // A viewer's URL is never a team-seat grant. Approved rosters are read
   // before a sending token is minted; secure rooms have no tokenless path.
   let teamRound = null;
   let roundData = null;
-  try {
-    const snap = await withDeadline(getDb().collection('live_rounds').doc(name).get(), 3000);
+  if (roundRead.error) {
+    return jsonResponse(503,{error:'Could not verify the room seats. Try again.'});
+  }
+  {
+    const snap = roundRead.snap;
     if (snap.exists) roundData = snap.data();
     if (snap.exists && (snap.data().teamHostUid || Teams.enabled(snap.data()))) teamRound = snap.data();
-  } catch(e) {
-    return jsonResponse(503,{error:'Could not verify the room seats. Try again.'});
   }
   let challengeRoom = false;
   try { if (name.startsWith('Challenge-')) challengeRoom = await challengeRoomAdmission(getDb(), name, who.uid, receiveOnly); }

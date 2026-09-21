@@ -17,6 +17,8 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preload" href="/vendor/daily-iframe-0.92.2.js" as="script">
 <script src="/js/native-bridge.js"></script>
 <script src="/js/public-identity.js"></script>
 <script defer src="/js/audience-mode.js"></script>
@@ -25,6 +27,7 @@
 <script defer src="/js/round-export.js"></script>
 <script defer src="/js/round-flow.js"></script>
 <link rel="stylesheet" href="/css/round-flow.css">
+<link rel="stylesheet" href="/css/live-room-panel.css">
 <title>Live Round · Debatable</title>
 <script>/* Broadcast view (?stage=1): class lands pre-paint so the chrome never flashes in. */
 if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className+=' stage-mode';</script>
@@ -3805,19 +3808,14 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         <div class="setup-start-inner">
           <button id="startBtn" class="btn btn-primary" style="width:100%;font-size:.92rem;padding:14px;letter-spacing:.06em;text-transform:uppercase" disabled>▶ Start round</button>
           <p style="font-size:.7rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center">Start opens the video room and begins Speech 1. Send this page to the other speaker so you both enter the same room.</p>
-          <p id="recordingSetupNote" style="font-size:.72rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center"><strong style="color:var(--text)">Want a replay?</strong> Press the red Record round bar at the top. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.</p>
+          <p id="recordingSetupNote" style="font-size:.72rem;color:var(--text-dim);margin-top:10px;line-height:1.5;text-align:center"><strong style="color:var(--text)">Want a replay?</strong> Use Record round at the top. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.</p>
         </div>
       </div>
     </div>
 
     <!-- ── ROUND (active speech) ── -->
     <div id="roundView" class="hidden" style="display:flex;flex-direction:column;flex:1;min-height:0">
-      <!-- 2026-09-04, the founder: "put record button at the top actually".
-           One full-width red bar, first thing in the panel on every width.
-           Same #rmbRec ids and states (pending / recording / required), so
-           the consent dialog, the elapsed clock and the tournament
-           requirement all paint into it unchanged. Spectators never see it
-           (body.spectator-mode .rmb-rec). -->
+      <!-- Recording stays first, with the same consent and elapsed states. -->
       <div class="rec-topbar" id="recTopBar">
         <div class="rmb-rec" id="rmbRec" title="Rounds are not recorded by default. Every seated debater must agree before capture starts.">
           <button type="button" class="rmb-rec-btn" id="rmbRecBtn">
@@ -3861,7 +3859,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
             <div class="rmb-motion" id="rmbMotion">&#8212;</div>
             <div class="round-own-side" id="roundOwnSide" aria-live="polite" hidden></div>
             <div class="round-side-pair" id="roundSidePair" aria-label="Who argues each side"></div>
-            <div class="round-flow-entry"><button type="button" class="round-flow-trigger" data-round-flow><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><path d="M19 4h3v16h-3M4 8h1m7 0h1M4 12h1m7 0h1"/></svg>View round flow</button><span>Arguments and notes for each speech</span></div>
+
             <!-- 2026-09-07: the "What This House means" link rides the
                  resolution it explains. renderHouseGloss() fills this and
                  #rmbHouse; #rmbHouse is hidden by CSS whenever this one
@@ -3970,7 +3968,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
           <button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:var(--text-dim);border-color:var(--border,rgba(128,128,128,.28));background:transparent;font-weight:600">Next →</button>
         </div>
         <div class="ready-hint" id="readyHint">Starts the timer and mic.</div>
-        <div class="rn-entry"><button type="button" class="rn-export" id="openRoundNotes" aria-controls="roundNotes">Round notes</button></div>
+        <div class="room-resources"><div class="round-flow-entry"><button type="button" class="round-flow-trigger" data-round-flow><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><path d="M19 4h3v16h-3M4 8h1m7 0h1M4 12h1m7 0h1"/></svg>View round flow</button></div><button type="button" class="rn-export" id="openRoundNotes" aria-controls="roundNotes">Round notes</button><button type="button" id="roomChatBtn" aria-label="Open round chat" aria-controls="audPanel">Chat</button></div>
         <!-- 2026-08-23: the room's own liveness, for whoever is looking at
              it. Every LISTING has told a live round from a dead one since
              the ghost-room fix (the seat heartbeat, ~100s), but nothing
@@ -3985,6 +3983,46 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         <div class="round-quiet guest-hold" id="guestHold" hidden></div>
       </div>
       <div id="conversationNotes" hidden><p id="conversationNotesEmpty">Say early what the key words mean to you. The judge scores you on your meaning, not the dictionary. Shared round notes appear here as the conversation develops.</p></div>
+      <!-- Pending side swap. Hidden until one debater asks to trade; the
+           seats do not move until the other one agrees. -->
+      <div class="rmb-propose" id="swapPropose" hidden>
+        <div class="rmbp-text">
+          <span class="rmbp-eyebrow" id="swpEyebrow">Side swap proposed</span>
+          <div class="rmbp-motion" id="swpWhat"></div>
+          <span class="rmbp-by" id="swpBy"></span>
+        </div>
+        <div class="rmbp-actions" id="swpActions"></div>
+      </div>
+      <!-- Set the context (US / world). Shown before Speech 1 only when the
+           AI decides the motion depends on where it applies. Both debaters
+           pick a setting; the agreed frame is handed to the judge. Filled by
+           window.__lrRenderContext from the round snapshot. -->
+      <div class="rmb-context-setup" id="rmbContext" hidden>
+        <div class="rmbc-text">
+          <span class="rmbc-eyebrow">Set the context</span>
+          <div class="rmbc-reason" id="rmbcReason"></div>
+        </div>
+        <div class="rmbc-options" id="rmbcOptions"></div>
+        <div class="rmbc-status" id="rmbcStatus"></div>
+      </div>
+
+
+      <!-- Audience: the private "where do you stand"
+           call. Spectator-only, so the section stays hidden until
+           svDock() mounts something into it. -->
+      <details class="round-details" id="audienceTools" hidden>
+        <summary><span id="audienceToolsLabel">Your take</span></summary>
+        <div class="rd-body" id="audienceToolsBody"></div>
+      </details>
+
+
+      <!-- Round details: the standing chrome, folded behind one line so
+           the live panel stays motion, clock, AI notes, transcript. The
+           roster and the speech order keep their ids; every renderer
+           writes into them exactly as before. -->
+      <details class="round-details" id="roundDetails">
+        <summary>Round details<span class="rd-status" id="roundDetailsStatus"></span></summary>
+        <div class="rd-body">
       <div class="round-motion-bar" id="roundMotionBar">
         <div class="rmb-text">
           <!-- The resolution itself moved up beside the clock (see the
@@ -4027,46 +4065,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
           </div>
         </div>
       </div>
-      <!-- Pending side swap. Hidden until one debater asks to trade; the
-           seats do not move until the other one agrees. -->
-      <div class="rmb-propose" id="swapPropose" hidden>
-        <div class="rmbp-text">
-          <span class="rmbp-eyebrow" id="swpEyebrow">Side swap proposed</span>
-          <div class="rmbp-motion" id="swpWhat"></div>
-          <span class="rmbp-by" id="swpBy"></span>
-        </div>
-        <div class="rmbp-actions" id="swpActions"></div>
-      </div>
-      <!-- Set the context (US / world). Shown before Speech 1 only when the
-           AI decides the motion depends on where it applies. Both debaters
-           pick a setting; the agreed frame is handed to the judge. Filled by
-           window.__lrRenderContext from the round snapshot. -->
-      <div class="rmb-context-setup" id="rmbContext" hidden>
-        <div class="rmbc-text">
-          <span class="rmbc-eyebrow">Set the context</span>
-          <div class="rmbc-reason" id="rmbcReason"></div>
-        </div>
-        <div class="rmbc-options" id="rmbcOptions"></div>
-        <div class="rmbc-status" id="rmbcStatus"></div>
-      </div>
 
-
-      <!-- Audience: the private "where do you stand"
-           call. Spectator-only, so the section stays hidden until
-           svDock() mounts something into it. -->
-      <details class="round-details" id="audienceTools" hidden>
-        <summary><span id="audienceToolsLabel">Your take</span></summary>
-        <div class="rd-body" id="audienceToolsBody"></div>
-      </details>
-
-
-      <!-- Round details: the standing chrome, folded behind one line so
-           the live panel stays motion, clock, AI notes, transcript. The
-           roster and the speech order keep their ids; every renderer
-           writes into them exactly as before. -->
-      <details class="round-details" id="roundDetails">
-        <summary>Round details<span class="rd-status" id="roundDetailsStatus"></span></summary>
-        <div class="rd-body">
           <!-- RETIRED 2026-09-03 (the founder, on a live round: "get rid
                of this thing"). The two-panel long-form sides explainer
                used to sit here. The compact sides line under the
@@ -4143,7 +4142,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
             </div>
             <span id="capNote" class="cap-note" hidden></span>
           </div>
-          <p class="rd-note" id="recordingRoundNote">Nobody is asked to record by default. Press the red Record round bar at the top if you want a replay; it starts only if every seated person agrees.</p>
+          <p class="rd-note" id="recordingRoundNote">Nobody is asked to record by default. Use Record round at the top if you want a replay; it starts only if every seated person agrees.</p>
         </div>
       </details>
 
@@ -4151,7 +4150,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
            notes and fact checks, then the transcript at the dead bottom. The
            transcript block moved below Round details; every id inside is
            unchanged, so the mic, captions and language offer are untouched. -->
-      <div class="transcript-area">
+      <details class="room-transcript" id="roomTranscript"><summary>Transcript<span>Live captions</span></summary><div class="transcript-area">
         <div class="transcript-helpers row">
           <!-- 2026-09-03, per the founder: the header says one thing. The
                auto-mic switch, the language picker, spoken translation and
@@ -4197,7 +4196,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
           <div class="sc-body" id="specCaptionsBody"></div>
           <div class="sc-empty" id="specCaptionsEmpty"></div>
         </div>
-      </div>
+      </div></details>
       <!-- 2026-09-03, per the founder: one tab at the bottom, under the
            transcript, holding round notes, the fact check and the
            recording request. The floor judge switch moved into "How the
@@ -7338,18 +7337,15 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // rebase applyRemoteTimer does for the clock.
   function setupConversationPanel(on){
     var area = document.querySelector('.transcript-area');
-    var det = $('conversationTranscript');
-    if (on && area && !det){
-      det = document.createElement('details');det.id = 'conversationTranscript';det.className = 'conversation-transcript';
-      var summary = document.createElement('summary');summary.textContent = 'Conversation transcript';
-      det.appendChild(summary);area.parentNode.insertBefore(det,area);
+    var det = $('roomTranscript');
+    if (det){
+      det.classList.toggle('conversation-transcript', !!on);
+      var label = det.querySelector('summary');
+      if (label) label.innerHTML = (on ? 'Conversation transcript' : 'Transcript') + '<span>Live captions</span>';
+    }
+    if (on && area && !$('conversationFlow')){
       var flow = document.createElement('div');flow.id = 'conversationFlow';flow.className = 'conversation-flow';
       area.appendChild(flow);
-    }
-    if (det && area){
-      det.hidden = !on;
-      if (on && area.parentNode !== det) det.appendChild(area);
-      if (!on && area.parentNode === det) det.parentNode.insertBefore(area,det);
     }
     var notes = $('conversationNotes');if (notes) notes.hidden = !on;
     paintConversationFlow();
@@ -9329,8 +9325,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       return;
     }
     if (state.recordingRequired === false){
-      if (setupNote) setupNote.innerHTML = '<strong style="color:var(--text)">Want a replay?</strong> Press the red Record round bar at the top. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.';
-      if (roundNote) roundNote.textContent = 'Nobody is asked to record by default. Press the red Record round bar at the top if you want a replay; it starts only if every seated person agrees.';
+      if (setupNote) setupNote.innerHTML = '<strong style="color:var(--text)">Want a replay?</strong> Use Record round at the top. Recording starts only if every seated person agrees. Replays appear on <a href="/watch" style="color:var(--accent);font-weight:800">Watch</a> for clipping and sharing.';
+      if (roundNote) roundNote.textContent = 'Nobody is asked to record by default. Use Record round at the top if you want a replay; it starts only if every seated person agrees.';
     }
   }
 
@@ -11819,6 +11815,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   }
   function wireRoundNotesToggle(){
     var btn = $('rnOffBtn');
+    var chat = $('roomChatBtn');
+    if (chat) chat.addEventListener('click', function(){ audSetOpen(true); });
     var open = $('openRoundNotes');
     if (open) open.addEventListener('click', function(){
       state.rnRequested = true;
@@ -17432,7 +17430,7 @@ window.DBLiveDraft.attach({
       if (!b) return;
       var k = b.getAttribute('data-sm');
       if (k === 'notes'){ state.rnRequested = true; try { localStorage.setItem('lr-round-notes', '1'); } catch(e){} renderRoundNotes(); }
-      var target = k === 'notes' ? $('moreOptions') : (k === 'audience' ? $('audienceTools') : document.querySelector('.transcript-area'));
+      var target = k === 'notes' ? $('moreOptions') : (k === 'audience' ? $('audienceTools') : $('roomTranscript'));
       if (k === 'audience' && target && !(($('audienceToolsBody') || {}).children || []).length){
         toast('Your take opens once the round is live.'); return;
       }

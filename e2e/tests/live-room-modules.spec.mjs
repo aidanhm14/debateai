@@ -151,3 +151,30 @@ test('presence waits for initialized rooms, cannot revive a departed seat, and r
     return [departed, fixture.opponentHasLeft()];
   })).toEqual([true, false]);
 });
+
+test('video engine loads alongside device capture and join waits for both', async ({ page }) => {
+  await mediaRoom(page);
+  await page.evaluate(() => {
+    fixture.room.call.load = () => new Promise(resolve => { fixture.releaseEngine = resolve; });
+    const capture = navigator.mediaDevices.getUserMedia;
+    navigator.mediaDevices.getUserMedia = options => new Promise(resolve => {
+      fixture.releaseCapture = () => resolve(capture(options));
+    });
+    fixture.pendingJoin = fixture.joinRoomCall();
+    fixture.joinRoomCall();
+  });
+  expect(await page.evaluate(() => [typeof fixture.releaseEngine, typeof fixture.releaseCapture, fixture.joins.length])).toEqual(['function', 'function', 0]);
+  await page.evaluate(() => fixture.releaseCapture());
+  expect(await page.evaluate(() => fixture.joins.length)).toBe(0);
+  await page.evaluate(async () => { fixture.releaseEngine(); await fixture.pendingJoin; });
+  expect(await page.evaluate(() => [fixture.captures.length, fixture.joins.length, fixture.room.joined])).toEqual([1, 1, true]);
+});
+
+test('preload failure still lets the normal join path recover', async ({ page }) => {
+  await mediaRoom(page);
+  await page.evaluate(async () => {
+    fixture.room.call.load = async () => { throw new Error('Temporary download failure'); };
+    await fixture.joinRoomCall();
+  });
+  expect(await page.evaluate(() => [fixture.room.joined, fixture.room.joinPending, fixture.joins.length])).toEqual([true, false, 1]);
+});
