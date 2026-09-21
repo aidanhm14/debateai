@@ -53,7 +53,7 @@ const deps={Request,Response,URL,Headers,TextEncoder,crypto,console,Teams,
    if(failRead)throw new Error('offline');
    return {exists:name==='live_rounds'&&!!round,data:()=>round};
  }})})}),withDeadline:p=>p,verifyIdToken:async uid=>({sub:uid,firebase:{sign_in_provider:'google.com'}}),
- checkLayers:async()=>({ok:true}),parseTournamentRoom:()=>null,challengeRoomAdmission:async()=>false,
+ admitVideoRequest:async()=>({ok:true}),videoRoomProperties:()=>({max_participants:200}),checkLayers:async()=>({ok:true}),parseTournamentRoom:()=>null,challengeRoomAdmission:async()=>false,
  fetch:async(url,init)=>{calls.push({url,body:JSON.parse(init.body||'{}')});
   if(url.endsWith('meeting-tokens'))return new Response(JSON.stringify(failToken?{}:{token:'test'}),{status:failToken?500:200});
   return new Response(JSON.stringify({name:'room',privacy:'private',url:'https://test.daily.co/room'}));

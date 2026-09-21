@@ -82,7 +82,7 @@ await post('guest',{action:'accept',id:directed.challenge.id});
 const directRoom=await post('host',{action:'join',id:directed.challenge.id});
 let roomRequest,tokenRequest,tokenFailure=false;
 const dailyDeps={getDb:()=>db,withDeadline:p=>p,verifyIdToken:deps.verifyIdToken,
-  checkLayers:deps.checkLayers,parseTournamentRoom:()=>null,Teams,challengeRoomAdmission:room.challengeRoomAdmission,
+  admitVideoRequest:async()=>({ok:true}),videoRoomProperties:()=>({max_participants:200}),checkLayers:deps.checkLayers,parseTournamentRoom:()=>null,Teams,challengeRoomAdmission:room.challengeRoomAdmission,
   process:{env:{DAILY_API_KEY:'fixture',DAILY_DOMAIN:'fixture',DAILY_RECORD:'0'}},
   fetch:async(url,init)=>{
     if(url.endsWith('/meeting-tokens')){tokenRequest=JSON.parse(init.body);return new Response(JSON.stringify(tokenFailure?{}:{token:'fixture-token'}),{status:tokenFailure?500:200});}

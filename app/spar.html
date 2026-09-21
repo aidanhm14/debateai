@@ -7831,45 +7831,36 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     }
   }
 
-  // Real-time queue watcher + polling fallback. The snapshot listener
-  // fires the moment another peer's queue doc lands in Firestore,
-  // making pairing sub-second instead of up-to-2s with polling alone.
-  // Polling stays as a fallback for snapshot-stream hiccups (network
-  // blip, Firestore reconnect, cold-start latency).
-  //
-  // Debounce: rapid-fire snapshot events (multiple peers joining at
-  // once) coalesce to one tryMatch per ~150ms so we don't pile up
-  // transaction attempts.
+  // The listener and fallback use one candidate query. Reuse its fresh
+  // snapshot instead of issuing a second 12-document read on every update.
+  function waitingQueueQuery(){
+    return firebaseDb.collection('matchmaking_queue')
+      .where('status', '==', 'waiting').orderBy('joinedAt').limit(12);
+  }
+
   function startMatchPolling(){
     if (state.matchPollInterval) clearInterval(state.matchPollInterval);
-    // The onSnapshot listener below is the REAL matcher: it fires within
-    // ~150ms of any waiting-doc change (a peer joins, heartbeats, matches),
-    // so a live peer is picked up near-instantly regardless of this poll.
-    // This interval is only a backstop for a dropped listener stream. It
-    // used to run every 2s, and each tick does a 12-doc get() — ~14k reads
-    // per hour for ONE person just sitting on the searching screen, which
-    // is what blows the Firestore read quota. 15s keeps the safety net at
-    // a fraction of the cost; matching speed is unchanged (the listener
-    // owns the fast path).
+    state.queueSnapshot = null;
+    state.queueSnapshotAt = 0;
+    // Quiet or disconnected streams still get a server read after 45s.
     state.matchPollInterval = setInterval(tryMatch, 15000);
     setTimeout(tryMatch, 600); // first attempt fast
 
     if (state.queueWatchUnsub){ try { state.queueWatchUnsub(); } catch(e){} }
-    state.queueWatchUnsub = firebaseDb.collection('matchmaking_queue')
-      .where('status', '==', 'waiting')
-      .limit(8)
-      .onSnapshot(function(){
+    state.queueWatchUnsub = waitingQueueQuery()
+      .onSnapshot(function(snapshot){
+        state.queueSnapshot = snapshot;
+        state.queueSnapshotAt = Date.now();
         if (state.matchTriggerPending) return;
         state.matchTriggerPending = true;
-        // Coalesce a burst of changes (e.g. several people joining or
-        // heartbeating at once) into one tryMatch get() instead of one
-        // per change. 500ms still feels instant and cuts the read
-        // amplification when the queue is active.
+        // Coalesce changes and spread competing attempts across clients.
         setTimeout(function(){
           state.matchTriggerPending = false;
           tryMatch();
-        }, 500);
+        }, 500 + Math.floor(Math.random() * 500));
       }, function(err){
+        state.queueSnapshot = null;
+        state.queueSnapshotAt = 0;
         console.warn('[spar] queue snapshot stream error:', err);
       });
   }
@@ -7937,25 +7928,18 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   function tryMatch(){
-    if (state.cancelled || !state.user || !firebaseDb) return;
-    var queue = firebaseDb.collection('matchmaking_queue');
-    // Match against every waiting debater. Format and judge notes are
-    // proposed terms; spar-pair routes disagreements through consent.
-    var queries = [
-      queue.where('status', '==', 'waiting').orderBy('joinedAt').limit(12).get(),
-    ];
-    Promise.all(queries).then(function(snaps){
-      var seen = {};
-      var others = [];
-      snaps.forEach(function(snap){
-        snap.docs.forEach(function(d){
-          if (seen[d.id]) return;
-          var dd = d.data();
-          if (!queuePeerCanMatch(d)) return;
-          seen[d.id] = true;
-          others.push(d);
-        });
-      });
+    if (state.cancelled || !state.user || !firebaseDb || state.matchReadInFlight) return;
+    state.matchReadInFlight = true;
+    var readTimeout;
+    var snapshot = state.queueSnapshot;
+    var fresh = snapshot && Date.now() - state.queueSnapshotAt < 45000;
+    var read = fresh ? Promise.resolve(snapshot) : Promise.race([
+      waitingQueueQuery().get(),
+      new Promise(function(resolve, reject){ readTimeout = setTimeout(function(){ reject(new Error('Queue read timed out')); }, 10000); }),
+    ]);
+    return read.then(function(snapshot){
+      if (state.cancelled) return;
+      var others = snapshot.docs.filter(queuePeerCanMatch);
       state.waitingPeers = others.length;
       setQuietQueue(others.length === 0);
       var stats = document.getElementById('queueStats');
@@ -7970,7 +7954,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         updateDiag({ last: 'cooldown after pass' });
         return;
       }
-      orderMatchCandidates(others).then(function(ordered){
+      return orderMatchCandidates(others).then(function(ordered){
         if (state.cancelled || !ordered.length) return;
         var privateCandidates = [];
         // Friend links keep their promised seat. Ordinary viewpoint mode
@@ -7996,6 +7980,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
           host.innerHTML = '<div class="error">Live matching is over capacity right now, so we can\'t put you in line. Debate the AI instead, or check back in a bit. <a href="/practice" style="color:inherit;text-decoration:underline">Skip to AI</a>.</div>';
         }
       }
+    }).then(function(){
+      clearTimeout(readTimeout);
+      state.matchReadInFlight = false;
     });
   }
 

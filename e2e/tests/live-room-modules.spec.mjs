@@ -118,14 +118,14 @@ test('presence waits for initialized rooms, cannot revive a departed seat, and r
   await page.addScriptTag({ content: readApp('js/live-room/presence.js') });
   await page.evaluate(() => {
     const f = window.fixture = { writes: [], messages: [], stamp: 100,
-      state: { user: { uid: 'a' }, proUid: 'a', conUid: 'b', phase: 'round', roundDocSeen: false, dailyMounted: false },
+      state: { user: { uid: 'a', getIdToken: async () => 'test' }, proUid: 'a', conUid: 'b', phase: 'round', roundDocSeen: false, dailyMounted: false },
       room: { joined: true, remoteSeats: 0, call: { sendAppMessage: message => f.messages.push(message) } },
       audCam: {}, firebaseDb: {}, WATCH_STALE_MS: 60000, WATCH_COUNT_CAP: 100, SEAT_HB_MS: 1000, OPP_QUIET_MS: 60000,
       isSpectator: () => false, mySide: () => 'pro', paintPrivacyToggle() {},
     };
     window.firebase = { firestore: { FieldValue: { serverTimestamp: () => ++f.stamp } } };
-    const query = { where: () => query, limit: () => query, get: () => new Promise(resolve => { f.releaseCount = resolve; }) };
-    const round = { collection: () => query, set: async data => { f.writes.push(data); } };
+    window.fetch = () => new Promise(resolve => { f.releaseCount = result => resolve(Response.json({ count: result.size, capped: false })); });
+    const round = { id: 'test-room', collection: () => ({}), set: async data => { f.writes.push(data); } };
     f.getRoundDocRef = () => round;
     Object.assign(f, DBLivePresence.create(f));
     f.startWatchPresence();
@@ -151,6 +151,36 @@ test('presence waits for initialized rooms, cannot revive a departed seat, and r
     return [departed, fixture.opponentHasLeft()];
   })).toEqual([true, false]);
 });
+
+for (const mode of ['fresh primary', 'departed primary', 'private room', 'count outage']) {
+  test(`audience aggregation handles ${mode} without losing seat presence`, async ({ page }) => {
+    await page.clock.install();
+    await page.setContent('<div id="roundQuiet" hidden></div>');
+    await page.addScriptTag({ content: readApp('js/live-room/presence.js') });
+    await page.evaluate(mode => {
+      const f = window.fixture = { writes: [], counts: 0,
+        state: { user: {uid:'b',getIdToken:async()=>'test'}, proUid:'a', conUid:'b', phase:'round', roundDocSeen:true,
+          dailyMounted:true, seatSeen:{a:Date.now()}, seatLeft:mode==='departed primary'?{a:Date.now()+1}:{}, isPrivate:mode==='private room' },
+        room:{joined:true,remoteSeats:1}, audCam:{}, firebaseDb:{}, WATCH_STALE_MS:75000, WATCH_COUNT_CAP:1000,
+        SEAT_HB_MS:1000, OPP_QUIET_MS:60000, isSpectator:()=>false, mySide:()=> 'con', paintPrivacyToggle(){},
+      };
+      if(mode==='count outage') f.state.seatSeen.a=1;
+      window.firebase={firestore:{FieldValue:{serverTimestamp:()=>Date.now()}}};
+      window.fetch=async()=>{f.counts++;return mode==='count outage'?new Response('',{status:503}):Response.json({count:500,capped:false});};
+      f.getRoundDocRef=()=>({id:'test-room',collection:()=>({}),set:async data=>f.writes.push(data)});
+      Object.assign(f,DBLivePresence.create(f)); f.startWatchPresence();
+    },mode);
+    await page.clock.runFor(1100);
+    await expect.poll(()=>page.evaluate(()=>fixture.writes.length)).toBeGreaterThan(0);
+    const result=await page.evaluate(()=>({counts:fixture.counts,beats:fixture.writes.filter(x=>x.seatSeen),inFlight:!!fixture.state.watchCountInFlight}));
+    expect(result.counts).toBe(['departed primary','count outage'].includes(mode)?1:0);
+    expect(result.beats.every(x=>x.seatSeen.b)).toBe(true);
+    expect(result.inFlight).toBe(false);
+    if(mode==='departed primary') expect(result.beats.some(x=>x.watchCount===500)).toBe(true);
+    if(mode==='private room') expect(result.beats.every(x=>x.watchCount===0)).toBe(true);
+    if(mode==='count outage') expect(result.beats.every(x=>!('watchCount' in x))).toBe(true);
+  });
+}
 
 test('video engine loads alongside device capture and join waits for both', async ({ page }) => {
   await mediaRoom(page);

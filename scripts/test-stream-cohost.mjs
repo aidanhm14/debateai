@@ -2,6 +2,7 @@
 import { readPageSource } from './lib/page-source.mjs';
 
 import assert from 'node:assert/strict';
+import { videoRoomProperties } from '../app/netlify/functions/lib/video-capacity.mjs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -133,7 +134,7 @@ const audienceCamBlock = liveRound.slice(audienceCamStart, audienceCamEnd);
 check(control.includes("if (action === 'cohost')"), 'stream control exposes the admin-only cohost action');
 check(control.includes('enable_hidden_participants: true'), 'public viewers are hidden and receive-only');
 check(control.includes('enable_multiparty_adaptive_simulcast: true'), 'broadcast room keeps adaptive simulcast for direct viewers');
-check(liveRoomControl.includes('enable_multiparty_adaptive_simulcast: true'), 'live rounds keep adaptive simulcast after hidden viewers join');
+check(liveRoomControl.includes('...videoRoomProperties()') && videoRoomProperties({}).enable_multiparty_adaptive_simulcast === true, 'live rounds keep adaptive simulcast after hidden viewers join');
 check(studio.includes("call.on('participant-counts-updated', reportParticipants)"), 'studio tracks hidden public viewers');
 check(studio.includes("call.on('network-quality-change'"), 'studio reacts to network pressure');
 check(studio.includes("call.on('cpu-load-change'"), 'studio reacts to device pressure');

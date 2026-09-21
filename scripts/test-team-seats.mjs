@@ -141,7 +141,7 @@ let dailyBody,tokenBody,tokenFails=false;
 const dailySource=readPageSource('app/netlify/functions/create-daily-room.mjs','utf8').replace(/^import .*;\n/gm,'').replace('export default async (req) =>','var handler = async (req) =>').replace(/export const config\s*=[\s\S]*$/,'');
 const dailyCtx={Request,Response,URL,Headers,TextEncoder,crypto,console,process:{env:{DAILY_API_KEY:'test',DAILY_DOMAIN:'test',DAILY_RECORD:'0'}},Teams,
   getDb:()=>f.db,withDeadline:p=>p,verifyIdToken:async uid=>({sub:uid,firebase:{sign_in_provider:'google.com'}}),
-  checkLayers:async()=>({ok:true}),parseTournamentRoom:()=>null,
+  admitVideoRequest:async()=>({ok:true}),videoRoomProperties:()=>({max_participants:200}),checkLayers:async()=>({ok:true}),parseTournamentRoom:()=>null,
   fetch:async(url,init)=>{
     if(url.endsWith('/meeting-tokens')){tokenBody=JSON.parse(init.body);return new Response(JSON.stringify(tokenFails?{}:{token:'fake-token'}),{status:tokenFails?500:200});}
     dailyBody=JSON.parse(init.body);return new Response(JSON.stringify({name:'room',url:'https://test.daily.co/room',privacy:'private'}));

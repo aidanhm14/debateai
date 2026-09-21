@@ -101,27 +101,38 @@
             beat.seatSeen = {};
             beat.seatSeen[context.state.user.uid] = firebase.firestore.FieldValue.serverTimestamp();
           }
-          // Fold the audience count into this same write so the whole room
-          // gets it through the round-doc listener it already has, instead
-          // of every viewer subscribing to the watchers collection. The
-          // freshness filter runs SERVER-side, so stale heartbeats are
-          // never fetched; `ts` is a plain field, so Firestore's automatic
-          // single-field index covers it and there is no composite index
-          // to deploy. Both debaters do this (2x a small number is still a
-          // small number) rather than running a leader election that could
-          // strand the count when the leader's tab dies.
-          var wcol = watchersRef();
+          // One seated client refreshes the count. A fresh peer takes over
+          // if the primary seat leaves. The server aggregates watchers so
+          // a 500-person audience does not download 500 docs per beat.
+          var leader = context.state.proUid;
+          var leaderSeen = tsMs(context.state.seatSeen && context.state.seatSeen[leader]);
+          var leaderLeft = tsMs(context.state.seatLeft && context.state.seatLeft[leader]);
+          var primary = !leader || context.state.user.uid === leader ||
+            !leaderSeen || Date.now() - leaderSeen > 30000 || leaderLeft >= leaderSeen;
           seatBeatN++;
-          if (!wcol || (seatBeatN % 3) !== 1){ rref.set(beat, { merge: true }).catch(function(){}); return; }
-          wcol.where('ts', '>', new Date(Date.now() - context.WATCH_STALE_MS))
-              .limit(context.WATCH_COUNT_CAP + 1)
-              .get()
-              .then(function(snap){
-                beat.watchCount = snap.size;
-                beat.watchCountCapped = snap.size > context.WATCH_COUNT_CAP;
+          if (context.state.isPrivate === true){
+            beat.watchCount = 0; beat.watchCountCapped = false;
+            rref.set(beat, { merge: true }).catch(function(){}); return;
+          }
+          if (!primary || (seatBeatN % 3) !== 1 || context.state.watchCountInFlight){
+            rref.set(beat, { merge: true }).catch(function(){}); return;
+          }
+          context.state.watchCountInFlight = true;
+          var user = context.state.user;
+          Promise.resolve().then(function(){ return user.getIdToken(); })
+              .then(function(token){
+                return fetch('/api/room-watch-count?room=' + encodeURIComponent(rref.id), {
+                  headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(5000),
+                });
+              })
+              .then(function(response){ if (!response.ok) throw new Error('Count unavailable'); return response.json(); })
+              .then(function(result){
+                beat.watchCount = Math.max(0, Math.min(context.WATCH_COUNT_CAP, Number(result.count) || 0));
+                beat.watchCountCapped = result.capped === true;
               })
               .catch(function(){ /* count is optional; never block the beat */ })
               .then(function(){
+                context.state.watchCountInFlight = false;
                 if (context.state.seatLeftMarked) return;   // re-checked after the await
                 rref.set(beat, { merge: true }).catch(function(){});
               });

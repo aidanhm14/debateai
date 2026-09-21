@@ -136,7 +136,8 @@ check(!spar.includes('id="gateEmailForm"'), 'signed-out gate must not render the
 // actually reach the ready-check. Keep the count and tryMatch on one helper,
 // especially for the adult/minor split enforced by spar-pair.
 check(spar.includes('function queuePeerCanMatch(doc){'), 'spar must define one shared queue eligibility check');
-check((spar.match(/if \(!queuePeerCanMatch\(d\)\) return;/g) || []).length === 2,
+check((spar.match(/if \(!queuePeerCanMatch\(d\)\) return;/g) || []).length === 1
+  && spar.includes('snapshot.docs.filter(queuePeerCanMatch)'),
   'the available count and match candidate list must use the same eligibility check');
 check(spar.includes("peerBand !== myBand"), 'queue eligibility must separate adult and minor age pools');
 check(spar.includes("if (LIVE_VIDEO_PROVIDERS.indexOf(peerProvider) < 0) return false;"),

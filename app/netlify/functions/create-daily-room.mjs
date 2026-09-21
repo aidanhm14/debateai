@@ -33,7 +33,7 @@
 
 import { getDb, withDeadline } from './lib/firestore.mjs';
 import { verifyIdToken } from './lib/auth.mjs';
-import { checkLayers } from './lib/rate-limit.mjs';
+import { admitVideoRequest, videoRoomProperties } from './lib/video-capacity.mjs';
 import { parseTournamentRoom } from './lib/tournament-round.mjs';
 import Teams from '../../js/room-teams.js';
 import { challengeRoomAdmission } from './lib/challenge-room.mjs';
@@ -163,27 +163,18 @@ export default async (req) => {
   // Video-ban gate. uid ban and IP ban both block.
   const who = await identify(req);
 
-  // Cost guards. Every participant calls this on join and rejoin
-  // (idempotent re-create), so per-caller layers are generous: they
-  // stop a loop, not a venue. Signed-in callers meter per uid so a
-  // NAT'd school building never shares one counter (the 2026-07-28
-  // realtime-session lesson). The global layer is a runaway backstop
-  // for the whole site, sized above any real tournament burst and
-  // overridable without a redeploy via DAILY_ROOM_HOURLY_CAP.
-  const perCaller = await checkLayers('droom', who.uid ? ('uid_' + who.uid) : who.ipKey, [
-    { window: 60_000, max: 12, label: 'min' },
-    { window: 3_600_000, max: 90, label: 'hour' },
-  ]);
-  if (!perCaller.ok) {
-    return jsonResponse(429, { error: 'Too many room requests. Wait a minute and rejoin.' });
+  // Shared counters protect the budget across all server instances.
+  // If the guard is unavailable, local memory cannot certify admission.
+  let admissionBudget;
+  try { admissionBudget = await withDeadline(admitVideoRequest(getDb(), who.uid ? 'uid_' + who.uid : who.ipKey), 6000); }
+  catch {
+    return jsonResponse(503, { error: 'Video admission is temporarily unavailable. Try again shortly.' });
   }
-  const globalCap = Math.max(50, parseInt(process.env.DAILY_ROOM_HOURLY_CAP, 10) || 1200);
-  const globalLayer = await checkLayers('droom', 'global', [
-    { window: 3_600_000, max: globalCap, label: 'site_hour' },
-  ]);
-  if (!globalLayer.ok) {
-    console.error('[create-daily-room] site-wide hourly room cap hit (' + globalCap + ')');
-    return jsonResponse(503, { error: 'Video rooms are at capacity right now. Try again in a few minutes.' });
+  if (!admissionBudget.ok) {
+    const global = admissionBudget.layer === 'site_hour';
+    return jsonResponse(global ? 503 : 429, { error: global
+      ? 'Video rooms are at capacity right now. Try again in a few minutes.'
+      : 'Too many room requests. Wait a minute and rejoin.' });
   }
   // These reads are independent. Keep every admission check, but pay for
   // their slowest response once instead of adding three network waits.
@@ -287,22 +278,9 @@ export default async (req) => {
   const expSec = Math.floor(Date.now() / 1000) + 24 * 3600;
   const properties = {
     exp: expSec,
-    // Every spectator joins this room too (receive-only, cam + mic
-    // withheld at the iframe), so this ceiling was never "8 debaters" —
-    // it was 2 debaters plus SIX watchers, and the seventh person to
-    // open a live round got a full room. Audience cameras land in the
-    // same room, so the old number would have made four camera slots
-    // eat two thirds of the audience. 24 leaves real headroom; flooding
-    // is handled where it belongs (unlisted rounds, the admission gate,
-    // and /api/audience-cam's own cap of 4 concurrent cameras).
-    max_participants: 24,
-    // Daily Adaptive Bitrate is on by default for 1:1, but a room stops
-    // being 1:1 as soon as the first hidden watcher joins. Turn on the
-    // multiparty path explicitly so every receiver gets the best layer
-    // its bandwidth and device can sustain instead of stalling on the
-    // sender's top layer. Both properties are documented Daily room keys.
-    enable_adaptive_simulcast: true,
-    enable_multiparty_adaptive_simulcast: true,
+    // Verified against Daily's API. The current account accepts 200;
+    // raise DAILY_ROOM_MAX_PARTICIPANTS only after large-room enablement.
+    ...videoRoomProperties(),
     enable_prejoin_ui: false,       // skip the "set name + cam" prejoin
     enable_screenshare: true,
     enable_chat: true,
