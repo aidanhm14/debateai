@@ -579,6 +579,13 @@ fi
 # and the sweep only spends provider calls on rounds that are genuinely
 # stuck, bounded per run.
 # ──────────────────────────────────────────────────────────────────
+if command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-ballot-recovery-worker.mjs); then
+    echo "[ballot-recovery-worker] commit blocked" >&2
+    exit 1
+  fi
+fi
+
 SWEEP_GUARD="$REPO_ROOT/scripts/test-ballot-sweep.mjs"
 if [ -f "$SWEEP_GUARD" ] && command -v node >/dev/null 2>&1; then
   if ! (cd "$REPO_ROOT" && node scripts/test-ballot-sweep.mjs >/tmp/ballot-sweep-guard.log 2>&1); then

@@ -85,8 +85,8 @@ export const JUDGE_LEASE_MS = Number(process.env.LIVE_JUDGE_LEASE_MS || 45_000);
 // retry, and the retry hit the identical wall. Five times, then the
 // round sat on "Ballot is generating" forever.
 //
-// A scheduled sweep runs in a background invocation with a 15 minute
-// ceiling, so it can simply wait. These two values only ever apply to
+// The scheduled trigger dispatches a separate background worker with a
+// 15 minute ceiling, so recovery can wait for the panel. These two values only ever apply to
 // that path; the synchronous request keeps its own tight budget, since
 // a fast panel is still worth trying while somebody is watching.
 export const SWEEP_JUROR_TIMEOUT_MS = Number(process.env.LIVE_JUDGE_SWEEP_JUROR_TIMEOUT_MS || 90_000);
@@ -470,7 +470,7 @@ export default async (request, context) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
   if (request.method !== 'POST') return errorResponse('POST only', 405, request);
 
-  // The scheduled sweep calls this handler in-process, with no browser and
+  // The authenticated background worker calls this handler in-process, with no browser and
   // therefore no App Check token and no signed-in user. It presents a
   // shared secret that only ever exists in the server environment. It buys
   // exactly one thing, the right to be treated as a WATCHER asking for

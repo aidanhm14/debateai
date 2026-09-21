@@ -12,7 +12,7 @@ process.env.INTERNAL_JUDGE_KEY = 'k'.repeat(32);
 const { isInternalJudgeCall, judgeLeaseWaitMs, JUDGE_LEASE_MS, SWEEP_LEASE_MS, SWEEP_UID, RECOVERY_GRACE_MS } =
   await import('../app/netlify/functions/live-judge.mjs');
 const { selectSweepTargets } =
-  await import('../app/netlify/functions/scheduled-ballot-sweep.mjs');
+  await import('../app/netlify/functions/lib/ballot-recovery.mjs');
 
 let pass = 0, fail = 0;
 const ok = (cond, msg) => { if (cond) { pass += 1; } else { fail += 1; console.error('  FAIL:', msg); } };
