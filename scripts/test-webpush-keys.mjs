@@ -13,12 +13,20 @@ function ok(cond, msg) { if (!cond) { fails++; console.error('FAIL', msg); } els
 // resolve, so the reference pair comes from node's own ECDH: the same
 // curve and encoding web-push's generateVAPIDKeys uses.
 function b64u(buf) { return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
-function generateVAPIDKeys() {
-  const e = createECDH('prime256v1'); e.generateKeys();
-  return { publicKey: b64u(e.getPublicKey()), privateKey: b64u(e.getPrivateKey()) };
+function generateVAPIDKeys(scalar) {
+  const e = createECDH('prime256v1');
+  if (scalar) e.setPrivateKey(scalar); else e.generateKeys();
+  // Match web-push's generator: Node can omit leading zero bytes from
+  // the scalar, but VAPID requires exactly 32 bytes. Without this padding
+  // the random fixture intermittently rejects its own otherwise valid key.
+  const raw = e.getPrivateKey();
+  const padded = Buffer.concat([Buffer.alloc(32 - raw.length), raw]);
+  return { publicKey: b64u(e.getPublicKey()), privateKey: b64u(padded) };
 }
 const pair = generateVAPIDKeys();
 ok(derivePublicKey(pair.privateKey) === pair.publicKey, 'derivePublicKey reproduces web-push generateVAPIDKeys public key');
+const short = generateVAPIDKeys(Buffer.from([1]));
+ok(derivePublicKey(short.privateKey) === short.publicKey, 'leading-zero VAPID scalars use the generator padding');
 ok(derivePublicKey('') === '', 'empty private key derives nothing');
 ok(derivePublicKey('not-a-key') === '', 'garbage private key derives nothing rather than throwing');
 

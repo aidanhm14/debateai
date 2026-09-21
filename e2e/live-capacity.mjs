@@ -7,7 +7,7 @@ import { videoRoomProperties } from '../app/netlify/functions/lib/video-capacity
 if (!process.argv.includes('--live') || !process.env.DAILY_API_KEY) throw new Error('Requires --live and DAILY_API_KEY');
 const roomCount=Number(process.env.LOAD_ROOMS||2), viewers=Number(process.env.LOAD_VIEWERS||4);
 const total=roomCount*2+viewers;
-if(roomCount<1 || roomCount>50 || viewers<0 || viewers>150 || total>250) throw new Error('Bounded test limits exceeded');
+if(roomCount<1 || roomCount>50 || viewers<0 || viewers>198 || total>300) throw new Error('Bounded test limits exceeded');
 const tokenExpiry=Math.floor(Date.now()/1000)+900;
 let expiry=tokenExpiry;
 const report={kind:'daily-synthetic-media',rooms:roomCount,speakers:roomCount*2,viewers,expiry,results:[],startedAt:new Date().toISOString(),
@@ -61,21 +61,29 @@ try{
    const destination=audio.createMediaStreamDestination();oscillator.connect(gain);gain.connect(destination);oscillator.start();audio.resume();window.audio=destination.stream.getAudioTracks()[0];
   });
  }
- const byRole=[...tokens.filter(x=>!x.viewer),...tokens.filter(x=>x.viewer)];
- let joined=0;
- await pooled(byRole,5,async (props,i)=>{
-  const page=pages[Math.floor(i/10)];
+ const byRole=[...tokens.filter(x=>!x.viewer),...tokens.filter(x=>x.viewer)].map((x,i)=>({...x,pageIndex:Math.floor(i/10),pageSlot:i%10}));
+ // Start each browser group before filling it, rather than serializing
+ // every group's initial signaling/ICE wait behind the previous group.
+ byRole.sort((a,b)=>a.pageSlot-b.pageSlot || a.pageIndex-b.pageIndex);
+ let joined=0, failed=0;
+ await pooled(byRole,20,async (props,i)=>{
+  if(failed>=5) return;
+  const page=pages[props.pageIndex];
   try{
    const result=await page.evaluate(async props=>{
     const call=DailyIframe.createCallObject({allowMultipleCallInstances:true,subscribeToTracksAutomatically:true});calls.push(call);
     const t=performance.now();
-    await call.join({url:props.url,token:props.token,audioSource:props.viewer?false:audio.clone(),videoSource:props.viewer?false:video.clone()});
+    let deadline;
+    try { await Promise.race([call.join({url:props.url,token:props.token,audioSource:props.viewer?false:audio.clone(),videoSource:props.viewer?false:video.clone()}),
+      new Promise((resolve,reject)=>{deadline=setTimeout(()=>reject(new Error('Synthetic client join exceeded 60 seconds')),60000);})]); }
+    catch(error){calls.splice(calls.indexOf(call),1);call.destroy().catch(()=>{});throw new Error(String(error?.errorMsg || error?.message || error?.type || error).replace(/https?:\/\/\S+/g,'[provider URL]').slice(0,250));}
+    finally {clearTimeout(deadline);}
     if(!props.viewer){await call.setLocalAudio(true);await call.setLocalVideo(true);}
     return {uid:props.uid,viewer:props.viewer,room:props.room,joinMs:Math.round(performance.now()-t),joinedAt:Date.now()};
    },props);
    report.results.push({...result,ok:true});joined++;
-  }catch(error){report.results.push({uid:props.uid,room:props.room,viewer:props.viewer,ok:false,error:String(error.message).slice(0,180)});}
-  if((i+1)%20===0)console.log('Daily clients attempted:',i+1,'joined:',joined);
+  }catch(error){failed++;report.results.push({uid:props.uid,room:props.room,viewer:props.viewer,ok:false,error:String(error.message).slice(0,180)});}
+  if((i+1)%5===0)console.log('Daily clients attempted:',i+1,'joined:',joined);
  });
  await new Promise(resolve=>setTimeout(resolve,15000));
  const media=[];
@@ -90,6 +98,9 @@ try{
  console.log(JSON.stringify({joined,total,peak:report.peakConnected,p95JoinMs:report.p95JoinMs,passed:report.passed,estimatedVideoCostUsd:report.estimatedVideoCostUsd}));
 }catch(error){report.passed=false;report.error=String(error.message).slice(0,400);console.error(report.error);process.exitCode=1;
 }finally{
+ report.joined=report.results.filter(r=>r.ok).length;report.attempted=report.results.length;
+ const ended=Date.now();
+ report.estimatedVideoCostUsd=Number((report.results.reduce((sum,r)=>sum+(r.ok?(ended-r.joinedAt)/60000:0),0)*.004).toFixed(4));
  clearTimeout(watchdog);if(browser)await browser.close().catch(()=>{});if(server)server.close();
  const failures=[];
  await pooled(created.filter(Boolean),3,async name=>{try{await api('/rooms/'+name,undefined,'DELETE');}catch{failures.push(name);}});
