@@ -2,10 +2,10 @@ import { test, expect } from '@playwright/test';
 import { roomDesign } from '../helpers/room-design.mjs';
 
 for (const width of [360, 768, 1360]) {
-  test(`resolution, controls and disclosures work at ${width}px`, async ({ page }) => {
+  test(`timed resolution, controls and disclosures work at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const fixture = await roomDesign(page);
-    await page.goto('https://debatable.test/live-round?design=ready');
+    await page.goto('https://debatable.test/live-round?design=ready&format=quick');
     await expect(page.locator('#rmbMotion')).toContainText('Cities should ban');
     await expect(page.locator('#roundOwnSide')).toContainText('FOR');
     await expect(page.locator('#privacyToggleLabel')).toHaveText('Public round');
@@ -48,7 +48,7 @@ for (const width of [360, 768, 1360]) {
 
 test('waiting speaker keeps locked controls and clear side assignment', async ({ page }) => {
   const fixture = await roomDesign(page);
-  await page.goto('https://debatable.test/live-round?design=ready&mySide=con');
+  await page.goto('https://debatable.test/live-round?design=ready&format=quick&mySide=con');
   await expect(page.locator('#roundOwnSide')).toContainText('AGAINST');
   await expect(page.locator('#playPauseBtn')).toBeDisabled();
   await expect(page.locator('#roundSidePair')).toContainText('Jordan');
@@ -58,7 +58,7 @@ test('waiting speaker keeps locked controls and clear side assignment', async ({
 test('audience transcript opens from the existing menu', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const fixture = await roomDesign(page);
-  await page.goto('https://debatable.test/live-round?design=spectator');
+  await page.goto('https://debatable.test/live-round?design=spectator&format=quick');
   await page.locator('[data-sm="transcript"]').click();
   await expect(page.locator('#roomTranscript')).toHaveAttribute('open', '');
   await expect(page.locator('.transcript-title')).toBeVisible();
