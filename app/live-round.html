@@ -4528,6 +4528,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     get QUIET_MS(){ return QUIET_MS; },
     get reportRoundOver(){ return reportRoundOver; },
     get room(){ return room; },
+    get roundConnectionState(){ return roundConnectionState; },
     get SEAT_HB_MS(){ return SEAT_HB_MS; },
     get showNoShow(){ return showNoShow; },
     get state(){ return state; },
@@ -5363,6 +5364,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     noShowTimer: null,       // interval that watches whether the opponent has entered
     noShowEl: null,          // the "opponent hasn't joined" prompt element
     noShowSnoozeUntil: 0,    // "keep waiting" snooze deadline
+    noShowCallMissingAt: 0,
     participantAvatars: {}, // uid -> compact public avatar renderer config
     // The saved round wins over defaults, including on a mid-round rejoin.
     isPrivate: prefill.isPrivate,
@@ -10896,11 +10898,11 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     try { ps = room.call.participants() || {}; } catch(e){ return { ready:false, text:'Reconnecting to the call.' }; }
     var peerUid = mySide() === 'pro' ? state.conUid : state.proUid;
     var peer = peerUid && Object.keys(ps).some(function(k){ return ps[k] && !ps[k].local && ps[k].user_id === peerUid; });
-    if (!peer) return { ready:false, text:'Waiting for your opponent to connect.' };
+    if (!peer) return { ready:false, peerConnected:false, text:'Waiting for your opponent to connect.' };
     var local = ps.local, audio = local && local.tracks && local.tracks.audio;
     var track = audio && (audio.persistentTrack || audio.track);
-    if (!track || track.readyState !== 'live') return { ready:false, text:'Connected. Check your microphone before starting.' };
-    return { ready:true, text:'Connected · Ready to start' };
+    if (!track || track.readyState !== 'live') return { ready:false, peerConnected:true, text:'Connected. Check your microphone before starting.' };
+    return { ready:true, peerConnected:true, text:'Connected · Ready to start' };
   }
   function roundStartBlock(){
     if (!state.room || state.isDuo || isSpectator() || state.speechIdx !== 0 || state.timerState !== 'ready') return '';
@@ -10930,6 +10932,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var mobileStatus = $('roundMobileStatus');
     var next = blocked || (initial ? (isMyTurn() ? 'Ready. Start when you both want to begin.' : 'Ready. Waiting for the first speaker.') : label);
     if (mobileStatus.textContent !== next) mobileStatus.textContent = next;
+    updateOpeningBeat();
   }
   var roundMicTestUntil = 0, roundMicHeard = false;
   $('roundTestMic').addEventListener('click', function(){
@@ -11201,7 +11204,11 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // Remote audio is ours to play in call object mode; the prebuilt UI used
   // to do it. The local participant is deliberately never given an audio
   // element, which is the whole reason this room does not echo.
-  function paintRoom(){ return mediaController.paintRoom.apply(this, arguments); }
+  function paintRoom(){
+    var result = mediaController.paintRoom.apply(this, arguments);
+    paintRoundReadiness();
+    return result;
+  }
   // Front/rear switch. The published track is the DebateCam canvas, so a
   // flip cannot go through Daily's device picker: it has to rebuild the
   // pipeline on the other camera and republish. Everything downstream
@@ -18700,8 +18707,8 @@ window.DBLiveDraft.attach({
     var el = document.createElement('div');
     el.id = 'noShowPrompt';
     el.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);max-width:540px;width:calc(100% - 32px);padding:16px 18px;background:var(--bg-elev,#16131a);border:1px solid rgba(245,158,11,.5);border-radius:16px;z-index:320;box-shadow:0 16px 50px rgba(0,0,0,.55);display:flex;flex-direction:column;gap:12px;text-align:center;font-family:inherit';
-    el.innerHTML = '<div style="font-size:.95rem;font-weight:800;color:#fbbf24">' + escHtml(oppNm) + ' hasn\'t joined the room yet.</div>' +
-      '<div style="font-size:.82rem;color:var(--text-dim,rgba(255,255,255,.6));line-height:1.5">Give it a moment, message them, or head out and find someone else. This closes the second they arrive.</div>' +
+    el.innerHTML = '<div style="font-size:.95rem;font-weight:800;color:#fbbf24">' + escHtml(oppNm) + ' is not connected to the call.</div>' +
+      '<div style="font-size:.82rem;color:var(--text-dim,rgba(255,255,255,.6));line-height:1.5">Keep waiting, message them, or find someone else. This closes when they connect.</div>' +
       '<div id="nspBtns" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"></div>';
     document.body.appendChild(el);
     var btns = el.querySelector('#nspBtns');
@@ -19087,6 +19094,8 @@ window.DBLiveDraft.attach({
     if (state.phase !== 'round' || state.speechIdx !== 0) return '';
     if (state.timerState !== 'ready') return '';
     if (isSpectator() || !mySide()) return '';
+    // A page heartbeat or old Ready nudge does not prove a working call.
+    if (!state.isDuo && !roundConnectionState().ready) return '';
     // A running prep clock is a deliberate not-yet (the start-cue rule).
     if (prepClockRunning()) return '';
     // The motion draft owns the screen until it resolves.
@@ -19127,6 +19136,7 @@ window.DBLiveDraft.attach({
   }
 
   function sendOpenerNudge(btn){
+    if (openingBeatMode() !== 'waiter') return;
     var now = Date.now();
     if (now - openingBeat.nudgeSentAt < OPEN_BEAT_NUDGE_COOLDOWN_MS) return;
     var ref = getRoundDocRef(); if (!ref) return;

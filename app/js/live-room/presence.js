@@ -259,17 +259,26 @@
       (context.state.phase === 'round' && context.state.speechIdx === 0 && context.state.timerState === 'ready');
     // Only identified human-vs-human rounds, pre-speech, non-spectator.
     var eligible = me && oppUid && oppUid !== me && !isSpectator() && preSpeech;
-    if (!eligible){ hideNoShow(); return; }
+    if (!eligible){ context.state.noShowCallMissingAt = 0; hideNoShow(); return; }
     // Trust the signal only once MY OWN presence write has round-tripped.
     // If the write is denied (rules) or hasn't landed, seatSeen[me] is
     // absent — bail rather than false-fire "opponent hasn't joined" at
     // everyone. This makes the feature degrade safely.
     if (!(context.state.seatSeen && context.state.seatSeen[me])) { hideNoShow(); return; }
-    if (context.state.seatSeen[oppUid]) { hideNoShow(); return; }
-    // The Daily room is ground truth ahead of the doc beat: a remote
-    // debater already on camera is present, whatever the 30s seat
-    // heartbeat has round-tripped so far.
-    if (context.room && context.room.remoteSeats > 0) { hideNoShow(); return; }
+    var peerConnected = !context.state.isDuo && context.roundConnectionState
+      ? context.roundConnectionState().peerConnected : undefined;
+    if (peerConnected === true){ context.state.noShowCallMissingAt = 0; hideNoShow(); return; }
+    if (peerConnected === false){
+      // The page can keep beating with its mic blocked or after Leave call.
+      // Allow a fresh reconnect window before offering a different match.
+      if (!context.state.noShowCallMissingAt) context.state.noShowCallMissingAt = Date.now();
+      if (Date.now() - context.state.noShowCallMissingAt < context.NOSHOW_GRACE_MS){ hideNoShow(); return; }
+    } else {
+      context.state.noShowCallMissingAt = 0;
+      if (!context.state.isDuo && context.roundConnectionState){ hideNoShow(); return; }
+      if (context.state.seatSeen[oppUid]) { hideNoShow(); return; }
+      if (context.room && context.room.remoteSeats > 0) { hideNoShow(); return; }
+    }
     // Normal arrival and an explicit choice to wait stay quiet. Only a
     // missing opponent past the grace period gets the no-show exit controls.
     if (Date.now() - context.state.arrivedAtMs < context.NOSHOW_GRACE_MS){ hideNoShow(); return; }
