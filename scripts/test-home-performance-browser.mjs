@@ -29,6 +29,11 @@ const errors = [], media = [];
 await context.addInitScript(() => {
   const clear = CanvasRenderingContext2D.prototype.clearRect;
   window.__globeDraws = 0;
+  window.__homeShifts = [];
+  new PerformanceObserver(list => list.getEntries().forEach(entry => {
+    if (!entry.hadRecentInput) window.__homeShifts.push({ value: entry.value,
+      hero: entry.sources.some(source => source.node?.classList?.contains('hero-founder-frame')) });
+  })).observe({ type: 'layout-shift', buffered: true });
   CanvasRenderingContext2D.prototype.clearRect = function (...args) {
     if (this.canvas.id === 'heroGlobeCanvas') window.__globeDraws++;
     return clear.apply(this, args);
@@ -37,6 +42,7 @@ await context.addInitScript(() => {
 await context.route('**/*', async route => {
   const u = new URL(route.request().url());
   if (u.origin !== base) return route.abort();
+  if (u.pathname === '/css/ui.css') await new Promise(r => setTimeout(r, 350));
   if (u.pathname.endsWith('.mp4')) media.push(u.pathname);
   if (u.pathname.startsWith('/api/')) return route.fulfill({ json: { rooms: [], entries: [], count: 0, online24: 0, pins: [], live: false, stream: null, challenges: [], messages: [] } });
   return route.continue();
@@ -68,6 +74,8 @@ try {
   before = await draws(); await page.mouse.move(160, 160); await page.mouse.down(); await page.mouse.move(210, 160); await page.mouse.up();
   assert(await draws() > before, 'Reduced-motion manual drag still works');
   await page.goto(base + '/'); await page.waitForTimeout(500);
+  assert.equal(await page.evaluate(() => window.__homeShifts.some(s => s.hero && s.value > 0.1)), false,
+    'Late shared CSS cannot move the whole hero after first paint');
   assert.equal(await page.locator('#fsVidA,#fsVidB').evaluateAll(vs => vs.some(v => v.hasAttribute('src'))), false, 'Reduced motion does not allocate clip decoders');
   assert.equal(media.length, 0, 'Reduced motion does not fetch face videos');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
@@ -84,6 +92,10 @@ try {
   assert.equal(await page.locator('#fsVidA,#fsVidB').evaluateAll(vs => vs.some(v => v.hasAttribute('src'))), false, 'Pagehide releases media immediately');
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
   await page.waitForFunction(() => [...document.querySelectorAll('#fsVidA,#fsVidB')].some(v => v.getAttribute('src')));
+  await page.locator('#landing-more-toggle').click();
+  assert.equal(await page.locator('#landing-more-toggle').getAttribute('aria-expanded'), 'true');
+  await page.locator('#landing-more-toggle').click();
+  assert.equal(await page.locator('#landing-more-toggle').getAttribute('aria-expanded'), 'false');
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 }); await page.reload(); await page.waitForTimeout(500);
     assert(await page.locator('#fsBoard').isVisible());
