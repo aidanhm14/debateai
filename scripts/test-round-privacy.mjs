@@ -61,7 +61,14 @@ const deps={Request,Response,URL,Headers,TextEncoder,crypto,console,Teams,
 let source=read('app/netlify/functions/create-daily-room.mjs').replace(/^import .*;\n/gm,'').replace('export default async (req) =>','var handler = async (req) =>').replace(/export const config\s*=[\s\S]*$/,'');
 vm.createContext(deps);vm.runInContext(source,deps);
 const join=(uid,role)=>deps.handler(new Request('https://itsdebatable.com/api/create-daily-room',{method:'POST',headers:uid?{Authorization:'Bearer '+uid}:{},body:JSON.stringify({name:'room',role})}));
-for(const uid of ['a','b'])assert.equal((await join(uid,'debater')).status,200);
+for(const uid of ['a','b']){
+ assert.equal((await join(uid,'debater')).status,200);
+ const token=calls.at(-1).body.properties;
+ assert.equal(token.user_id,uid);
+ assert.equal(token.permissions?.hasPresence,true,'hidden-participant rooms must explicitly expose each admitted speaker');
+ assert.equal(token.permissions?.canSend,true,'admitted speakers can publish their microphone and camera');
+ assert.equal(token.is_owner,undefined,'a visible speaker does not become a meeting owner');
+}
 assert.ok(calls.filter(c=>c.url.endsWith('/rooms')).every(c=>c.body.privacy==='private'),'tokens required even on a direct Daily URL');
 for(const role of ['viewer','stage','debater']){
  calls=[];assert.equal((await join('outsider',role)).status,403);assert.equal(calls.length,0,'denied before contacting Daily');

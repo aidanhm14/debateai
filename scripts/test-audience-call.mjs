@@ -5,6 +5,17 @@ import vm from 'node:vm';
 import {audienceAudioAllowed} from '../app/netlify/functions/lib/audience-media.mjs';
 const server=readPageSource('app/netlify/functions/audience-cam.mjs','utf8');
 const page=readPageSource('app/live-round.html','utf8');
+const tokenRequest=server.slice(server.indexOf('    const tr = await fetch('),server.indexOf('    if (!tr.ok)'));
+for(const allowAudio of [false,true]){
+ let token;
+ await vm.runInNewContext('(async()=>{'+tokenRequest+'})()',{
+  DAILY_API:'https://api.daily.co/v1',apiKey:'fixture',room:'room',uid:'approved-guest',firstName:'Guest',allowAudio,TOKEN_TTL_SEC:60,
+  fetch:async(url,options)=>{token=JSON.parse(options.body).properties;return {};}
+ });
+ assert.equal(token.permissions.hasPresence,true,'an approved camera guest must be visible in hidden-participant rooms');
+ assert.deepEqual(token.permissions.canSend,allowAudio?['video','audio']:['video']);
+ assert.equal(token.is_owner,undefined,'camera approval does not grant meeting ownership');
+}
 let record={kind:'cam',status:'accepted',audio:true,respondedBy:'pro',respondedAt:{toMillis:()=>Date.now()-1000}};
 const db={collection:()=>({doc:()=>({collection:()=>({doc:()=>({get:async()=>({exists:true,data:()=>record})})})})})};
 const c={console,Date,APPROVAL_TTL_MS:7200000,withDeadline:p=>p};vm.createContext(c);

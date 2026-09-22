@@ -395,8 +395,10 @@ export default async (req) => {
     room_name: name,
     user_id: (who.uid || who.ipKey).slice(0, 36),
     exp: expSec,
+    // enable_hidden_participants makes an omitted hasPresence default to
+    // false, even for speakers. Both people join but cannot see each other.
+    permissions: { hasPresence: !receiveOnly, canSend: !receiveOnly },
   };
-  if (receiveOnly) tokenProps.permissions = { hasPresence: false, canSend: false };
   const mintToken = (props) => fetch(DAILY_API + '/meeting-tokens', {
     method: 'POST',
     headers,

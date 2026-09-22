@@ -2,6 +2,8 @@
 
 Updated September 21, 2026. Target: 100 speakers in 50 rooms, with a 200-person total ceiling in a popular room. Aidan deferred the earlier 500-spectator target after the account limit was verified. This is a test target, not a supported concurrency claim.
 
+September 22 incident: enabling hidden participants changes the default `hasPresence` to false. The production speaker tokens omitted that permission, so two authenticated speakers could both join while neither appeared in the other's participant list. An isolated call using the production token shape reproduced two hidden participants and no peers. Speaker tokens and approved audience-camera tokens now explicitly set `hasPresence: true`; ordinary viewers retain `hasPresence: false` and `canSend: false`. The earlier capacity harness supplied explicit speaker permissions itself, so its passing transport checks did not validate production admission tokens. Keep the actual handler token assertions in `test-round-privacy.mjs` and `test-audience-call.mjs` passing.
+
 ## What changed
 
 - The minute ballot schedule dispatches authenticated `ballot-recovery-background` jobs. Netlify reports that function's invocation mode as `background`. Paid judge calls no longer run inside the 30-second scheduled function. The existing judge continues to own evidence, season pins, verdicts and settlement.

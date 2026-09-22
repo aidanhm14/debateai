@@ -262,7 +262,7 @@ export default async (request) => {
         user_name: 'Audience · ' + firstName,
         start_audio_off: true,
         start_video_off: false,
-        permissions: { canSend: allowAudio ? ['video', 'audio'] : ['video'] },
+        permissions: { hasPresence: true, canSend: allowAudio ? ['video', 'audio'] : ['video'] },
         exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SEC,
       } }),
     });
