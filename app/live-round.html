@@ -3964,19 +3964,10 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
           <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start my speech</button>
           <button class="btn btn-end" id="endSpeechBtn" type="button">End speech →</button>
           <button class="btn" id="skipSpeechBtn" type="button">Skip</button>
-          <!-- Forfeit + Next: spar-only escape hatch. Mid-round = the
-               current round is abandoned (the opponent sees a forfeit
-               banner), and the user re-queues. Confirm dialog to
-               prevent accidental clicks. Hidden for non-spar rounds. -->
-          <!-- 2026-09-07, the founder: "make the unavailable button more calm". This is
-               the spar Forfeit + Next control: it sits in the transport row all
-               round long, and in amber it read as a live, urgent action beside
-               End. It is the quiet exit now, dim text and a hairline border. -->
-          <button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:var(--text-dim);border-color:var(--border,rgba(128,128,128,.28));background:transparent;font-weight:600">Next →</button>
         </div>
         </div>
         <div class="ready-hint" id="readyHint">Starts the timer and mic.</div>
-        <div class="room-resources"><div class="round-flow-entry"><button type="button" class="round-flow-trigger" data-round-flow><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><path d="M19 4h3v16h-3M4 8h1m7 0h1M4 12h1m7 0h1"/></svg>View round map</button></div><button type="button" class="rn-export" id="openRoundNotes" aria-controls="roundNotes">Round notes</button><button type="button" id="roomChatBtn" aria-label="Open round chat" aria-controls="audPanel">Chat</button></div>
+        <div class="room-resources"><div class="round-flow-entry"><button type="button" class="round-flow-trigger" data-round-flow><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><path d="M19 4h3v16h-3M4 8h1m7 0h1M4 12h1m7 0h1"/></svg>View round map</button></div><button type="button" class="rn-export" id="openRoundNotes" aria-controls="roundNotes" aria-live="polite">Round notes</button><button type="button" id="roomChatBtn" aria-label="Open round chat" aria-controls="audPanel">Chat</button><button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:var(--text-dim);border-color:var(--border,rgba(128,128,128,.28));background:transparent;font-weight:600">Next →</button></div>
         <!-- 2026-08-23: the room's own liveness, for whoever is looking at
              it. Every LISTING has told a live round from a dead one since
              the ghost-room fix (the seat heartbeat, ~100s), but nothing
@@ -4220,8 +4211,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
           <div class="round-notes" id="roundNotes" hidden>
             <div class="rn-head">
               <strong>Round notes</strong>
-              <span id="rnSub">Quick notes. Shared by both sides.</span>
-              <button type="button" class="round-flow-trigger" data-round-flow>View round map</button>
+              <span id="rnSub">Shared by both sides.</span>
               <button type="button" class="rn-export" data-round-export>Export to Google Docs</button>
               <button type="button" class="rn-off" id="rnOffBtn">Hide</button>
             </div>
@@ -4264,7 +4254,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       </div>
       <div id="ballotResult" class="hidden"></div>
       <div id="ballotNotesHost"></div>
-      <div class="round-flow-entry" style="padding:14px 22px"><button type="button" class="round-flow-trigger" data-round-flow>View round map</button><button type="button" class="rn-export" data-round-export>Export round to Google Docs</button></div>
+      <div class="round-flow-entry" style="padding:14px 22px"><button type="button" class="round-flow-trigger" data-round-flow>View round map</button><button type="button" class="rn-export" data-round-export>Export round to Google Docs</button><button type="button" class="rn-export" id="ballotChatBtn" aria-controls="audPanel">Chat</button></div>
       <!-- 2026-09-07, per the founder: the ask for critiques lands right
            after the judged round, linked to the critique form on
            /judge-integrity with this room's id. Revealed with the ballot
@@ -7366,8 +7356,12 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var notes = $('conversationNotes');if (notes) notes.hidden = !on;
     paintConversationFlow();
   }
+  var conversationFlowHtml = '';
+  $('roomTranscript').addEventListener('toggle', function(){
+    if (this.open) paintConversationFlow();
+  });
   function paintConversationFlow(){
-    var host = $('conversationFlow');if (!host || !openMode()) return;
+    var host = $('conversationFlow');if (!host || !openMode() || !$('roomTranscript').open) return;
     var rows = [], mine = mySide(), peer = openPeerSide();
     if (state.isDuo){
       rows = DBRoomTeams.conversationRows(Object.assign({},state,{openSegs:state.teamOpenSegs||{},openLive:state.teamOpenLive||{}}),
@@ -7381,10 +7375,22 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       (state.openPeerSegs || []).forEach(function(s){ rows.push({at:(s.at||0)+(s.clock==='server'?0:state.openPeerSkew||0),side:peer,text:s.text}); });
     }
     rows.sort(function(a,b){return a.at-b.at});
-    host.innerHTML = rows.length ? rows.map(function(r){
-      return '<p class="conversation-line" data-side="'+(r.side==='pro'?'pro':'con')+'"><b>'+escHtml(r.name||(r.side==='pro'?state.proName:state.conName)||'Speaker')+'</b>'+escHtml(r.text||'')+'</p>';
+    // Display only: consecutive capture chunks belong to one speaker turn.
+    // Keep seat identity, interruptions and long pauses as separate entries.
+    var turns = [];
+    rows.forEach(function(r){
+      if (!r.text || !r.text.trim()) return;
+      var key = r.uid || r.key || r.side, last = turns[turns.length - 1];
+      if (last && last.key === key && r.at - last.at <= 45000){
+        last.text += ' ' + r.text; last.at = r.at;
+      } else turns.push({ key:key, side:r.side, name:r.name, at:r.at, text:r.text });
+    });
+    var html = turns.length ? turns.map(function(r){
+      return '<p class="conversation-line" data-side="'+(r.side==='pro'?'pro':'con')+'"><b>'+escHtml(r.name||(r.side==='pro'?state.proName:state.conName)||'Speaker')+'</b><span>'+escHtml(r.text)+'</span></p>';
     }).join('') : '<p class="conversation-line">Listening. The conversation appears here as speech is captured.</p>';
+    if (html !== conversationFlowHtml){ host.innerHTML = html; conversationFlowHtml = html; }
   }
+
   var openSeg = { committed: '', segs: [], stableTicks: 0, lastLen: 0, timer: null, pubTimer: null };
   var openNotesProgress = { count:0, segments:0, seen:{}, at:0 };
   function maybeConversationNotes(){
@@ -7598,6 +7604,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     if (document.body.classList.contains('lr-camera-focus') !== active) document.body.classList.toggle('lr-camera-focus', active);
     button.setAttribute('aria-pressed', String(active));
     button.textContent = active ? 'Show details' : 'Camera view';
+    var host = active ? document.body : document.querySelector('.room-resources');
+    if (host && button.parentNode !== host) host.appendChild(button);
   }
   $('roundFocusBtn').addEventListener('click', function(){
     roundFocusSelected = !roundFocusSelected;
@@ -10918,7 +10926,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     if (!visible) return;
     var connection = roundConnectionState();
     var initial = state.speechIdx === 0 && state.timerState === 'ready';
-    var label = connection.ready && !initial ? 'Connected' : connection.text;
+    var label = connection.ready && !initial ? '' : connection.text;
+    status.hidden = !label;
     if (status.textContent !== label) status.textContent = label;
     var blocked = roundStartBlock();
     ['startConvoBtn','startFormalBtn'].forEach(function(id){ $(id).disabled = !!blocked; });
@@ -10932,6 +10941,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var mobileStatus = $('roundMobileStatus');
     var next = blocked || (initial ? (isMyTurn() ? 'Ready. Start when you both want to begin.' : 'Ready. Waiting for the first speaker.') : label);
     if (mobileStatus.textContent !== next) mobileStatus.textContent = next;
+    mobileStatus.hidden = !next;
     updateOpeningBeat();
   }
   var roundMicTestUntil = 0, roundMicHeard = false;
@@ -10969,6 +10979,10 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var height = entries[0].target.getBoundingClientRect().height;
     document.body.style.setProperty('--round-dock-height', Math.ceil(height) + 'px');
   }).observe($('roundActionDock'));
+  if (window.IntersectionObserver) new IntersectionObserver(function(entries){
+    var entry = entries[0];
+    document.body.classList.toggle('round-topic-visible', entry.isIntersecting && entry.intersectionRatio >= 0.95);
+  }, { threshold:[0, 0.95, 1], rootMargin:'0px 0px -180px 0px' }).observe($('rmbMotion'));
   var room = {
     call:null, wrap:null, stage:null, aud:null, tray:null, note:null,
     audioHost:null, tiles:{}, audios:{}, active:'', joined:false,
@@ -11084,7 +11098,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var flip = trayBtn('cvFlip', 'Flip camera', 'Switch between the front and rear camera');
     flip.style.display = 'none';
     flip.addEventListener('click', flipCamera);
-    var self = trayBtn('cvSelf', 'Hide me', 'Hide or show your own camera thumbnail');
+    var self = trayBtn('cvSelf', 'Hide self view', 'Hide your preview only. The other person can still see you.');
     self.addEventListener('click', function(){
       room.selfHidden = !room.selfHidden;
       try { localStorage.setItem('lr-self-hidden', room.selfHidden ? '1' : '0'); } catch(e){}
@@ -11124,7 +11138,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     if (flip) flip.style.display = room.canFlip ? '' : 'none';
     var self = document.getElementById('cvSelf');
     if (self){
-      self.textContent = room.selfHidden ? 'Show me' : 'Hide me';
+      self.textContent = room.selfHidden ? 'Show self view' : 'Hide self view';
       self.classList.toggle('is-off', !!room.selfHidden);
     }
     var leave = document.getElementById('cvLeave');
@@ -11777,25 +11791,19 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   }
   function notifyRoundNotes(notes){
     if (!roundNotesOn()) return;
+    var fresh = false;
     (notes || []).forEach(function(n){
       var key = roundNoteNoticeKey(n);
       if (!key || state.rnNotified[key]) return;
       state.rnNotified[key] = true;
-      var label = n.code || ('Speech ' + ((Number(n.idx) || 0) + 1));
-      if (window.daNotify){
-        window.daNotify({
-          id: 'round-notes-' + key,
-          eyebrow: 'Round notes',
-          title: 'Notes ready for ' + label,
-          body: 'Shared notes for that speech have been generated.',
-          href: '#roundNotes',
-          glyph: '✦',
-          duration: 7000
-        });
-      } else {
-        toast('Round notes ready for ' + label + '.');
-      }
+      if ((n.points || []).some(function(p){ return p && p.note; })) fresh = true;
     });
+    // Shared notes update throughout a conversation. They are not interruptions.
+    var button = $('openRoundNotes');
+    if (fresh && button && !button.hasAttribute('data-updated')){
+      button.setAttribute('data-updated', 'true');
+      button.textContent = 'Round notes · Updated';
+    }
   }
   // 2026-08-24, the founder: "there aren't any notes being provided or
   // structured nicely." Three separate things were wrong and each one
@@ -11882,14 +11890,14 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       list.innerHTML = '';
       return;
     }
-    if (sub) sub.textContent = 'Quick notes. Shared by both sides.';
+    if (sub) sub.textContent = 'Shared by both sides.';
     var f = FORMATS[state.formatKey];
     if (notes.length && !openMode()) renderNotePreview(notes[notes.length - 1]);
     var sides = (f && f.sides || ['pro','con']).slice();
     notes.forEach(function(n){ if (sides.indexOf(n.side) < 0) sides.push(n.side); });
     var html = sides.map(function(side){
       var sideNotes = notes.filter(function(n){ return n.side === side; });
-      if (openMode()) sideNotes = sideNotes.slice(-1);
+      if (openMode()) sideNotes = sideNotes.filter(function(n){ return (n.points || []).some(function(p){ return p && p.note; }); }).slice(-1);
       var label = ({pro:'For',con:'Against',gov:'For',opp:'Against'})[side] || (f && f.sideLabels && f.sideLabels[side]) || side;
       var content = sideNotes.map(function(n){
         var pts = (Array.isArray(n.points) ? n.points : []).filter(function(p){ return p && p.note; }).map(function(p){
@@ -11898,13 +11906,14 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
             ? '<details class="rn-expand"><summary aria-label="Expand full note: ' + escHtml(note.text) + '">' + escHtml(note.text) + '</summary><p class="rn-note">' + escHtml(note.full) + '</p></details>'
             : '<span class="rn-note">' + escHtml(note.text) + '</span>') + '</li>';
         }).join('');
+        if (openMode() && !state.isDuo) return '<div class="rn-conversation-summary"><ul class="rn-points">' + pts + '</ul></div>';
         return '<details class="rn-speech is-' + (side === 'con' || side === 'opp' ? 'con' : 'pro') + '" open>'
           + '<summary><span class="rn-code">' + escHtml(n.code || 'Speech') + '</span>'
           + '<span class="rn-who">' + escHtml(n.speakerName || label) + '</span></summary>'
           + (pts ? '<ul class="rn-points">' + pts + '</ul>' : rnStatusRow('No points could be summarized from this transcript.'))
           + '</details>';
       }).join('');
-      return '<section class="rn-side-group"><h3>' + escHtml(label) + ' · ' + escHtml(side === 'pro' || side === 'gov' ? state.proName || label : state.conName || label) + '</h3>'
+      return '<section class="rn-side-group"><h3>' + escHtml(label) + (state.isDuo ? '' : ' · ' + escHtml(side === 'pro' || side === 'gov' ? state.proName || label : state.conName || label)) + '</h3>'
         + (content || rnStatusRow('Notes appear after this side speaks.')) + '</section>';
     }).join('');
     pendingIdx.sort(function(a,b){ return a-b; }).forEach(function(k){
@@ -11919,9 +11928,12 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var btn = $('rnOffBtn');
     var chat = $('roomChatBtn');
     if (chat) chat.addEventListener('click', function(){ audSetOpen(true); });
+    $('ballotChatBtn').addEventListener('click', function(){ audSetOpen(true); });
     var open = $('openRoundNotes');
     if (open) open.addEventListener('click', function(){
       state.rnRequested = true;
+      open.removeAttribute('data-updated');
+      open.textContent = 'Round notes';
       document.body.classList.add('rn-requested');
       try { localStorage.setItem('lr-round-notes', '1'); } catch(e){}
       document.body.classList.add('spec-show-notes');
@@ -14500,6 +14512,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // rather than waiting for the next toggle.
   function renderFlowMap(){
     var map = document.getElementById('flowMap');
+    var button = $('flowOfferBtn');
+    if (button && map) button.textContent = flowOfferText(!map.hidden);
     if (!map || map.hidden) return;
     map.innerHTML = flowMapHtml();
   }
@@ -14561,6 +14575,10 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       'Anyone can watch it; you can ask for it to be taken down at any time.</p>';
   }
 
+  function flowOfferText(expanded){
+    var connections = state.clashMapPending || !!clashMapHtml(state.clashMap);
+    return (expanded ? 'Hide ' : 'See ') + (connections ? 'argument connections' : 'round notes');
+  }
   function flowOfferHtml(){
     var notes = state.roundNotes || [];
     var log = (state.log || []).filter(function(l){
@@ -14570,7 +14588,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     // needs two real speeches, the notes index needs notes.
     if (!notes.length && log.length < 2) return '';
     return '<div class="ballot-section" data-stage="3" style="margin-top:14px">' +
-      '<button class="btn" id="flowOfferBtn" type="button">See argument connections</button>' +
+      '<button class="btn" id="flowOfferBtn" type="button">' + flowOfferText(false) + '</button>' +
       '<div id="flowMap" hidden></div>' +
     '</div>';
   }
@@ -14586,17 +14604,26 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       return '<div class="fm-row" data-n="">Drawing the clash map from the transcript…</div>';
     }
     var notes = (state.roundNotes || []).slice().sort(function(a,b){ return (a.idx||0)-(b.idx||0); });
-    var n = 0;
+    var n = 0, previous = '';
     return notes.map(function(sp){
-      var sideLabel = (f && f.sideLabels && f.sideLabels[sp.side]) || sp.side || '';
-      var rows = (Array.isArray(sp.points) ? sp.points : []).map(function(p){
+      var points = (Array.isArray(sp.points) ? sp.points : []).filter(function(p){ return p && String(p.note || '').trim(); });
+      var speaker = sp.side + '|' + (sp.speakerName || '');
+      // An empty excerpt can still mark a change of speaker.
+      if (!points.length){ previous = ''; return ''; }
+      var sideLabel = ({pro:'For',con:'Against',gov:'For',opp:'Against'})[sp.side] || sp.side || '';
+      var conversation = sp.code === 'Conversation';
+      var heading = (conversation ? sideLabel : sp.code || sideLabel) + ' · ' + (sp.speakerName || sideLabel);
+      var header = conversation && previous === speaker ? '' : '<div class="fm-speech">' + escHtml(heading) + '</div>';
+      previous = conversation ? speaker : '';
+      var rows = points.map(function(p){
         n += 1;
         return '<div class="fm-row" data-n="' + n + '"><b>' + escHtml(p.tag || '') + '</b>'
           + (p.note ? ' · <span>' + escHtml(p.note) + '</span>' : '') + '</div>';
       }).join('');
-      return '<div class="fm-speech">' + escHtml(sp.code || '') + ' · ' + escHtml(sp.speakerName || sideLabel) + '</div>' + rows;
+      return header + rows;
     }).join('');
   }
+
   document.addEventListener('click', function(ev){
     var btn = ev.target && ev.target.closest && ev.target.closest('#flowOfferBtn');
     if (!btn) return;
@@ -14605,11 +14632,11 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     if (map.hidden){
       map.innerHTML = flowMapHtml() || '<div class="fm-row" data-n="">No notes were taken this round.</div>';
       map.hidden = false;
-      btn.textContent = 'Hide argument connections';
+      btn.textContent = flowOfferText(true);
       try { gtag('event', 'ballot_flow_open', { surface: 'live', format: state.formatKey }); } catch(e){}
     } else {
       map.hidden = true;
-      btn.textContent = 'See argument connections';
+      btn.textContent = flowOfferText(false);
     }
   });
 
@@ -19462,7 +19489,7 @@ window.DBLiveDraft.attach({
       var tray = spectator ? '' :
         '<div class="cv-tray" role="group" aria-label="Room controls">' +
           '<button type="button" class="cv-btn">Mute</button>' +
-          '<button type="button" class="cv-btn">Hide me</button>' +
+          '<button type="button" class="cv-btn">Hide self view</button>' +
           '<button type="button" class="cv-btn cv-btn--leave">Leave</button>' +
         '</div>';
       shell.innerHTML = '<div class="cv-room">' + stage +

@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const source=readPageSource('app/live-round.html','utf8');
-let clock=120000;const host={innerHTML:''},calls=[];
+let clock=120000;const host={innerHTML:'',open:true},calls=[];
 const state={formatKey:'open',timerState:'running',proName:'Sam <script>',conName:'Jordan',openPeerSegs:[{at:20,text:'A reply',clock:'server'}]};
-const context={state,openMode:()=>true,isSpectator:()=>false,mySide:()=> 'pro',openPeerSide:()=> 'con',$:()=>host,
+const context={conversationFlowHtml:'',state,openMode:()=>true,isSpectator:()=>false,mySide:()=> 'pro',openPeerSide:()=> 'con',$:()=>host,
  openSeg:{segs:[{at:10,text:'First point'},{at:30,text:'An answer'}]},Date:{now:()=>clock},
  escHtml:s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'),
  generateRoundNotes:(entry,idx)=>calls.push({entry,idx})};vm.createContext(context);

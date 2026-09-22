@@ -2,6 +2,13 @@ import { test, expect } from '@playwright/test';
 import { readApp } from '../helpers/offline-site.mjs';
 import { roomDesign } from '../helpers/room-design.mjs';
 
+async function expectTopicInViewport(page){
+  // The compact dock repeats the topic only while the original is off screen.
+  await expect.poll(()=>page.locator('#roundMobileTopic, #rmbMotion').evaluateAll(nodes => nodes.some(node => {
+    const r=node.getBoundingClientRect(); return r.height>0 && r.top>=0 && r.bottom<=innerHeight;
+  }))).toBe(true);
+}
+
 for(const width of [320,390,1280]){
   test(`conversation starts with one primary choice and visible own side at ${width}px`,async({page},testInfo)=>{
     await page.setViewportSize({width,height:844});
@@ -11,11 +18,12 @@ for(const width of [320,390,1280]){
     await expect(page.locator('#startFormalBtn')).toBeHidden();
     await expect(page.locator('#roundReadiness')).toContainText('Connected');
     if(width<761){
+      await expect(page.locator('#roundFocusBtn')).toBeHidden();
       await expect(page.locator('#roundMobileContext')).toBeInViewport();
       await expect(page.locator('#roundMobileSide')).toHaveText('You’re arguing AGAINST');
       await expect(page.locator('#startConvoBtn')).toBeInViewport();
       await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
-      await expect(page.locator('#roundMobileTopic')).toBeInViewport();
+      await expectTopicInViewport(page);
       await expect(page.locator('#startConvoBtn')).toBeInViewport();
     }
     await page.locator('.round-mode-options>summary').click();
@@ -32,7 +40,7 @@ test('incoming finish request and explicit acceptance stay visible on a phone',a
   await expect(page.locator('#conversationFinishAccept')).toHaveText('Yes, finish the round');
   await expect(page.locator('#conversationFinishAccept')).toBeInViewport();
   await expect(page.locator('#conversationFinishText')).toContainText('Are you done speaking?');
-  await expect(page.locator('#roundMobileTopic')).toBeInViewport();
+  await expectTopicInViewport(page);
   await page.screenshot({path:testInfo.outputPath('finish-request.png')});
   expect(fixture.errors).toEqual([]);
 });
@@ -56,7 +64,7 @@ test('camera view keeps the topic, side and finish confirmation visible',async({
   await page.goto('https://debatable.test/live-round?design=finish&mySide=con');
   await page.getByRole('button',{name:'Camera view',exact:true}).click();
   await expect(page.locator('#roundMobileSide')).toHaveText('You’re arguing AGAINST');
-  await expect(page.locator('#roundMobileTopic')).toBeInViewport();
+  await expectTopicInViewport(page);
   await expect(page.locator('#conversationFinishAccept')).toBeInViewport();
   await page.screenshot({path:testInfo.outputPath('camera-finish.png')});
   expect(fixture.errors).toEqual([]);

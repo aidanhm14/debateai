@@ -1,5 +1,7 @@
 # soul.md. Debatable · itsdebatable.com
 
+> **Mobile round cleanup (Aidan, 2026-09-22).** Routine shared-note updates use an inline indicator, never stacked popups over the call. The phone action dock keeps the assigned side and current action; it repeats the topic only when the main topic is out of view. Chat, camera view and Next stay with the reference controls, and post-round Chat stays beside the round map. Consecutive transcript capture chunks from the same seat may share one display paragraph, with interruptions and long pauses kept separate. Saved transcript data and judging evidence are unchanged. Empty note excerpts do not create argument-map headings.
+
 > **Personal signup welcome (Aidan, 2026-09-21).** Each signup triggers one
 > separate email about five minutes after signup from `aidandavidhollinger@gmail.com` once its server OAuth
 > connection is configured. The private note may introduce and sign off as
