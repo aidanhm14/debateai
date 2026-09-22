@@ -4140,8 +4140,10 @@ window.watchLive = (function () {
         var absLat = Math.abs(p.lat);
         if (absLat > 74) { if (col % 3) continue; }
         else if (absLat > 60) { if (col % 2) continue; }
+        var latR = p.lat * Math.PI / 180, lngR = p.lng * Math.PI / 180;
+        var cosLat = Math.cos(latR);
         out.push({
-          lat: p.lat, lng: p.lng,
+          x: cosLat * Math.sin(lngR), y: Math.sin(latR), z: cosLat * Math.cos(lngR),
           coast: !(has(row-1,col) && has(row+1,col) && has(row,col-1) && has(row,col+1))
         });
       }
@@ -4155,8 +4157,10 @@ window.watchLive = (function () {
     var displayPhi = 0;         // phi + drag offset, recomputed each tick
     var pointerInteracting = null;
     var pointerInteractionMovement = 0;
-    var paused = false;
+    var paused = 'IntersectionObserver' in window;
     var lastT = 0;
+    var lastDrawAt = 0;
+    var FRAME_MS = 1000 / 30;
     var rafId = 0;
     var W = 0, H = 0;           // CSS pixels; backing buffer is W*dpr × H*dpr
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -4170,6 +4174,7 @@ window.watchLive = (function () {
       canvas.width = Math.round(size * dpr);
       canvas.height = Math.round(size * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (reduced && !hidden) draw();
     }
 
     // Project (lat, lng) on a unit sphere to screen-space relative to
@@ -4178,20 +4183,27 @@ window.watchLive = (function () {
     // sphere doesn't look like a flat disk at the poles.
     var TILT = 0.32; // ≈ 18°
     var TILT_C = Math.cos(TILT), TILT_S = Math.sin(TILT);
+    // Reuse one projection result; the dense land raster otherwise allocates
+    // thousands of short-lived arrays per frame in Chrome.
+    var projection = [0, 0, 0], spinC = 1, spinS = 0;
+    function projectPoint(x0, y0, z0){
+      var x = x0 * spinC - z0 * spinS;
+      var z = z0 * spinC + x0 * spinS;
+      projection[0] = x;
+      projection[1] = y0 * TILT_C - z * TILT_S;
+      projection[2] = y0 * TILT_S + z * TILT_C;
+      return projection;
+    }
     function project(lat, lng){
       var latR = lat * Math.PI / 180;
-      var lngR = lng * Math.PI / 180 - displayPhi;
+      var lngR = lng * Math.PI / 180;
       var cLat = Math.cos(latR);
-      var x = cLat * Math.sin(lngR);
-      var y0 = Math.sin(latR);
-      var z0 = cLat * Math.cos(lngR);
-      // tilt around X axis so the north pole leans toward camera
-      var y = y0 * TILT_C - z0 * TILT_S;
-      var z = y0 * TILT_S + z0 * TILT_C;
-      return [x, y, z];
+      return projectPoint(cLat * Math.sin(lngR), Math.sin(latR), cLat * Math.cos(lngR));
     }
 
     function draw(){
+      if (!W || !H) return;
+      spinC = Math.cos(displayPhi); spinS = Math.sin(displayPhi);
       var c = themeColors();
       var cx = W / 2, cy = H / 2;
       var r = Math.min(W, H) * 0.42;
@@ -4261,7 +4273,7 @@ window.watchLive = (function () {
         var dotBase = Math.max(0.6, r * 0.005);
         for (var li = 0; li < landPts.length; li++){
           var LP = landPts[li];
-          var Lr = project(LP.lat, LP.lng);
+          var Lr = projectPoint(LP.x, LP.y, LP.z);
           var fR = Lr[2] / 0.18;
           if (fR <= 0) continue;
           if (fR > 1) fR = 1;
@@ -4362,10 +4374,11 @@ window.watchLive = (function () {
     // sphere repaint (gradients + ~310 land dots + 25 marker glows) per
     // frame is real CPU/GPU even on a backgrounded tab (rAF throttles to
     // ~1Hz hidden, but offscreen-but-visible-tab is not throttled at all).
-    var hidden = false;
+    var hidden = document.hidden;
     function start(){
       if (!rafId && !paused && !hidden && !reduced){
         lastT = 0; // avoid a dt jump after a pause
+        lastDrawAt = 0;
         rafId = requestAnimationFrame(tick);
       }
     }
@@ -4374,6 +4387,9 @@ window.watchLive = (function () {
     }
     function tick(now){
       if (paused || hidden){ rafId = 0; return; }
+      rafId = requestAnimationFrame(tick);
+      if (now - lastDrawAt < FRAME_MS - 1) return;
+      lastDrawAt = now;
       var dt = lastT ? Math.min(64, now - lastT) : 16;
       lastT = now;
       if (pointerInteracting === null && !reduced){
@@ -4381,7 +4397,6 @@ window.watchLive = (function () {
       }
       displayPhi = phi + pointerInteractionMovement / 200;
       draw();
-      rafId = requestAnimationFrame(tick);
     }
 
     // Drag-to-rotate. Pause auto-spin while dragging.
@@ -4396,6 +4411,10 @@ window.watchLive = (function () {
     canvas.addEventListener('pointermove', function(e){
       if (pointerInteracting !== null){
         pointerInteractionMovement = e.clientX - pointerInteracting;
+        if (reduced){
+          displayPhi = phi + pointerInteractionMovement / 200;
+          draw();
+        }
       }
     });
     canvas.style.cursor = 'grab';
@@ -4406,11 +4425,11 @@ window.watchLive = (function () {
     try {
       var io = new IntersectionObserver(function(entries){
         entries.forEach(function(en){
-          paused = !en.isIntersecting;
+          paused = !en.isIntersecting || en.intersectionRatio < 0.1;
           if (paused) pause();
           else start();
         });
-      }, { rootMargin: '100px' });
+      }, { threshold: [0, 0.1] });
       io.observe(canvas);
     } catch(e){}
 
@@ -4426,8 +4445,8 @@ window.watchLive = (function () {
     // Theme picker on /practice writes data-theme/data-lighting on
     // <html>. Re-paint with the new palette on next tick (no reload).
     try {
-      var obs = new MutationObserver(function(){ /* themeColors() called per-tick */ });
-      obs.observe(document.documentElement, { attributes: true });
+      var obs = new MutationObserver(function(){ if (!rafId && !hidden) draw(); });
+      obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-lighting'] });
     } catch(e){}
 
     var rzTimer = null;
@@ -4435,6 +4454,8 @@ window.watchLive = (function () {
       clearTimeout(rzTimer);
       rzTimer = setTimeout(resize, 120);
     });
+    window.addEventListener('pagehide', function(){ hidden = true; pause(); });
+    window.addEventListener('pageshow', function(){ hidden = document.hidden; start(); });
 
     resize();
     if (reduced){

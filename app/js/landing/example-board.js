@@ -374,13 +374,21 @@
   ["face01", "face02", "face03", "face04", "face06", "face07", "face08", "face10", "face11", "face12", "face13", "face15", "face16", "face17", "face18", "face19", "face20", "face21", "face22", "face23", "face24", "face25", "face26", "face27", "face28", "face29", "face30", "face31", "face32", "face33", "face34", "face35", "face36", "face37", "face38", "face40", "face41", "face42", "face43", "face44", "face45", "face46", "face47", "face48", "face49", "face50", "face51", "face52", "face53", "face54", "face56", "face57", "face58", "face59", "face60", "face61", "face62"].forEach(function(id){ HOVER_CLIPS[id] = true; });
   var vidA = document.getElementById('fsVidA'), vidB = document.getElementById('fsVidB');
   var clipsHot = false;
+  var clipReleaseTimer = 0;
+  function clipRelease(v){
+    if (!v || !v.getAttribute('src')) return;
+    clipStop(v);
+    v.removeAttribute('src');
+    try { v.load(); } catch(e){}
+  }
   function clipStop(v){
     if (!v) return;
     v.classList.remove('is-on');
     try { v.pause(); if (v.currentTime) v.currentTime = 0; } catch(e){}
   }
   function clipPlay(v){
-    if (!v || reduced || !v.getAttribute('src')) return;
+    if (!v || reduced || !v.__dbClipSrc) return;
+    if (v.getAttribute('src') !== v.__dbClipSrc) v.setAttribute('src', v.__dbClipSrc);
     v.muted = true;
     var p; try { p = v.play(); } catch(e){ return; }
     if (p && p.then) p.then(function(){ if (clipsHot) v.classList.add('is-on'); else clipStop(v); }).catch(function(){});
@@ -389,10 +397,10 @@
   function clipSet(v, face){
     if (!v) return;
     var src = face && HOVER_CLIPS[face] ? '/img/round/faces/' + face + '.mp4' : '';
+    v.__dbClipSrc = src;
     if (v.getAttribute('src') === src) { if (clipsHot && src) clipPlay(v); return; }
-    clipStop(v);
-    if (src){ v.setAttribute('src', src); if (clipsHot) clipPlay(v); }
-    else { v.removeAttribute('src'); try { v.load(); } catch(e){} }
+    clipRelease(v);
+    if (clipsHot && !reduced && src) clipPlay(v);
   }
   /* Every face the board paints is recorded under 'da-faces-seen' so the
      sitewide live pop-up (js/live-popup.js) can draw a pair this browser
@@ -405,11 +413,23 @@
     } catch(e){}
   }
   function setClips(faceA, faceB){ noteFacesSeen(faceA, faceB); clipSet(vidA, faceA); clipSet(vidB, faceB); }
-  function clipsOn(){ if (clipsHot || reduced) return; clipsHot = true; clipPlay(vidA); clipPlay(vidB); }
-  function clipsOff(){ clipsHot = false; clipStop(vidA); clipStop(vidB); }
+  function clipsOn(){
+    clearTimeout(clipReleaseTimer); clipReleaseTimer = 0;
+    if (clipsHot || reduced) return;
+    clipsHot = true; clipPlay(vidA); clipPlay(vidB);
+  }
+  function clipsOff(){
+    clipsHot = false; clipStop(vidA); clipStop(vidB);
+    // Pause immediately, then let Chrome release decoder buffers after a
+    // sustained absence. A quick scroll away and back keeps the clips warm.
+    if (!clipReleaseTimer) clipReleaseTimer = setTimeout(function(){
+      clipReleaseTimer = 0;
+      if (!clipsHot){ clipRelease(vidA); clipRelease(vidB); }
+    }, 15000);
+  }
   var boardOnScreen = true;
   if (board && !reduced){
-    clipsOn();
+    if (!document.hidden) clipsOn();
     if ('IntersectionObserver' in window){
       new IntersectionObserver(function(entries){
         entries.forEach(function(en){
@@ -939,6 +959,15 @@
 
   function stop(){ if (tick){ clearInterval(tick); tick = null; } }
   function start(){ if (reduced || tick) return; tick = setInterval(step, TICK_MS); }
+
+  window.addEventListener('pagehide', function(){
+    stop(); clipsHot = false;
+    clearTimeout(clipReleaseTimer); clipReleaseTimer = 0;
+    clipRelease(vidA); clipRelease(vidB);
+  });
+  window.addEventListener('pageshow', function(e){
+    if (e.persisted && boardOnScreen && !document.hidden){ start(); clipsOn(); }
+  });
 
   // Only run while the board is actually on screen.
   if ('IntersectionObserver' in window){
