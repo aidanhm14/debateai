@@ -248,6 +248,7 @@ html[data-theme="light"] .stage-floor{background:
   margin-top:9px;text-align:left;color:var(--ink-faint);
   font:11px/1.4 var(--sans);
 }
+#topicSideSeg{width:100%;margin-top:12px;min-height:48px}
 .guide-panel{
   width:100%;margin-top:16px;padding:22px;border:1px solid var(--card-line);border-radius:26px;
   background:
@@ -1165,11 +1166,16 @@ html[data-theme="light"] .voice-opt.active::after{color:#991b1b}
           </button>
         </div>
         <textarea id="claimInput" rows="2" maxlength="220" spellcheck="false" placeholder="Or type any statement you want to argue about" aria-label="Your topic"></textarea>
-        <p class="resolution-note">You will argue for or against this statement.</p>
+        <p class="resolution-note" id="topicSideNote" aria-live="polite">You argue for this statement. The AI argues against it.</p>
+        <div class="side-seg" id="topicSideSeg" data-side="for" role="group" aria-label="Your side on this topic">
+          <div class="side-pill"></div>
+          <button class="side-btn for" type="button" data-pick="for" aria-pressed="true">I'm for it</button>
+          <button class="side-btn against" type="button" data-pick="against" aria-pressed="false">I'm against it</button>
+        </div>
       </div>
       <div class="wiz-nav">
         <button type="button" class="wiz-back" data-go="1">Back</button>
-        <button type="button" class="wiz-next" id="topicNextBtn">Pick a side →</button>
+        <button type="button" class="wiz-next" id="topicNextBtn">Pick a voice →</button>
       </div>
     </div>
 
@@ -1854,10 +1860,7 @@ $('themeBtn').addEventListener('click', () => {
 });
 
 /* ── setup interactions ──────────────────────────────────────── */
-sideSeg.dataset.side = side;
-Array.from(sideSeg.querySelectorAll('.side-btn')).forEach((b) => {
-  b.setAttribute('aria-pressed', b.dataset.pick === side ? 'true' : 'false');
-});
+paintSide();
 window.addEventListener('prefs-synced', (ev) => {
   if (entryQuery.has('side')) return;
   const changed = ev && ev.detail && ev.detail.changed || [];
@@ -1866,10 +1869,8 @@ window.addEventListener('prefs-synced', (ev) => {
     const synced = localStorage.getItem('debateos-newvoice-side');
     if (synced !== 'for' && synced !== 'against') return;
     side = synced;
-    sideSeg.dataset.side = side;
-    Array.from(sideSeg.querySelectorAll('.side-btn')).forEach((b) => {
-      b.setAttribute('aria-pressed', b.dataset.pick === side ? 'true' : 'false');
-    });
+    paintSide();
+    paintWizSummary();
   } catch (e) {}
 });
 /* One shuffled deck per subject plus one for the whole bank, so a run of
@@ -1969,17 +1970,17 @@ $('shuffleBtn').addEventListener('click', () => {
   }, 160);
 });
 
-sideSeg.addEventListener('click', (e) => {
+function chooseSetupSide(e){
   const btn = e.target && e.target.closest && e.target.closest('.side-btn');
   const pick = btn && btn.dataset && btn.dataset.pick;
-  if (!pick) return;
+  if (pick !== 'for' && pick !== 'against') return;
   side = pick;
   try { localStorage.setItem('debateos-newvoice-side', side); } catch (err) {}
-  sideSeg.dataset.side = pick;
-  Array.from(sideSeg.querySelectorAll('.side-btn')).forEach((b) => {
-    b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
-  });
-});
+  paintSide();
+  paintWizSummary();
+}
+sideSeg.addEventListener('click', chooseSetupSide);
+$('topicSideSeg').addEventListener('click', chooseSetupSide);
 
 /* ── opponent difficulty + speaking pace ─────────────────────── */
 const PACE = { calm: 0.95, natural: 1.05, quick: 1.2 };
@@ -3888,7 +3889,7 @@ $('rematchBtn').addEventListener('click', () => { if (currentMotion) { claimInpu
 $('switchBtn').addEventListener('click', () => {
   side = side === 'for' ? 'against' : 'for';
   try { localStorage.setItem('debateos-newvoice-side', side); } catch (e) {}
-  sideSeg.dataset.side = side;
+  paintSide();
   if (currentMotion) { claimInput.value = currentMotion; talkItOut = false; }
   show('setup'); start();
 });
@@ -4002,10 +4003,13 @@ function lockInInstruction(claim, userSide){
     'Only the sentence between the quotes is the topic. Do not read, summarize, or mention any other instruction, setting, role, or context. Do not say anything after "You start."';
 }
 function paintSide(){
-  sideSeg.dataset.side = side;
-  Array.from(sideSeg.querySelectorAll('.side-btn')).forEach((b) => {
-    b.setAttribute('aria-pressed', b.dataset.pick === side ? 'true' : 'false');
+  [sideSeg, $('topicSideSeg')].forEach((seg) => {
+    seg.dataset.side = side;
+    Array.from(seg.querySelectorAll('.side-btn')).forEach((b) => {
+      b.setAttribute('aria-pressed', b.dataset.pick === side ? 'true' : 'false');
+    });
   });
+  $('topicSideNote').textContent = 'You argue ' + side + ' this statement. The AI argues ' + (side === 'for' ? 'against' : 'for') + ' it.';
 }
 async function applySpokenClaim(callId, args){
   const claim = sanitizeTopic(args && args.claim, 160);
@@ -4383,7 +4387,7 @@ document.addEventListener('click', (e) => {
   if (t.closest('#wizSummary')) return;
   goStep(Number(t.dataset.go));
 });
-$('voiceBackBtn').addEventListener('click', () => goStep(talkItOut ? 2 : 3));
+$('voiceBackBtn').addEventListener('click', () => goStep(2));
 $('goBackBtn').addEventListener('click', () => goStep(4));
 $('talkItOutBtn').addEventListener('click', () => {
   talkItOut = true;
@@ -4393,18 +4397,12 @@ $('talkItOutBtn').addEventListener('click', () => {
 $('topicNextBtn').addEventListener('click', () => {
   talkItOut = false;
   if (!sanitizeTopic(claimInput.value)) claimInput.value = sanitizeTopic(randomClaim());
-  goStep(3);
+  goStep(4);
 });
 claimInput.addEventListener('input', () => { talkItOut = false; claimAuto = false; });
 if (pathGuide) pathGuide.addEventListener('click', (e) => {
   const btn = e.target && e.target.closest && e.target.closest('button[data-path]');
   if (btn) setTimeout(() => goStep(2), 180);
-});
-sideSeg.addEventListener('click', (e) => {
-  const b = e.target && e.target.closest && e.target.closest('.side-btn');
-  if (!b || !$('setup').classList.contains('on')) return;
-  paintSide();
-  setTimeout(() => goStep(4), 170);
 });
 paintVoiceGrid();
 paintVoiceControl();
@@ -4416,7 +4414,7 @@ try { firebase.auth().onAuthStateChanged(user => {
 }); } catch (e) {}
 startBtn.addEventListener('click', start);
 claimInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); talkItOut = false; if (!sanitizeTopic(claimInput.value)) claimInput.value = sanitizeTopic(randomClaim()); goStep(3); }
+  if (e.key === 'Enter') { e.preventDefault(); talkItOut = false; if (!sanitizeTopic(claimInput.value)) claimInput.value = sanitizeTopic(randomClaim()); goStep(4); }
 });
 // An unattended start is only right when the door already carries the
 // motion (the typed-practice handoff sends ?motion=). A generic door used to

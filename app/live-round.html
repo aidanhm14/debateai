@@ -3550,6 +3550,12 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
 .round-own-side strong{border:1px solid currentColor;border-radius:5px;padding:3px 8px;color:var(--accent);font-size:.78rem;letter-spacing:.03em}
 .round-own-side span{color:var(--text-dim)}
 .round-own-side[hidden]{display:none}
+.round-side-choice{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;margin-top:10px}
+.round-side-choice .round-own-side{margin-top:0}
+#roundSwitchSides{margin:0;min-height:44px;padding:8px 14px;font-size:.78rem;letter-spacing:0;text-transform:none;color:var(--text)}
+#roundSwitchSides[hidden]{display:none}
+#roundSwitchSides:disabled{cursor:default;opacity:.65}
+#ballotOppDm[hidden]{display:none}
 body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
 .round-plan,.conversation-finish{grid-column:1/-1;width:100%;margin:12px 0 4px;color:var(--text);font-size:.78rem;line-height:1.45}
 .round-plan p{margin:0 0 7px;color:var(--text-dim)}
@@ -3859,8 +3865,20 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
               <span class="rmb-lock-note" id="rmbLockNote" hidden>Topic locked once the round starts</span>
             </span>
             <div class="rmb-motion" id="rmbMotion">&#8212;</div>
-            <div class="round-own-side" id="roundOwnSide" aria-live="polite" hidden></div>
+            <div class="round-side-choice">
+              <div class="round-own-side" id="roundOwnSide" aria-live="polite" hidden></div>
+              <button class="sg-swap" id="roundSwitchSides" type="button" aria-controls="swapPropose" hidden>Switch sides</button>
+            </div>
             <div class="round-side-pair" id="roundSidePair" aria-label="Who argues each side"></div>
+
+            <div class="rmb-propose" id="swapPropose" aria-live="polite" hidden>
+              <div class="rmbp-text">
+                <span class="rmbp-eyebrow" id="swpEyebrow">Side swap proposed</span>
+                <div class="rmbp-motion" id="swpWhat"></div>
+                <span class="rmbp-by" id="swpBy"></span>
+              </div>
+              <div class="rmbp-actions" id="swpActions"></div>
+            </div>
 
             <!-- 2026-09-07: the "What This House means" link rides the
                  resolution it explains. renderHouseGloss() fills this and
@@ -3969,7 +3987,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         </div>
         </div>
         <div class="ready-hint" id="readyHint">Starts the timer and mic.</div>
-        <div class="room-resources"><div class="round-flow-entry"><button type="button" class="round-flow-trigger" data-round-flow><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><path d="M19 4h3v16h-3M4 8h1m7 0h1M4 12h1m7 0h1"/></svg>View round map</button></div><button type="button" class="rn-export" id="openRoundNotes" aria-controls="roundNotes" aria-live="polite">Round notes</button><button type="button" id="roomChatBtn" aria-label="Open round chat" aria-controls="audPanel">Chat</button><button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:var(--text-dim);border-color:var(--border,rgba(128,128,128,.28));background:transparent;font-weight:600">Next →</button></div>
+        <div class="room-resources"><div class="round-flow-entry"><button type="button" class="round-flow-trigger" data-round-flow><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><path d="M19 4h3v16h-3M4 8h1m7 0h1M4 12h1m7 0h1"/></svg>View round map</button></div><button type="button" class="rn-export" id="openRoundNotes" aria-controls="roundNotes" aria-live="polite">Round notes</button><button type="button" id="roomChatBtn" aria-label="Open round chat" aria-controls="audPanel">Chat</button><button type="button" id="rosterOppDm" aria-controls="dmModal" hidden>Message opponent</button><button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:var(--text-dim);border-color:var(--border,rgba(128,128,128,.28));background:transparent;font-weight:600">Next →</button></div>
         <!-- 2026-08-23: the room's own liveness, for whoever is looking at
              it. Every LISTING has told a live round from a dead one since
              the ghost-room fix (the seat heartbeat, ~100s), but nothing
@@ -3984,16 +4002,6 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         <div class="round-quiet guest-hold" id="guestHold" hidden></div>
       </div>
       <div id="conversationNotes" hidden><p id="conversationNotesEmpty">Say early what the key words mean to you. The judge scores you on your meaning, not the dictionary. Shared round notes appear here as the conversation develops.</p></div>
-      <!-- Pending side swap. Hidden until one debater asks to trade; the
-           seats do not move until the other one agrees. -->
-      <div class="rmb-propose" id="swapPropose" hidden>
-        <div class="rmbp-text">
-          <span class="rmbp-eyebrow" id="swpEyebrow">Side swap proposed</span>
-          <div class="rmbp-motion" id="swpWhat"></div>
-          <span class="rmbp-by" id="swpBy"></span>
-        </div>
-        <div class="rmbp-actions" id="swpActions"></div>
-      </div>
       <!-- Set the context (US / world). Shown before Speech 1 only when the
            AI decides the motion depends on where it applies. Both debaters
            pick a setting; the agreed frame is handed to the judge. Filled by
@@ -4114,7 +4122,6 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
               </div>
               <span class="rc-side" id="rosterOppSide">—</span>
               <div class="rc-actions">
-              <button type="button" class="rc-dm" id="rosterOppDm" hidden title="Message your opponent">✉ Message</button>
               <button type="button" class="rc-safety" id="rosterOppReport" hidden title="Report or block your opponent">Report</button>
               <button type="button" class="rc-safety" id="rosterOppAiReport" hidden title="Report suspected AI use. The transcript gets screened and a human reviews; a report never decides the round.">🤖 AI?</button>
               </div>
@@ -4257,7 +4264,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       <div id="ballotResult" class="hidden"></div>
       <div id="ballotNotesHost"></div>
       <div id="roundFeedback" style="padding:0 22px"></div>
-      <div class="round-flow-entry" style="padding:14px 22px"><button type="button" class="round-flow-trigger" data-round-flow>View round map</button><button type="button" class="rn-export" data-round-export>Export round to Google Docs</button><button type="button" class="rn-export" id="ballotChatBtn" aria-controls="audPanel">Chat</button></div>
+      <div class="round-flow-entry" style="padding:14px 22px"><button type="button" class="round-flow-trigger" data-round-flow>View round map</button><button type="button" class="rn-export" data-round-export>Export round to Google Docs</button><button type="button" class="rn-export" id="ballotChatBtn" aria-controls="audPanel">Chat</button><button type="button" class="rn-export" id="ballotOppDm" aria-controls="dmModal" hidden>Message opponent</button></div>
       <!-- 2026-09-07, per the founder: the ask for critiques lands right
            after the judged round, linked to the critique form on
            /judge-integrity with this room's id. Revealed with the ballot
@@ -6517,6 +6524,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       window.__lrReportTarget = { uid: _oppUid || '', name: _oppNm, room: state.room || '' };
       var _dmBtn = $('rosterOppDm');
       if (_dmBtn){ var _me = state.user && state.user.uid; _dmBtn.hidden = !(_me && _oppUid && _oppUid !== _me && !spectator); }
+      var _ballotDm = $('ballotOppDm');
+      if (_ballotDm) _ballotDm.hidden = !_dmBtn || _dmBtn.hidden;
       var _reportBtn = $('rosterOppReport');
       if (_reportBtn){ var _reportMe = state.user && state.user.uid; _reportBtn.hidden = !(_reportMe && _oppUid && _oppUid !== _reportMe && !spectator); }
       var _aiBtn = $('rosterOppAiReport');
@@ -6773,6 +6782,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   }
 
   function renderSidesGuide(){
+    if (window.__lrSyncSwapButton) window.__lrSyncSwapButton();
     var el = $('sidesGuide');
     if (!el) return;
     if (state.phase !== 'round'){
@@ -6790,18 +6800,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     // on their own is which direction each label points, and that is all
     // this line carries.
     //
-    // Switch sides rides the viewer's OWN item, and it rides the VISIBLE
-    // strip rather than the long-form cells in Round details: the whole
-    // reason it was put on the sides guide is that a control nobody can
-    // see is a control nobody uses, and a disclosure would put it back
-    // where the motion editor used to be.
-    var canSwap = false;
-    try { canSwap = !!(window.__lrSwapOffered && window.__lrSwapOffered()); } catch(e){}
-    // 2026-09-04, the founder: the two-chip legend ("PRO argues for the
-    // resolution / CON argues against the resolution / YOU") is gone, and
-    // so is the Switch sides control that rode it. What is left is the one
-    // fact a newcomer cannot work out alone: which way THEY argue. A
-    // spectator gets both names in one sentence.
+    // The switch now lives beside #roundOwnSide in the topic header.
     var isQuestion = /\?\s*$/.test(String(state.motion || ''));
     var yesWord = isQuestion ? 'yes' : 'for it';
     var noWord = isQuestion ? 'no' : 'against it';
@@ -15622,9 +15621,19 @@ window.DBLiveDraft.attach({
     var swapOfferedLast = null;   // last painted availability, so the sync is not a re-render on every tick
 
     function swapAllowed(){
-      return !isSpectator() && !state.isDuo && !motionChangeLocked()
+      return state.phase === 'round' && !isSpectator() && !state.isDuo && !motionChangeLocked()
         && bothSeatsIdentified() && !!myUid();
     }
+    window.__lrSyncSwapButton = function(){
+      var button = $('roundSwitchSides');
+      if (!button) return;
+      button.hidden = !swapAllowed();
+      button.disabled = swapPending;
+      button.textContent = swapPending ? 'Switch requested' : 'Switch sides';
+    };
+    $('roundSwitchSides').addEventListener('click', function(){
+      if (!swapPending) proposeSwap();
+    });
     // What the sides guide asks before it draws the control: allowed AND
     // nothing already pending, since the card is the surface while one is.
     window.__lrSwapOffered = function(){ return swapAllowed() && !swapPending; };
@@ -15824,6 +15833,7 @@ window.DBLiveDraft.attach({
     // rebuilds the sides guide, and the transition fires often enough
     // that an unconditional re-render would be wasteful.
     window.__lrSyncSideSwap = function(){
+      window.__lrSyncSwapButton();
       var offered = false;
       try { offered = window.__lrSwapOffered(); } catch(e){}
       if (offered !== swapOfferedLast){
@@ -16149,20 +16159,29 @@ window.DBLiveDraft.attach({
     if (contextBtn) contextBtn.addEventListener('click', function(){ requestRoundBrief(contextBtn); });
   })();
 
-  // ── DM your opponent (pre-join). Writes to dm_threads in the exact
+  // ── DM your opponent. Writes to dm_threads in the exact
   //    shape /spar uses, so it lands in the opponent's notification bell
   //    even if they have not opened the room yet. ──
   (function(){
+    var dmOpener = null;
     function myName(){ var s=mySide(); var nm=(s==='pro')?state.proName:(s==='con')?state.conName:''; return (nm&&nm.trim())||publicNameOf(state.user); }
-    function openDm(){
+    function openDm(event){
+      var me=state.user&&state.user.uid, target=state.oppDm&&state.oppDm.uid;
+      if (!me || !target || target === me || isSpectator()) return;
       var m=$('dmModal'); if(!m) return;
+      dmOpener = event && event.currentTarget || document.activeElement;
       var d=state.oppDm||{}; var nm=$('dmOppName'); if(nm) nm.textContent=d.name||'your opponent';
+      var link=$('dmThreadLink'); if(link) link.href='/messages?dm='+encodeURIComponent(d.uid)+'&name='+encodeURIComponent(d.name||'Opponent');
       var st=$('dmStatus'); if(st) st.textContent='';
       m.hidden=false; m.classList.add('is-open');
       var ta=$('dmText'); if(ta) setTimeout(function(){ ta.focus(); }, 40);
       try{ gtag('event','live_round_dm_open'); }catch(e){}
     }
-    function closeDm(){ var m=$('dmModal'); if(!m) return; m.hidden=true; m.classList.remove('is-open'); }
+    function closeDm(){
+      var m=$('dmModal'); if(!m || m.hidden) return;
+      m.hidden=true; m.classList.remove('is-open');
+      if (dmOpener && dmOpener.isConnected) dmOpener.focus();
+    }
     function notifyDmEmail(threadId,messageId,attempt){
       if(!state.user||!threadId||!messageId) return;
       state.user.getIdToken(attempt>0).then(function(tok){
@@ -16176,7 +16195,8 @@ window.DBLiveDraft.attach({
     function sendDm(){
       var me=state.user&&state.user.uid; var d=state.oppDm||{};
       var ta=$('dmText'), st=$('dmStatus'), btn=$('dmSend');
-      if(!me||!d.uid){ if(st) st.textContent='Your opponent needs an account to receive messages.'; return; }
+      if (btn && btn.disabled) return;
+      if(!me||!d.uid||d.uid===me||isSpectator()){ if(st) st.textContent='Your opponent needs an account to receive messages.'; return; }
       var text=((ta&&ta.value)||'').trim(); if(!text) return;
       if(text.length>1000) text=text.slice(0,1000);
       if(btn) btn.disabled=true; if(st) st.textContent='Sending…';
@@ -16201,7 +16221,9 @@ window.DBLiveDraft.attach({
     // The dmModal markup lives at end-of-body, AFTER this script, so its
     // elements do not exist yet at parse time. Wire on DOMContentLoaded.
     function wireDm(){
-      var ob=$('rosterOppDm'); if(ob && !ob._dmWired){ ob._dmWired=1; ob.addEventListener('click', openDm); }
+      ['rosterOppDm','ballotOppDm'].forEach(function(id){
+        var ob=$(id); if(ob && !ob._dmWired){ ob._dmWired=1; ob.addEventListener('click', openDm); }
+      });
       var sb=$('dmSend'); if(sb && !sb._dmWired){ sb._dmWired=1; sb.addEventListener('click', sendDm); }
       var mm=$('dmModal'); if(mm && !mm._dmWired){ mm._dmWired=1; [].forEach.call(mm.querySelectorAll('[data-dm-close]'), function(c){ c.addEventListener('click', closeDm); }); }
     }
@@ -21976,11 +21998,12 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
     <button type="button" class="dm-x" data-dm-close aria-label="Close">&times;</button>
     <div class="dm-eyebrow">Direct message</div>
     <h3 class="dm-title">Message <span id="dmOppName">your opponent</span></h3>
-    <p class="dm-hint">They will see this in their notifications, even if they have not joined the room yet.</p>
-    <textarea id="dmText" class="dm-text" maxlength="1000" placeholder="e.g. Ready when you are, jump into the room and we will start."></textarea>
+    <p class="dm-hint">Private message to your opponent. Replies appear in Messages.</p>
+    <p class="dm-hint"><a id="dmThreadLink" href="/messages" target="_blank" rel="noopener">Open conversation in Messages</a></p>
+    <textarea id="dmText" class="dm-text" maxlength="1000" aria-label="Your private message" placeholder="Write a message to your opponent."></textarea>
     <div class="dm-row">
       <button type="button" class="dm-send" id="dmSend">Send message</button>
-      <span class="dm-status" id="dmStatus"></span>
+      <span class="dm-status" id="dmStatus" role="status"></span>
     </div>
   </div>
 </div>

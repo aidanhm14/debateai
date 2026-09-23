@@ -1,5 +1,9 @@
 # soul.md. Debatable · itsdebatable.com
 
+> **Choose the side you want (2026-09-23, Aidan).** People can switch For/Against while choosing an AI resolution; typed setup offers the same choice. In live 1v1 rooms, Switch sides sits beside the assigned side and asks the other person to agree before either seat moves. The proposal stays beside the topic, and sides lock when the round starts. This restores the visible swap action removed September 4 without changing tournament or team assignments.
+
+> **DM your opponent (2026-09-23, Aidan).** Message opponent is visible among live-room actions and after the decision. It opens a private composer addressed to the other account; Messages holds the continuing conversation. Room Chat remains separate.
+
 > **Round reliability and feedback (2026-09-23).** Switching cameras must keep the microphone and mute state intact. Pausing or rejoining must preserve captured conversation history. Oversized or disconnected final saves fail visibly instead of dropping words or opening judging early. People can submit round feedback without agreeing to transcript history. That explicit feedback has its own private review inbox and is not an independent label of the correct winner. Historical verdicts remain unchanged.
 
 > **Round records and review (2026-09-23).** Every eligible human round belongs on the human ladder; AI ratings remain separate. Repair missed results in chronological order with `scripts/reconcile-ratings.mjs`, preserving an audit of the replaced rating records. Conversation capture must select the consenting person’s labelled words, never the shared container’s clock-owner side. Capture retries retain one generation ID and feedback links to that record. Judge the full supported transcript; never silently take a 12,000-character prefix of a conversation. Historical ballots remain unchanged. `docs/round-data-review.md` documents source meanings, review tooling and quality holds.
