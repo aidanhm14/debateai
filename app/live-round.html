@@ -4515,7 +4515,9 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     get state(){ return state; },
     get teardownCamPipeline(){ return teardownCamPipeline; },
     get tuneSendQuality(){ return tuneSendQuality; },
-    get wireAudienceReceiveSettings(){ return wireAudienceReceiveSettings; }
+    get wireAudienceReceiveSettings(){ return wireAudienceReceiveSettings; },
+    get noteMyCallState(){ return noteMyCallState; },
+    get watchMicPermission(){ return watchMicPermission; }
   });
   var presenceController = window.DBLivePresence.create({
     get audCam(){ return audCam; },
@@ -5353,6 +5355,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     suppressNextSync: false, // local-write guard (don't double-render our own writes)
     arrivedAtMs: Date.now(), // when I opened the room — grace anchor for the no-show prompt
     seatSeen: null,          // { uid: ts } per-debater presence read from the round doc
+    seatCall: null,          // { uid: {s, at} } each debater's own word on their video-call state (joined / mic_blocked / mic_busy / ...)
     seatLeft: null,          // { uid: ts } per-debater departure marks read from the round doc
     seatLeftMarked: false,   // I have written my own departure mark; stop beating
     oppGoneAt: 0,            // local ms when the opponent last left the video call (0 = they are in it)
@@ -10977,11 +10980,88 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     try { ps = room.call.participants() || {}; } catch(e){ return { ready:false, text:'Reconnecting to the call.' }; }
     var peerUid = mySide() === 'pro' ? state.conUid : state.proUid;
     var peer = peerUid && Object.keys(ps).some(function(k){ return ps[k] && !ps[k].local && ps[k].user_id === peerUid; });
-    if (!peer) return { ready:false, peerConnected:false, text:'Waiting for your opponent to connect.' };
+    if (!peer) return { ready:false, peerConnected:false, text: peerWaitText() };
     var local = ps.local, audio = local && local.tracks && local.tracks.audio;
     var track = audio && (audio.persistentTrack || audio.track);
     if (!track || track.readyState !== 'live') return { ready:false, peerConnected:true, text:'Connected. Check your microphone before starting.' };
     return { ready:true, peerConnected:true, text:'Connected · Ready to start' };
+  }
+  // What the other chair is doing while it is not in the call. The Daily
+  // participant list only says who is absent. The round doc carries two
+  // things it cannot: seatSeen (they are on the page, beating) and
+  // seatCall (their own browser's word on why they are not in the call,
+  // written by noteMyCallState below). Measured 2026-09-23: about one join
+  // in nine ends in a denied microphone, and that person stays on the page
+  // for minutes while the other side reads "Waiting for your opponent to
+  // connect." Without either signal the old line stands.
+  var PEER_FRESH_MS = 45000;
+  function seatMs(v){
+    if (!v) return 0;
+    if (typeof v === 'number') return v;
+    if (typeof v.toMillis === 'function') return v.toMillis();
+    if (typeof v.seconds === 'number') return v.seconds * 1000;
+    return 0;
+  }
+  function peerCallKind(peerUid){
+    var c = state.seatCall && peerUid ? state.seatCall[peerUid] : null;
+    return (c && typeof c.s === 'string') ? c.s : '';
+  }
+  function peerOnPage(peerUid){
+    var me = state.user && state.user.uid;
+    if (!peerUid || !state.seatSeen) return false;
+    var theirs = seatMs(state.seatSeen[peerUid]);
+    if (!theirs) return false;
+    // Both stamps are server-written, so this is one clock against itself.
+    var mine = me ? seatMs(state.seatSeen[me]) : 0;
+    return !mine || (mine - theirs) < PEER_FRESH_MS;
+  }
+  function peerWaitText(){
+    var peerUid = mySide() === 'pro' ? state.conUid : state.proUid;
+    var name = (mySide() === 'pro' ? state.conName : state.proName) || 'Your opponent';
+    if (!peerOnPage(peerUid)) return 'Waiting for your opponent to connect.';
+    var kind = peerCallKind(peerUid);
+    if (kind === 'mic_blocked') return name + ' is here, but their browser blocked their microphone. They need to allow it and rejoin.';
+    if (kind === 'mic_busy') return name + ' is here, but another app is using their microphone. They need to close it and rejoin.';
+    if (kind === 'mic_missing') return name + ' is here, but their browser found no microphone.';
+    if (kind === 'mic_failed') return name + ' is here, but their microphone did not start. They need to fix it and rejoin.';
+    if (kind === 'mic_pending') return name + ' is here, answering the microphone prompt.';
+    if (kind === 'left' || kind === 'dropped') return name + ' left the video call. They can rejoin from their screen.';
+    if (kind === 'join_failed') return name + ' could not join the video call and is retrying.';
+    return name + ' is here and connecting to the call.';
+  }
+  // My own side of the same signal. Written once per state change, never
+  // by a spectator, merged so the opponent's entry survives.
+  var myCallStateLast = '';
+  function noteMyCallState(kind){
+    try {
+      if (!kind || kind === myCallStateLast || isSpectator()) return;
+      var uid = state.user && state.user.uid;
+      var ref = getRoundDocRef();
+      if (!uid || !ref || !window.firebase || !firebase.firestore) return;
+      myCallStateLast = kind;
+      var patch = { seatCall: {} };
+      patch.seatCall[uid] = { s: kind, at: firebase.firestore.FieldValue.serverTimestamp() };
+      ref.set(patch, { merge: true }).catch(function(){});
+    } catch(e){}
+  }
+  // After a denied microphone, a granted permission rejoins on its own.
+  // Chrome fires onchange when the person flips it in the address bar;
+  // Safari throws on the query and keeps the Rejoin button as the path.
+  var micPermWatch = null;
+  function watchMicPermission(){
+    if (micPermWatch) return;
+    try {
+      if (!navigator.permissions || !navigator.permissions.query) return;
+      navigator.permissions.query({ name: 'microphone' }).then(function(p){
+        micPermWatch = p;
+        p.onchange = function(){
+          if (p.state !== 'granted' || !room || !room.call || room.joined || room.joinPending) return;
+          try { gtag('event', 'live_round_mic_regranted'); } catch(e){}
+          try { connectionController.setRoomNote('Microphone allowed. Connecting to the video room.'); } catch(e){}
+          try { connectionController.joinRoomCall(); } catch(e){}
+        };
+      }).catch(function(){ micPermWatch = null; });
+    } catch(e){}
   }
   function roundStartBlock(){
     if (!state.room || state.isDuo || isSpectator() || state.speechIdx !== 0 || state.timerState !== 'ready') return '';
@@ -18889,16 +18969,41 @@ window.DBLiveDraft.attach({
     b.addEventListener('click', fn);
     return b;
   }
-  function showNoShow(oppUid){
-    if (state.noShowEl){ state.noShowEl.style.display = 'flex'; return; }
-    var fromSpar = (prefill.source || '').indexOf('spar') === 0;
+  // The prompt's headline follows the opponent's own report of why they
+  // are not in the call (seatCall on the round doc). Absent that, the
+  // old line stands: not connected, and nothing more is known.
+  function noShowCopy(oppUid){
     var oppNm = (state.user && state.user.uid === state.proUid) ? (state.conName || 'Your opponent') : (state.proName || 'Your opponent');
+    var c = state.seatCall && oppUid ? state.seatCall[oppUid] : null;
+    var kind = (c && typeof c.s === 'string') ? c.s : '';
+    var tail = ' Keep waiting, message them, or find someone else.';
+    if (kind === 'mic_blocked') return { kind: kind, title: oppNm + '\u2019s microphone is blocked in their browser.', body: 'They are on the page. The round cannot start until they allow the microphone and rejoin.' + tail };
+    if (kind === 'mic_busy') return { kind: kind, title: oppNm + '\u2019s microphone is in use by another app.', body: 'They are on the page. The round cannot start until they close it and rejoin.' + tail };
+    if (kind === 'mic_missing') return { kind: kind, title: oppNm + '\u2019s browser found no microphone.', body: 'They are on the page. The round cannot start until they plug one in and rejoin.' + tail };
+    if (kind === 'mic_failed') return { kind: kind, title: oppNm + '\u2019s microphone did not start.', body: 'They are on the page. The round cannot start until they fix it and rejoin.' + tail };
+    if (kind === 'mic_pending') return { kind: kind, title: oppNm + ' is answering the microphone prompt.', body: 'Give them a moment. This closes when they connect.' + tail };
+    if (kind === 'left' || kind === 'dropped') return { kind: kind, title: oppNm + ' left the video call.', body: 'They can rejoin from their screen.' + tail };
+    if (kind === 'join_failed') return { kind: kind, title: oppNm + ' could not join the video call.', body: 'They are retrying from their screen.' + tail };
+    return { kind: '', title: oppNm + ' is not connected to the call.', body: 'Keep waiting, message them, or find someone else. This closes when they connect.' };
+  }
+  function showNoShow(oppUid){
+    var copy = noShowCopy(oppUid);
+    if (state.noShowEl){
+      state.noShowEl.style.display = 'flex';
+      var t = state.noShowEl.querySelector('#nspTitle'), b = state.noShowEl.querySelector('#nspBody');
+      if (t && t.textContent !== copy.title) t.textContent = copy.title;
+      if (b && b.textContent !== copy.body) b.textContent = copy.body;
+      return;
+    }
+    var fromSpar = (prefill.source || '').indexOf('spar') === 0;
     var el = document.createElement('div');
     el.id = 'noShowPrompt';
     el.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);max-width:540px;width:calc(100% - 32px);padding:16px 18px;background:var(--bg-elev,#16131a);border:1px solid rgba(245,158,11,.5);border-radius:16px;z-index:320;box-shadow:0 16px 50px rgba(0,0,0,.55);display:flex;flex-direction:column;gap:12px;text-align:center;font-family:inherit';
-    el.innerHTML = '<div style="font-size:.95rem;font-weight:800;color:#fbbf24">' + escHtml(oppNm) + ' is not connected to the call.</div>' +
-      '<div style="font-size:.82rem;color:var(--text-dim,rgba(255,255,255,.6));line-height:1.5">Keep waiting, message them, or find someone else. This closes when they connect.</div>' +
+    el.innerHTML = '<div id="nspTitle" style="font-size:.95rem;font-weight:800;color:#fbbf24"></div>' +
+      '<div id="nspBody" style="font-size:.82rem;color:var(--text-dim,rgba(255,255,255,.6));line-height:1.5"></div>' +
       '<div id="nspBtns" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"></div>';
+    el.querySelector('#nspTitle').textContent = copy.title;
+    el.querySelector('#nspBody').textContent = copy.body;
     document.body.appendChild(el);
     var btns = el.querySelector('#nspBtns');
     var dmBtn = document.getElementById('rosterOppDm');
@@ -18913,7 +19018,7 @@ window.DBLiveDraft.attach({
       hideNoShow(); state.noShowSnoozeUntil = Date.now() + 45000;
     }));
     state.noShowEl = el;
-    try { gtag('event', 'live_opponent_noshow_shown', { format: state.formatKey }); } catch(e){}
+    try { gtag('event', 'live_opponent_noshow_shown', { format: state.formatKey, kind: copy.kind || 'unknown' }); } catch(e){}
   }
   function hideNoShow(){ if (state.noShowEl) state.noShowEl.style.display = 'none'; }
 
@@ -20009,7 +20114,15 @@ window.DBLiveDraft.attach({
     // debater who comes back clears their own mark, and the strip has to
     // come down when that happens.
     state.seatLeft = d.seatLeft || null;
+    // The opponent's own word on their call state rides beside seatSeen.
+    // Repaint the readiness line and the no-show prompt when it moves, so
+    // "blocked microphone" lands the moment their browser reports it.
+    var seatCallKey = d.seatCall ? JSON.stringify(Object.keys(d.seatCall).sort().map(function(k){ return [k, d.seatCall[k] && d.seatCall[k].s]; })) : '';
+    var seatCallMoved = seatCallKey !== (state.seatCallKey || '');
+    state.seatCall = d.seatCall || null;
+    state.seatCallKey = seatCallKey;
     if (d.seatSeen) { state.seatSeen = d.seatSeen; checkOpponentPresence(); try { checkKickoffPrompt(); } catch(e){} }
+    if (seatCallMoved){ try { paintRoundReadiness(); } catch(e){} if (!d.seatSeen) checkOpponentPresence(); }
     // The guest wall's hold map (2026-09-07). Read on every snapshot so the
     // opponent's notice comes down the instant the guest signs in.
     state.guestHold = d.guestHold || null;

@@ -36,7 +36,11 @@ test('a stale Ready nudge cannot announce an empty call, and reconnect clears th
     function refresh(){paintRoom();presence.checkOpponentPresence();}
     refresh();
   `});
+  // Jordan's seat heartbeat is fresh, so the line says they are on the page.
+  await expect(page.locator('#roundReadiness')).toHaveText('Jordan is here and connecting to the call.');
+  await page.evaluate(()=>{ delete state.seatSeen.b; refresh(); });
   await expect(page.locator('#roundReadiness')).toHaveText('Waiting for your opponent to connect.');
+  await page.evaluate(()=>{ state.seatSeen.b=Date.now(); refresh(); });
   await expect(page.locator('#openBeatCard')).toHaveCount(0);
   await expect(page.locator('#playPauseBtn')).toBeDisabled();
   await expect(page.locator('#startConvoBtn')).toBeDisabled();
@@ -44,6 +48,12 @@ test('a stale Ready nudge cannot announce an empty call, and reconnect clears th
   await page.evaluate(()=>{ state.seatSeen.b=Date.now(); refresh(); });
   await expect(page.locator('#noShowPrompt')).toContainText('Jordan is not connected to the call.');
   await expect(page.getByRole('button',{name:'Find another',exact:true})).toBeVisible();
+  // Their browser reports a denied microphone: both surfaces say so, in place.
+  await page.evaluate(()=>{ state.seatCall={b:{s:'mic_blocked'}}; refresh(); });
+  await expect(page.locator('#roundReadiness')).toHaveText('Jordan is here, but their browser blocked their microphone. They need to allow it and rejoin.');
+  await expect(page.locator('#noShowPrompt')).toContainText('microphone is blocked in their browser');
+  await page.evaluate(()=>{ state.seatCall=null; refresh(); });
+  await expect(page.locator('#noShowPrompt')).toContainText('Jordan is not connected to the call.');
   await page.evaluate(()=>{ participants.peer={local:false,user_id:'b'}; refresh(); });
   await expect(page.locator('#noShowPrompt')).toBeHidden();
   await expect(page.locator('#openBeatCard')).toHaveText('Jordan is ready. You speak first.');

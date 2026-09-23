@@ -21,6 +21,29 @@
   var teardownCamPipeline = function(){ return context.teardownCamPipeline.apply(this, arguments); };
   var tuneSendQuality = function(){ return context.tuneSendQuality.apply(this, arguments); };
   var wireAudienceReceiveSettings = function(){ return context.wireAudienceReceiveSettings.apply(this, arguments); };
+  // Both optional: an older page (or a test fixture) may not supply them.
+  var noteMyCallState = function(){ return context.noteMyCallState ? context.noteMyCallState.apply(this, arguments) : undefined; };
+  var watchMicPermission = function(){ return context.watchMicPermission ? context.watchMicPermission.apply(this, arguments) : undefined; };
+
+  // Why the microphone did not start, in the four shapes browsers actually
+  // report. The kind is published to the round doc so the OTHER chair can
+  // read it: a Daily participant list only says who is absent, never why,
+  // and "Waiting for your opponent to connect" was the whole story for a
+  // person who was on the page the entire time with a denied mic.
+  function micFailKind(e){
+    var n = (e && e.name) || '';
+    if (n === 'NotAllowedError' || n === 'SecurityError' || n === 'PermissionDeniedError') return 'mic_blocked';
+    if (n === 'NotReadableError' || n === 'AbortError' || n === 'TrackStartError') return 'mic_busy';
+    if (n === 'NotFoundError' || n === 'OverconstrainedError' || n === 'DevicesNotFoundError') return 'mic_missing';
+    return 'mic_failed';
+  }
+  function micFailCopy(kind){
+    var tail = ' The round cannot start until you are in the call. Your opponent can see you are here.';
+    if (kind === 'mic_blocked') return 'Allow microphone access for this site (the camera or lock icon beside the address bar), then rejoin. Camera access is optional.' + tail;
+    if (kind === 'mic_busy') return 'Another app or tab is using your microphone. Close it, then rejoin.' + tail;
+    if (kind === 'mic_missing') return 'No microphone was found. Plug one in or pick one in your browser settings, then rejoin.' + tail;
+    return 'Allow microphone access for this site in your browser, or close another app using it. Then rejoin. Camera access is optional.' + tail;
+  }
 
   function setRoomNote(msg){
     if (!context.room.note) return;
@@ -171,8 +194,9 @@
     }).catch(function(e){
       liveJourney('call_join_failed', { code: e.name || 'unknown' });
       console.warn('[Daily join]', e);
+      noteMyCallState('join_failed');
       setRoomExit('Could not join the video room.',
-        'Your round is unaffected. The speeches and the decision do not run through the video.');
+        'Rejoin to start the round. Your opponent can see you are here.');
       context.room.joined = false;
       paintTray();
     });
@@ -205,6 +229,7 @@
         if (!context.room.joined){
           setRoomNote('Allow microphone access in your browser to join. Camera access is optional.');
           liveJourney('media_permission_wait');
+          noteMyCallState('mic_pending');
         }
       }, 10000);
       pending = ensureAvatarCam('camera').then(function(c){
@@ -231,11 +256,15 @@
             else { e.liveAudio.stop(); context.room.fallbackAudioTrack = null; }
           });
         }
-        liveJourney('call_media_blocked', { code: e.name || 'unknown' });
-        setRoomExit('Your microphone did not start.',
-          'Allow microphone access for this site in your browser, or close another app using it. Then rejoin. Camera access is optional.');
+        var kind = micFailKind(e);
+        liveJourney('call_media_blocked', { code: e.name || 'unknown', kind: kind });
+        noteMyCallState(kind);
+        setRoomExit('Your microphone did not start.', micFailCopy(kind));
         context.room.joined = false;
         paintTray();
+        // The moment the person allows the mic from the address bar, join
+        // without asking them to find the Rejoin button.
+        if (kind === 'mic_blocked') watchMicPermission();
       });
     }
     return Promise.resolve(pending).then(function(){ context.room.joinPending = false; });
@@ -277,6 +306,7 @@
     call.on('joined-meeting', function(){
       liveJourney('call_joined');
       context.room.joined = true;
+      if (!context.room.viewer) noteMyCallState('joined');
       paintTray();
       setRoomNote('');
       armGuestWall();
@@ -330,6 +360,7 @@
     call.on('error', function(ev){
       liveJourney('call_error', { code: (ev && ev.error && ev.error.type) || 'unknown' });
       console.warn('[Daily]', ev);
+      if (!context.room.viewer) noteMyCallState('dropped');
       if (context.room.viewer){
         setRoomExit('The video dropped.',
           'The round carries on. Rejoin the video, or keep following the clock and the transcript.');
@@ -350,6 +381,7 @@
         setRoomExit('You stopped watching the video.',
           'The round is still running. The clock, the transcript and the decision keep arriving here.');
       } else {
+        noteMyCallState('left');
         teardownCamPipeline();
         setRoomExit('You left the video room.',
           'You are still in the round. Your speeches, the clock and the decision are unaffected.');
