@@ -1,0 +1,15 @@
+# Founder benchmark runner
+
+`POST /.netlify/functions/admin-benchmark-run` accepts exactly `provider`, `model`, `system` and `user`. Supported pairs are `anthropic` / `claude-opus-5`, `openai` / `gpt-5.5`, and `google` / `gemini-3.6-flash`. Both prompts must be nonempty strings, at most 20,000 combined UTF-16 code units. Their whitespace and content are preserved.
+
+The route requires the existing Firebase admin gate and a named identity with a verified email on the existing owner-email allowlist. It follows ordinary admin tooling's authentication policy; it adds no anonymous lane or App Check exemption to any other route. Existing browser fetch and token handling stay unchanged.
+
+Each accepted request makes one nonstreaming provider call with a fixed 4,096-token output/completion budget and a 45-second abort deadline, subject to the deployment's function deadline. There are no retries, alternate models, product voice instructions, personalized brain, exemplars or corpus writes. The existing layered limiter allows 3 requests/minute, 12/hour and 36/day per founder UID. It uses Upstash when configured and the existing per-instance memory fallback otherwise. The shared limiter may record aggregate rate-limit refusals; it never receives the prompts.
+
+Return values include the provider-reported model ID (null when absent), text, numeric usage fields, stop reason, completion/truncation/block status and elapsed time. Every attempted call includes completion time and elapsed time, including failures. Only the provider's normal terminal reason can be marked completed; unrecognized terminal reasons remain unresolved. Provider error bodies and credentials never return. Missing model identity or empty output is an unresolved run, not a scored success. Refusals and truncated output must be retained in results.
+
+`system_sha256` and `user_sha256` hash the exact UTF-8 prompt strings. `prompt_sha256` hashes `JSON.stringify({system,user})`. `request_sha256` hashes `JSON.stringify({provider,body})`, where `body` is the exact provider request including model and generation settings, excluding credentials and transport headers. The protocol version, fixed limits and provider-default sampling policy accompany every attempted provider call. Save the input prompts, response and code revision in the private run record.
+
+This is an exploratory comparison under each provider's defaults. The providers may use different reasoning and sampling defaults, and model aliases can change upstream. The completion budget may include reasoning before visible output; preserve the usage breakdown and stop reason. Put any desired 150-word answer limit in the identical benchmark prompt. Do not describe these runs as deterministic or equivalent compute, or turn an exploratory sample into an automated quality ranking. The model ID returned by the provider is evidence; the requested alias alone is not proof of the model served.
+
+Offline verification: `node scripts/test-admin-benchmark-run.mjs`. No live provider calls are part of the tests.
