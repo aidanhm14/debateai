@@ -72,6 +72,11 @@ styles with real browser MediaStreams. It covers transient interruptions,
 audience focus, phone seat order, screen sharing and explicit media removal.
 Daily participant states are fixtures; this is not a live network-quality test.
 
+`live-room-messages.spec.mjs` checks private messaging from audience and
+participant side cards on phone and desktop, separate recipient drafts,
+side swaps, failed sends, existing threads and signed-out controls. Firebase
+and notification requests are intercepted; tests never message real accounts.
+
 `tests/match-invitations.spec.mjs` is an offline two-person browser suite.
 It uses the shipped matching code with an in-memory queue and pairing
 endpoints. It covers mutual acceptance before room entry, existing matches, concurrent

@@ -5824,11 +5824,17 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     own.setAttribute('data-side',side||'');
     own.innerHTML=side ? '<strong>You argue '+(side==='pro'?'FOR':'AGAINST')+'</strong><span>'+(side==='pro'?'Defend this claim.':'Challenge this claim.')+'</span>' : '';
     var pair=$('roundSidePair');
-    if(pair) pair.innerHTML=['pro','con'].map(function(s){
-      var people=(s==='pro'?state.proName:state.conName)||'Waiting for someone';
-      if(state.isDuo) people += ' & '+((s==='pro'?state.proName2:state.conName2)||'Teammate');
-      return '<div class="round-side-person" data-side="'+s+'"><b>'+(s==='pro'?'FOR':'AGAINST')+'</b><span>'+escHtml(people)+(side===s&&!isSpectator()?' <small>(you)</small>':'')+'</span></div>';
-    }).join('');
+    if(pair){
+      var cards=['pro','con'].map(function(s){
+        var people=(state.isDuo?[s,s+'2']:[s]).map(function(seat){
+          var person=roundDmTarget(seat), me=state.user&&state.user.uid;
+          return '<span class="round-side-member"><span>'+escHtml(person.name||'Waiting for someone')+(person.uid&&person.uid===me?' <small>(you)</small>':'')+'</span>'
+            +(canMessageAccount(person.uid)?'<button type="button" class="round-person-message" data-dm-seat="'+seat+'" aria-controls="dmModal" aria-label="'+escHtml('Message '+person.name)+'">Message</button>':'')+'</span>';
+        }).join('');
+        return '<div class="round-side-person" data-side="'+s+'"><b>'+(s==='pro'?'FOR':'AGAINST')+'</b>'+people+'</div>';
+      }).join('');
+      if(pair.innerHTML!==cards) pair.innerHTML=cards;
+    }
     try { syncRoundFlow(); } catch(e){}
     var choosing=state.speechIdx===0&&state.timerState==='ready'&&!isSpectator();
     if(f.open){
@@ -6528,7 +6534,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       // click and the modal never opened.
       window.__lrReportTarget = { uid: _oppUid || '', name: _oppNm, room: state.room || '' };
       var _dmBtn = $('rosterOppDm');
-      if (_dmBtn){ var _me = state.user && state.user.uid; _dmBtn.hidden = !(_me && _oppUid && _oppUid !== _me && !spectator); }
+      if (_dmBtn) _dmBtn.hidden = !canMessageAccount(_oppUid) || spectator;
       var _ballotDm = $('ballotOppDm');
       if (_ballotDm) _ballotDm.hidden = !_dmBtn || _dmBtn.hidden;
       var _reportBtn = $('rosterOppReport');
@@ -16164,26 +16170,53 @@ window.DBLiveDraft.attach({
     if (contextBtn) contextBtn.addEventListener('click', function(){ requestRoundBrief(contextBtn); });
   })();
 
-  // ── DM your opponent. Writes to dm_threads in the exact
+  function roundDmTarget(seat){
+    if (!/^(pro|con)2?$/.test(seat||'')) return {uid:'',name:''};
+    var side=seat.slice(0,3), suffix=seat.length>3?'2':'';
+    return {uid:state[side+'Uid'+suffix]||'',name:state[side+'Name'+suffix]||''};
+  }
+  function canMessageAccount(uid){
+    return !!(state.user && uid && uid!==state.user.uid);
+  }
+
+  // ── DM your opponent. Audience members can choose either account.
+  //    Writes to dm_threads in the exact
   //    shape /spar uses, so it lands in the opponent's notification bell
   //    even if they have not opened the room yet. ──
   (function(){
-    var dmOpener = null;
-    function myName(){ var s=mySide(); var nm=(s==='pro')?state.proName:(s==='con')?state.conName:''; return (nm&&nm.trim())||publicNameOf(state.user); }
+    var dmOpener = null, dmTarget = null, dmSenderUid = '', dmDrafts = Object.create(null), dmVersion = 0, dmCloseTimer = null;
+    function saveDraft(){
+      var ta=$('dmText');
+      if(dmTarget && ta) dmDrafts[dmSenderUid+'_'+dmTarget.uid]=ta.value;
+    }
+    function myName(){
+      var me=state.user&&state.user.uid, seats=['pro','con','pro2','con2'];
+      for(var i=0;i<seats.length;i++){
+        var person=roundDmTarget(seats[i]);
+        if(person.uid===me&&person.name) return person.name;
+      }
+      return publicNameOf(state.user);
+    }
     function openDm(event){
-      var me=state.user&&state.user.uid, target=state.oppDm&&state.oppDm.uid;
-      if (!me || !target || target === me || isSpectator()) return;
+      var opener=event&&event.currentTarget;
+      var seat=opener&&opener.getAttribute('data-dm-seat');
+      var d=seat?roundDmTarget(seat):(state.oppDm||{});
+      if (!canMessageAccount(d.uid)) return;
       var m=$('dmModal'); if(!m) return;
-      dmOpener = event && event.currentTarget || document.activeElement;
-      var d=state.oppDm||{}; var nm=$('dmOppName'); if(nm) nm.textContent=d.name||'your opponent';
+      saveDraft(); clearTimeout(dmCloseTimer); dmVersion++;
+      // Freeze the chosen account while drafting, even if the room swaps sides.
+      dmTarget={uid:d.uid,name:d.name||'this person'}; dmSenderUid=state.user.uid;
+      dmOpener = opener || document.activeElement;
+      var nm=$('dmOppName'); if(nm) nm.textContent=dmTarget.name;
       var link=$('dmThreadLink'); if(link) link.href='/messages?dm='+encodeURIComponent(d.uid)+'&name='+encodeURIComponent(d.name||'Opponent');
       var st=$('dmStatus'); if(st) st.textContent='';
       m.hidden=false; m.classList.add('is-open');
-      var ta=$('dmText'); if(ta) setTimeout(function(){ ta.focus(); }, 40);
+      var ta=$('dmText'); if(ta){ ta.value=dmDrafts[dmSenderUid+'_'+dmTarget.uid]||''; setTimeout(function(){ if(!m.hidden)ta.focus(); }, 40); }
       try{ gtag('event','live_round_dm_open'); }catch(e){}
     }
     function closeDm(){
       var m=$('dmModal'); if(!m || m.hidden) return;
+      saveDraft(); clearTimeout(dmCloseTimer); dmVersion++;
       m.hidden=true; m.classList.remove('is-open');
       if (dmOpener && dmOpener.isConnected) dmOpener.focus();
     }
@@ -16198,10 +16231,10 @@ window.DBLiveDraft.attach({
       });
     }
     function sendDm(){
-      var me=state.user&&state.user.uid; var d=state.oppDm||{};
+      var me=state.user&&state.user.uid; var d=dmTarget||{}, version=dmVersion;
       var ta=$('dmText'), st=$('dmStatus'), btn=$('dmSend');
       if (btn && btn.disabled) return;
-      if(!me||!d.uid||d.uid===me||isSpectator()){ if(st) st.textContent='Your opponent needs an account to receive messages.'; return; }
+      if(me!==dmSenderUid||!canMessageAccount(d.uid)){ if(st) st.textContent='Sign in to send this private message.'; return; }
       var text=((ta&&ta.value)||'').trim(); if(!text) return;
       if(text.length>1000) text=text.slice(0,1000);
       if(btn) btn.disabled=true; if(st) st.textContent='Sending…';
@@ -16212,16 +16245,21 @@ window.DBLiveDraft.attach({
       var pInfo={}; pInfo[me]={name:nm,photo:(state.user.photoURL||'')}; pInfo[d.uid]={name:d.name||'Opponent',photo:''};
       var unread={}; unread[me]=0; unread[d.uid]=firebase.firestore.FieldValue.increment(1);
       var preview=text.length>80?text.slice(0,77)+'…':text;
-      ref.set({ participants:[me,d.uid], participantInfo:pInfo, lastMessage:preview, lastMessageAt:firebase.firestore.FieldValue.serverTimestamp(), lastMessageFrom:me, unread:unread }, {merge:true})
+      // Keep the order of an existing thread's frozen participant list.
+      ref.set({ participants:firebase.firestore.FieldValue.arrayUnion(me,d.uid), participantInfo:pInfo, lastMessage:preview, lastMessageAt:firebase.firestore.FieldValue.serverTimestamp(), lastMessageFrom:me, unread:unread }, {merge:true})
         .then(function(){ return msgRef.set({ fromUid:me, fromName:nm, text:text, createdAt:firebase.firestore.FieldValue.serverTimestamp() }); })
-        .then(function(){ if(ta) ta.value=''; if(btn) btn.disabled=false; if(st) st.textContent='Sent. They will see it in their notifications.'; try{ gtag('event','live_round_dm_send'); }catch(e){}
+        .then(function(){
+          if(btn) btn.disabled=false;
+          if(version===dmVersion){ if(ta)ta.value=''; if(st)st.textContent='Sent. Replies appear in Messages.'; }
+          if(version===dmVersion||dmDrafts[me+'_'+d.uid]===text) dmDrafts[me+'_'+d.uid]='';
+          try{ gtag('event','live_round_dm_send'); }catch(e){}
           // Web Push the opponent's devices (server verifies the shared thread; no-ops until VAPID is configured).
           try { state.user.getIdToken().then(function(tok){
             fetch('/.netlify/functions/push-send', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok}, body: JSON.stringify({ recipientUid: d.uid, threadId: tid, messageId: msgRef.id }) }).catch(function(){});
           }).catch(function(){}); } catch(_){}
           notifyDmEmail(tid,msgRef.id,0);
-          setTimeout(closeDm, 1500); })
-        .catch(function(e){ if(btn) btn.disabled=false; if(st) st.textContent='Could not send. Try again.'; try{ console.warn('[live-round dm]', e); }catch(_){} });
+          if(version===dmVersion) dmCloseTimer=setTimeout(closeDm, 1500); })
+        .catch(function(e){ if(btn) btn.disabled=false; if(st&&version===dmVersion) st.textContent='Could not send. Try again.'; try{ console.warn('[live-round dm]', e); }catch(_){} });
     }
     // The dmModal markup lives at end-of-body, AFTER this script, so its
     // elements do not exist yet at parse time. Wire on DOMContentLoaded.
@@ -16229,6 +16267,11 @@ window.DBLiveDraft.attach({
       ['rosterOppDm','ballotOppDm'].forEach(function(id){
         var ob=$(id); if(ob && !ob._dmWired){ ob._dmWired=1; ob.addEventListener('click', openDm); }
       });
+      var pair=$('roundSidePair');
+      if(pair && !pair._dmWired){ pair._dmWired=1; pair.addEventListener('click',function(e){
+        var button=e.target.closest('[data-dm-seat]');
+        if(button&&pair.contains(button)) openDm({currentTarget:button});
+      }); }
       var sb=$('dmSend'); if(sb && !sb._dmWired){ sb._dmWired=1; sb.addEventListener('click', sendDm); }
       var mm=$('dmModal'); if(mm && !mm._dmWired){ mm._dmWired=1; [].forEach.call(mm.querySelectorAll('[data-dm-close]'), function(c){ c.addEventListener('click', closeDm); }); }
     }
@@ -21997,15 +22040,15 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
     <div class="dm-status" id="motionModalStatus" role="status"></div>
   </div>
 </div>
-<div id="dmModal" class="dm-modal" hidden role="dialog" aria-modal="true" aria-label="Message opponent">
+<div id="dmModal" class="dm-modal" hidden role="dialog" aria-modal="true" aria-labelledby="dmTitle">
   <div class="dm-backdrop" data-dm-close></div>
   <div class="dm-card">
     <button type="button" class="dm-x" data-dm-close aria-label="Close">&times;</button>
     <div class="dm-eyebrow">Direct message</div>
-    <h3 class="dm-title">Message <span id="dmOppName">your opponent</span></h3>
-    <p class="dm-hint">Private message to your opponent. Replies appear in Messages.</p>
+    <h3 class="dm-title" id="dmTitle">Message <span id="dmOppName">your opponent</span></h3>
+    <p class="dm-hint">Only you and this person can see this message. Replies appear in Messages.</p>
     <p class="dm-hint"><a id="dmThreadLink" href="/messages" target="_blank" rel="noopener">Open conversation in Messages</a></p>
-    <textarea id="dmText" class="dm-text" maxlength="1000" aria-label="Your private message" placeholder="Write a message to your opponent."></textarea>
+    <textarea id="dmText" class="dm-text" maxlength="1000" aria-label="Your private message" placeholder="Write a private message."></textarea>
     <div class="dm-row">
       <button type="button" class="dm-send" id="dmSend">Send message</button>
       <span class="dm-status" id="dmStatus" role="status"></span>

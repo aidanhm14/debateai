@@ -45,7 +45,7 @@ async function liveFixture(page, side = 'pro', width = 390) {
   await page.addInitScript(() => {
     const auth = { currentUser: null, onAuthStateChanged: () => () => {} };
     const firestore = () => null;
-    firestore.FieldValue = { serverTimestamp: () => 1, delete: () => '__delete__', increment: n => n };
+    firestore.FieldValue = { serverTimestamp: () => 1, delete: () => '__delete__', increment: n => n, arrayUnion: (...uids) => uids };
     window.firebase = { apps: [{}], auth: () => auth, firestore };
   });
   const writes = [];
@@ -111,7 +111,7 @@ test('live swaps require the peer, support declining, and update both sides', as
 
 test('message composer waits for Send, preserves failed drafts, and addresses only the opponent', async ({ page }) => {
   const fixture = await liveFixture(page);
-  const dm = between(readApp('live-round.html'), '  // ── DM your opponent.', '  // Call card controls.');
+  const dm = between(readApp('live-round.html'), '  function roundDmTarget(seat){', '  // Call card controls.');
   await page.evaluate(() => {
     window.dmWrites = []; window.failDm = false;
     window.mockDmDb = { collection: collection => ({ doc: thread => ({

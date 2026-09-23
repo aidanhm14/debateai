@@ -4,7 +4,7 @@
 
 > **Choose the side you want (2026-09-23, Aidan).** People can switch For/Against while choosing an AI resolution; typed setup offers the same choice. In live 1v1 rooms, Switch sides sits beside the assigned side and asks the other person to agree before either seat moves. The proposal stays beside the topic, and sides lock when the round starts. This restores the visible swap action removed September 4 without changing tournament or team assignments.
 
-> **DM your opponent (2026-09-23, Aidan).** Message opponent is visible among live-room actions and after the decision. It opens a private composer addressed to the other account; Messages holds the continuing conversation. Room Chat remains separate.
+> **Private messages from a round (2026-09-23, Aidan).** Audience members can message either person from their For/Against card; participants can message the other account there too. Message opponent remains among live-room actions and after the decision. A draft stays addressed to the selected account through side swaps, with separate drafts for each recipient. Messages holds the continuing private conversation; room Chat stays separate.
 
 > **Round reliability and feedback (2026-09-23).** Switching cameras must keep the microphone and mute state intact. Pausing or rejoining must preserve captured conversation history. Oversized or disconnected final saves fail visibly instead of dropping words or opening judging early. People can submit round feedback without agreeing to transcript history. That explicit feedback has its own private review inbox and is not an independent label of the correct winner. Historical verdicts remain unchanged.
 
