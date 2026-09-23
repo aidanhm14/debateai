@@ -459,7 +459,7 @@
     var headline = (lockCopy && lockCopy.headline) || 'Sign in to Debatable';
     var subline = (lockCopy && lockCopy.sub) ||
       (showLivePerson
-        ? 'Debate real people face to face on live video. Sign in to keep your rounds and conversations.'
+        ? 'Argue with real people on live video. Sign in so your rounds and conversations stay saved.'
         : noEmail
         ? (googleOnly ? 'Continue with Google to access this page.' : 'Continue with Google, Apple, or email to join live video.')
         : 'Use Google, Apple, or your email and password. New here? Create an account below.');
@@ -1086,7 +1086,7 @@
           // Firebase's sender, or the cap means nothing.
           if (res && res.status === 429) {
             var busy = new Error('rate-limited');
-            busy.userMessage = 'That is a few links already. Check your inbox and your spam folder, or use a password instead.';
+            busy.userMessage = 'You have asked for a few links already. Check your inbox and spam folder, or use a password instead.';
             reject(busy);
             return;
           }
@@ -1162,10 +1162,10 @@
       '<ol class="da-steps">' +
         '<li>Open the email from <strong>Debatable</strong> (hello@itsdebatable.com).</li>' +
         '<li>Tap <strong>Sign in to Debatable</strong>.</li>' +
-        '<li>You land back on this page, signed in. Nothing to remember next time.</li>' +
+        '<li>It brings you back to this page, signed in. No password to remember.</li>' +
       '</ol>' +
       '<div class="da-spam"><strong>Not there after 2 minutes? Check spam.</strong>' +
-        'A first email from a new sender often lands there. Move it to your inbox and mark it Not spam, and the next one arrives properly.</div>' +
+        'First emails from a new sender often end up there. If it did, mark it Not spam and the next one will land in your inbox.</div>' +
       (box ? '<a class="da-btn da-btn--primary da-btn--hero" id="daOpenMail" href="' + esc(box.url) + '" target="_blank" rel="noopener">' + esc(box.label) + '</a>' : '') +
       '<button type="button" class="da-btn" id="daLinkResend">Send it again</button>' +
       '<div class="da-status" role="status"></div>' +

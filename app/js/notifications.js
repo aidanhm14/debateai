@@ -2505,8 +2505,8 @@
       var lab = pill.querySelector('.da-spar-pill__lab');
       if (tournamentSeat) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Tournament match'; pill.title = 'Your tournament room has your seat. General matching is paused until the result is in. Tap to open the tournament desk.'; pill.setAttribute('aria-label', 'Reserved for your tournament match. Open the tournament desk.'); }
       else if (voiceDeclined) { pill.classList.remove('is-on'); if (lab) lab.textContent = 'Voice AI'; pill.title = 'Live invitations are paused while you continue with the AI. Tap to receive them again.'; pill.setAttribute('aria-label', pill.title); }
-      else if (available) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Available'; pill.title = "You're matchable. Keep this tab open while you work in other tabs and we'll ping you the moment a rival is found. Tap to turn off."; pill.setAttribute('aria-label', "Available for live debates. Tap to turn off."); }
-      else { pill.classList.remove('is-on'); if (lab) lab.textContent = 'Spar live'; pill.title = 'Get matched with a human while you browse. No need to wait on the spar page.'; pill.setAttribute('aria-label', 'Go available for live debates'); }
+      else if (available) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Available'; pill.title = "You're available. Keep this tab open while you do other things, and we'll ping you when someone wants to debate. Tap to turn off."; pill.setAttribute('aria-label', "Available for live debates. Tap to turn off."); }
+      else { pill.classList.remove('is-on'); if (lab) lab.textContent = 'Spar live'; pill.title = 'Get matched with a real person while you browse, without sitting on the Spar page.'; pill.setAttribute('aria-label', 'Go available for live debates'); }
     }
 
     // Server-owned tournament reservations make an assigned seat exclusive

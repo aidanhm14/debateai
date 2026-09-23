@@ -598,7 +598,7 @@
     dialog.innerHTML = '<p class="da-wait-invite__label">Available to debate</p>' +
       '<div class="da-wait-invite__avatar" aria-hidden="true">' + esc(initial(item.name)) + '</div>' +
       '<h2 id="da-wait-title">' + esc(item.name || 'Someone') + ' wants to debate</h2>' +
-      '<p id="da-wait-sub" class="da-wait-invite__sub">They are looking for an opponent right now. Up for a live one-on-one round?</p>' +
+      '<p id="da-wait-sub" class="da-wait-invite__sub">They are looking for an opponent right now. Want to do a live one-on-one round?</p>' +
       '<div class="da-wait-invite__buttons"><button type="button" data-decline>' + (voiceAI ? 'Keep talking to AI' : 'Not now') + '</button>' +
       '<button type="button" data-accept autofocus>Accept</button></div>';
     document.body.appendChild(dialog);
@@ -787,7 +787,7 @@
           liveVideo: true,
           destination: item.href,
           headline: 'Sign in to spectate live debates',
-          sub: 'Sign in with Google, Apple, or email to enter the audience. Your camera and microphone stay off.'
+          sub: 'Sign in with Google, Apple, or email to watch. Your camera and microphone stay off.'
         });
         return;
       }

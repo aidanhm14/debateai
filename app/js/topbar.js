@@ -1014,7 +1014,7 @@
       spot.innerHTML =
         '<span class="ui-topbar-more-spot-eyebrow"><span class="ui-topbar-more-live-dot" aria-hidden="true"></span>Live</span>' +
         '<span class="ui-topbar-more-spot-title">Debate someone now</span>' +
-        '<span class="ui-topbar-more-spot-sub">Get paired, argue it out, and hear who won.</span>' +
+        '<span class="ui-topbar-more-spot-sub">Get paired with a real person, argue it out, and an AI judge says who won.</span>' +
         '<span class="ui-topbar-more-spot-proof">' +
           '<img src="/img/round/faces/face02.jpg" alt="" loading="lazy" decoding="async">' +
           '<img src="/img/round/faces/face07.jpg" alt="" loading="lazy" decoding="async">' +
@@ -2226,7 +2226,7 @@
     btn.type = 'button';
     btn.id = 'barSignIn';
     btn.className = 'ui-btn ui-btn-ghost ui-btn-sm';
-    btn.title = 'Sign in or create an account. Free.';
+    btn.title = 'Sign in or make a free account';
     btn.textContent = 'Sign in';
     btn.addEventListener('click', function(){
       openSharedAuth('signin');

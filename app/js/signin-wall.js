@@ -157,7 +157,7 @@
       sub: inApp
         ? 'Sign in to save your rounds, scores and progress. Your account is free.'
         : (livePerson
-          ? 'Debate real people face to face on live video. Continue with Google to keep your rounds and progress. Your account is free.'
+          ? 'Argue with real people on live video. Sign in with Google so your rounds and progress stay saved. The account is free.'
           : 'Continue with Google to save your rounds, scores and progress. Your account is free.'),
       onDone: function (user) {
         if (named(user)) { shown = false; decide(user); return; }

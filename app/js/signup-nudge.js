@@ -198,7 +198,7 @@
       delay: 3,
       variant: 'prominent',
       inviteOptIn: true,
-      msg: '<strong>Sign in and your rounds count.</strong> Every result saved, your recordings kept, and a place on the leaderboard.' },
+      msg: '<strong>Sign in and your rounds count.</strong> Your results and recordings get saved, and you can show up on the leaderboard.' },
     // /practice owns the account moment. Let a guest finish the sample
     // round, then offer to claim the ballot that now exists. A timer-based
     // prompt during prep competes with the round before the value is real.
@@ -211,7 +211,7 @@
     // enough rounds to feel it.
     { match: /^\/(voice-debate|newvoice|coach)/,
       delay: 60,
-      msg: '<strong>Signed out, your score is not saved.</strong> Sign in and every judged voice round counts toward your level and puts your best score on the leaderboard.' },
+      msg: '<strong>You are signed out, so this score will not be saved.</strong> Sign in and every judged voice round counts toward your level, and your best score goes on the leaderboard.' },
     { match: /^\/learn/,
       delay: 30,
       msg: "Sign in and we keep track of which basics you have practiced, so the AI knows what to work on with you." },
@@ -220,7 +220,7 @@
       msg: "Sign in to save today's topic. Tomorrow's shows up in your feed, not your email." },
     { match: /^\/leaderboard/,
       delay: 25,
-      msg: '<strong>Every name here earned it in a judged round.</strong> Sign in, debate the AI out loud, and your best score takes a place on this board.' },
+      msg: '<strong>Everyone on this board got here through judged rounds.</strong> Sign in, argue with the AI out loud, and your best score can go up here too.' },
     // /debate-online has a persistent Google button in the first screen.
     // Offer native One Tap on arrival, but do not stack the floating pill
     // over that inline account path.
@@ -230,7 +230,7 @@
     { match: /^\/spar|\/live|\/community|\/rounds/,
       delay: 20,
       variant: 'community',
-      msg: '<strong>You\'re early.</strong> Sign in to save your rounds and results, and help shape where this goes.' },
+      msg: '<strong>You\'re early.</strong> Sign in so your rounds and results are saved, and tell us what to fix.' },
     { match: /^\/pricing/,
       delay: 25,
       msg: "Free and paid plans are live. Sign in to keep your rounds and manage your plan." },
@@ -238,10 +238,10 @@
     // an account buys a viewer: a held seat in a live room, and clips.
     { match: /^\/(watch|replays)(?:\.html)?(?:[/?#]|$)/,
       delay: 20,
-      msg: '<strong>Watching is better signed in.</strong> Take a reserved viewer seat in live rounds, save clips of the moment a round turned, and step into a round yourself when you are ready.' },
+      msg: '<strong>Watching is better signed in.</strong> You get a seat in live rounds, you can clip the moment a round turned, and you can step into a round yourself whenever you want.' },
     { match: /.*/,
       delay: 25,
-      msg: 'Sign in and your rounds start counting. Results, recordings, and a place on the leaderboard, on any device.' },
+      msg: 'Sign in and your rounds start counting. Your results and recordings are saved, you can show up on the leaderboard, and it works on any device.' },
   ];
 
   function getConfig(){
