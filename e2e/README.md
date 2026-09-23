@@ -92,3 +92,43 @@ One promise per test. Assert what a visitor would see, not what the DOM
 happens to contain. Prefer ids the page already owns (`#signInBtn`,
 `#first-screen`, `#root`) over text, and collect `pageerror` so an uncaught
 exception fails the test even when the pixels look right.
+
+## Demo videos (`demo/`)
+
+The product walkthrough on the landing lightbox and `/how-it-works`
+(`app/assets/video/how-debatable-works.mp4`) and the vertical clips for
+social are recorded from the live site by `demo/record.mjs`, not by a
+person with a screen recorder. Every segment is one fresh context and one
+webm under `demo/out/raw/` (gitignored):
+
+```bash
+cd e2e && npm ci
+node demo/cards.mjs                 # title, end card, captions (Helvetica Neue) as PNGs
+node demo/record.mjs desktop        # every segment at 1920x1080
+node demo/record.mjs phone          # every segment at 1080x1920
+node demo/record.mjs phone landing  # one segment
+node demo/probe.mjs master-desktop  # tile the in/out frame of every cut
+node demo/assemble.mjs              # cut + caption + concat every output in timeline.json
+```
+
+What is real and what is staged, because the video is a public claim:
+
+- `/` , the Match Desk on `/spar`, `/newvoice` setup, `/leaderboard` and
+  `/watch` are driven for real, signed out, with the same UA and
+  `channel: 'chromium'` posture as the smoke tests (the edge filter 204s
+  headless clients). Analytics, presence, the live popup and the queue
+  count are route-blocked so a recording never counts as a visit or pulls
+  a real waiting person onto the screen.
+- The room beats are the page's own `?design=` fixtures (Sam vs Jordan on
+  face49 and face47, both consented stills), because a live room needs two
+  signed-in humans. The clock is ticked by the recorder; the watching pill
+  and the Commons rail (real people's posts) are hidden.
+- The AI round is setup only. The signed-out preview mints through App
+  Check, which refuses an automated browser (403, headed or headless), so
+  `demo/record-ai.mjs` records the setup and stops at "Test it out".
+- Captions come from `demo/cards.json`: plain words, For/Against, "the
+  decision", no em-dashes. `demo/timeline.json` holds every cut; a segment
+  logs `MARK` lines with its own cut times when re-recorded.
+
+Re-record after the surfaces change; `probe.mjs` is how you check a cut
+without watching the whole thing.
