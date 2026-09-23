@@ -1602,21 +1602,10 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   <!-- Profile-pic nudge (js/pfp-nudge.js), named accounts with no picture only. -->
   <div data-pfp-nudge></div>
 
-  <!-- The sitewide "do you already debate?" question, asked inline.
-       experience-ask.js renders a fixed card at left:16px bottom:76px,
-       which on this page sits on top of the nav rail. It stands down
-       when a page carries its own [data-exp] control near the top of the
-       document (inlineAskReachable), so this row is both the answer to
-       the overlap and a better place to ask: in the reading order,
-       above the thing the answer changes. Same keys, same GA4 event. -->
-  <div class="exp-inline" id="expInline" hidden>
-    <span class="exp-inline-q">How familiar is this?</span>
-    <span class="exp-inline-row">
-      <button type="button" class="exp-inline-b" data-exp="competitive">I have debated before</button>
-      <button type="button" class="exp-inline-b" data-exp="new">I am new to this</button>
-    </span>
-    <button type="button" class="exp-inline-x" id="expInlineX" aria-label="Not now">&times;</button>
-  </div>
+  <!-- The inline "do you already debate?" row was retired 2026-09-23: it
+       asked every first-time visitor on arrival, which broke the
+       ask-late rule (second visit, five visible minutes, two pages).
+       /community is on experience-ask.js's SKIP list instead. -->
 
   <!-- ── FEED TAB ─────────────────────────────────────────────────
        The default surface as of 2026-08-19. One scrollable column that
@@ -2691,6 +2680,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
   var feedShown = feedPageSize;
   var allRounds = [];             // filled by renderPublicRounds
   var allClips = [];              // filled from /api/clips
+  var allChallenges = [];         // open public challenges, /api/recent-activity
   var composerMode = 'take';
   var _feedBooted = false;
 
@@ -2739,6 +2729,28 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     try { return new Date(ms).toLocaleDateString('en-US', { month:'short', day:'numeric' }); }
     catch(e){ return Math.floor(s / 86400) + 'd'; }
   }
+  function feedWhen(ms){
+    try { return new Date(ms).toLocaleString(undefined, { weekday:'short', hour:'numeric', minute:'2-digit' }); }
+    catch(e){ return 'soon'; }
+  }
+  // A challenge worth showing: open, recent, and a real sentence rather
+  // than a keyboard test like "67676767".
+  function goodChallenge(c){
+    if (!c || c.kind !== 'challenge' || (c.seatsTaken || 0) > 0) return false;
+    var m = String(c.motion || '').trim();
+    if ((m.match(/[A-Za-z]{2,}/g) || []).length < 3) return false;
+    var lastUseful = Math.max(c.when || 0, c.startAt || 0);
+    return Date.now() - lastUseful < 14 * 86400000;
+  }
+  function loadChallenges(){
+    fetch('/api/recent-activity', { cache:'no-cache' })
+      .then(function(r){ return r && r.ok ? r.json() : null; })
+      .then(function(d){
+        var list = (d && Array.isArray(d.items) ? d.items : []).filter(goodChallenge).slice(0, 12);
+        if (list.length){ allChallenges = list; renderFeedSafe(); }
+      }).catch(function(){});
+  }
+
   function msOf(t){
     if (!t) return 0;
     if (typeof t === 'number') return t;
@@ -2790,6 +2802,19 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
         ref: { type:'clip', id:c.id, title:c.title || 'Clip',
                meta:[c.recordingTitle, clipLen(c)].filter(Boolean).join(' · ') },
         raw:c
+      });
+    });
+
+    // Open challenges from /api/recent-activity. Public and auth-free,
+    // so a signed-out reader (who cannot read forum_posts) still sees
+    // real people asking for a round instead of a near-empty column.
+    (allChallenges || []).forEach(function(c){
+      items.push({
+        kind:'lfr', id:'ch-' + (c.href || c.when), ts: c.when || 0,
+        name: c.name || 'Someone', text: c.motion || '',
+        lfr: { when: c.startAt && c.startAt > Date.now() ? 'Starts ' + feedWhen(c.startAt) : 'Open now' },
+        href: c.href || '/challenges',
+        raw: c
       });
     });
 
@@ -2855,7 +2880,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
           '<span class="flfr-fact">Casual 1v1</span>' +
           (when ? '<span class="flfr-fact">' + escHtml(when) + '</span>' : '') +
         '</span>' +
-        '<a class="btn go" href="/spar">Take the round →</a>' +
+        '<a class="btn go" href="' + escHtml(it.href || '/spar') + '">Take the round →</a>' +
       '</div>';
   }
 
@@ -2891,7 +2916,8 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
               '<button class="fact" data-feed-thread="' + escHtml(it.id) + '">' +
                 '↩ <span class="fact-n">' + (it.replies || 0) + '</span></button>';
     }
-    acts += '<button class="fact" data-feed-share="' + escHtml(it.id) + '">↗ Share</button>';
+    acts += '<button class="fact" data-feed-share="' + escHtml(it.id) + '"' +
+            (it.href ? ' data-feed-href="' + escHtml(it.href) + '"' : '') + '>↗ Share</button>';
     if (it.kind !== 'lfr'){
       var motion = (it.ref && it.ref.title) || it.title || '';
       acts += '<a class="fact" href="/practice' + (motion ? '?motion=' + encodeURIComponent(motion.slice(0,200)) : '') +
@@ -3136,7 +3162,8 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       }
       if ((el = e.target.closest('[data-feed-share]'))){
         var id = el.getAttribute('data-feed-share');
-        var url = location.origin + '/community#thread=' + encodeURIComponent(id);
+        var href = el.getAttribute('data-feed-href');
+        var url = href ? location.origin + href : location.origin + '/community#thread=' + encodeURIComponent(id);
         try {
           navigator.clipboard.writeText(url);
           toast('Link copied.');
@@ -3155,6 +3182,7 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
       .then(function(d){
         if (d && Array.isArray(d.clips) && d.clips.length){ allClips = d.clips; renderFeed(); }
       }).catch(function(){});
+    loadChallenges();
     renderFeed();
   }
 
@@ -4022,49 +4050,6 @@ a.fitem-name:hover{color:var(--accent);text-decoration:underline}
     <a href="mailto:hello@itsdebatable.com" style="color:var(--text-ghost);text-decoration:none">Contact</a>
   </div>
 </aside>
-<script>
-/* Inline "do you already debate?" — see the markup comment above the
-   #expInline row. Rendering it is what makes experience-ask.js stand
-   down (inlineAskReachable), so the fixed corner card stops covering
-   the nav rail. Same localStorage keys, same GA4 event name, same
-   DebatableAudience.set call, so an answer given here is the answer
-   everywhere. Runs at parse time, well inside that module's 2.2s wait. */
-(function(){
-  var KEY = 'debateos-experience', ASKED = 'debateos-experience-asked';
-  var VALID = { competitive:1, new:1, unsure:1 };
-  function read(k){ try { return localStorage.getItem(k) || ''; } catch(e){ return ''; } }
-  function write(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
-  if (VALID[read(KEY)] || read(ASKED) === '1') return;
-  var box = document.getElementById('expInline');
-  if (!box) return;
-  box.hidden = false;
-  function tag(value){
-    try { if (window.gtag) gtag('event','audience_choice',{ value:value, surface:'community_inline' }); } catch(e){}
-  }
-  box.addEventListener('click', function(e){
-    var t = e.target;
-    if (!t || !t.closest) return;
-    if (t.closest('#expInlineX')){
-      // A dismiss answers "may we ask", not the question, so nothing is
-      // written under the experience key and /settings still shows it
-      // unanswered.
-      write(ASKED,'1'); tag('dismissed'); box.remove(); return;
-    }
-    var btn = t.closest('[data-exp]');
-    if (!btn) return;
-    var v = btn.getAttribute('data-exp');
-    write(ASKED,'1');
-    if (window.DebatableAudience && window.DebatableAudience.set) window.DebatableAudience.set(v);
-    else { write(KEY,v); document.documentElement.setAttribute('data-debate-experience', v); }
-    tag(v);
-    box.innerHTML = '<span class="exp-inline-done">' +
-      (v === 'competitive' ? 'Good. We will keep the familiar vocabulary.'
-                           : 'Got it. We will keep it in plain English.') +
-      ' Change it any time in settings.</span>';
-    setTimeout(function(){ box.remove(); }, 2600);
-  });
-})();
-</script>
 <script defer src="/js/signup-nudge.js"></script>
 <script defer src="/js/onboarding.js"></script>
 

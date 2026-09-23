@@ -202,8 +202,9 @@
     '.sn-slot{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;padding:8px 4px 7px;' +
       'border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.14));' +
       'background:var(--bg-card,rgba(255,255,255,.04));text-align:center}' +
-    '.sn-slot b{font-size:.96rem;font-weight:900;letter-spacing:-.01em;line-height:1.1;' +
+    '.sn-slot b{font-size:.9rem;font-weight:900;letter-spacing:-.01em;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;' +
       'color:var(--text,#f4f4f2);font-variant-numeric:tabular-nums;white-space:nowrap}' +
+    '.sn-slot-h{font-size:.68rem;font-weight:800;line-height:1.1;color:var(--accent,#dc2626);white-space:nowrap}' +
     '.sn-slot small{font-size:.58rem;font-weight:700;line-height:1.2;color:var(--text-dim,rgba(255,255,255,.55));' +
       'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}' +
     '[data-theme="light"] .sn-slot,[data-theme="stone"] .sn-slot{background:#fff;border-color:rgba(29,25,21,.13)}' +
@@ -278,7 +279,9 @@
       var local = new Date(next.start).toLocaleString(undefined, {
         weekday: 'short', hour: 'numeric', minute: '2-digit'
       });
-      return '<span class="sn-slot"><b>9 PM ' + s.city + '</b><small>' + local + ' your time</small></span>';
+      // City on its own line: "9 PM New York" on one nowrap line ran out
+      // of a ~80px chip in the 300px rail and the three labels collided.
+      return '<span class="sn-slot"><b>' + s.city + '</b><span class="sn-slot-h">9 PM local</span><small>' + local + ' your time</small></span>';
     }).join('');
     var sub = live
       ? 'Real opponents, timed rounds, a judge ballot at the end.'

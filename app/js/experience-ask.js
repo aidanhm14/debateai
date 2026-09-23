@@ -87,6 +87,8 @@
     '/room-judge', '/voice-rfd', '/coach', '/exhibition', '/open', '/spar', '/spar.html',
     '/debate-chat', '/live', '/settings', '/admin', '/onboarding', '/watch',
     '/pricing', '/pricing.html', '/press', '/research',
+    // /community's left nav rail sits where the corner card lands.
+    '/community',
   ];
 
   function skipped() {
