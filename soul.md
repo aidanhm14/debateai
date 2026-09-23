@@ -1,5 +1,7 @@
 # soul.md. Debatable · itsdebatable.com
 
+> **Debate online actions (Aidan, 2026-09-23).** On `/debate-online` only, label the primary matching button “Meet your match” and put a separate “Home” button linking to `/` directly below it. The homepage keeps its original layout.
+
 > **Original homepage restored (Aidan, 2026-09-23).** After the oversized Meet someone button glitch, Aidan asked to bring back the original. Restore the original homepage button markup, styling and order: the example board before the desktop action, and the original action card before the phone board. Remove the new headline, chat-bubble pill and its privacy-note block from the homepage. This supersedes the same-day entry-page-style homepage redesign. The separate `/debate-online` page keeps its existing design.
 
 > **Canonical wordmark (Aidan, 2026-09-23).** Debatable uses one solid-red Helvetica Neue black wordmark, following the heavy TED lettering reference. The shared outlined asset is `app/assets/logo/debatable-wordmark.svg`, applied by mirrored `wordmark.css` files. Keep existing header positions and responsive sizing; Aidan explicitly chose no repositioning. Use the same artwork in web, native webviews and downloadable logo exports. This replaces page-inherited fonts and all older two-tone/outlined-white wordmark rules.
