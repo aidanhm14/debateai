@@ -37,14 +37,7 @@
     try { localStorage.setItem('dit-visited-home', '1'); } catch(e){}
   }
 
-  // ── Brand face: load Crimson Pro reliably on EVERY topbar page ──
-  // Crimson Pro is the site-wide house face (switched from Geist 2026-06-15).
-  // Most pages ship their own <link> for it, but to guarantee the SAME
-  // wordmark + headings render in Crimson Pro page-to-page (and avoid the
-  // paint-in-fallback-then-swap flash when a page relies only on a CSS
-  // @import), inject the real <link> (+ preconnect) here, once, on any
-  // page that doesn't already load it. Identical URL everywhere so the
-  // font file is a shared cache hit, not a second download.
+  // Shared page fonts. The logo uses the outlined asset in wordmark.css.
   (function ensureBrandFont(){
     try {
       var head = document.head || document.getElementsByTagName('head')[0];
@@ -926,7 +919,7 @@
       ? LINKS.filter(function(L){ return L.href !== '/room-judge'; })
       : LINKS;
 
-    // Shared markup; wordmark.css keeps the homepage solid red in both themes.
+    // Every header shares the same outlined red wordmark.
     var left = el('div', { class: 'ui-topbar-left' }, [
       el('a', {
         href: '/',

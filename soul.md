@@ -1,5 +1,8 @@
 # soul.md. Debatable · itsdebatable.com
 
+> **Canonical wordmark (Aidan, 2026-09-23).** Debatable uses one solid-red Helvetica Neue black wordmark, following the heavy TED lettering reference. The shared outlined asset is `app/assets/logo/debatable-wordmark.svg`, applied by mirrored `wordmark.css` files. Keep existing header positions and responsive sizing; Aidan explicitly chose no repositioning. Use the same artwork in web, native webviews and downloadable logo exports. This replaces page-inherited fonts and all older two-tone/outlined-white wordmark rules.
+
+
 > **Live-round popup thumbnail (Aidan, 2026-09-23).** Show a snapshot from the advertised public room, not animated people or unrelated example photos. Request `/api/room-shot` even when the cached discovery feed lacks a shot timestamp, refresh while visible, and use a compact text card only while no image is available. Keep current privacy, seat-presence and expiry checks. This supersedes the earlier illustration and stand-in-photo directions.
 
 
@@ -106,10 +109,8 @@
 
 > **BRAND: the product name is "Debatable."** Canonical
 > domain is **itsdebatable.com** as of 2026-07-22 (aftermarket purchase
-> Aidan actually owns). Legacy domains 301 to it. The homepage wordmark is
-> solid red in both light and dark modes (Aidan, 2026-09-11). Elsewhere,
-> the wordmark is white "Debat" + red "able" in every theme. White letters
-> have a thin red edge for contrast. Never switch "Debat" to dark ink. **Debatable is the only public product name.**
+> Aidan actually owns). Legacy domains 301 to it. Every wordmark uses the same solid-red
+> outlined Helvetica Neue artwork (Aidan, 2026-09-23), in every theme. **Debatable is the only public product name.**
 > Do not preserve retired names in JSON-LD, accessibility text, social
 > metadata, narration, or CTA copy. Use "Start debating" or "Start a
 > round" for actions. The iOS app ships as "Debatable"; its bundle ID
