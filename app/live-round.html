@@ -13453,7 +13453,13 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         renderBallot(res.ballot);
         return;
       }
-      if (res && (res.code === 'no_contest' || res.code === 'no_transcript')){
+      if (res && res.code === 'transcript_too_large'){
+          state.judgeTranscriptTooLarge = true;
+          clearBallotRecovery();
+          ballotStatus(res.error || 'This transcript is too long to judge in one round. It is saved in full.');
+          return;
+        }
+        if (res && (res.code === 'no_contest' || res.code === 'no_transcript')){
         renderUnresolvedBallot(res.noWinner || RoundEvidence.noContest(localRoundEvidence()));
         return;
       }
@@ -13886,6 +13892,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   }
 
   function generateBallot(attempt){
+    if (state.judgeTranscriptTooLarge) return;
     attempt = attempt || 1;
     // Spectators render the shared server result and may invoke only the
     // stale-pending recovery path above. Falling through to the legacy
@@ -13960,6 +13967,12 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
             { ballotPendingAt: Date.now() - BALLOT_RECOVERY_GRACE_MS },
             incompleteRetryMs
           );
+          return;
+        }
+        if (res && res.code === 'transcript_too_large'){
+          state.judgeTranscriptTooLarge = true;
+          clearBallotRecovery();
+          ballotStatus(res.error || 'This transcript is too long to judge in one round. It is saved in full.');
           return;
         }
         if (res && (res.code === 'no_contest' || res.code === 'no_transcript')){

@@ -91,6 +91,16 @@ client.generateBallot();
 for (let i = 0; i < 12; i++) await Promise.resolve();
 assert.equal(client.state.ballotUnresolved.outcome, 'no_contest');
 
+client.state = { log: [], formatKey: 'quick', audienceEvals: [], user: { getIdToken: async () => 'p' } };
+let oversizedCalls = 0;
+client.clearBallotRecovery = () => {};
+client.fetch = async () => { oversizedCalls++; return { json: async () => ({ code: 'transcript_too_large' }) }; };
+client.generateBallot();
+for (let i = 0; i < 12; i++) await Promise.resolve();
+assert.equal(client.state.judgeTranscriptTooLarge, true);
+client.generateBallot();
+assert.equal(oversizedCalls, 1, 'Oversized evidence never falls through to a second paid judge');
+
 // Run the real live-judge handler with controlled I/O. Assert the durable
 // terminal state, idempotency, watcher gate and absence of paid/model work.
 const records = new Map();
