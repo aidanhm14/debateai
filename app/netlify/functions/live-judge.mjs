@@ -46,6 +46,8 @@ import { applyRoundRating } from './lib/rating-apply.mjs';
 import { verifyTournamentPairing } from './lib/tournament-round.mjs';
 import { applyTournamentResult } from './lib/tournament-ledger.mjs';
 import { deriveSpeakerScores } from './lib/speaker-score.mjs';
+import { tierForScore } from './lib/cert-tiers.mjs';
+import { mintCertId, writeCertificate } from './lib/cert-issue.mjs';
 import RoundEvidence from '../../js/round-evidence.js';
 import {
   buildTournamentScorecard,
@@ -917,6 +919,60 @@ export default async (request, context) => {
     settled = await settleMarket(db, marketId('live', room));
   } catch (err) {
     console.error('[live-judge] judgment/settle failed', room, err.message);
+  }
+
+  // ── credentials ───────────────────────────────────────────────────
+  //
+  // A good round earns a credential the person can link to. Issued here
+  // because this is where the score is written by the server's own panel,
+  // so nobody can post a number and mint a Champion. One-on-one rooms
+  // only (a 2v2 score belongs to a side, not a person), never a private
+  // round, and never for someone who kept this round off the public
+  // record. The decision screen reads `credentials[uid]` to show the link.
+  // A failure is logged and swallowed, same as the ladder below.
+  try {
+    const oneOnOne = d.proUid && d.conUid && !d.proUid2 && !d.conUid2;
+    const consent = d.leaderboardConsent || {};
+    if (oneOnOne && !metered && !(d.credentials && Object.keys(d.credentials).length)) {
+      const winner = ballot.winner === 'pro' || ballot.winner === 'con' ? ballot.winner : '';
+      const issued = {};
+      // Names on the round doc are already the public aliases (live-round
+      // publishes daPublicName), so no extra identity read is needed.
+      for (const [sideKey, uid, pts, sideLabel, myName, oppName] of [
+        ['pro', d.proUid, ballot.proPoints, 'For', d.proName, d.conName],
+        ['con', d.conUid, ballot.conPoints, 'Against', d.conName, d.proName],
+      ]) {
+        const score = Number(pts);
+        const tier = Number.isFinite(score) && score > 30 ? tierForScore(score) : null;
+        if (!tier || consent[uid] === false) continue;
+        const certId = mintCertId();
+        const displayName = String(myName || 'Anonymous').slice(0, 80);
+        await writeCertificate(db, {
+          certId,
+          uid,
+          displayName,
+          tier: tier.key,
+          tierName: tier.name,
+          score: Math.round(score * 10) / 10,
+          motion: String(d.motion || '').slice(0, 400),
+          side: sideKey,
+          sideLabel,
+          format: String(d.format || 'quick').slice(0, 40),
+          formatLabel: 'Live one-on-one',
+          opponent: 'human',
+          personaLabel: String(oppName || '').slice(0, 80),
+          aiLanguage: typeof d.language === 'string' ? d.language.slice(0, 8) : 'en',
+          roundId: ('live-' + room).slice(0, 80),
+          won: winner === sideKey,
+          rfdExcerpt: String(ballot.rfd || '').slice(0, 4000),
+          issuedAtMs: judgedAt,
+        }, tier);
+        issued[uid] = { certId, tierName: tier.name, score: Math.round(score * 10) / 10 };
+      }
+      if (Object.keys(issued).length) await ref.update({ credentials: issued });
+    }
+  } catch (err) {
+    console.error('[live-judge] credential issue failed', room, err.message);
   }
 
   // ── the ladder ────────────────────────────────────────────────────

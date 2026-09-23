@@ -513,6 +513,7 @@
       '<div class="ballot-section after-round' + (iWon ? ' after-won' : ' after-lost') + '" data-stage="3" id="afterRoundBand">' +
         '<div class="after-eyebrow">' + (iWon ? 'You took the round' : 'You dropped the round') + '<span id="afterRatingSlot"></span></div>' +
         '<p class="after-line">' + line + '</p>' +
+        '<div id="afterCredSlot"></div>' +
         (isTourney ? '' :
         '<div class="rfd-actions" style="margin-top:12px">' +
           (iWon
@@ -524,7 +525,25 @@
       '</div>';
   }
 
+  // A good round earns a credential (live-judge issues it server-side
+  // once the panel scores 75+). One plain line with the link, filled late
+  // like the rating because it lands on the round doc after the ballot.
+  function renderAfterCredential(){
+    var cslot = document.getElementById('afterCredSlot');
+    if (!cslot || !context.state.credentials || !context.state.user) return;
+    var c = context.state.credentials[context.state.user.uid];
+    if (!c || !/^[a-z0-9]{8,20}$/.test(String(c.certId || ''))) return;
+    cslot.innerHTML = '<p class="after-line" style="margin-top:10px">That was a strong round. You earned a <strong>' + escHtml(c.tierName || 'Debatable') + '</strong> credential' +
+      (typeof c.score === 'number' ? ' (' + escHtml(String(c.score)) + ' out of 100)' : '') +
+      '. <a href="/verify/' + c.certId + '" target="_blank" rel="noopener" data-after="credential" style="color:inherit;font-weight:700;text-decoration:underline">See your credential</a></p>';
+    if (!renderAfterCredential._fired){
+      renderAfterCredential._fired = true;
+      try { gtag('event', 'live_credential_shown', { tier: c.tierName || '' }); } catch(e){}
+    }
+  }
+
   function renderAfterRating(){
+    try { renderAfterCredential(); } catch(e){}
     var slot = document.getElementById('afterRatingSlot');
     if (!slot || !context.state.ratingChanges || !context.state.user) return;
     var mine = context.state.ratingChanges[context.state.user.uid];

@@ -1,7 +1,8 @@
 import { publicName } from './lib/public-identity.mjs';
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
-import { getDb, FieldValue } from './lib/firestore.mjs';
+import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
+import { mintCertId, writeCertificate } from './lib/cert-issue.mjs';
 import { tierForScore, MIN_CERT_SCORE, MAX_CERT_SCORE, MIN_CERT_SCORE_100, MAX_CERT_SCORE_100, isScale100 } from './lib/cert-tiers.mjs';
 
 // Server-side certificate issuance. Client (voice-debate.html) posts the
@@ -41,22 +42,6 @@ setInterval(() => {
     if (now - entry.windowStart > RATE_WINDOW_MS * 2) rateLimits.delete(uid);
   }
 }, 10 * 60 * 1000);
-
-// URL-safe base32 ID, ~12 chars => 60 bits of entropy. Long enough that
-// a verify URL can't be guessed; short enough to look like a credential
-// id and not a hash.
-function mintCertId() {
-  const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789'; // no l/i/o/0/1 ambiguity
-  const bytes = new Uint8Array(12);
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    crypto.getRandomValues(bytes);
-  } else {
-    for (let i = 0; i < 12; i++) bytes[i] = Math.floor(Math.random() * 256);
-  }
-  let out = '';
-  for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
-  return out;
-}
 
 function clamp(val, max) {
   if (typeof val !== 'string') return '';
@@ -280,7 +265,6 @@ export default async (request) => {
       roundId: clamp(roundId, 80),
       won: won === true,
       rfdExcerpt: clamp(dimensions ? stripDimensionsBlock(rfdText) : rfdText, 4000),
-      issuedAt: FieldValue.serverTimestamp(),
       issuedAtMs,
       // Five-axis sub-scores parsed from the ballot's DIMENSIONS block.
       // Absent on ballots that predate the block (or where the judge
@@ -292,43 +276,7 @@ export default async (request) => {
       ...(verificationBlock ? { verification: verificationBlock } : {}),
     };
 
-    await db.collection('certificates').doc(certId).set(certDoc);
-
-    // Per-user summary doc — keeps the profile read to a single doc
-    // instead of scanning the whole collection. Increment with FieldValue
-    // so concurrent issuances don't clobber each other.
-    const summaryRef = db.collection('user_certificates').doc(uid);
-    const summaryUpdate = {
-      uid,
-      displayName: cleanDisplayName,
-      latestCertId: certId,
-      latestTier: tier.key,
-      latestScore: certDoc.score,
-      updatedAt: FieldValue.serverTimestamp(),
-      [`counts.${tier.key}`]: FieldValue.increment(1),
-      totalCount: FieldValue.increment(1),
-    };
-    await summaryRef.set(summaryUpdate, { merge: true });
-
-    // Track highest tier separately — FieldValue can't do max(), so we
-    // read once and write only if this beats the prior best.
-    try {
-      const summarySnap = await summaryRef.get();
-      const prior = summarySnap.exists ? summarySnap.data() : null;
-      const tierRank = { novice: 1, varsity: 2, circuit: 3, champion: 4 };
-      const priorRank = prior?.highestTier ? tierRank[prior.highestTier] || 0 : 0;
-      if (tierRank[tier.key] > priorRank) {
-        await summaryRef.set({
-          highestTier: tier.key,
-          highestTierName: tier.name,
-          highestScore: certDoc.score,
-        }, { merge: true });
-      } else if (!prior?.highestScore || certDoc.score > prior.highestScore) {
-        await summaryRef.set({ highestScore: Math.max(prior?.highestScore || 0, certDoc.score) }, { merge: true });
-      }
-    } catch (e) {
-      console.warn('[create-cert] summary highest-tier write skipped:', e.message);
-    }
+    await writeCertificate(db, certDoc, tier);
 
     console.log('[create-cert]', tier.key, uid.slice(0, 6), 'id=', certId, 'score=', certDoc.score);
 

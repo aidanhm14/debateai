@@ -5295,6 +5295,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     rfdDeep: null,         // long-form full ballot text, synced via round doc
     ballotDetail: 'medium', // agreed ballot length, synced via round doc
     ratingChanges: null,   // per-uid rating deltas, written by live-judge onto the round doc
+    credentials: null,     // per-uid credential links, written by live-judge for 75+ scores
     deepRfdPending: false, // deep-ballot call in flight (shows the writing note)
     deepRfdRequested: false, // guard so the generating client fires it once
     deepRfdNotified: false, // full-ballot ready notice fires once per client
@@ -20227,6 +20228,12 @@ window.DBLiveDraft.attach({
     // Rating deltas — written by live-judge after it applies the round
     // to the ladder. Arrives on its own beat (rating applies while the
     // ballot renders), so the after-round band fills its slot late.
+    // Credentials, written by live-judge next to the rating when a side
+    // scores well enough. Same late beat, same slot-filler.
+    if (d.credentials && JSON.stringify(d.credentials) !== JSON.stringify(state.credentials)){
+      state.credentials = d.credentials;
+      try { renderAfterRating(); } catch(e){}
+    }
     if (d.ratingChanges && JSON.stringify(d.ratingChanges) !== JSON.stringify(state.ratingChanges)){
       state.ratingChanges = d.ratingChanges;
       if (window.DBStandings) DBStandings.changed();

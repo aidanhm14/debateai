@@ -82,6 +82,7 @@ export default async (request) => {
       format: data.format || '',
       formatLabel: data.formatLabel || '',
       personaLabel: data.personaLabel || '',
+      opponent: data.opponent === 'human' ? 'human' : 'ai',
       aiLanguage: data.aiLanguage || 'en',
       won: data.won === true,
       rfdExcerpt: (data.rfdExcerpt || '').slice(0, 600),
