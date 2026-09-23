@@ -311,9 +311,6 @@ check(
 // with a blinking dot directly above the example board, not a pill in the
 // CTA column.
 check(
-  // 2026-09-07: a visible pitch block lived between the wrap and the live
-  // line for an hour and the founder cut it ("straight bad"). Comments may
-  // sit there; no copy may.
   // Checked on a bounded slice with the comments stripped, not a file-wide
   // lazy regex: the nested `(?:<!--[\s\S]*?-->\s*)*` form backtracked for
   // ninety minutes the first time the structure changed (2026-09-07) and
@@ -323,20 +320,20 @@ check(
     const boardAt = landing.indexOf('<div class="fs-board" id="fsBoard"', wrapAt);
     if (wrapAt < 0 || boardAt < 0) return false;
     const above = landing.slice(wrapAt, boardAt).replace(/<!--[\s\S]*?-->/g, '');
-    return /^<div class="fs-board-wrap">\s*<div class="fs-live-line"[^>]* data-live-now-wrap>/.test(above);
+    return /<div class="fs-live-line"[^>]* data-live-now-wrap>[^\n]*<\/div>\s*$/.test(above);
   })()
     && !landing.includes('class="fs-pitch"')
     && !landing.includes('fs-live-now--signed')
     && !landing.includes('class="fs-live-now"'),
   'landing puts the live count above the example board as a plain red line',
 );
-// The board leads, with Meet someone and Debate the AI below it.
+// The reference headline and Meet someone lead; the board and AI follow.
 check(
-  /<div class="fs-board" id="fsBoard"[^>]*>[\s\S]*?<div class="fs-actions">\s*<a class="fs-cta fs-cta--primary"[^>]* href="\/spar"[\s\S]*?<div class="fs-actions-row">[\s\S]*?fs-cta--ai[\s\S]*?<\/div><!-- \/\.fs-board-wrap -->/.test(landing)
+  /<div class="fs-actions home-meet-intro">\s*<h1 class="home-meet-heading">[\s\S]*?<a class="fs-cta fs-cta--primary"[^>]* href="\/spar"[\s\S]*?<div class="fs-board" id="fsBoard"[\s\S]*?<div class="fs-actions-row">[\s\S]*?fs-cta--ai[\s\S]*?<\/div><!-- \/\.fs-board-wrap -->/.test(landing)
     && !landing.includes('<div class="fs-ctas">')
     && landing.includes('.fscreen-copy{display:none}')
     && !landing.includes('class="home-intro"')
-    && landing.includes('<h1 class="fs-h1--sr">Debatable</h1>')
+    && landing.includes('<h1 class="home-meet-heading">Debate online <span>with a real person.</span></h1>')
     && !/data-cta="first-screen-bet"/.test(landing)
     && /href="\/newvoice\?handoff=landing-quick-ai" data-cta="first-screen-ai" data-ai-invite><span class="ai-invite-label">Debate the AI<\/span><\/a>/.test(landing)
     && /href="\/newvoice\?handoff=landing-mobile-ai" data-cta="mhome-ai" data-ai-invite/.test(landing)

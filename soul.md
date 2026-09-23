@@ -1,6 +1,6 @@
 # soul.md. Debatable · itsdebatable.com
 
-> **Homepage Meet someone button (Aidan, 2026-09-23).** Use the rounded red pill from `/debate-online`, with the overlapping chat bubbles, arrow, subtle outer rings and the two-line public/private note. Apply it to both homepage layouts.
+> **Homepage Meet someone button (Aidan, 2026-09-23).** Use the rounded red pill from `/debate-online`, with the overlapping chat bubbles, arrow, subtle outer rings and the two-line public/private note. Apply it to both homepage layouts, directly beneath “Debate online / with a real person.” The headline, button and privacy note come before the example round. This supersedes the earlier board-first, no-visible-headline direction.
 
 > **Canonical wordmark (Aidan, 2026-09-23).** Debatable uses one solid-red Helvetica Neue black wordmark, following the heavy TED lettering reference. The shared outlined asset is `app/assets/logo/debatable-wordmark.svg`, applied by mirrored `wordmark.css` files. Keep existing header positions and responsive sizing; Aidan explicitly chose no repositioning. Use the same artwork in web, native webviews and downloadable logo exports. This replaces page-inherited fonts and all older two-tone/outlined-white wordmark rules.
 
