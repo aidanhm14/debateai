@@ -869,6 +869,8 @@ export default async (request, context) => {
     conName: [d.conName || 'Con',d.conName2].filter(Boolean).join(' and '),
     panel: judged.panel,
     at: judgedAt,
+    transcriptVersion: 2,
+    transcriptChars: (d.speeches || []).reduce((n,s) => n + (s.skipped ? 0 : String(s.text || '').length), 0),
   };
   const ballot = tourney && tourney.ok
     ? {
