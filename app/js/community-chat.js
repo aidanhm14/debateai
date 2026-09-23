@@ -403,7 +403,7 @@
         if (!res.ok){ renderEmptyOnce(); return; }
         const data = await res.json();
         if (request !== feedRequest || version !== authVersion) return;
-        if (!Array.isArray(data.rows)){ renderEmptyOnce(); return; }
+        if (data.source === 'error' || !Array.isArray(data.rows)){ renderEmptyOnce(); return; }
         const nextMe = (typeof data.me === 'string' && data.me) ? data.me : null;
         const identityChanged = nextMe !== meUid;
         meUid = nextMe;

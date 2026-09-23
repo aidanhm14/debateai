@@ -97,14 +97,14 @@ function element() {
 const parent = element(), scroller = element(), input = element(), button = element();
 scroller.parentNode = parent; input.parentNode = parent;
 let rows = [{ id: 'removed', text: 'Spam to remove', handle: 'Spam' }, { id: 'kept', text: 'Hello', handle: 'Person' }];
-let posts = 0, finishPost;
+let posts = 0, finishPost, feedError = false;
 const context = { console, setInterval() {}, clearInterval() {}, requestAnimationFrame: fn => fn(),
   localStorage: { getItem: () => 'My alias' },
   document: { head: element(), createElement: element, dispatchEvent() {}, addEventListener() {} },
   CustomEvent: class {},
   fetch: async (_, opts) => {
     if (opts?.method === 'POST') { posts++; await new Promise(resolve => { finishPost = resolve; }); return { ok: false, json: async () => ({ error: 'You already posted that message.' }) }; }
-    return { ok: true, json: async () => ({ rows, me: null }) };
+    return { ok: true, json: async () => feedError ? ({ rows: [], source: 'error' }) : ({ rows, me: null, source: 'firestore' }) };
   },
 };
 context.window = { addEventListener() {} };
@@ -112,6 +112,9 @@ vm.runInNewContext(readFileSync('app/js/community-chat.js', 'utf8'), context);
 const chat = context.window.DEBATEAI_CHAT.init({ scroller, inputEl: input, sendBtn: button });
 await new Promise(resolve => setImmediate(resolve));
 assert.match(scroller.innerHTML, /Spam to remove/);
+feedError = true; await chat.refresh();
+assert.match(scroller.innerHTML, /Spam to remove/, 'A failed read is not a moderation removal');
+feedError = false;
 rows = [rows[1]]; await chat.refresh();
 assert.doesNotMatch(scroller.innerHTML, /Spam to remove/);
 assert.match(scroller.innerHTML, /Hello/);
