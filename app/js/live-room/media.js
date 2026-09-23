@@ -270,6 +270,12 @@
     return slot.persistentTrack || slot.track || null;
   }
 
+  function playbackTrack(slot){
+    if (!slot || ['playable','loading','interrupted'].indexOf(slot.state) < 0 || slot.subscribed === false) return null;
+    var track = slot.persistentTrack || slot.track;
+    return track && track.readyState !== 'ended' ? track : null;
+  }
+
   function attachTrack(el, track, play){
     if (!track){
       if (el.srcObject) el.srcObject = null;
@@ -295,7 +301,9 @@
     var letter = (String(p.user_name || 'D').trim().charAt(0) || 'D').toUpperCase();
     if (t.initial.textContent !== letter) t.initial.textContent = letter;
     var slot = opts.screen ? (p.tracks && p.tracks.screenVideo) : (p.tracks && p.tracks.video);
-    var track = trackOf(slot);
+    // Keep the decoder attached through a transient interruption. Off,
+    // blocked and unsubscribed media still clear immediately.
+    var track = playbackTrack(slot);
     attachTrack(t.video, track);
     t.el.classList.toggle('is-dark', !track);
     t.el.classList.toggle('is-screen', !!opts.screen);
@@ -322,7 +330,7 @@
       // custom track named "judge" (js/room-topic.js, 2026-09-06). Same
       // element rules: one <audio> per track, never for ourselves.
       [['audio', p.tracks && p.tracks.audio], ['judge', p.tracks && p.tracks.judge]].forEach(function(pair){
-        var track = trackOf(pair[1]);
+        var track = playbackTrack(pair[1]);
         if (!track) return;
         var key = pair[0] === 'audio' ? p.session_id : p.session_id + ':' + pair[0];
         seen[key] = true;
@@ -335,7 +343,7 @@
           context.room.audios[key] = a;
         }
         attachTrack(a, track, pair[0] === 'judge' && window.RoomTopic ? window.RoomTopic.playRemote : null);
-        if (context.room.viewer){
+        if (context.room.viewer && a.paused){
           // Start immediately. Some browsers may still enforce their own
           // autoplay policy, but the spectator surface never interrupts the
           // broadcast with a separate sound-gate button.
@@ -347,6 +355,35 @@
     Object.keys(context.room.audios).forEach(function(sid){
       if (seen[sid]) return;
       removeAudio(sid);
+    });
+  }
+
+  function orderViewerSeats(seats){
+    var room = context.room;
+    var current = seats.filter(function(p){ return p.session_id === room.viewerLead; })[0];
+    var active = seats.filter(function(p){ return p.session_id === room.active && playbackTrack(p.tracks && p.tracks.video); })[0];
+    var camera = seats.filter(function(p){ return playbackTrack(p.tracks && p.tracks.video); })[0];
+    if (!current || (!playbackTrack(current.tracks && current.tracks.video) && camera)){
+      current = active || camera || seats[0];
+      room.viewerLead = current ? current.session_id : '';
+    }
+    // A cough or brief interjection should not swap the full-size picture.
+    // The speaking border remains immediate; only the audience focus waits.
+    var candidate = active && active.session_id !== room.viewerLead ? active.session_id : '';
+    if (candidate !== room.viewerCandidate){
+      clearTimeout(room.viewerFocusTimer);
+      room.viewerCandidate = candidate;
+      room.viewerFocusTimer = candidate ? setTimeout(function(){
+        room.viewerLead = candidate;
+        room.viewerCandidate = '';
+        room.viewerFocusTimer = null;
+        paintRoom();
+      }, 800) : null;
+    }
+    return seats.slice().sort(function(a, b){
+      if (a.session_id === room.viewerLead) return -1;
+      if (b.session_id === room.viewerLead) return 1;
+      return 0;
     });
   }
 
@@ -362,7 +399,7 @@
       if (isSilentWatcher(p)) return;
       list.push(p);
       if (isAudienceName(p.user_name)) auds.push(p); else seats.push(p);
-      if (trackOf(p.tracks && p.tracks.screenVideo) && !isBoardShare(p)) screens.push(p);
+      if (playbackTrack(p.tracks && p.tracks.screenVideo) && !isBoardShare(p)) screens.push(p);
     });
     // 2026-09-01, the founder off a screenshot of himself twice in one
     // room ("dont make this double camera option possible"): a person
@@ -386,8 +423,8 @@
         group.sort(function(a, b){
           var al = a.local ? 1 : 0, bl = b.local ? 1 : 0;
           if (al !== bl) return bl - al;
-          var av = trackOf(a.tracks && a.tracks.video) ? 1 : 0;
-          var bv = trackOf(b.tracks && b.tracks.video) ? 1 : 0;
+          var av = playbackTrack(a.tracks && a.tracks.video) ? 1 : 0;
+          var bv = playbackTrack(b.tracks && b.tracks.video) ? 1 : 0;
           if (av !== bv) return bv - av;
           return (b.joined_at ? +new Date(b.joined_at) : 0) - (a.joined_at ? +new Date(a.joined_at) : 0);
         });
@@ -414,18 +451,9 @@
       // names or both UIDs and drops any third record here.
       if (context.state.isDuo || assigned.length >= Math.min(2, seats.length)) seats = assigned;
     }
-    // Local last in a debater room. In audience mode put a live camera at
-    // the front of the broadcast stage, preferring the active speaker
-    // when both seats have video. The second assigned seat becomes the
-    // reaction window through spectator-mode CSS.
+    // Stable DOM order also keeps the two phone seats from trading places.
+    // Desktop audience focus changes through a CSS slot, never a DOM move.
     seats.sort(function(a, b){
-      if (context.room.viewer){
-        var av = trackOf(a.tracks && a.tracks.video) ? 4 : 0;
-        var bv = trackOf(b.tracks && b.tracks.video) ? 4 : 0;
-        if (context.room.active && a.session_id === context.room.active) av += 2;
-        if (context.room.active && b.session_id === context.room.active) bv += 2;
-        if (av !== bv) return bv - av;
-      }
       if (!!a.local !== !!b.local) return a.local ? 1 : -1;
       return String(a.session_id) < String(b.session_id) ? -1 : 1;
     });
@@ -433,6 +461,7 @@
       var seatLimit = context.state.isDuo ? 4 : 2;
       seats = seats.slice(0, seatLimit);
     }
+    var viewerOrder = context.room.viewer ? orderViewerSeats(seats) : [];
     var keep = {};
     screens.forEach(function(p){
       var key = 'screen:' + p.session_id;
@@ -444,10 +473,10 @@
       keep[key] = true;
       var t = ensureTile(context.room.stage, key, p.local);
       paintTile(t, p, {});
-      // appendChild is a no-op for media playback but updates DOM order
-      // when the active camera changes, so CSS can keep the broadcast's
-      // main picture and reaction window in the right places.
-      if (context.room.viewer) context.room.stage.appendChild(t.el);
+      if (context.room.viewer){
+        var slot = String(viewerOrder.indexOf(p));
+        if (t.el.getAttribute('data-viewer-slot') !== slot) t.el.setAttribute('data-viewer-slot', slot);
+      }
     });
     auds.forEach(function(p){
       var key = 'aud:' + p.session_id;

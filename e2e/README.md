@@ -67,6 +67,11 @@ checks blocked-microphone retry, renderer audio fallback, call retry,
 receive-only spectators, network recovery and departure/bfcache presence.
 Devices, Daily and Firestore are controlled fixtures, not live services.
 
+`live-room-playback.spec.mjs` renders the shipped media controller, tiles and
+styles with real browser MediaStreams. It covers transient interruptions,
+audience focus, phone seat order, screen sharing and explicit media removal.
+Daily participant states are fixtures; this is not a live network-quality test.
+
 `tests/match-invitations.spec.mjs` is an offline two-person browser suite.
 It uses the shipped matching code with an in-memory queue and pairing
 endpoints. It covers mutual acceptance before room entry, existing matches, concurrent

@@ -242,6 +242,10 @@
   }
 
   function teardownRoom(){
+    clearTimeout(context.room.viewerFocusTimer);
+    context.room.viewerFocusTimer = null;
+    context.room.viewerLead = '';
+    context.room.viewerCandidate = '';
     if (context.room.fallbackAudioTrack){ context.room.fallbackAudioTrack.stop(); context.room.fallbackAudioTrack = null; }
     Object.keys(context.room.tiles).forEach(dropTile);
     Object.keys(context.room.audios).forEach(removeAudio);
