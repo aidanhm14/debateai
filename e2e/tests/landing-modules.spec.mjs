@@ -20,6 +20,13 @@ for (const width of [390, 1280]) for (const count of [0, 1, 2]) {
     await page.goto('https://debatable.test/');
     const home = page.locator(width < 720 ? '#mhome' : '#first-screen');
     await expect(home.getByRole('link', { name: 'Meet someone', exact: true })).toHaveAttribute('href', '/spar');
+    const meetBox = await home.getByRole('link', { name: 'Meet someone', exact: true }).boundingBox();
+    const boardBox = await page.locator('#fsBoard').boundingBox();
+    // The original action stays compact: no oversized SVG can stretch it.
+    expect(meetBox.height).toBeLessThan(width < 720 ? 220 : 120);
+    expect(meetBox.x + meetBox.width).toBeLessThanOrEqual(width);
+    if (width < 720) expect(meetBox.y + meetBox.height).toBeLessThanOrEqual(boardBox.y);
+    else expect(boardBox.y + boardBox.height).toBeLessThanOrEqual(meetBox.y);
     await expect(home.getByRole('link', { name: /^Debate the AI/ })).toHaveAttribute('href', '/newvoice?handoff=landing-' + (width < 720 ? 'mobile' : 'quick') + '-ai');
     await expect.poll(() => fixture.requests.some(r => r.path === '/api/watch-live')).toBe(true);
     const spectate = home.locator('[data-fs-watch-live]');

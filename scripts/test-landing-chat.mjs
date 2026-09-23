@@ -92,6 +92,6 @@ assert.equal(submits, 1);
 const landing = readPageSource('app/landing.html', 'utf8');
 assert.match(landing, /DBLandingChat\.setUser\(realUser\)/, 'The existing Firebase listener updates the composer');
 assert.match(landing, /maxlength="280"/);
-assert.match(landing, /first-screen-spar[^>]*>[\s\S]*?<span>Meet someone<\/span>[\s\S]*?<\/a>/);
+assert.match(landing, /first-screen-spar[^>]*>Meet someone/);
 assert.match(landing, /mh-primary-label">Meet someone/);
 console.log('Homepage chat: account gates, public alias, authenticated sends, failure retention, duplicate prevention, sign-out cancellation and keyboard input passed.');
