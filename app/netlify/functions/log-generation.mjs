@@ -49,6 +49,7 @@ const VALID_KINDS = new Set([
 ]);
 
 const VALID_SIGNAL_TYPES = new Set([
+  'feedback',     // issue or note without an invented numerical rating
   'rate',         // user gave a 1-5 star rating
   'save',         // user saved the case to their cases
   'share',        // user shared / exported
@@ -206,6 +207,63 @@ export default async (request) => {
   try {
     const db = getDb();
 
+    // Feedback is an explicit submission, independent of transcript storage.
+    // Never copy round text into this record or feed it to the learning pool.
+    if (action === 'round_feedback') {
+      if (isAnon || authProvider === 'anonymous') return errorResponse('Sign in to send round feedback', 401, request);
+      const { roundId, surface, generationId, transcriptId, rating, issue, notes } = body;
+      if (typeof roundId !== 'string' || !/^[A-Za-z0-9_-]{6,100}$/.test(roundId)
+          || !['live_round', 'newvoice'].includes(surface)) return errorResponse('Invalid round reference', 400, request);
+      if (rating != null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) return errorResponse('Ratings must be 1-5', 400, request);
+      const cleanIssue = ['transcript', 'audio', 'judge', 'topic', 'opponent', 'other'].includes(issue) ? issue : '';
+      const cleanNotes = clamp(notes, 600).trim();
+      if (rating == null && !cleanIssue && !cleanNotes) return errorResponse('Add a rating or feedback', 400, request);
+      let roundVerified = false;
+      if (surface === 'live_round') {
+        const round = await db.collection('live_rounds').doc(roundId).get();
+        const data = round.exists ? round.data() : {};
+        if (![data.proUid, data.conUid, data.proUid2, data.conUid2].includes(uid)) return errorResponse('Round not found', 404, request);
+        roundVerified = true;
+      }
+      let linkedGeneration = '';
+      if (typeof generationId === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(generationId)) {
+        const gen = await db.collection('generations').doc(generationId).get();
+        const data = gen.exists ? gen.data() : {};
+        if (data.uid !== uid || data.context?.roundId !== roundId) return errorResponse('Generation not found', 404, request);
+        linkedGeneration = generationId;
+      }
+      if (surface === 'newvoice' && typeof transcriptId === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(transcriptId)) {
+        const transcript = await db.collection('voice_transcripts').doc(transcriptId).get();
+        const data = transcript.exists ? transcript.data() : {};
+        roundVerified = data.uid === uid && data.roundId === roundId && data.surface === 'newvoice';
+      }
+      const id = createHash('sha256').update(uid + ':' + surface + ':' + roundId).digest('hex');
+      const ref = db.collection('round_feedback').doc(id);
+      const record = { uid, roundId, surface, roundVerified, generationId: linkedGeneration,
+        rating: rating == null ? null : rating, issue: cleanIssue, notes: cleanNotes,
+        reviewStatus: 'pending', createdAt: FieldValue.serverTimestamp() };
+      // Keep the report and optional capture label atomic. A lost response
+      // can retry without multiplying reports or resetting completed review.
+      await db.runTransaction(async tx => {
+        if ((await tx.get(ref)).exists) return;
+        const expectedKind = surface === 'live_round' ? 'live_round' : 'voice_round';
+        const candidateId = linkedGeneration || 'round_' + createHash('sha256').update(uid + ':' + expectedKind + ':' + roundId).digest('hex');
+        const linkedRef = db.collection('generations').doc(candidateId);
+        const linkedDoc = await tx.get(linkedRef);
+        const linkedData = linkedDoc.exists ? linkedDoc.data() : {};
+        const hasLink = linkedData.uid === uid && linkedData.context?.roundId === roundId;
+        tx.create(ref, { ...record, generationId: hasLink ? candidateId : '' });
+        if (hasLink) {
+          const update = { lastSignal: 'round_feedback', lastSignalAt: FieldValue.serverTimestamp() };
+          if (rating != null) { update.userRating = rating; update.rating = typeof linkedData.adminRating === 'number' ? linkedData.adminRating : (linkedData.ratedBy && typeof linkedData.rating === 'number' ? linkedData.rating : rating); }
+          if (cleanIssue) update.feedbackIssue = cleanIssue;
+          if (cleanNotes) update.userNotes = cleanNotes;
+          tx.update(linkedRef, update);
+        }
+      });
+      return jsonResponse({ ok: true, id }, 200, request);
+    }
+
     // ── Mode A: new generation ───────────────────────────────────
     if (action === 'generation' || !action) {
       const {
@@ -278,8 +336,29 @@ export default async (request) => {
       if (linkedRound) {
         const id = 'round_' + createHash('sha256').update(uid + ':' + kind + ':' + cleanContext.roundId).digest('hex');
         ref = db.collection('generations').doc(id);
-        try { await ref.create(doc); }
-        catch (error) { if (error.code !== 6) throw error; }
+        const surface = kind === 'live_round' ? 'live_round' : 'newvoice';
+        const feedbackId = createHash('sha256').update(uid + ':' + surface + ':' + cleanContext.roundId).digest('hex');
+        const feedbackRef = db.collection('round_feedback').doc(feedbackId);
+        await db.runTransaction(async tx => {
+          const existing = await tx.get(ref);
+          const report = await tx.get(feedbackRef);
+          const patch = {};
+          if (report.exists) {
+            const feedback = report.data();
+            const current = existing.exists ? existing.data() : {};
+            if (feedback.rating != null) {
+              patch.userRating = feedback.rating;
+              patch.rating = typeof current.adminRating === 'number' ? current.adminRating : (current.ratedBy && typeof current.rating === 'number' ? current.rating : feedback.rating);
+            }
+            if (feedback.issue) patch.feedbackIssue = feedback.issue;
+            if (feedback.notes) patch.userNotes = feedback.notes;
+            // Capture can arrive after an already-submitted report. Enrich
+            // lineage while preserving its text and review status.
+            if (!feedback.generationId) tx.update(feedbackRef, { generationId: ref.id });
+          }
+          if (!existing.exists) tx.create(ref, { ...doc, ...patch });
+          else if (report.exists) tx.update(ref, patch);
+        });
       } else {
         ref = await db.collection('generations').add(doc);
       }
@@ -299,6 +378,7 @@ export default async (request) => {
       if (isAnon && signal !== 'rate') {
         return errorResponse('Anonymous signals are limited to round ratings', 401, request);
       }
+      if (signal === 'feedback' && !meta?.issue && !(typeof meta?.notes === 'string' && meta.notes.trim())) return errorResponse('Add feedback', 400, request);
       if (signal === 'rate' && (!Number.isInteger(value) || value < 1 || value > 5)) {
         return errorResponse('Ratings must be 1-5', 400, request);
       }
@@ -310,20 +390,11 @@ export default async (request) => {
         return errorResponse('Generation not found', 404, request);
       }
 
-      await db.collection('generation_signals').add({
-        uid,
-        generationId,
-        signal,
-        value: typeof value === 'number' ? value : null,
-        meta: sanitizeContext(meta),
-        createdAt: FieldValue.serverTimestamp(),
-      });
-
       // Denormalize the most-recent signal onto the generation doc so
       // downstream querying ("show me 5-star cases") doesn't require a join.
       const update = { lastSignal: signal, lastSignalAt: FieldValue.serverTimestamp() };
-      if (signal === 'rate' && typeof value === 'number') {
-        update.rating = value;
+      if (signal === 'rate' || signal === 'feedback') {
+        if (signal === 'rate') { update.rating = value; update.userRating = value; }
         if (['transcript', 'audio', 'judge', 'topic', 'opponent', 'other'].includes(meta?.issue)) {
           update.feedbackIssue = meta.issue;
         }
@@ -348,7 +419,17 @@ export default async (request) => {
           update.editedOutput = clamp(meta.editedOutput, MAX_OUTPUT_CHARS);
         }
       }
-      await genRef.update(update);
+      await db.runTransaction(async tx => {
+        const current = await tx.get(genRef);
+        if (!current.exists || current.data().uid !== uid) throw new Error('Generation owner changed');
+        const data = current.data();
+        if (signal === 'rate') update.rating = typeof data.adminRating === 'number' ? data.adminRating : (data.ratedBy && typeof data.rating === 'number' ? data.rating : value);
+        tx.create(db.collection('generation_signals').doc(), {
+          uid, generationId, signal, value: typeof value === 'number' ? value : null,
+          meta: sanitizeContext(meta), createdAt: FieldValue.serverTimestamp(),
+        });
+        tx.update(genRef, update);
+      });
 
       return jsonResponse({ ok: true }, 200, request);
     }

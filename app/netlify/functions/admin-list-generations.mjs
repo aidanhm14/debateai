@@ -63,6 +63,9 @@ export default async (request) => {
   const url = new URL(request.url);
   const format = (url.searchParams.get('format') || '').toLowerCase();
   const kind = (url.searchParams.get('kind') || '').toLowerCase();
+  const queue = url.searchParams.get('queue') === 'feedback' ? 'feedback' : 'generations';
+  const after = url.searchParams.get('after') || '';
+  if (after && !/^[A-Za-z0-9_-]{1,100}$/.test(after)) return errorResponse('Invalid cursor', 400, request);
   const onlyUnrated = url.searchParams.get('onlyUnrated') === 'true';
   // Boring catalog filter — when on, only return generations the rater
   // flagged generic/boring. Closes the loop on the (b) cataloging
@@ -79,26 +82,23 @@ export default async (request) => {
   if (!VALID_KINDS.has(kind)) return errorResponse('Invalid kind', 400, request);
 
   try {
-    // Base query: order by createdAt desc, optionally filter format.
-    // kind is filtered client-side after the fetch so we don't need a
-    // composite index for every (format, kind) pair. Rating filter is
-    // also client-side for the same reason — admins only rate dozens
-    // per session, not millions, so over-fetching by 3x is fine.
-    let q = db.collection('generations').orderBy('createdAt', 'desc');
-    if (format) q = q.where('format', '==', format);
-    if (Number.isFinite(beforeRaw)) {
-      q = q.where('createdAt', '<', new Date(beforeRaw));
-    }
-    // Fetch 3x the requested limit to compensate for client-side filtering.
-    // onlyBoring needs an even wider net since boring-flagged docs are a
-    // small fraction of total — 6x compensates without going wild.
-    const fetchLimit = onlyBoring ? Math.min(MAX_LIMIT * 6, limit * 8) :
-      (onlyUnrated || kind ? Math.min(MAX_LIMIT * 3, limit * 4) : limit);
+    // Filter after one ordered query. This avoids per-format composite
+    // indexes and lets the cursor advance through an empty filtered page.
+    const collection = db.collection(queue === 'feedback' ? 'round_feedback' : 'generations');
+    let q = collection.orderBy('createdAt', 'desc');
+    if (after) {
+      const cursorDoc = await collection.doc(after).get();
+      if (!cursorDoc.exists) return errorResponse('Cursor expired. Reload the batch.', 400, request);
+      q = q.startAfter(cursorDoc);
+    } else if (Number.isFinite(beforeRaw)) q = q.where('createdAt', '<', new Date(beforeRaw));
+    const fetchLimit = Math.min(MAX_LIMIT * 3, limit * 4);
     q = q.limit(fetchLimit);
 
     const snap = await q.get();
     const docs = [];
     let lastCreatedAtMs = null;
+    let lastId = null;
+    let scanned = 0;
 
     // Defensive: any single bad doc (non-string field, weird type from legacy
     // writes, etc.) used to take down the whole batch with a 500. Now: coerce
@@ -112,8 +112,25 @@ export default async (request) => {
         const data = d.data() || {};
         const createdAtMs = safeMs(data.createdAt);
         lastCreatedAtMs = createdAtMs;
+        lastId = d.id;
+        scanned += 1;
+        if (queue === 'feedback') {
+          if (onlyUnrated && data.reviewStatus === 'reviewed') continue;
+          docs.push({ id: d.id, reviewType: 'round_feedback', uid: safeStr(data.uid),
+            kind: 'round_feedback', format: '', motion: 'Round feedback', side: '', model: '',
+            output: safeStr(data.notes), outputLength: safeStr(data.notes).length,
+            userNotes: '', adminNotes: safeStr(data.adminNotes), fullTranscript: '',
+            roundId: safeStr(data.roundId), surface: safeStr(data.surface),
+            roundVerified: data.roundVerified === true, feedbackIssue: safeStr(data.issue),
+            rating: typeof data.rating === 'number' ? data.rating : null,
+            userRating: typeof data.rating === 'number' ? data.rating : null,
+            reviewStatus: safeStr(data.reviewStatus), createdAt: createdAtMs });
+          if (docs.length >= limit) break;
+          continue;
+        }
+        if (format && data.format !== format) continue;
         if (kind && data.kind !== kind) continue;
-        if (onlyUnrated && typeof data.rating === 'number') continue;
+        if (onlyUnrated && (typeof data.adminRating === 'number' || (data.ratedBy && typeof data.rating === 'number'))) continue;
         if (onlyBoring && data.boring !== true) continue;
         const outputStr = safeStr(data.output);
         const ctx = data.context && typeof data.context === 'object' && !Array.isArray(data.context)
@@ -127,23 +144,27 @@ export default async (request) => {
           motion: safeStr(data.motion).slice(0, 600),
           side: safeStr(data.side).slice(0, 40),
           model: safeStr(data.model).slice(0, 100),
-          output: outputStr.slice(0, 6000),
+          output: outputStr.slice(0, 40000),
+          outputTruncated: outputStr.length > 40000 || data.outputLength > outputStr.length,
           outputLength: typeof data.outputLength === 'number' ? data.outputLength : outputStr.length,
-          systemPrompt: safeStr(data.systemPrompt).slice(0, 2000),
-          userPrompt: safeStr(data.userPrompt).slice(0, 2000),
+          systemPrompt: safeStr(data.systemPrompt).slice(0, 8000),
+          userPrompt: safeStr(data.userPrompt).slice(0, 8000),
           fullTranscript: safeStr(ctx.fullTranscript).slice(0, 40000),
           roundId: safeStr(ctx.roundId).slice(0, 100),
           transcriptScope: safeStr(ctx.transcriptScope).slice(0, 40),
           feedbackIssue: safeStr(data.feedbackIssue).slice(0, 40),
           qualityHold: safeStr(data.qualityHold).slice(0, 80),
           rating: typeof data.rating === 'number' ? data.rating : null,
+          userRating: typeof data.userRating === 'number' ? data.userRating : (!data.ratedBy && typeof data.rating === 'number' ? data.rating : null),
+          adminRating: typeof data.adminRating === 'number' ? data.adminRating : (data.ratedBy && typeof data.rating === 'number' ? data.rating : null),
+          adminNotes: safeStr(data.adminNotes).slice(0, 600),
           boring: data.boring === true,
           // userNotes lands here when a low-rated round (or any boring-
           // flagged round) gets a free-text "what didn't land" comment
           // from the voice-debate widget, or when the admin rate tool
           // adds adminNotes. Both feed the same field; the UI shows it
           // inline so the cataloging view has the rater's actual reason.
-          userNotes: safeStr(data.userNotes || data.adminNotes).slice(0, 600),
+          userNotes: safeStr(data.userNotes).slice(0, 600),
           ratedAt: safeMs(data.ratedAt),
           createdAt: createdAtMs,
         });
@@ -156,8 +177,9 @@ export default async (request) => {
     return jsonResponse({
       ok: true,
       items: docs,
-      cursor: lastCreatedAtMs,
-      filters: { format, kind, onlyUnrated, limit },
+      cursor: lastId && (scanned < snap.docs.length || snap.docs.length === fetchLimit) ? lastId : null,
+      before: lastCreatedAtMs,
+      filters: { format, kind, onlyUnrated, onlyBoring, queue, limit },
     }, 200, request);
   } catch (err) {
     console.error('admin-list-generations error:', err.message, err.code || '');

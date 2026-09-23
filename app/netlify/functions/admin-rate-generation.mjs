@@ -49,10 +49,11 @@ export default async (request) => {
   try { body = await request.json(); } catch { return errorResponse('Invalid JSON body', 400, request); }
 
   const { generationId, rating, boring, notes } = body;
-  if (!generationId || typeof generationId !== 'string') {
+  const isFeedback = body.reviewType === 'round_feedback';
+  if (typeof generationId !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(generationId)) {
     return errorResponse('Missing generationId', 400, request);
   }
-  if (typeof rating !== 'number' || !Number.isFinite(rating) || rating < 1 || rating > 5) {
+  if (!isFeedback && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
     return errorResponse('Rating must be a number 1-5', 400, request);
   }
   const intRating = Math.round(rating);
@@ -60,15 +61,23 @@ export default async (request) => {
   const trimmedNotes = typeof notes === 'string' ? notes.slice(0, 600) : '';
 
   try {
-    const genRef = db.collection('generations').doc(generationId);
+    const genRef = db.collection(isFeedback ? 'round_feedback' : 'generations').doc(generationId);
     const genDoc = await genRef.get();
     if (!genDoc.exists) {
       return errorResponse('Generation not found', 404, request);
     }
 
+    if (isFeedback) {
+      await genRef.update({ reviewStatus: 'reviewed', adminNotes: trimmedNotes,
+        reviewedAt: FieldValue.serverTimestamp(), reviewedBy: adminUid });
+      return jsonResponse({ ok: true, generationId, reviewStatus: 'reviewed' }, 200, request);
+    }
+
     // Update generation doc — these fields feed scheduled-distill directly.
-    await genRef.update({
+    const batch = db.batch();
+    batch.update(genRef, {
       rating: intRating,
+      adminRating: intRating,
       boring: boringFlag,
       adminNotes: trimmedNotes,
       ratedAt: FieldValue.serverTimestamp(),
@@ -77,7 +86,7 @@ export default async (request) => {
 
     // Audit row in generation_signals so the full rating history is
     // preserved if a rating gets overwritten later.
-    await db.collection('generation_signals').add({
+    batch.set(db.collection('generation_signals').doc(), {
       uid: adminUid,
       generationId,
       signal: 'admin_rate',
@@ -85,6 +94,8 @@ export default async (request) => {
       meta: { boring: boringFlag, notes: trimmedNotes },
       createdAt: FieldValue.serverTimestamp(),
     });
+
+    await batch.commit();
 
     console.log('[admin-rate-generation]', generationId, 'rating=', intRating, 'boring=', boringFlag, 'by=', adminUid.slice(0, 6));
     return jsonResponse({ ok: true, generationId, rating: intRating, boring: boringFlag }, 200, request);

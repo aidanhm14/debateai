@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { RECOVERY_GRACE_MS, SWEEP_LEASE_MS, SWEEP_JUROR_TIMEOUT_MS,
-  timestampMillis, judgeLeaseWaitMs, recoveryWaitMs } from '../live-judge.mjs';
+  timestampMillis, judgeLeaseWaitMs, recoveryWaitMs, transcriptSizeError } from '../live-judge.mjs';
 
 export function boundedInt(value, fallback, min, max) {
   const n = Number(value);
@@ -29,7 +29,7 @@ export function selectSweepTargets(rows, now = Date.now(), opts = {}) {
   const maxAgeMs = opts.maxAgeMs != null ? opts.maxAgeMs : MAX_AGE_MS;
   const maxAttempts = opts.maxAttempts != null ? opts.maxAttempts : MAX_ATTEMPTS;
   const due = [];
-  const skipped = { notPending: 0, coolingDown: 0, decided: 0, unresolved: 0, tooYoung: 0, leased: 0, abandoned: 0, noStamp: 0 };
+  const skipped = { notPending: 0, coolingDown: 0, decided: 0, unresolved: 0, tooYoung: 0, leased: 0, abandoned: 0, noStamp: 0, missingParticipant: 0, transcriptTooLarge: 0 };
   for (const row of rows) {
     const d = (row && row.data) || {};
     if (d.ballotPending !== true) { skipped.notPending += 1; continue; }
@@ -43,6 +43,12 @@ export function selectSweepTargets(rows, now = Date.now(), opts = {}) {
     if (age > maxAgeMs) { skipped.abandoned += 1; continue; }
     if ((Number(d.serverJudgeAttempt) || 0) >= maxAttempts) { skipped.abandoned += 1; continue; }
     if (judgeLeaseWaitMs(d, now) > 0) { skipped.leased += 1; continue; }
+    // These requests cannot claim a panel. Unlike provider failures,
+    // repeating them does not advance serverJudgeAttempt, so they would
+    // consume worker slots until the age cutoff. Read the current shape
+    // each time: a later repaired room can still recover normally.
+    if (!d.proUid || !d.conUid) { skipped.missingParticipant += 1; continue; }
+    if (transcriptSizeError(d.speeches)) { skipped.transcriptTooLarge += 1; continue; }
     due.push({ room: row.id, age });
   }
   // Oldest first: the round that has been waiting longest is the one

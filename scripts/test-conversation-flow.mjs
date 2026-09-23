@@ -22,7 +22,7 @@ console.log('Conversation flow: interleaving, escaped names, speaker attribution
 
 // Earlier audio can finish transcribing after a later chunk. Its capture
 // clock must put it back before the intervening peer response.
-Object.assign(context,{mic:{own:'First point An answer'},openSeg:{segs:[]},
+Object.assign(context,{mic:{own:'First point An answer'},openSegSession:'fixture-page',openSeg:{segs:[]},
   openScheduleSegPublish(){},maybeConversationNotes(){},state:{...state,phase:'round',user:{uid:'own-uid'}}});
 vm.runInContext(source.slice(source.indexOf('  function openCapturedSegment('),source.indexOf('  function openSegTick(')),context);
 context.openCapturedSegment({generation:1,at:30,endedAt:35},1,'An answer');

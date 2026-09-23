@@ -161,7 +161,7 @@
 <!-- Auth gate -->
 <div id="gate" class="gate" hidden>
   <h2>Admin · Rate outputs</h2>
-  <p>Sign in to rate AI generations. The ratings feed the nightly distill so the AI gets sharper at the formats it scores below 4.</p>
+  <p>Sign in to review round feedback and captured outputs. Feedback reports stay separate from learning examples.</p>
   <button id="signin-btn">Sign in with Google</button>
   <div id="gate-err" class="err"></div>
   <div id="gate-signed" class="signed"></div>
@@ -177,7 +177,7 @@
       <div class="brand-mark">D</div>
       <div>
         <h1>Rate outputs</h1>
-        <div class="sub">Score recent AI generations 1-5. Ratings ≥ 4 feed the nightly distill.</div>
+        <div class="sub">Review reports or rate captured outputs. An unresolved issue or quality hold stays out of automatic learning.</div>
       </div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
@@ -187,6 +187,7 @@
   </header>
 
   <div class="filters">
+    <label>Queue <select id="filter-queue"><option value="feedback">Round feedback</option><option value="generations">Captured outputs</option></select></label>
     <label>Format <select id="filter-format">
       <option value="">all</option>
       <option value="apda">APDA</option>
@@ -226,7 +227,7 @@
       <option value="sneaky">sneaky</option>
       <option value="bot">bot</option>
     </select></label>
-    <label><input type="checkbox" id="filter-unrated" checked> only unrated</label>
+    <label><input type="checkbox" id="filter-unrated" checked> needs review</label>
     <label title="Show only outputs flagged generic/boring by a rater. Closes the loop on the (b) cataloging commitment — this is where you act on the boring pile."><input type="checkbox" id="filter-boring"> boring catalog</label>
     <button id="load-btn" class="pill-btn primary">Load batch</button>
     <div class="stretch"></div>
@@ -262,6 +263,7 @@ let cursor = null;
 let activeIdx = 0;
 let activeRating = 0;
 let activeBoring = false;
+let saving = false;
 
 // ── Auth ───────────────────────────────────────────────────────────
 auth.onAuthStateChanged(user => {
@@ -288,23 +290,26 @@ async function getToken(){ return auth.currentUser.getIdToken(); }
 
 // ── Fetch ──────────────────────────────────────────────────────────
 async function loadBatch(append = false){
+  if (saving) return;
+  const queue = $('filter-queue').value;
+  ['filter-format','filter-kind','filter-boring'].forEach(id => $(id).disabled = queue === 'feedback');
   const fmt = $('filter-format').value;
   const kind = $('filter-kind').value;
   const onlyUnrated = $('filter-unrated').checked;
-  const onlyBoring = $('filter-boring').checked;
+  const onlyBoring = queue !== 'feedback' && $('filter-boring').checked;
   // Boring catalog mode overrides onlyUnrated — a boring-flagged doc is
   // by definition already rated, so showing "only unrated" + "boring
   // catalog" together returns nothing. Soft-coerce here so the UI
   // doesn't strand the user with an empty result.
   if (onlyBoring) $('filter-unrated').checked = false;
   const params = new URLSearchParams({
-    limit: '20',
+    queue, limit: '20',
     onlyUnrated: String(onlyBoring ? false : onlyUnrated),
     onlyBoring: String(onlyBoring),
   });
-  if (fmt) params.set('format', fmt);
-  if (kind) params.set('kind', kind);
-  if (append && cursor) params.set('before', String(cursor));
+  if (fmt && queue !== 'feedback') params.set('format', fmt);
+  if (kind && queue !== 'feedback') params.set('kind', kind);
+  if (append && cursor) params.set('after', String(cursor));
   $('err').hidden = true;
   $('count').textContent = 'Loading…';
   try {
@@ -346,6 +351,7 @@ async function loadBatch(append = false){
 }
 
 $('load-btn').addEventListener('click', () => loadBatch(false));
+$('filter-queue').addEventListener('change', () => { const feedback = $('filter-queue').value === 'feedback'; ['filter-format','filter-kind','filter-boring'].forEach(id => $(id).disabled = feedback); loadBatch(false); });
 $('filter-format').addEventListener('change', () => loadBatch(false));
 $('filter-kind').addEventListener('change', () => loadBatch(false));
 $('filter-unrated').addEventListener('change', () => loadBatch(false));
@@ -355,29 +361,32 @@ $('filter-boring').addEventListener('change', () => loadBatch(false));
 function render(){
   const list = $('list');
   if (items.length === 0) {
-    list.innerHTML = '<div class="empty"><h3>Nothing to rate</h3><p>Try a different filter or set onlyUnrated to false.</p></div>';
+    list.innerHTML = '<div class="empty"><h3>' + (cursor ? 'No matches in this batch' : 'No reports to review') + '</h3><p>' + (cursor ? 'Older records are still available.' : 'Try a different filter or turn off needs review.') + '</p>' + (cursor ? '<button id="load-older" class="pill-btn">Load older records</button>' : '') + '</div>';
+    if (cursor) $('load-older').addEventListener('click', () => loadBatch(true));
     $('count').textContent = '0 of 0';
     return;
   }
   if (activeIdx >= items.length) activeIdx = items.length - 1;
   if (activeIdx < 0) activeIdx = 0;
   const it = items[activeIdx];
-  activeRating = typeof it.rating === 'number' ? it.rating : 0;
+  const isFeedback = it.reviewType === 'round_feedback';
+  activeRating = !isFeedback && typeof it.adminRating === 'number' ? it.adminRating : 0;
   activeBoring = it.boring === true;
   $('count').textContent = (activeIdx + 1) + ' of ' + items.length;
 
-  const ratedChip = activeRating ? `<span class="chip rated">rated ${activeRating}/5${it.boring ? ' · boring' : ''}</span>` : '';
+  const ratedChip = isFeedback ? `<span class="chip">${it.reviewStatus === 'reviewed' ? 'Reviewed' : 'Needs review'}${it.userRating ? ' · user rating ' + it.userRating + '/5' : ''}</span>` : activeRating ? `<span class="chip rated">rated ${activeRating}/5${it.boring ? ' · boring' : ''}</span>` : '';
   const ageDays = it.createdAt ? Math.round((Date.now() - it.createdAt) / 86400000) : null;
   const ageText = ageDays != null ? (ageDays === 0 ? 'today' : ageDays + 'd ago') : '';
 
-  const outputHtml = formatDoc(it.output || '(no output)');
+  const outputHtml = formatDoc(it.output || (isFeedback ? '(no written note)' : '(no output)'));
+  const provenance = isFeedback ? 'Submitted feedback. ' + (it.roundVerified ? 'Round membership verified.' : 'Client-reported AI round reference, not independently verified.') : 'User rating: ' + (it.userRating || 'not recorded separately') + '. Admin rating: ' + (it.adminRating || 'not recorded separately') + '.';
   const transcriptHtml = it.fullTranscript ? formatDoc(it.fullTranscript) : '';
   // Rater's notes — surfaces inline above the output when present. This
   // is the load-bearing field in boring-catalog mode: shows WHY a user
   // (or admin) flagged the round generic, so the next voice-guidelines
   // edit has the actual phrase that drove the rating, not just the bit.
-  const issueBlock = (it.feedbackIssue || it.qualityHold) ? `<div class="rater-notes"><div class="rn-label">Reported issue</div>${escapeHtml(it.qualityHold || it.feedbackIssue)}</div>` : '';
-  const captureBlock = it.roundId ? `<div class="rater-notes"><div class="rn-label">Round reference</div>${escapeHtml(it.roundId)} · ${escapeHtml(it.transcriptScope || 'legacy capture')}</div>` : '';
+  const issueBlock = (it.feedbackIssue || it.qualityHold) ? `<div class="rater-notes"><div class="rn-label">Reported issue</div>${escapeHtml([it.qualityHold, it.feedbackIssue].filter(Boolean).join(' · '))}</div>` : '';
+  const captureBlock = it.roundId ? `<div class="rater-notes"><div class="rn-label">Round reference</div>${escapeHtml(it.roundId)} · ${escapeHtml(isFeedback ? (it.surface || 'submitted feedback') : (it.transcriptScope || 'legacy capture'))}</div>` : '';
   const notesBlock = (it.userNotes && it.userNotes.trim()) ? `
         <div class="rater-notes"><div class="rn-label">Rater's notes</div>${escapeHtml(it.userNotes)}</div>
       ` : '';
@@ -396,13 +405,13 @@ function render(){
       <div class="sheet">
         ${it.motion ? `<h2 class="doc-title">${escapeHtml(it.motion)}</h2>` : ''}
         <div class="doc-sub">${escapeHtml(it.uid ? 'user ' + it.uid.slice(0,8) : '')} · ${it.outputLength.toLocaleString()} chars${it.side ? ' · ' + escapeHtml(it.side) : ''}</div>
-        ${issueBlock}${captureBlock}${notesBlock}
+        ${issueBlock}${captureBlock}${notesBlock}<p class="doc-sub">${escapeHtml(provenance)}${it.outputTruncated ? " Stored output is incomplete. Do not use this record as a complete round." : ""}</p>
         <div class="doc-body" id="output-body">${outputHtml}</div>
       </div>
 
       ${transcriptHtml ? `
       <details class="context">
-        <summary>Full voice transcript</summary>
+        <summary>Captured transcript</summary>
         <div class="ctx-body ctx-doc">${transcriptHtml}</div>
       </details>
       ` : ''}
@@ -420,15 +429,15 @@ function render(){
 
     <div class="rate-bar">
       <div class="rate-row">
-        <div class="bar-keys"><kbd>1</kbd>-<kbd>5</kbd> rate + next · <kbd>B</kbd> boring · <kbd>N</kbd>/<kbd>→</kbd> skip · <kbd>P</kbd>/<kbd>←</kbd> back · <kbd>L</kbd> load more</div>
-        <div class="stars" id="stars">
+        <div class="bar-keys">${isFeedback ? 'Read the report, add a review note, then mark reviewed.' : '<kbd>1</kbd>-<kbd>5</kbd> rate + next · <kbd>B</kbd> boring · <kbd>N</kbd>/<kbd>→</kbd> skip · <kbd>P</kbd>/<kbd>←</kbd> back · <kbd>L</kbd> load more'}</div>
+        <div class="stars" id="stars"${isFeedback ? ' hidden style="display:none"' : ''}>
           ${[1,2,3,4,5].map(n => `<button class="star${n <= activeRating ? ' active' + (n >= 4 ? ' hi' : '') : ''}" data-n="${n}">${n}</button>`).join('')}
         </div>
-        <button class="boring-toggle${activeBoring ? ' on' : ''}" id="boring-toggle">
+        <button class="boring-toggle${activeBoring ? ' on' : ''}" id="boring-toggle"${isFeedback ? ' hidden style="display:none"' : ''}>
           <span class="checkbox"></span> Boring / generic
         </button>
-        <input type="text" id="notes-input" class="notes-input" placeholder="Notes (optional)" maxlength="600">
-        <button id="submit-btn" class="submit-btn"${activeRating ? '' : ' disabled'}>Submit + next</button>
+        <input type="text" id="notes-input" class="notes-input" placeholder="Review notes (optional)" maxlength="600" value="${escapeHtml(it.adminNotes || '')}">
+        <button id="submit-btn" class="submit-btn"${isFeedback || activeRating ? '' : ' disabled'}>${isFeedback ? 'Mark reviewed + next' : 'Submit + next'}</button>
         <button class="nav-btn" id="prev-btn"${activeIdx === 0 ? ' disabled' : ''}>←</button>
         <span class="position">${activeIdx + 1} / ${items.length}${cursor ? ' +' : ''}</span>
         <button class="nav-btn" id="next-btn">Skip ${activeIdx === items.length - 1 && cursor ? '+ load' : '→'}</button>
@@ -476,6 +485,7 @@ function formatDoc(text){
 }
 
 function setRating(n, autoSubmit){
+  if (saving || items[activeIdx]?.reviewType === 'round_feedback') return;
   activeRating = n;
   document.querySelectorAll('#stars .star').forEach(btn => {
     const v = parseInt(btn.dataset.n, 10);
@@ -494,8 +504,9 @@ function toggleBoring(){
 }
 
 async function submitAndNext(){
-  if (!activeRating) return;
   const it = items[activeIdx];
+  if (saving || (!activeRating && it.reviewType !== 'round_feedback')) return;
+  saving = true;
   const notes = $('notes-input') ? $('notes-input').value.trim() : '';
   $('submit-btn').disabled = true;
   $('submit-btn').textContent = 'Saving…';
@@ -506,6 +517,7 @@ async function submitAndNext(){
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
       body: JSON.stringify({
         generationId: it.id,
+        reviewType: it.reviewType,
         rating: activeRating,
         boring: activeBoring,
         notes,
@@ -518,10 +530,13 @@ async function submitAndNext(){
       throw new Error(r.status + (detail ? ' ' + detail : ''));
     }
     // Mark locally so the UI shows "rated" state if user navigates back.
-    items[activeIdx] = { ...it, rating: activeRating, boring: activeBoring };
-    flash('Saved · ' + activeRating + '/5' + (activeBoring ? ' · boring' : ''));
+    items[activeIdx] = { ...it, rating: activeRating || it.rating, adminRating: it.reviewType === 'round_feedback' ? null : activeRating, boring: activeBoring, adminNotes: notes, reviewStatus: 'reviewed' };
+    saving = false;
+    render();
+    flash(it.reviewType === 'round_feedback' ? 'Marked reviewed' : 'Saved · ' + activeRating + '/5' + (activeBoring ? ' · boring' : ''));
     goNext();
   } catch (e) {
+    saving = false;
     flash('Save failed: ' + (e.message || e), true);
     $('submit-btn').disabled = false;
     $('submit-btn').textContent = 'Submit + next';
@@ -529,6 +544,7 @@ async function submitAndNext(){
 }
 
 function goNext(){
+  if (saving) return;
   if (activeIdx < items.length - 1) {
     activeIdx += 1;
     render();
@@ -540,11 +556,12 @@ function goNext(){
       }
     });
   } else {
-    flash('End of batch — load a different filter');
+    flash('End of batch. Load a different filter.');
   }
 }
 
 function goPrev(){
+  if (saving) return;
   if (activeIdx > 0) {
     activeIdx -= 1;
     render();

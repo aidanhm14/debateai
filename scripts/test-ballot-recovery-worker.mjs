@@ -6,7 +6,7 @@ import worker, { config } from '../app/netlify/functions/ballot-recovery-backgro
 
 process.env.INTERNAL_JUDGE_KEY = 'test-recovery-key-never-production';
 let clock = 1_800_000_000_000;
-const pending = extra => ({ ballotPending: true, ballotPendingAt: clock - 100_000, ...extra });
+const pending = extra => ({ proUid: 'pro-seat', conUid: 'con-seat', ballotPending: true, ballotPendingAt: clock - 100_000, ...extra });
 const setup = (rows = [['room', pending()]]) => {
   const f = memoryFirestore(rows.map(([id, data]) => ['live_rounds/' + id, data]));
   f.queue = createRecoveryQueue({ db: f.db, documentId: '__name__', now: () => clock });

@@ -1,5 +1,7 @@
 # soul.md. Debatable · itsdebatable.com
 
+> **Round reliability and feedback (2026-09-23).** Switching cameras must keep the microphone and mute state intact. Pausing or rejoining must preserve captured conversation history. Oversized or disconnected final saves fail visibly instead of dropping words or opening judging early. People can submit round feedback without agreeing to transcript history. That explicit feedback has its own private review inbox and is not an independent label of the correct winner. Historical verdicts remain unchanged.
+
 > **Round records and review (2026-09-23).** Every eligible human round belongs on the human ladder; AI ratings remain separate. Repair missed results in chronological order with `scripts/reconcile-ratings.mjs`, preserving an audit of the replaced rating records. Conversation capture must select the consenting person’s labelled words, never the shared container’s clock-owner side. Capture retries retain one generation ID and feedback links to that record. Judge the full supported transcript; never silently take a 12,000-character prefix of a conversation. Historical ballots remain unchanged. `docs/round-data-review.md` documents source meanings, review tooling and quality holds.
 
 > **Debate online actions (Aidan, 2026-09-23).** On `/debate-online` only, label the primary matching button “Meet your match” and put a separate “Home” button linking to `/` directly below it. The homepage keeps its original layout.

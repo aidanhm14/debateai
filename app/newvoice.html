@@ -3326,6 +3326,11 @@ async function endRound(){
   vtSession = null; vtPending = [];
   $('roundFeedback').textContent = '';
   delete $('roundFeedback').dataset.generationId;
+  delete $('roundFeedback').dataset.feedbackKey;
+  const feedbackUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+  if (feedbackUser && !feedbackUser.isAnonymous && window.RoundFeedback) {
+    RoundFeedback.mount({host:$('roundFeedback'),roundId,surface:'newvoice',getToken:() => feedbackUser.getIdToken()});
+  }
   logRound();
   cleanup();
   // recap
@@ -3554,7 +3559,7 @@ function logRound(){
         return response.json();
       }).then((saved) => {
         if (roundId !== captureRoundId || !window.RoundFeedback) return;
-        RoundFeedback.mount({host:$('roundFeedback'),generationId:saved.id,surface:'newvoice',getToken:() => u.getIdToken()});
+        RoundFeedback.mount({host:$('roundFeedback'),roundId:captureRoundId,generationId:saved.id,surface:'newvoice',getToken:() => u.getIdToken()});
       }).catch(() => {});
     } else {
       let sid = '';

@@ -110,6 +110,31 @@ vm.createContext(ctx);vm.runInContext(helper('finishPendingTranscription','  // 
 const pending=ctx.finishPendingTranscription(true);timeout();
 await assert.rejects(pending,/still saving/);slowResolve();
 await ctx.finishPendingTranscription(true);
+// The final durable stream must keep the opening as well as the ending.
+// A disconnected Firestore write must never acknowledge readiness.
+let streamWrite, saveTimeout, stalledSave=false;
+const capture={state:{isDuo:false},openSeg:{segs:[
+  {at:1,text:'Opening argument. '+ 'a'.repeat(14000)}, {at:2,text:'Closing argument.'}
+]}, TextEncoder,Promise,Error,JSON,console,
+  isSpectator:()=>false,openMode:()=>true,myConversationKey:()=> 'pro',
+  getRoundDocRef:()=>({set:payload=>{streamWrite=payload;return stalledSave?new Promise(()=>{}):Promise.resolve();}}),
+  setTimeout:fn=>{saveTimeout=fn;return 1;},clearTimeout:()=>{},
+  RoundEvidence:{hasWords:s=>!!s},liveJourney(){},toast(){}};
+vm.createContext(capture);vm.runInContext(helper('openPublishSegs','  function openPeerSide('),capture);
+await capture.openPublishSegs(true);
+assert.equal(streamWrite.openSegs.pro.length,2);
+assert.match(streamWrite.openSegs.pro[0].text,/^Opening argument/);
+assert.equal(streamWrite.openSegs.pro[1].text,'Closing argument.');
+stalledSave=true;
+const disconnected=capture.openPublishSegs(true);saveTimeout();
+await assert.rejects(disconnected,/have not reached the server/);
+stalledSave=false;await capture.openPublishSegs(true);
+const previousWrite=streamWrite;
+capture.openSeg.segs=[{at:1,text:'界'.repeat(50000)}];
+await assert.rejects(capture.openPublishSegs(true),/storage limit/);
+assert.equal(streamWrite,previousWrite,'oversized UTF-8 capture must not overwrite a saved stream with a truncated version');
+const flushSource=html.slice(html.indexOf('  async function flushConversationCapture('),html.indexOf('  var conversationFinishControls'));
+assert.doesNotMatch(flushSource,/waitForPendingWrites/,'unrelated writes must not block a final acknowledged stream');
 // End controls must enforce ownership even when triggered outside the UI.
 const locked={state:{phase:'round'},isSpectator:()=>false,isMyTurn:()=>false};
 vm.createContext(locked);vm.runInContext(helper('endSpeech','  function finishRound('),locked);locked.endSpeech();

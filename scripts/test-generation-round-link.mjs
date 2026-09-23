@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
-const docs=new Map();let uid='one';const db={collection:name=>({doc:id=>({id,get:async()=>({exists:docs.has(name+'/'+id),data:()=>docs.get(name+'/'+id)}),create:async value=>{const key=name+'/'+id;if(docs.has(key))throw {code:6};docs.set(key,value);},update:async value=>docs.set(name+'/'+id,{...docs.get(name+'/'+id),...value})}),add:async value=>{const id='auto'+docs.size;docs.set(name+'/'+id,value);return {id};}})};
+const docs=new Map();let uid='one';let seq=0;const db={collection:name=>({doc:(id='generated'+(++seq))=>({id,key:name+'/'+id,get:async()=>({exists:docs.has(name+'/'+id),data:()=>docs.get(name+'/'+id)}),create:async value=>{const key=name+'/'+id;if(docs.has(key))throw {code:6};docs.set(key,value);},update:async value=>docs.set(name+'/'+id,{...docs.get(name+'/'+id),...value})}),add:async value=>{const id='auto'+docs.size;docs.set(name+'/'+id,value);return {id};}})};
+db.runTransaction=async fn=>fn({get:ref=>ref.get(),create:(ref,value)=>docs.set(ref.key,value),update:(ref,value)=>docs.set(ref.key,{...docs.get(ref.key),...value})});
 const src=fs.readFileSync('app/netlify/functions/log-generation.mjs','utf8').replace(/^import.*;\n/gm,'').replace('export default async','globalThis.handler = async').replace('export const config','const config');
 const ctx={createHash,console:{log(){},error(){}},setInterval(){},setTimeout,clearTimeout,Date,Map,Set,Number,String,Promise,
  verifyIdToken:async()=>({sub:uid,firebase:{sign_in_provider:'google.com'}}),extractBearerToken:()=> 'token',getDb:()=>db,FieldValue:{serverTimestamp:()=>123},
@@ -18,3 +19,7 @@ assert.equal((await send({action:'signal',generationId:first.body.id,signal:'rat
 assert.equal(docs.get('generations/'+first.body.id).feedbackIssue,'transcript');
 await send(payload);assert.equal(docs.get('generations/'+first.body.id).rating,3,'Capture retry preserves feedback');
 console.log('Round capture: idempotent writes, account isolation, ownership, rating bounds and linked issue notes passed.');
+
+const entry=docs.get('generations/'+first.body.id);entry.adminRating=4;entry.rating=4;
+await send({action:'signal',generationId:first.body.id,signal:'rate',value:1});
+assert.equal(entry.adminRating,4);assert.equal(docs.get('generations/'+first.body.id).rating,4);assert.equal(docs.get('generations/'+first.body.id).userRating,1);

@@ -519,31 +519,54 @@
   }
 
   function flipCamera(){
-    if (!context.CUSTOM_TRACK_OK || !window.DebateCam || !context.state.dailyFrame) return;
+    if (!context.CUSTOM_TRACK_OK || !window.DebateCam || !context.state.dailyFrame || context.room.cameraFlipPending) return;
+    context.room.cameraFlipPending = true;
     var btn = document.getElementById('cvFlip');
     if (btn) btn.disabled = true;
     var want = context.room.facing === 'user' ? 'environment' : 'user';
     var mode = context.camConv.mode === 'avatar' ? 'avatar' : 'camera';
     var old = context.camConv.cam;
-    navigator.mediaDevices.getUserMedia({ audio: true, video: captureConstraints(mode, want) })
-      .then(function(ms){ return window.DebateCam.start(ms, { mode: mode, label: seatLabel() }); })
+    var frame = context.state.dailyFrame;
+    var replacement = null, source = null;
+    var audio = old && old.srcStream ? old.srcStream.getAudioTracks() : [];
+    if (!audio.length && context.room.fallbackAudioTrack) audio = [context.room.fallbackAudioTrack];
+    // A flip changes only video. A second microphone was never published,
+    // and stopping the old pipeline ended the microphone Daily still sent.
+    return navigator.mediaDevices.getUserMedia({ audio: false, video: captureConstraints(mode, want) })
+      .then(function(ms){
+        source = ms;
+        if (context.camConv.cam !== old || context.state.dailyFrame !== frame) throw new Error('Camera changed during switch');
+        audio.forEach(function(t){ if (t.readyState !== 'ended') ms.addTrack(t); });
+        return window.DebateCam.start(ms, { mode: mode, label: seatLabel() });
+      })
       .then(function(c){
-        context.camConv.cam = c;
-        context.camConv.camP = Promise.resolve(c);
-        context.room.facing = want;
-        return context.state.dailyFrame.setInputDevicesAsync({ videoSource: publishTrackFor(c, mode) }).then(function(){
-          if (context.camConv.mode !== 'off') context.state.dailyFrame.setLocalVideo(true);
+        replacement = c;
+        if (context.camConv.cam !== old || context.state.dailyFrame !== frame) throw new Error('Camera changed during switch');
+        return frame.setInputDevicesAsync({ videoSource: publishTrackFor(c, mode) }).then(function(){
+          if (context.camConv.cam !== old || context.state.dailyFrame !== frame) throw new Error('Camera changed during switch');
+          context.camConv.cam = c;
+          context.camConv.camP = Promise.resolve(c);
+          context.room.facing = want;
+          // Transfer ownership before stop(), which closes every source track.
+          if (old && old.srcStream) audio.forEach(function(t){ old.srcStream.removeTrack(t); });
+          if (old && old !== c) try { old.stop(); } catch(e){}
+          replacement = null; source = null;
+          startGuard(c);
+          if (context.camConv.mode !== 'off') frame.setLocalVideo(true);
           tuneSendQuality(context.room.cpuHigh ? 'medium' : 'high');
           if (context.camConv.mode === 'avatar') showSelfPip();
-          if (old && old !== c) try { old.stop(); } catch(e){}
           paintRoom();
         });
       })
       .catch(function(e){
+        // A rejected replacement leaves the existing camera and mic intact.
+        if (source) audio.forEach(function(t){ source.removeTrack(t); });
+        if (replacement) try { replacement.stop(); } catch(e2){}
+        if (source) source.getVideoTracks().forEach(function(t){ t.stop(); });
         console.warn('[flip camera]', e);
         toast('Could not switch cameras');
       })
-      .then(function(){ if (btn) btn.disabled = false; });
+      .then(function(){ context.room.cameraFlipPending = false; if (btn) btn.disabled = false; });
   }
 
   return { captureConstraints, applyCaptureProfile, tuneSendQuality, ensureAvatarCam, retryCameraAcquire, camDeniedToast, camJoinNoVideoNotice, setCamMode, reassertMask, teardownCamPipeline, trackOf, attachTrack, paintTile, removeAudio, paintAudio, paintRoom, flipCamera };

@@ -68,7 +68,7 @@ ok(judgeLeaseWaitMs(running(T - SWEEP_LEASE_MS - 1, 99 * SWEEP_LEASE_MS), T) ===
 // ── which rooms get another panel ───────────────────────────────────
 const OLD = RECOVERY_GRACE_MS + 60_000;
 const row = (id, data) => ({ id, data });
-const pending = (agoMs, extra = {}) => ({ ballotPending: true, ballotPendingAt: T - agoMs, ...extra });
+const pending = (agoMs, extra = {}) => ({ proUid: 'pro-seat', conUid: 'con-seat', ballotPending: true, ballotPendingAt: T - agoMs, ...extra });
 
 let r = selectSweepTargets([row('a', pending(OLD))], T);
 ok(r.batch.length === 1 && r.batch[0].room === 'a', 'a stuck round is picked up');
@@ -94,6 +94,22 @@ ok(r.batch.length === 0, 'an ancient orphan is not retried forever');
 
 r = selectSweepTargets([row('a', { ballotPending: true })], T);
 ok(r.batch.length === 0 && r.skipped.noStamp === 1, 'a row with no pending stamp is skipped');
+
+const missingSeat = pending(OLD, { conUid: null });
+const oversized = pending(OLD, { speeches: [{ text: 'x'.repeat(288001) }] });
+const before = JSON.stringify([missingSeat, oversized]);
+r = selectSweepTargets([row('missing', missingSeat), row('large', oversized), row('recoverable', pending(OLD, {
+  serverJudgeState: 'incomplete', serverJudgeFailedAt: T - 60_000,
+}))], T);
+ok(r.skipped.missingParticipant === 1 && r.skipped.transcriptTooLarge === 1, 'permanent input refusals do not occupy worker slots');
+ok(r.batch.length === 1 && r.batch[0].room === 'recoverable', 'provider failure still retries');
+ok(JSON.stringify([missingSeat, oversized]) === before, 'filtering never changes stored evidence or ballots');
+r = selectSweepTargets([row('a', pending(OLD, { speeches: [{ text: 'x'.repeat(288000) }] }))], T);
+ok(r.batch.length === 1, 'the complete supported transcript still recovers');
+r = selectSweepTargets([row('a', pending(OLD, { speeches: Array.from({length:25}, () => ({text:'speech'})) }))], T);
+ok(r.skipped.transcriptTooLarge === 1, 'speech-count limit matches the server');
+r = selectSweepTargets([row('missing', { ...missingSeat, conUid: 'restored-seat' }), row('large', { ...oversized, speeches: [{text:'saved words'}] })], T);
+ok(r.batch.length === 2, 'input refusals are not permanent blacklists after a room is repaired');
 
 // Bounded fan-out: a backlog must not become one enormous provider bill.
 const many = Array.from({ length: 20 }, (_, i) => row('r' + i, pending(OLD + i * 1000)));

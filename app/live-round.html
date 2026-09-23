@@ -5709,7 +5709,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         result=await teamSeatControls.finishReady();
       }
       if(!result.finishedAt)throw new Error('Still collecting the team transcript. Press End to retry.');
-      var snap=await getRoundDocRef().get();onRoundSnapshot(snap.data());
+      var ref=getRoundDocRef(), snap=await ref.get();onRoundSnapshot(snap.data(),ref.id);
       state.endingSpeech=false;
       generateBallot();
     }catch(e){state.endingSpeech=false;var end=$('endSpeechBtn');if(end)end.disabled=false;toast(e.message);}
@@ -5741,7 +5741,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     openSegTick(true);
     setMicActive(false);
     await openPublishSegs(true);
-    if (firebaseDb && firebaseDb.waitForPendingWrites) await firebaseDb.waitForPendingWrites();
+    // The write above resolves only after this stream is acknowledged.
+    // Waiting for every write on this device can hang on unrelated work.
     try { maybeAskRoundConsent(); capPushSpeech({code:'TALK',name:'Open conversation',side:capMySideKey(),open:true,text:openMyText()}); } catch(e){}
   }
   var conversationFinishControls = null;
@@ -5788,7 +5789,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         holdConversationCapture(); state.endingSpeech=false;
         var ref=getRoundDocRef(); if(!ref)return;
         var snap=await ref.get({source:'server'});
-        onRoundSnapshot(snap.data());
+        onRoundSnapshot(snap.data(),ref.id);
         generateBallot();
       }
     });
@@ -6535,8 +6536,11 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     document.body.classList.remove('speech-live');
     document.body.classList.remove('round-running');
     restoreAidesAfterSpeech();
-    $('speechText').value = '';
-    micResetBuffer();
+    if (!f.open || openSeg.resetInput){
+      $('speechText').value = '';
+      micResetBuffer();
+      openSeg.resetInput = false;
+    }
     updateWordCount();
     renderSequence();
     // Speech loads in 'ready' state, speakers click Start when set.
@@ -7395,7 +7399,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     if (html !== conversationFlowHtml){ host.innerHTML = html; conversationFlowHtml = html; }
   }
 
-  var openSeg = { committed: '', segs: [], stableTicks: 0, lastLen: 0, timer: null, pubTimer: null };
+  var openSeg = { scope: '', prior: [], committed: '', segs: [], stableTicks: 0, lastLen: 0, timer: null, pubTimer: null };
+  var openSegSession = window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
   var openNotesProgress = { count:0, segments:0, seen:{}, at:0 };
   function maybeConversationNotes(){
     if (!openMode() || isSpectator() || state.timerState !== 'running') return;
@@ -7411,10 +7416,39 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       speakerName:state.isDuo ? state[DBRoomTeams.nameField(myConversationKey())] : (side==='pro'?state.proName:state.conName),text:text},idx);
   }
   function openSegStart(){
+    var side = myConversationKey(), uid = state.user && state.user.uid || '';
+    if (!side || !uid || isSpectator()) return;
+    var scope = state.room + '|' + uid + '|' + side;
+    if (openSeg.scope !== scope){
+      openSegStop();
+      if (openSeg.pubTimer){ clearTimeout(openSeg.pubTimer); openSeg.pubTimer = null; }
+      openSeg.prior = []; openSeg.hydrated = false;
+      openSeg.scope = scope; openSeg.committed = ''; openSeg.segs = openSeg.prior.slice();
+      openSeg.stableTicks = 0; openSeg.lastLen = 0; openSeg.resetInput = true; openSeg.userEdited = false;
+      openNotesProgress = { count:0, segments:openSeg.segs.length, seen:{}, at:Date.now() };
+    }
+    openRestoreOwnSegs();
     if (openSeg.timer) return;
-    openSeg.committed = ''; openSeg.segs = []; openSeg.stableTicks = 0; openSeg.lastLen = 0;
-    openNotesProgress = { count:0, segments:0, seen:{}, at:Date.now() };
+    // Pausing the local loop is not a new conversation. Retain both its
+    // saved prefix and this page's editable text across resume/reconnect.
     openSeg.timer = setInterval(function(){ try { openSegTick(false); } catch(e){} }, 2500);
+  }
+  function openRestoreOwnSegs(){
+    if (openSeg.hydrated || isSpectator() || state.lastRoundDocRoom !== state.room) return;
+    var side = myConversationKey(), uid = state.user && state.user.uid || '';
+    if (!side || !uid || openSeg.scope !== state.room + '|' + uid + '|' + side) return;
+    var d = state.lastRoundDoc;
+    if (!d || d[side.slice(0,3) + 'Uid' + (side.length > 3 ? '2' : '')] !== uid) return;
+    var saved = d.openSegs && d.openSegs[side];
+    function key(s){ return s.id || String(s.at || 0) + ':' + s.text; }
+    var local = {};
+    openSeg.segs.forEach(function(s){ local[key(s)] = true; });
+    openSeg.prior = Array.isArray(saved) ? saved.filter(function(s){
+      return s && typeof s.text === 'string' && (!s.speakerUid || s.speakerUid === uid) && !local[key(s)];
+    }).map(function(s){ return Object.assign({},s); }) : [];
+    openSeg.segs = openSeg.prior.concat(openSeg.segs).sort(function(a,b){ return a.at-b.at; });
+    openSeg.prior.forEach(function(s){ openNotesProgress.seen[key(s)] = true; });
+    openSeg.hydrated = true;
   }
   function openSegStop(){
     if (openSeg.timer){ clearInterval(openSeg.timer); openSeg.timer = null; }
@@ -7426,7 +7460,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // request happens to finish. Late chunks update their own stable slot.
   function openCapturedSegment(capture, seq, text){
     if (!openMode() || isSpectator() || state.phase !== 'round') return;
-    var id = 'mic:' + capture.generation + ':' + seq;
+    var id = 'mic:' + openSegSession + ':' + capture.generation + ':' + seq;
     openSeg.segs = openSeg.segs.filter(function(s){ return s.id !== id; });
     if (String(text || '').trim()) openSeg.segs.push({
       id:id, at:capture.at, endedAt:capture.endedAt, clock:'server',
@@ -7440,20 +7474,24 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     if (!openMode() || isSpectator() || state.phase !== 'round') return;
     if (state.timerState === 'ready' && !force) return;
     var ta = $('speechText'); var v = ta ? String(ta.value || '') : '';
-    if (state.micActive && state.micSupport && state.micSupport.engine === 'server' && v === mic.own) {
+    if (state.micActive && state.micSupport && state.micSupport.engine === 'server' && v === mic.own && !openSeg.userEdited) {
       if (force) openPublishSegs();
       return;
     }
     if (v.length === openSeg.lastLen) openSeg.stableTicks++; else { openSeg.stableTicks = 0; openSeg.lastLen = v.length; }
-    // The box was rewritten under us (a paste, an edit above the
-    // committed line): restart from the top rather than double-count.
-    if (v.indexOf(openSeg.committed) !== 0){ openSeg.committed = ''; openSeg.segs = []; }
+    // The box contains this page's words. An edit may replace that suffix,
+    // but cannot erase earlier words restored from the same person's seat.
+    var rewritten = openSeg.userEdited || v.indexOf(openSeg.committed) !== 0;
+    if (rewritten){ openSeg.committed = ''; openSeg.segs = (openSeg.prior || []).slice(); }
+    openSeg.userEdited = false;
     var rest = v.slice(openSeg.committed.length);
     var m = rest.match(/^[\s\S]*[.!?\u2026](?=\s|$)/);
-    var take = m ? m[0] : ((force || openSeg.stableTicks >= 2) ? rest : '');
-    if (!take.trim()) return;
-    openSeg.committed = v.slice(0, openSeg.committed.length + take.length);
-    openSeg.segs.push({ at: window.DBRoomClock ? DBRoomClock.now() : Date.now(), clock: 'server', speakerUid: state.user && state.user.uid || '', text: take.trim() });
+    var take = force ? rest : (m ? m[0] : (openSeg.stableTicks >= 2 ? rest : ''));
+    if (!take.trim() && !rewritten) return;
+    if (take.trim()){
+      openSeg.committed = v.slice(0, openSeg.committed.length + take.length);
+      openSeg.segs.push({ at: window.DBRoomClock ? DBRoomClock.now() : Date.now(), clock: 'server', speakerUid: state.user && state.user.uid || '', text: take.trim() });
+    }
     paintConversationFlow();
     maybeConversationNotes();
     if (force) openPublishSegs(); else openScheduleSegPublish();
@@ -7466,21 +7504,36 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     if (isSpectator() || !openMode()) return;
     var ref = getRoundDocRef(); var side = myConversationKey();
     if (!ref || !side) return;
-    // Bound the doc: keep the newest segments under ~12K chars of text.
-    var segs = openSeg.segs.slice(), total = 0;
-    for (var i = segs.length - 1; i >= 0; i--){ total += segs[i].text.length; if (total > 12000){ segs = segs.slice(i + 1); break; } }
+    // The server builds the final conversation from these streams. Never
+    // discard opening arguments to make a later upload fit. Bound UTF-8
+    // bytes, including segment metadata, with room for the merged speech.
+    var segs = openSeg.segs.slice();
+    var bytes = new TextEncoder().encode(JSON.stringify(segs)).length;
+    if (bytes > (state.isDuo ? 72000 : 144000)){
+      var limitError = new Error('This conversation has reached the transcript storage limit. Keep this tab open and copy your transcript. The round cannot be judged with missing words.');
+      if (!state.conversationCaptureLimit) toast(limitError.message);
+      state.conversationCaptureLimit = true;
+      return strict ? Promise.reject(limitError) : Promise.resolve();
+    }
+    state.conversationCaptureLimit = false;
     var payload = {}; payload[side] = segs;
-    return ref.set({ openSegs: payload }, { merge: true }).then(function(){
+    var saved = ref.set({ openSegs: payload }, { merge: true });
+    var timeout;
+    if (strict) saved = Promise.race([saved, new Promise(function(resolve,reject){
+      timeout = setTimeout(function(){reject(new Error('Your final words have not reached the server. Check your connection, then retry saving.'));},20000);
+    })]);
+    return saved.then(function(){
       if (!state.journeyConversationCaptured && segs.some(function(s){ return RoundEvidence.hasWords(s.text); })){
         state.journeyConversationCaptured = true; liveJourney('transcript_captured');
       }
     }).catch(function(e){
       if (state.journeyCaptureError !== e.code){ state.journeyCaptureError = e.code; liveJourney('speech_save_failed', { code: e.code || 'unknown' }); }
       if(strict)throw e;console.warn('[Team transcript]',e.message);
-    });
+    }).finally(function(){clearTimeout(timeout);});
   }
   function openPeerSide(){ var s = mySide(); return s === 'pro' ? 'con' : (s === 'con' ? 'pro' : ''); }
   function openAdoptPeer(d){
+    openRestoreOwnSegs();
     if (state.isDuo){
       state.teamOpenSegs = d.openSegs || {};
       state.teamOpenLive = d.openLive || {};
@@ -8195,6 +8248,10 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     mic.finals = []; mic.offset = 0;
     state.micFinal = '';
     mic.own = ta.value;
+    if (openMode()){
+      openSeg.userEdited = true;
+      try { openSegTick(true); } catch(e){}
+    }
   }
   function micFail(msg){
     micState('dead', 'Mic stopped');
@@ -13270,6 +13327,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     }, 90000);
   }
   function showJudgingRecoveryNotice(){
+    mountRoundFeedback();
+    if (state.judgeTranscriptTooLarge) return;
     if (state.lastBallot || state.ballotUnresolved || $('privateJudgeRetry') || $('ballotRetryBtn')) return;
     stopBallotWaitCue();
     var host = $('ballotLoading');
@@ -13412,9 +13471,12 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   function localRoundEvidence(){
     return { format: state.formatKey, speeches: state.log };
   }
-  function renderUnresolvedBallot(){ return verdictController.renderUnresolvedBallot.apply(this, arguments); }
+  function renderUnresolvedBallot(){
+    mountRoundFeedback();
+    return verdictController.renderUnresolvedBallot.apply(this, arguments);
+  }
   function scheduleBallotRecovery(roundData, delayOverride){
-    if (state.lastBallot || state.ballotUnresolved || state.ballotRecoveryTimer) return;
+    if (state.judgeTranscriptTooLarge || state.lastBallot || state.ballotUnresolved || state.ballotRecoveryTimer) return;
     if (state.ballotRecoveryAttempts >= BALLOT_RECOVERY_MAX_ATTEMPTS) return;
     var pendingAt = ballotTimestampMs(roundData && roundData.ballotPendingAt);
     if (!pendingAt) return;
@@ -13426,7 +13488,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   }
   function requestBallotRecovery(){
     state.ballotRecoveryTimer = null;
-    if (state.lastBallot || state.ballotUnresolved || !state.room) return;
+    if (state.judgeTranscriptTooLarge || state.lastBallot || state.ballotUnresolved || !state.room) return;
     var user = state.user;
     if (!user || !user.getIdToken){
       scheduleBallotRecovery({ ballotPendingAt: Date.now() - BALLOT_RECOVERY_GRACE_MS }, 2500);
@@ -13653,13 +13715,19 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     // back above the fold more than once; a four-line notice here would
     // cost the control it sits under.
     el.innerHTML = granted
-      ? '<span class="cap-dot"></span>Saved to your account. The text trains the AI judge, without your name. '
+      ? '<span class="cap-dot"></span>Your own words and decision will be saved to your account. '
         + '<a href="/privacy#transcripts" target="_blank" rel="noopener">What is stored</a>'
-      : '<span class="cap-dot"></span>Not being stored, so this decision cannot be reopened later. '
+      : '<span class="cap-dot"></span>Saved transcript history is off for this account. '
         + '<a href="/profile#settings" target="_blank" rel="noopener">Change</a>';
   }
 
   var corpusFlushed = false;
+  function mountRoundFeedback(generationId){
+    if (isSpectator() || !state.user || !state.user.getIdToken || !state.room || !window.RoundFeedback) return;
+    var user = state.user;
+    RoundFeedback.mount({host:$('roundFeedback'),roundId:state.room,generationId:generationId,
+      surface:'live_round',getToken:function(){return user.getIdToken();}});
+  }
   function maybeAskRoundConsent(){
     // Only signed-in debaters get the ask. Spectators store nothing, and
     // anonymous debaters can't flush (the endpoint requires an account
@@ -13676,6 +13744,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     }).catch(function(){});
   }
   function logMyRoundSpeeches(b){
+    mountRoundFeedback();
     if (corpusFlushed) return;
     if (isSpectator()) return;
     var side = mySide();
@@ -13729,7 +13798,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       return response.json();
     }).then(function(saved){
       if (state.room !== captureRoom || state.user !== captureUser) return;
-      if (window.RoundFeedback) RoundFeedback.mount({host:$('roundFeedback'),generationId:saved.id,surface:'live_round',getToken:function(){return captureUser.getIdToken();}});
+      mountRoundFeedback(saved.id);
     }).catch(function(){ corpusFlushed = false; });
   }
 
@@ -16649,7 +16718,7 @@ window.DBLiveDraft.attach({
     if (!ref) return;
     state.roundUnsub = DBLiveJourney.watch(ref, { read: function(){ return DBLiveJourney.readDocument(ref, state.user); }, value: function(doc){
       if (!doc || !doc.exists) return;
-      onRoundSnapshot(doc.data() || {});
+      onRoundSnapshot(doc.data() || {}, ref.id);
     }, report: function(stage, info){
       liveJourney(stage, info);
       if (isSpectator() && info && /permission-denied|http_403/.test(info.code || '')){
@@ -16845,7 +16914,7 @@ window.DBLiveDraft.attach({
     // quiet for minutes, and a viewer who was just let in should not
     // be staring at a blank panel wondering whether it worked.
     var rr = getRoundDocRef();
-    if (rr) rr.get().then(function(s){ if (s.exists) onRoundSnapshot(s.data() || {}); }).catch(function(){});
+    if (rr) rr.get().then(function(s){ if (s.exists) onRoundSnapshot(s.data() || {},rr.id); }).catch(function(){});
   }
 
   // Re-evaluate once the round document reveals visibility. An
@@ -19753,10 +19822,12 @@ window.DBLiveDraft.attach({
     setInterval(function(){ try { updateStartCue(); } catch(e){} }, 1000);
   }
 
-  function onRoundSnapshot(d){
+  function onRoundSnapshot(d, roomId){
+    if (roomId && roomId !== state.room) return;
     if (!state.journeyArrived){ state.journeyArrived = true; liveJourney('room_arrived'); }
     if (window.__lrMergeDraftSnapshot) d = window.__lrMergeDraftSnapshot(d);
     state.lastRoundDoc = d;
+    state.lastRoundDocRoom = roomId || state.room;
     var priorDuo = state.isDuo, priorPartners = (state.proUid2||'')+'|'+(state.conUid2||'');
     syncTeamSeats(d);
     if (d.teamFinishedAt) state.endingSpeech = false;
