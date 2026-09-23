@@ -1,5 +1,8 @@
 # AGENTS.md
 
+> **Public-chat spam protection (Aidan, 2026-09-23).** The Commons uses one Firestore transaction for per-account and per-IP rate limits, moderation bans and message creation. No per-instance or client-only limiter can replace it. Repeated content is normalized and blocked for ten minutes; three rejected sends within a minute trigger a five-minute posting cooldown. Account bans are deliberate human moderation, separate from automatic cooldowns. Confirmed promotional domains are blocked. Invalid supplied authentication cannot fall back to anonymous posting. Open chat tabs reconcile removals from each successful feed response. Private ban, limit and report-evidence collections remain server-only under default-deny rules.
+
+
 > **Side choice at topic selection (Aidan, 2026-09-23).** AI setup exposes For/Against beside the resolution, and the typed round builder includes a side choice. Keep selection reversible until Start. Live 1v1 rooms show Switch sides beside the person's assigned side and its approval card beside the topic. The other participant must agree; starting the round locks both seats. Tournament assignments and existing team rounds retain their restrictions. This supersedes the September 4 removal of the visible swap control.
 
 > **Private round messages (Aidan, 2026-09-23).** Each person’s side card offers Message to signed-in accounts other than their own, including audience members. Participants also retain Message opponent in the action row and completed-round actions. Keep private DMs distinct from room Chat. The composer holds its chosen account through side swaps and keeps drafts separate per recipient. Opening or drafting never sends. Preserve existing thread participant order when sending replies.

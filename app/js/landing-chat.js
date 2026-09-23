@@ -67,7 +67,7 @@
       });
       var data = await response.json();
       if (!response.ok || !data || !data.ok || !data.row){
-        var detail = response.status === 429 ? 'Wait a few seconds, then try again.'
+        var detail = data && data.error ? data.error : response.status === 429 ? 'Wait a few seconds, then try again.'
           : response.status === 422 ? (data.error || 'Please revise your message.')
           : 'Could not send. Try again.';
         throw new Error(detail);

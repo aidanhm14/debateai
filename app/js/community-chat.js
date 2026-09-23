@@ -194,7 +194,8 @@
       '.chat-guest-note-text{flex:1 1 200px;min-width:0}' +
       '.chat-guest-note-btn{margin-left:auto;font:inherit;font-size:.78rem;font-weight:800;padding:7px 13px;border-radius:999px;border:0;background:#dc2626;color:#fff;cursor:pointer}' +
       '.chat-guest-note-btn:hover{background:#b91c1c}' +
-      '.chat-msg-who--signin .chat-msg-dm{opacity:1}';
+      '.chat-msg-who--signin .chat-msg-dm{opacity:1}' +
+      '.chat-send-status{margin:6px 0;font-size:.8rem;line-height:1.4;color:var(--accent,#dc2626)}';
     document.head.appendChild(st);
   }
 
@@ -241,6 +242,13 @@
     // verifies, which can be several polls after the first paint on a
     // page where auth rehydrates slowly.
     let meUid = null;
+    let sending = false;
+    const statusEl = document.createElement('div');
+    statusEl.className = 'chat-send-status';
+    statusEl.setAttribute('role', 'status');
+    statusEl.setAttribute('aria-live', 'polite');
+    statusEl.hidden = true;
+    (inputEl.parentNode.parentNode || inputEl.parentNode).appendChild(statusEl);
     const canDm = !!(authToken && onDm);
     // Sign-in asks only make sense where a DM can follow.
     const canAskSignIn = !!(onDm && onDmSignIn);
@@ -328,6 +336,11 @@
 
     function applyRows(rows, repaint){
       const wasPinned = isPinnedToBottom(scroller);
+      const previousTop = scroller.scrollTop;
+      const wasFetched = firstFetchDone;
+      const currentIds = new Set(rows.map(r => r.id));
+      // Polls are authoritative: moderation removals must leave open tabs.
+      if (firstFetchDone && Array.from(lastIds).some(id => !currentIds.has(id))) repaint = true;
       // A repaint (the viewer's identity just resolved) has to redraw
       // rows that are already on screen, so the append-only path and
       // its early return are both wrong for it.
@@ -342,8 +355,10 @@
           ? rows.map(r => rowHtml(r, myHandle, ctx())).join('')
           : '<div class="chat-empty">first message lights this up. say something.</div>';
         firstFetchDone = true;
-        // First paint goes to the bottom regardless of pin state.
-        requestAnimationFrame(() => scrollToBottom(scroller));
+        requestAnimationFrame(() => {
+          if (!wasFetched || wasPinned) scrollToBottom(scroller);
+          else scroller.scrollTop = previousTop;
+        });
       } else {
         const html = incoming.map(r => rowHtml(r, myHandle, ctx())).join('');
         scroller.insertAdjacentHTML('beforeend', html);
@@ -404,7 +419,10 @@
 
     async function send(){
       const text = inputEl.value.trim();
-      if (!text) return;
+      if (!text || sending) return;
+      sending = true;
+      statusEl.textContent = '';
+      statusEl.hidden = true;
       sendBtn.disabled = true;
       sendBtn.classList.remove('chat-send-fail');
       try {
@@ -414,12 +432,10 @@
           headers: Object.assign({ 'Content-Type': 'application/json' }, authed || {}),
           body: JSON.stringify({ handle: myHandle, text }),
         });
-        if (!res.ok){
-          sendBtn.classList.add('chat-send-fail');
-          sendBtn.disabled = false;
-          return;
-        }
         const data = await res.json().catch(() => null);
+        if (!res.ok || !data || !data.ok || !data.row){
+          throw new Error((data && data.error) || 'Could not send. Please try again.');
+        }
         if (data && typeof data.me === 'string' && data.me) meUid = data.me;
         paintGuestNote();
         inputEl.value = '';
@@ -433,9 +449,12 @@
           emitRows(lastRows.concat([data.row]));
           requestAnimationFrame(() => scrollToBottom(scroller));
         }
-      } catch {
+      } catch (error) {
         sendBtn.classList.add('chat-send-fail');
+        statusEl.textContent = error.message || 'Could not send. Please try again.';
+        statusEl.hidden = false;
       } finally {
+        sending = false;
         sendBtn.disabled = false;
       }
     }
@@ -450,7 +469,7 @@
     inputEl.setAttribute('maxlength', String(MSG_MAX));
     inputEl.addEventListener('input', updateCharCount);
     inputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey){
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing){
         e.preventDefault();
         send();
       }
