@@ -343,9 +343,8 @@
     // (the event engine) are the scale bets; utility rows stay small so
     // the hierarchy means something.
     { href: '/watch',         label: 'Watch & clips', big: true },
-    // 2026-08-24: removed from Explore per the founder (declutter pass).
-    // Page stays live; restore = uncomment the line below.
-    // { href: '/credentials',   label: 'Certificate' },
+    // 2026-09-23: restored under Learn & prep per the founder.
+    { href: '/credentials',   label: 'Certificate' },
     // 2026-06-15: Coach surfaced into the bar per the founder. /coach is the
     // personal voice drill partner (GPT Realtime) that loads your
     // profile + nightly fingerprint.
@@ -1098,6 +1097,7 @@
           ['/coaches',        ''],
           ['/squad',          ''],
           ['/judge-integrity', ''],
+          ['/credentials',    ''],
         ]),
         column('Watch', [
           // 2026-09-01, same annotated screenshot: Bounties, 'Watch live
