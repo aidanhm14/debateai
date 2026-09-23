@@ -38,44 +38,67 @@ for (const signedIn of [false, true]) {
     await expect(page.locator('.da-livepop__thumb img')).toHaveAttribute('src', /room=actual-room&v=123/);
     await expect.poll(() => page.locator('.da-livepop__thumb img').evaluate(img => img.naturalWidth)).toBe(1);
     expect(state.shots).toEqual(['actual-room']);
-    await expect(page.getByText('Real people in the room')).toBeVisible();
+    await expect(page.locator('.da-livepop__room-note')).toHaveCount(0);
     await expect(page.locator('.da-livepop__illustration')).toHaveCount(0);
     await expect(page.locator('.da-livepop__go')).toHaveText(signedIn ? 'Watch this round →' : 'Sign in to watch →');
   });
 }
 
-test('illustration upgrades to the live image and disappears when the room ends', async ({ page }, testInfo) => {
-  const state = await fixture(page, { width: 375 });
-  await expect(page.getByRole('img', { name: 'Illustration of two people debating' })).toBeVisible();
-  await expect(page.getByText('Illustration', { exact: true })).toBeVisible();
-  await expect(page.locator('.da-debate-person')).toHaveCount(2);
+test('missing snapshot retries and upgrades even without a discovery timestamp', async ({ page }, testInfo) => {
+  const state = await fixture(page, { width: 375, broken: true });
+  await expect(page.locator('.da-livepop__fallback')).toBeVisible();
+  await expect(page.locator('.da-livepop__illustration, .da-debate-person')).toHaveCount(0);
+  await expect(page.locator('.da-livepop')).toHaveClass(/da-livepop--nopic/);
   await expect(page.locator('.da-livepop')).toHaveCSS('opacity', '1');
-  await page.screenshot({ path: testInfo.outputPath('illustration-mobile.png') });
+  await page.screenshot({ path: testInfo.outputPath('no-snapshot-mobile.png') });
   const box = await page.locator('.da-livepop').boundingBox();
   expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(375);
-  state.rounds = [{ ...active, shot: 456 }];
+  state.broken = false;
   await page.clock.runFor(16000);
-  await expect(page.locator('.da-livepop__thumb img')).toHaveAttribute('src', /v=456/);
+  await expect(page.locator('.da-livepop__thumb img')).toHaveAttribute('src', /room=actual-room&v=/);
+  await expect.poll(() => page.locator('.da-livepop__thumb img').evaluate(img => img.naturalWidth)).toBe(1);
+  await expect(page.locator('.da-livepop')).not.toHaveClass(/da-livepop--nopic/);
+  await expect(page.locator('.da-livepop__fallback')).toHaveCount(0);
   await expect(page.locator('.da-livepop__illustration')).toHaveCount(0);
   state.rounds = [];
   await page.clock.runFor(16000);
   await expect(page.locator('.da-livepop')).toHaveCount(0);
 });
 
-test('unavailable image falls back to animation; reduced motion freezes it', async ({ page }) => {
-  await fixture(page, { broken: true, rounds: [{ ...active, shot: 123 }] });
-  await expect(page.locator('.da-livepop__illustration')).toBeVisible();
+test('expired image is removed even while the feed keeps its old timestamp', async ({ page }) => {
+  const state = await fixture(page, { rounds: [{ ...active, shot: 123 }] });
+  await expect.poll(() => page.locator('.da-livepop__thumb img').evaluate(img => img.naturalWidth)).toBe(1);
+  state.broken = true;
+  await page.clock.runFor(16000);
+  await expect(page.locator('.da-livepop__fallback')).toBeVisible();
+  await expect(page.locator('.da-livepop__illustration')).toHaveCount(0);
   await expect(page.locator('.da-livepop__thumb img')).toHaveCount(0);
-  expect(await page.locator('.da-debate-head').first().evaluate(el => getComputedStyle(el).animationName)).not.toBe('none');
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  expect(await page.locator('.da-debate-head').first().evaluate(el => getComputedStyle(el).animationName)).toBe('none');
+  expect(await page.locator('.da-livepop__dot').evaluate(el => getComputedStyle(el).animationName)).toBe('none');
 });
 
 test('a debate already started outranks a room still getting ready', async ({ page }) => {
-  await fixture(page, { rounds: [{ ...active, room: 'preparing', started: false, shot: 123 }, active] });
+  const state = await fixture(page, { rounds: [{ ...active, room: 'preparing', started: false, shot: 123 }, active] });
   await expect(page.locator('.da-livepop')).toHaveAttribute('href', /room=actual-room/);
-  await expect(page.locator('.da-livepop__illustration')).toBeVisible();
+  await expect.poll(() => page.locator('.da-livepop__thumb img').evaluate(img => img.naturalWidth)).toBe(1);
+  expect(state.shots).toEqual(['actual-room']);
+  await expect(page.locator('.da-livepop__illustration')).toHaveCount(0);
 });
+
+for (const width of [375, 1280]) {
+  test(`room thumbnail layout at ${width}px`, async ({ page }, testInfo) => {
+    await page.route('**/api/room-shot?**', route => route.fulfill({ path: path.join(app, 'img/room-shot-live.jpg'), contentType: 'image/jpeg' }));
+    await fixture(page, { width });
+    // Override the fixture route after its initial read and refresh the card.
+    await page.route('**/api/room-shot?**', route => route.fulfill({ path: path.join(app, 'img/room-shot-live.jpg'), contentType: 'image/jpeg' }));
+    await page.clock.runFor(16000);
+    await expect.poll(() => page.locator('.da-livepop__thumb img').evaluate(img => img.naturalWidth)).toBeGreaterThan(1);
+    await page.screenshot({ path: testInfo.outputPath('round-thumbnail.png') });
+    const box = await page.locator('.da-livepop').boundingBox();
+    expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(width);
+    await expect(page.locator('.da-livepop__illustration')).toHaveCount(0);
+  });
+}
 
 test('snapshot contains both published tiles and no media permission request', async ({ page }) => {
   await page.goto('about:blank');

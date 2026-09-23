@@ -76,3 +76,5 @@ the newer layout adjusted around it.
 - [2026-09-06 — betting surfaces](2026-09-06-betting.md): paused market page, navigation, live-room controls, and landing promotions.
 
 - [2026-09-06 — background edge shapes](2026-09-06-background-edge-shapes.md): replaced the static rose perimeter with the original moving web spread across the viewport.
+
+- [Live popup illustration, September 23](2026-09-23-live-popup-illustration.md): replaced with the advertised room thumbnail at Aidan’s request.

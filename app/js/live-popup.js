@@ -19,9 +19,9 @@
  * /api/recording-thumb (a frame of the actual recording).
  *
  * A fresh frame always comes from the advertised public room, for every
- * visitor. Without one, show clearly illustrated people debating. Never
- * substitute a demo screenshot or unrelated photographic faces.
- * The illustration is labeled; the live claim comes only from watch-live.
+ * visitor. Request it directly even while the discovery feed has no shot
+ * timestamp. Without one, keep a compact text card and retry. Never
+ * substitute illustrations, demo screenshots or unrelated faces.
  *
  * Copy is per source and never overstates. A replay says REPLAY and
  * "Watch the replay", not LIVE NOW. Only a round actually in progress
@@ -48,7 +48,7 @@
  *     that already list rounds (see SKIP)
  *
  * QA: ?livepop=off disables. ?livepop=now skips dwell, snooze and
- * caps. ?livepop=demo renders the animated illustration when no public
+ * caps. ?livepop=demo renders the compact text card when no public
  * round is available. Older demo variants remain aliases.
  */
 (function () {
@@ -197,35 +197,6 @@
   }
   function unseen(key) { return seenItems().indexOf(key) < 0; }
 
-  // Illustrations are fictional, with varied pairings. No real profile
-  // or inferred gender controls the artwork; names stay in the card body.
-  function illustrationHtml() {
-    var variant = (readNum(sessionStorage, 'da-livepop-art') + 1) % 4;
-    write(sessionStorage, 'da-livepop-art', variant);
-    var hair = [[false, true], [true, false], [true, true], [false, false]][variant];
-    function person(x, longHair, skin, shirt, delay) {
-      return '<g class="da-debate-person" style="--talk-delay:' + delay + 's" transform="translate(' + x + ',0)">' +
-        '<g class="da-debate-head">' +
-          (longHair ? '<path d="M39 130V83c0-51 76-51 76 0v55z" fill="#29252d"/>' : '') +
-          '<rect x="64" y="119" width="27" height="30" rx="9" fill="' + skin + '"/>' +
-          '<ellipse cx="77" cy="90" rx="30" ry="38" fill="' + skin + '"/>' +
-          (longHair ? '<path d="M47 90c-9-53 62-63 63-4-15-7-25-17-31-29-8 18-16 25-32 33" fill="#29252d"/>' : '<path d="M47 80c-8-39 21-49 46-35 17-1 27 18 13 40l-7-22c-18 12-27-3-47 14z" fill="#382f33"/>') +
-          '<path d="M62 91h3m24 0h3" stroke="#30272a" stroke-width="4" stroke-linecap="round"/>' +
-          '<path class="da-debate-mouth" d="M71 109q7 6 14-1" fill="none" stroke="#783d3c" stroke-width="3" stroke-linecap="round"/>' +
-        '</g>' +
-        '<path d="M22 210v-37c0-47 110-47 110 0v37" fill="' + shirt + '"/>' +
-        '<path class="da-debate-hand" d="M117 178l20-29m-3 0 5-15m-2 15 13-9" fill="none" stroke="' + skin + '" stroke-width="13" stroke-linecap="round"/>' +
-        '<g class="da-debate-bubble"><rect x="105" y="49" width="49" height="25" rx="12" fill="#fffaf2"/><path d="m114 70-4 10 15-8" fill="#fffaf2"/><path d="M116 60h4m7 0h4m7 0h4" stroke="#494351" stroke-width="3" stroke-linecap="round"/></g>' +
-      '</g>';
-    }
-    return '<span class="da-livepop__illustration" role="img" aria-label="Illustration of two people debating">' +
-      '<svg viewBox="0 0 400 225" aria-hidden="true"><rect width="400" height="225" fill="#e8e4ed"/>' +
-      '<rect x="6" y="7" width="192" height="211" rx="16" fill="#f0d9ce"/><rect x="202" y="7" width="192" height="211" rx="16" fill="#d0deda"/>' +
-      person(13, hair[0], variant % 2 ? '#b97552' : '#edb991', '#b84d4b', 0) +
-      person(210, hair[1], variant % 2 ? '#e9b394' : '#8c543f', '#486d68', 1.6) +
-      '</svg><span class="da-livepop__art-label">Illustration</span></span>';
-  }
-
   /* Mid-round in ANOTHER tab. SKIP above only knows this tab's path, so a
      debater who opened a second tab while speaking got the card anyway —
      the one case the SKIP list exists to prevent. js/round-presence.js
@@ -305,18 +276,6 @@
       '.da-livepop__thumb img{width:100%;height:100%;object-fit:cover;display:block;',
       'filter:blur(' + BLUR_PX + 'px);transform:scale(' + (BLUR_PX ? 1.12 : 1.001) + ')}',
 
-      '.da-livepop__illustration{position:absolute;inset:0;display:block;background:#e8e4ed}',
-      '.da-livepop__illustration svg{display:block;width:100%;height:100%;object-fit:cover}',
-      '.da-livepop__art-label{position:absolute;right:9px;bottom:9px;padding:3px 6px;border-radius:4px;background:rgba(255,250,242,.88);color:#4c4644;font-size:9px;font-weight:700}',
-      '.da-livepop__room-note{position:absolute;left:9px;bottom:9px;padding:5px 8px;border-radius:6px;background:rgba(10,10,12,.8);color:#fff;font-size:11px;font-weight:700}',
-      '.da-debate-head{transform-box:fill-box;transform-origin:50% 90%;animation:daDebateNod 3.2s ease-in-out infinite;animation-delay:var(--talk-delay)}',
-      '.da-debate-hand{transform-box:fill-box;transform-origin:0% 100%;animation:daDebateHand 3.2s ease-in-out infinite;animation-delay:var(--talk-delay)}',
-      '.da-debate-bubble{opacity:.3;animation:daDebateTalk 3.2s ease-in-out infinite;animation-delay:var(--talk-delay)}',
-      '@keyframes daDebateNod{0%,50%,100%{transform:rotate(0)}20%{transform:rotate(-4deg)}35%{transform:rotate(2deg)}}',
-      '@keyframes daDebateHand{0%,50%,100%{transform:rotate(0)}22%{transform:rotate(-12deg)}}',
-      '@keyframes daDebateTalk{0%,45%,100%{opacity:.3}12%,32%{opacity:1}}',
-      '.da-livepop.is-paused .da-livepop__illustration *{animation-play-state:paused}',
-
       /* Typographic fallback when there is no real frame. Reads as a
          deliberate tile, never as a broken image. */
       '.da-livepop__fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:10px;',
@@ -394,7 +353,7 @@
       '@media(max-width:560px){.da-livepop{left:12px;right:12px;width:auto;',
       'bottom:calc(12px + env(safe-area-inset-bottom,0px))}}',
       '@media(prefers-reduced-motion:reduce){.da-livepop{transition:opacity .2s ease}',
-      '.da-livepop.in{transform:none}.da-livepop__dot,.da-livepop__illustration *{animation:none!important}}'
+      '.da-livepop.in{transform:none}.da-livepop__dot{animation:none!important}}'
     ].join('');
     document.head.appendChild(st);
   }
@@ -451,6 +410,10 @@
      a round happening now beats a person waiting, which beats a round
      that already finished. */
 
+  function roomImage(room, version) {
+    return '/api/room-shot?room=' + encodeURIComponent(room) + '&v=' + encodeURIComponent(version);
+  }
+
   function liveItem() {
     return getJSON('/api/watch-live').then(function (j) {
       var list = (j && j.rounds) || [];
@@ -478,8 +441,8 @@
         cta: needsSpectatorAuth ? 'Sign in to watch' : 'Watch this round',
         href: '/live-round?room=' + encodeURIComponent(pick.room) + '&spectate=1',
         spectatorAuth: needsSpectatorAuth,
-        img: pick.shot ? '/api/room-shot?room=' + encodeURIComponent(pick.room) + '&v=' + encodeURIComponent(pick.shot) : null,
-        liveFrame: !!pick.shot,
+        img: roomImage(pick.room, pick.shot || now()),
+        liveFrame: false,
         initials: [initial(pick.proName), initial(pick.conName)]
       };
     });
@@ -710,7 +673,7 @@
     injectCss();
 
     var card = document.createElement('a');
-    card.className = 'da-livepop da-livepop--' + item.kind + (item.kind === 'live' || item.img ? '' : ' da-livepop--nopic');
+    card.className = 'da-livepop da-livepop--' + item.kind + (item.img ? '' : ' da-livepop--nopic');
     card.href = item.href;
     card.setAttribute('role', 'region');
     card.setAttribute('aria-label', item.badge + '. ' + item.headline + '. ' + item.cta + '.');
@@ -721,12 +684,11 @@
 
     var thumb = item.img
       ? '<img src="' + esc(item.img) + '" alt="' + (item.kind === 'live' ? 'Snapshot of this live room' : 'Round replay') + '" decoding="async" referrerpolicy="no-referrer">'
-      : item.kind === 'live' ? illustrationHtml() : fallbackHtml(item);
+      : fallbackHtml(item);
 
     card.innerHTML =
       '<span class="da-livepop__thumb">' + thumb +
         '<span class="da-livepop__badge"><span class="da-livepop__dot"></span>' + esc(item.badge) + '</span>' +
-        (item.kind === 'live' ? '<span class="da-livepop__room-note">Real people in the room</span>' : '') +
       '</span>' +
       '<span class="da-livepop__body">' +
         '<span class="da-livepop__motion">' + esc(item.headline) + '</span>' +
@@ -738,13 +700,14 @@
       '</span>' +
       '<button type="button" class="da-livepop__x" aria-label="Not now">&#10005;</button>';
 
-    function showIllustration() {
+    function showFallback() {
       var holder = card.querySelector('.da-livepop__thumb');
       if (!holder) return;
       imageVersion++;
-      var old = holder.querySelector('img, .da-livepop__illustration');
+      var old = holder.querySelector('img, .da-livepop__fallback');
       if (old) old.remove();
-      holder.insertAdjacentHTML('afterbegin', illustrationHtml());
+      holder.insertAdjacentHTML('afterbegin', fallbackHtml(item));
+      card.classList.add('da-livepop--nopic');
       item.img = null; item.liveFrame = false;
     }
     var imageVersion = 0;
@@ -752,18 +715,22 @@
       var version = ++imageVersion;
       img.addEventListener('error', function () {
         if (version !== imageVersion) return;
-        if (item.kind === 'live') showIllustration();
-        else { img.remove(); card.classList.add('da-livepop--nopic'); }
+        showFallback();
       }, { once: true });
       return version;
     }
     var img = card.querySelector('.da-livepop__thumb img');
-    if (img) watchImage(img);
+    if (img) {
+      var initialVersion = watchImage(img);
+      img.addEventListener('load', function () {
+        if (!cardVisible || initialVersion !== imageVersion) return;
+        item.liveFrame = item.kind === 'live';
+      }, { once: true });
+    }
     // A card already on screen upgrades as soon as the room publishes its
     // first snapshot. Finished/private rooms disappear on the next read.
     var refreshTimer = null, refreshing = false;
     function refreshRoom() {
-      card.classList.toggle('is-paused', document.hidden);
       if (document.hidden || refreshing || !cardVisible || !item.room) return;
       refreshing = true;
       getJSON('/api/watch-live').then(function (data) {
@@ -774,19 +741,20 @@
         if (meta) meta.textContent = live.status === 'ballot' ? 'JUDGING' : live.started ? 'IN PROGRESS' : 'STARTING';
         var headline = card.querySelector('.da-livepop__motion');
         if (headline && live.motion) headline.textContent = live.motion;
-        if (!live.shot) { if (item.liveFrame) showIllustration(); return; }
-        if (live.shot === item.shot && item.liveFrame) return;
-        item.shot = live.shot;
-        item.img = '/api/room-shot?room=' + encodeURIComponent(item.room) + '&v=' + encodeURIComponent(live.shot);
+        // The image endpoint checks current privacy/presence itself. A
+        // cached feed missing a timestamp must not hide an available frame.
+        item.shot = live.shot || 0;
+        item.img = roomImage(item.room, now());
         var holder = card.querySelector('.da-livepop__thumb');
         var fresh = new Image();
         fresh.alt = 'Snapshot of this live room'; fresh.decoding = 'async';
         var version = watchImage(fresh);
         fresh.addEventListener('load', function () {
           if (!cardVisible || version !== imageVersion) return;
-          var old = holder.querySelector('img, .da-livepop__illustration');
+          var old = holder.querySelector('img, .da-livepop__fallback');
           if (old && old.parentNode) old.remove();
           holder.insertBefore(fresh, holder.firstChild); item.liveFrame = true;
+          card.classList.remove('da-livepop--nopic');
         }, { once: true });
         fresh.src = item.img;
       }).catch(function () {}).then(function () { refreshing = false; });
@@ -841,7 +809,7 @@
     markSeen(item.key);
     write(sessionStorage, LAST_KEY, now());
     write(sessionStorage, COUNT_KEY, readNum(sessionStorage, COUNT_KEY) + 1);
-    emit('live_popup_shown', { kind: item.kind, had_pic: !!item.liveFrame, pic: item.liveFrame ? 'frame' : (item.kind === 'live' ? 'illustration' : 'none'), stand_in: item.kind === 'live' && !item.liveFrame, page: here, fast: !!opts.fast });
+    emit('live_popup_shown', { kind: item.kind, had_pic: !!item.liveFrame, pic: item.liveFrame ? 'frame' : 'none', stand_in: false, page: here, fast: !!opts.fast });
 
     /* A live round is worth holding the corner for longer than a replay
        nudge: it is happening now and the invitation expires with it. */

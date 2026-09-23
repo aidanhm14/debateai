@@ -1,5 +1,8 @@
 # AGENTS.md
 
+> **Live-round popup thumbnail (Aidan, 2026-09-23).** Show a snapshot from the advertised public room, not animated people or unrelated example photos. Request `/api/room-shot` even when the cached discovery feed lacks a shot timestamp, refresh while visible, and use a compact text card only while no image is available. Keep current privacy, seat-presence and expiry checks. This supersedes the earlier illustration and stand-in-photo directions.
+
+
 > **Mobile round cleanup (Aidan, 2026-09-22).** Routine shared-note updates use an inline indicator, never stacked popups over the call. The phone action dock keeps the assigned side and current action; it repeats the topic only when the main topic is out of view. Chat, camera view and Next stay with the reference controls, and post-round Chat stays beside the round map. Consecutive transcript capture chunks from the same seat may share one display paragraph, with interruptions and long pauses kept separate. Saved transcript data and judging evidence are unchanged. Empty note excerpts do not create argument-map headings.
 
 
