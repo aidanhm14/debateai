@@ -1,5 +1,7 @@
 # soul.md. Debatable · itsdebatable.com
 
+> **Round records and review (2026-09-23).** Every eligible human round belongs on the human ladder; AI ratings remain separate. Repair missed results in chronological order with `scripts/reconcile-ratings.mjs`, preserving an audit of the replaced rating records. Conversation capture must select the consenting person’s labelled words, never the shared container’s clock-owner side. Capture retries retain one generation ID and feedback links to that record. Judge the full supported transcript; never silently take a 12,000-character prefix of a conversation. Historical ballots remain unchanged. `docs/round-data-review.md` documents source meanings, review tooling and quality holds.
+
 > **Debate online actions (Aidan, 2026-09-23).** On `/debate-online` only, label the primary matching button “Meet your match” and put a separate “Home” button linking to `/` directly below it. The homepage keeps its original layout.
 
 > **Original homepage restored (Aidan, 2026-09-23).** After the oversized Meet someone button glitch, Aidan asked to bring back the original. Restore the original homepage button markup, styling and order: the example board before the desktop action, and the original action card before the phone board. Remove the new headline, chat-bubble pill and its privacy-note block from the homepage. This supersedes the same-day entry-page-style homepage redesign. The separate `/debate-online` page keeps its existing design.

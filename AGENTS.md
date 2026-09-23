@@ -1,5 +1,7 @@
 # AGENTS.md
 
+> **Round records and review (2026-09-23).** Every eligible human round belongs on the human ladder; AI ratings remain separate. Repair missed results in chronological order with `scripts/reconcile-ratings.mjs`, preserving an audit of the replaced rating records. Conversation capture must select the consenting person’s labelled words, never the shared container’s clock-owner side. Capture retries retain one generation ID and feedback links to that record. Judge the full supported transcript; never silently take a 12,000-character prefix of a conversation. Historical ballots remain unchanged. `docs/round-data-review.md` documents source meanings, review tooling and quality holds.
+
 > **Canonical wordmark (Aidan, 2026-09-23).** Debatable uses one solid-red Helvetica Neue black wordmark, following the heavy TED lettering reference. The shared outlined asset is `app/assets/logo/debatable-wordmark.svg`, applied by mirrored `wordmark.css` files. Keep existing header positions and responsive sizing; Aidan explicitly chose no repositioning. Use the same artwork in web, native webviews and downloadable logo exports. This replaces page-inherited fonts and all older two-tone/outlined-white wordmark rules.
 
 

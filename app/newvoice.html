@@ -46,6 +46,7 @@
 <script defer src="/js/track.js"></script>
 <script defer src="/js/transcript-consent.js"></script>
 <script defer src="/js/voice-transcript.js"></script>
+<script defer src="/js/round-feedback.js"></script>
 <script defer src="/js/public-identity.js"></script>
 <script defer src="/js/voice-allowance.js"></script>
 <script defer src="/js/locale.js"></script>
@@ -1361,6 +1362,7 @@ html[data-theme="light"] .voice-opt.active::after{color:#991b1b}
       <p class="ballot-judge" id="ballotJudge" hidden></p>
     </div>
     <p class="recap-lb" id="lbNote" hidden></p>
+    <div id="roundFeedback"></div>
     <div class="transcript" id="transcriptBox"></div>
     <div data-voice-allowance="recap" aria-live="polite" hidden></div>
     <div class="recap-actions">
@@ -3322,6 +3324,8 @@ async function endRound(){
   resetSaveBtn();
   if (vtSession) { try { vtSession.finish({ status: 'complete', roundId }); } catch (e) {} }
   vtSession = null; vtPending = [];
+  $('roundFeedback').textContent = '';
+  delete $('roundFeedback').dataset.generationId;
   logRound();
   cleanup();
   // recap
@@ -3523,6 +3527,9 @@ function logRound(){
         pace: paceKey,
         turnCount: t.length,
         source: 'newvoice',
+        roundId: roundId,
+        captureVersion: 2,
+        transcriptScope: 'human_and_ai',
         fullTranscript: t.map((x) => (x.who === 'you' ? 'USER' : 'AI') + ': ' + x.text).join('\n\n').slice(0, 39000),
       },
       // Request, not authorization: the server only stamps contributable
@@ -3533,14 +3540,21 @@ function logRound(){
       contributable: true,
     };
     const u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+    const captureRoundId = roundId;
     if (u && !u.isAnonymous) {
       u.getIdToken().then((tok) => {
         if (!tok) return;
-        fetch('/api/log-generation', {
+        return fetch('/api/log-generation', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
           body: JSON.stringify(payload),
-        }).catch(() => {});
+        });
+      }).then((response) => {
+        if (!response || !response.ok) throw new Error('Round capture failed');
+        return response.json();
+      }).then((saved) => {
+        if (roundId !== captureRoundId || !window.RoundFeedback) return;
+        RoundFeedback.mount({host:$('roundFeedback'),generationId:saved.id,surface:'newvoice',getToken:() => u.getIdToken()});
       }).catch(() => {});
     } else {
       let sid = '';

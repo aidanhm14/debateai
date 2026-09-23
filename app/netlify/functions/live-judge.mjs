@@ -343,7 +343,12 @@ const FOUR_TEAM_FORMATS = new Set(['bp', 'worlds', 'wudc']);
 
 // A speech array longer than this is not a debate, it is a paste bomb.
 const MAX_SPEECHES = 24;
-const MAX_SPEECH_CHARS = 12_000;
+const MAX_TRANSCRIPT_CHARS = 24 * 12_000;
+
+export function transcriptSizeError(speeches) {
+  const rows = Array.isArray(speeches) ? speeches : [];
+  return rows.length > MAX_SPEECHES || rows.reduce((n,s) => n + (s?.skipped ? 0 : String(s?.text || '').length), 0) > MAX_TRANSCRIPT_CHARS;
+}
 
 // Overtime grace, in seconds. Mirrors OVERTIME_GRACE_SEC on
 // /live-round, where the speaker is shown the deduction rule live once
@@ -357,6 +362,7 @@ const fmtClock = (sec) => {
 };
 
 export function transcriptFrom(speeches, { includePace = false, interjections = [] } = {}) {
+  if (transcriptSizeError(speeches)) throw new Error('Transcript exceeds the supported round size');
   // Captured POIs / questions from the OTHER side, published by the idle
   // client onto the round doc and woven back under the speech they landed
   // in, so the judge reads the exchange where it happened instead of two
@@ -377,10 +383,9 @@ export function transcriptFrom(speeches, { includePace = false, interjections = 
     }).join('\n');
   };
   return (Array.isArray(speeches) ? speeches : [])
-    .slice(0, MAX_SPEECHES)
     .map((s, i) => {
       const who = `${s.speakerName || s.name || 'Speaker'} (${String(s.side || '').toUpperCase() || '?'}${s.code ? ', ' + s.code : ''})`;
-      const body = s.skipped ? '(skipped)' : String(s.text || '').slice(0, MAX_SPEECH_CHARS);
+      const body = s.skipped ? '(skipped)' : String(s.text || '');
       const pace = includePace ? speechPaceWpm(s) : null;
       const paceLine = Number.isFinite(pace)
         ? `\n[Calculated pace: ${pace} words per minute across ${Math.max(0, Math.round(Number(s.durationSec) || 0))} seconds]`
@@ -648,6 +653,7 @@ export default async (request, context) => {
       return { kind: 'no_contest', noWinner };
     }
     if (!fresh.proUid || !fresh.conUid) return { kind: 'missing_participant' };
+    if (transcriptSizeError(fresh.speeches)) return { kind: 'transcript_too_large' };
     let meter = null;
     if (metered || isPrivateJudgingRound(room, fresh)) {
       if (!internal && !freshParticipants.includes(uid)) return { kind: 'forbidden' };
@@ -665,6 +671,7 @@ export default async (request, context) => {
     return { kind: 'claimed', round: fresh, meter };
   });
 
+  if (claim.kind === 'transcript_too_large') return jsonResponse({ ok: false, code: 'transcript_too_large', error: 'This transcript is too long to judge in one round. It is saved in full; no decision or rating was issued.' }, 413, request);
   if (claim.kind === 'private_complete') return restorePrivateResult(claim.output);
   if (claim.kind === 'round_not_finished') return jsonResponse({ok:false, code:'round_not_finished', error:'Both people must finish and save their final words before judging.'},409,request);
   if (claim.kind === 'plan_retry') return jsonResponse({ code: 'PLAN_CHECK_UNAVAILABLE', error: 'Private judging access changed. Retry this round.' }, 503, request);

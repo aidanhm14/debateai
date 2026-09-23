@@ -200,6 +200,7 @@ export async function getExemplars({ motion, format, side }) {
         const overlapScore = overlap(motionTokens, tokens(docMotion));
         const recency = dateMs ? (Date.now() - dateMs) / (1000 * 60 * 60 * 24) : 90;
         const sideBonus = side && docSide === side ? 0.15 : 0;
+        if (r.qualityHold || r.feedbackIssue) return;
         const rMult = ratingMultiplier({ rating: r.rating, boring: r.boring });
         if (rMult === 0) return; // boring=true excludes
         const score = baseWeight * rMult * (overlapScore + Math.max(0, 1 - recency / 90) * 0.2 + sideBonus);

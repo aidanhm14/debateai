@@ -200,6 +200,9 @@
       <option value="congress">Congress</option>
       <option value="mun">MUN</option>
       <option value="quick">Quick Clash</option>
+      <option value="open">Conversation</option>
+      <option value="conversation">Conversation (legacy)</option>
+      <option value="clash">AI voice</option>
       <option value="viva">Viva</option>
     </select></label>
     <label>Kind <select id="filter-kind">
@@ -215,6 +218,8 @@
       <option value="debate_chat">debate_chat</option>
       <option value="casual">casual</option>
       <option value="voice_round">voice_round</option>
+      <option value="live_round">live_round</option>
+      <option value="practice_round">practice_round</option>
       <option value="vision">vision</option>
       <option value="resolution">resolution</option>
       <option value="tightblock">tightblock</option>
@@ -371,6 +376,8 @@ function render(){
   // is the load-bearing field in boring-catalog mode: shows WHY a user
   // (or admin) flagged the round generic, so the next voice-guidelines
   // edit has the actual phrase that drove the rating, not just the bit.
+  const issueBlock = (it.feedbackIssue || it.qualityHold) ? `<div class="rater-notes"><div class="rn-label">Reported issue</div>${escapeHtml(it.qualityHold || it.feedbackIssue)}</div>` : '';
+  const captureBlock = it.roundId ? `<div class="rater-notes"><div class="rn-label">Round reference</div>${escapeHtml(it.roundId)} · ${escapeHtml(it.transcriptScope || 'legacy capture')}</div>` : '';
   const notesBlock = (it.userNotes && it.userNotes.trim()) ? `
         <div class="rater-notes"><div class="rn-label">Rater's notes</div>${escapeHtml(it.userNotes)}</div>
       ` : '';
@@ -389,7 +396,7 @@ function render(){
       <div class="sheet">
         ${it.motion ? `<h2 class="doc-title">${escapeHtml(it.motion)}</h2>` : ''}
         <div class="doc-sub">${escapeHtml(it.uid ? 'user ' + it.uid.slice(0,8) : '')} · ${it.outputLength.toLocaleString()} chars${it.side ? ' · ' + escapeHtml(it.side) : ''}</div>
-        ${notesBlock}
+        ${issueBlock}${captureBlock}${notesBlock}
         <div class="doc-body" id="output-body">${outputHtml}</div>
       </div>
 

@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {transcriptFrom,transcriptSizeError,buildPrompt} from '../app/netlify/functions/live-judge.mjs';
+const text='For (For): '+('A substantive argument. '.repeat(1100))+'\nAgainst (Against): FINAL ANSWER TO THE ARGUMENT.';
+const speeches=[{side:'pro',code:'TALK',open:true,text}];
+assert.ok(text.length>24000);
+assert.ok(transcriptFrom(speeches).includes('FINAL ANSWER TO THE ARGUMENT.'));
+assert.ok(buildPrompt({format:'open',speeches,motion:'Cities should fund buses.'}).user.includes('FINAL ANSWER TO THE ARGUMENT.'));
+assert.equal(transcriptSizeError([{text:'x'.repeat(288000)}]),false);
+assert.equal(transcriptSizeError([{text:'x'.repeat(288001)}]),true);
+assert.throws(()=>transcriptFrom([{text:'x'.repeat(288001)}]),/supported round size/);
+assert.throws(()=>transcriptFrom(Array.from({length:25},()=>({text:'argument'}))),/supported round size/);
+assert.ok(transcriptFrom([{text:'omitted',skipped:true}]).includes('(skipped)'));
+console.log('Full conversation, final rebuttal, round budget and explicit over-limit failure passed.');
+process.exit(0);

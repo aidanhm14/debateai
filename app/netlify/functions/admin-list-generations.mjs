@@ -22,13 +22,13 @@ const MAX_LIMIT = 60;
 
 const VALID_FORMATS = new Set([
   '', 'apda', 'bp', 'worlds', 'asian', 'wsdc', 'ld', 'pf', 'policy',
-  'congress', 'mun', 'quick', 'viva',
+  'congress', 'mun', 'quick', 'viva', 'open', 'conversation', 'clash',
 ]);
 
 const VALID_KINDS = new Set([
   '', 'case', 'tightblock', 'sneaky', 'opp_attack', 'opponent', 'rebuttal',
   'poi', 'philosophy', 'judge_adapt', 'judge', 'debate_chat', 'casual',
-  'bot', 'vision', 'resolution', 'voice_round', 'other',
+  'bot', 'vision', 'resolution', 'voice_round', 'live_round', 'practice_round', 'other',
 ]);
 
 export default async (request) => {
@@ -131,7 +131,11 @@ export default async (request) => {
           outputLength: typeof data.outputLength === 'number' ? data.outputLength : outputStr.length,
           systemPrompt: safeStr(data.systemPrompt).slice(0, 2000),
           userPrompt: safeStr(data.userPrompt).slice(0, 2000),
-          fullTranscript: safeStr(ctx.fullTranscript).slice(0, 12000),
+          fullTranscript: safeStr(ctx.fullTranscript).slice(0, 40000),
+          roundId: safeStr(ctx.roundId).slice(0, 100),
+          transcriptScope: safeStr(ctx.transcriptScope).slice(0, 40),
+          feedbackIssue: safeStr(data.feedbackIssue).slice(0, 40),
+          qualityHold: safeStr(data.qualityHold).slice(0, 80),
           rating: typeof data.rating === 'number' ? data.rating : null,
           boring: data.boring === true,
           // userNotes lands here when a low-rated round (or any boring-

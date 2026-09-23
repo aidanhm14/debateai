@@ -50,6 +50,7 @@ const MAX_EXAMPLE_CHARS = 1200;  // per example, keep total prompt manageable
 // rounds behind it costs two cheap indexed queries a night and skips.
 const FORMATS = [
   { slug: 'quick',  name: 'Quick Clash' },
+  { slug: 'clash', name: 'Casual AI voice' },
   { slug: 'apda',   name: 'APDA' },
   { slug: 'bp',     name: 'British Parli' },
   { slug: 'asian',  name: 'Asian Parli' },
@@ -132,7 +133,7 @@ async function fetchTopGenerations(db, format) {
   // here in JS where it's free.
   return Array.from(byId.values())
     .filter(d => d && d.output && d.output.length >= 200)
-    .filter(d => d.boring !== true)
+    .filter(d => d.boring !== true && !d.qualityHold && !d.feedbackIssue)
     .slice(0, MAX_EXAMPLES_PER_FORMAT);
 }
 

@@ -24,6 +24,8 @@
 <script defer src="/js/audience-mode.js"></script>
 <script defer src="/js/ballot-read.js"></script>
 <script src="/js/round-evidence.js"></script>
+<script src="/js/round-capture.js"></script>
+<script src="/js/round-feedback.js"></script>
 <script defer src="/js/round-export.js"></script>
 <script defer src="/js/round-flow.js"></script>
 <link rel="stylesheet" href="/css/round-flow.css">
@@ -4254,6 +4256,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       </div>
       <div id="ballotResult" class="hidden"></div>
       <div id="ballotNotesHost"></div>
+      <div id="roundFeedback" style="padding:0 22px"></div>
       <div class="round-flow-entry" style="padding:14px 22px"><button type="button" class="round-flow-trigger" data-round-flow>View round map</button><button type="button" class="rn-export" data-round-export>Export round to Google Docs</button><button type="button" class="rn-export" id="ballotChatBtn" aria-controls="audPanel">Chat</button></div>
       <!-- 2026-09-07, per the founder: the ask for critiques lands right
            after the judged round, linked to the critique form on
@@ -13676,11 +13679,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var f = FORMATS[state.formatKey];
     if (!f || isFourTeam(f)) return;
     if (state.proUid2 || state.conUid2) return;
-    var mySideKey = side === 'pro' ? f.sides[0] : f.sides[1];
-    var mine = (state.log || []).filter(function(l){
-      return l && l.side === mySideKey && !l.skipped
-        && l.text && l.text !== '(no transcript)';
-    });
+    var mine = window.RoundCapture ? RoundCapture.ownSpeeches(state.log, side, !!f.open, {pro:f.sideLabels[f.sides[0]],con:f.sideLabels[f.sides[1]]}) : [];
     if (!mine.length) return;
     corpusFlushed = true;
     // Speech tags carry the speech code only, never the speaker's name;
@@ -13701,6 +13700,9 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       output: (rfd || '(no ballot)').slice(0, 39000),
       context: {
         source: 'live_round',
+        roundId: state.room || '',
+        captureVersion: 2,
+        transcriptScope: 'own_side',
         speechCount: mine.length,
         result: (b && b.winner) ? (b.winner === side ? 'won' : 'lost') : '',
         speakerPoints: typeof myPoints === 'number' ? myPoints : 0,
@@ -13708,13 +13710,20 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       },
       contributable: true
     };
-    state.user.getIdToken().then(function(tok){
-      if (!tok) return;
+    var captureRoom = state.room, captureUser = state.user;
+    captureUser.getIdToken().then(function(tok){
+      if (!tok) throw new Error('Sign in required');
       return fetch('/api/log-generation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
         body: JSON.stringify(payload)
       });
+    }).then(function(response){
+      if (!response.ok) throw new Error('Round capture failed');
+      return response.json();
+    }).then(function(saved){
+      if (state.room !== captureRoom || state.user !== captureUser) return;
+      if (window.RoundFeedback) RoundFeedback.mount({host:$('roundFeedback'),generationId:saved.id,surface:'live_round',getToken:function(){return captureUser.getIdToken();}});
     }).catch(function(){ corpusFlushed = false; });
   }
 

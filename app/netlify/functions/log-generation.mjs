@@ -272,7 +272,17 @@ export default async (request) => {
         createdAt: FieldValue.serverTimestamp(),
       };
 
-      const ref = await db.collection('generations').add(doc);
+      const linkedRound = ['live_round', 'voice_round'].includes(kind)
+        && /^[A-Za-z0-9_-]{6,100}$/.test(cleanContext.roundId || '');
+      let ref;
+      if (linkedRound) {
+        const id = 'round_' + createHash('sha256').update(uid + ':' + kind + ':' + cleanContext.roundId).digest('hex');
+        ref = db.collection('generations').doc(id);
+        try { await ref.create(doc); }
+        catch (error) { if (error.code !== 6) throw error; }
+      } else {
+        ref = await db.collection('generations').add(doc);
+      }
       console.log('[log-generation]', kind, uid.slice(0, 6), 'id=', ref.id, 'len=', doc.outputLength);
       return jsonResponse({ ok: true, id: ref.id }, 200, request);
     }
@@ -289,8 +299,8 @@ export default async (request) => {
       if (isAnon && signal !== 'rate') {
         return errorResponse('Anonymous signals are limited to round ratings', 401, request);
       }
-      if (isAnon && (typeof value !== 'number' || value < 1 || value > 5)) {
-        return errorResponse('Anonymous ratings must be 1-5', 400, request);
+      if (signal === 'rate' && (!Number.isInteger(value) || value < 1 || value > 5)) {
+        return errorResponse('Ratings must be 1-5', 400, request);
       }
 
       // Verify the generation belongs to this user before attaching a signal.
@@ -314,6 +324,9 @@ export default async (request) => {
       const update = { lastSignal: signal, lastSignalAt: FieldValue.serverTimestamp() };
       if (signal === 'rate' && typeof value === 'number') {
         update.rating = value;
+        if (['transcript', 'audio', 'judge', 'topic', 'opponent', 'other'].includes(meta?.issue)) {
+          update.feedbackIssue = meta.issue;
+        }
         // Boring/generic flag + freeform notes ride along on the rate
         // signal. Denormalized so the cataloging query
         // (generations.where('boring', '==', true).where('format', '==', X))
