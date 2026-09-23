@@ -1,6 +1,7 @@
 import { DRAFT_MOTIONS } from './draft-motions.mjs';
 import { checkContent } from './content-guard.mjs';
 import { topicRoundOpen } from './room-topic.mjs';
+import { matchDeskDraftConfig } from './spar-match-profile.mjs';
 
 const normalized = value => String(value || '').trim().toLowerCase().replace(/[.!]+$/, '');
 const safe = value => typeof value === 'string' && value.length >= 12 && value.length <= 200
@@ -20,6 +21,7 @@ export async function spinRoomTopic(db, uid, body, random = Math.random) {
     throw Object.assign(new Error('Only the two seated people can spin a topic.'), { status: 403 });
   }
   if (!topicRoundOpen(round) || (round.draft && round.draft.phase !== 'done')
+      || (round.topicStrikes && !['done', 'cancelled'].includes(round.topicStrikes.phase))
       || stamp?.tournamentId || stamp?.draftConfig?.pool) {
     throw Object.assign(new Error('Choose a topic before the round starts.'), { status: 409 });
   }
@@ -36,7 +38,19 @@ export async function spinRoomTopic(db, uid, body, random = Math.random) {
   const personal = available(verifiedPair && Array.isArray(stamp.draftConfig?.suggestions)
     ? stamp.draftConfig.suggestions : []);
   const broad = available(DRAFT_MOTIONS.casual);
-  const pool = personal.length && random() < 2 / 3 ? personal : broad;
+  let differenceSuggestions = verifiedPair ? stamp.draftConfig?.differenceSuggestions : [];
+  // Older matches predate this field. Only an explicit request for differences
+  // reads their saved answers; the response still contains only a topic.
+  if (body.mode === 'difference' && verifiedPair && !Array.isArray(differenceSuggestions)) {
+    const profiles = await Promise.all(stamp.uids.map(id => db.collection('spar_match_profiles').doc(id).get()));
+    differenceSuggestions = profiles.every(s => s.exists)
+      ? matchDeskDraftConfig(profiles[0].data(), profiles[1].data(), body.room).differenceSuggestions : [];
+  }
+  const differences = available(differenceSuggestions || []);
+  if (body.mode === 'difference' && !differences.length) {
+    throw Object.assign(new Error('Your matching answers do not give us another clear difference yet. Spin a topic or propose one together.'), { status: 409 });
+  }
+  const pool = body.mode === 'difference' ? differences : personal.length && random() < 2 / 3 ? personal : broad;
   const motion = pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))];
   return { motion, from: round.motion || '' };
 }

@@ -42,7 +42,7 @@ export async function runTopicAction(db, uid, body, now = Date.now) {
     // still needs to clear the talk when the clock write gets here first.
     if (body.action !== 'cancel') {
       if (!topicRoundOpen(round)) throw Object.assign(new Error('Choose a topic before the round starts, outside the motion draft.'), { code: 'ROUND_STARTED' });
-      if (stamp.tournamentId || stamp.draftConfig?.pool || (stamp.draft && stamp.draft.phase !== 'done')) throw new Error('Choose a topic before the round starts, outside the motion draft.');
+      if ((round.topicStrikes && !['done', 'cancelled'].includes(round.topicStrikes.phase)) || stamp.tournamentId || stamp.draftConfig?.pool || (stamp.draft && stamp.draft.phase !== 'done')) throw new Error('Choose a topic before the round starts, outside the motion draft.');
     }
     let talk = snap.exists ? snap.data() : null;
     if (body.action === 'open') {

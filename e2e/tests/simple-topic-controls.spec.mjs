@@ -4,7 +4,7 @@ const read=name=>readFileSync(new URL('../../app/'+name,import.meta.url),'utf8')
 const live=read('live-round.html'), voice=read('newvoice.html');
 const slice=(s,a,b)=>s.slice(s.indexOf(a),s.indexOf(b,s.indexOf(a)));
 
-test('one topic entry opens two choices and hands keyboard focus to the selected dialog',async({page})=>{
+test('one topic entry opens four choices and hands keyboard focus to the selected dialog',async({page})=>{
  await page.setContent('<main style="width:290px">'+slice(live,'            <details class="rmb-tools"','          </div>\n          <div class="speech-primary">')+'</main><dialog id="chosen"><button>Close</button></dialog>');
  await page.addStyleTag({content:[...live.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m=>m[1]).join('\n')});
  await page.addScriptTag({content:`var $=id=>document.getElementById(id);
@@ -13,10 +13,10 @@ test('one topic entry opens two choices and hands keyboard focus to the selected
  document.querySelectorAll('#rmbTools button').forEach(b=>b.addEventListener('click',()=>document.getElementById('chosen').showModal()));
  document.querySelector('#chosen button').onclick=()=>document.getElementById('chosen').close();`});
  await expect(page.locator('#rmbToolsLabel')).toHaveText('Debate something else');
- for(const id of ['rmbRollBtn','rmbChangeBtn']){
+ for(const id of ['rmbRollBtn','rmbChangeBtn','rmbDifferBtn','rmbDraftBtn']){
   await expect(page.locator('#'+id)).toBeHidden();
   await page.locator('#rmbToolsLabel').focus();await page.keyboard.press('Enter');
-  await expect(page.locator('#rmbTools button:visible')).toHaveCount(2);
+  await expect(page.locator('#rmbTools button:visible')).toHaveCount(4);
   await page.locator('#'+id).click();
   await expect(page.locator('#chosen')).toBeVisible();await expect(page.locator('#chosen button')).toBeFocused();
   await page.locator('#chosen button').click();await expect(page.locator('#rmbToolsLabel')).toBeFocused();

@@ -2592,6 +2592,11 @@ body.round-running .rmb-tools{display:none}
 #rmbTools .rmb-tools-toggle::after{content:'⌄';font-size:1.1rem;line-height:1}
 #rmbTools[open] .rmb-tools-toggle::after{content:'⌃'}
 #rmbTools .rmb-tools-grid{margin-top:8px}
+.topic-strikes{margin-top:12px;padding:16px;border:1px solid var(--accent);border-radius:12px}
+.topic-strikes h3{margin:0 0 8px;font-size:1.25rem}.topic-strikes p{line-height:1.5}
+.topic-strike-cards{display:grid;gap:8px}.topic-strikes button{font:inherit;color:var(--text);background:var(--bg);border:1px solid currentColor;border-radius:8px;padding:12px;min-height:44px;cursor:pointer;text-align:left;overflow-wrap:anywhere}
+.topic-strikes button:disabled{cursor:default;opacity:.65}.topic-strike-card.is-selected{border-color:var(--accent);color:var(--accent);text-decoration:line-through;background:rgba(220,38,38,.08)}
+.topic-strike-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 #rmbTools .rmb-change small{display:block;margin-top:3px;color:var(--text-dim);font-size:.73rem;font-weight:400;line-height:1.35}
 #rmbTools .rmb-change{
   display:flex;align-items:center;justify-content:flex-start;gap:8px;
@@ -3903,19 +3908,19 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
               </div>
               <div class="rmbp-actions" id="rmbpActions"></div>
             </div>
-            <!-- 2026-09-02: the pre-round negotiation no longer gates the
-                 round. The resolution is on screen, the round can start,
-                 and these are the topic choices for a pair that does not
-                 want to argue this one. They are consent flows or
-                 the on-demand draft; none of them changes the motion for
-                 one side alone. -->
+            <!-- Ordinary new matches enter the call before choosing a topic.
+                 Suggestions and typed proposals need the other person's agreement.
+                 Strikes are optional and blind until both people commit. -->
             <details class="rmb-tools" id="rmbTools" hidden>
               <summary class="rmb-change rmb-change--draft rmb-tools-toggle" id="rmbToolsLabel">Debate something else</summary>
               <div class="rmb-tools-grid">
-                <button type="button" class="rmb-change" id="rmbRollBtn"><span class="rmb-ico" aria-hidden="true">&#127922;</span><span>Spin another topic<small>A fresh topic, including picks inspired by your matching answers.</small></span></button>
+                <button type="button" class="rmb-change" id="rmbRollBtn"><span class="rmb-ico" aria-hidden="true">&#127922;</span><span>Spin a topic<small>A fresh topic, including picks inspired by your matching answers.</small></span></button>
+                <button type="button" class="rmb-change" id="rmbDifferBtn"><span>Where you differ<small>A topic based on different answers you both gave.</small></span></button>
                 <button type="button" class="rmb-change" id="rmbChangeBtn"><span class="rmb-ico" aria-hidden="true">&#9998;</span><span>Propose a topic<small>Write one for the other person to accept.</small></span></button>
+                <button type="button" class="rmb-change" id="rmbDraftBtn"><span class="rmb-ico" aria-hidden="true">&#10005;</span><span>Offer strikes<small>Each person strikes two of five topics.</small></span></button>
               </div>
             </details>
+            <section id="topicStrikes" class="topic-strikes" aria-label="Choose with strikes" aria-live="polite" hidden></section>
           </div>
           <div class="speech-primary">
             <div class="speaker-line" style="margin-bottom:0">
@@ -4427,6 +4432,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
 <script src="/js/live-room/presence.js" data-page-source></script>
 <script src="/js/live-room/verdict.js" data-page-source></script>
 <script src="/js/live-room/draft.js" data-page-source></script>
+<script src="/js/live-room/topic-choice.js" data-page-source></script>
 <script>
 (function(){
   var timersController = window.DBLiveTimers.create({
@@ -5825,7 +5831,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     if(!own||!plan||!f)return;
     own.hidden=isSpectator()||!side;
     own.setAttribute('data-side',side||'');
-    own.innerHTML=side ? '<strong>You argue '+(side==='pro'?'FOR':'AGAINST')+'</strong><span>'+(side==='pro'?'Defend this claim.':'Challenge this claim.')+'</span>' : '';
+    own.innerHTML=side ? '<strong>You argue '+(side==='pro'?'FOR':'AGAINST')+'</strong><span>'+(!state.motion?'Choose a topic together.':side==='pro'?'Defend this claim.':'Challenge this claim.')+'</span>' : '';
     var pair=$('roundSidePair');
     if(pair){
       var cards=['pro','con'].map(function(s){
@@ -6371,7 +6377,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     // Motion bar — keep the resolution glance-visible during the
     // round so the speaker doesn't have to leave the page to recall it.
     var rmb = $('rmbMotion');
-    if (rmb && document.activeElement !== rmb) rmb.textContent = state.motion || '(motion not set)';
+    if (rmb && document.activeElement !== rmb) rmb.textContent = state.motion || 'Choose topic';
     var rmbBr = $('rmbBrief');
     if (rmbBr){
       if (state.background){ rmbBr.textContent = state.background; rmbBr.hidden = false; }
@@ -6384,6 +6390,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       var aiCue = $('rmbAiCue'); if (aiCue) aiCue.hidden = contextBtn.hidden;
     }
     renderSidesGuide();
+    if (window.__lrPaintTopicChoice) window.__lrPaintTopicChoice();
 
     // In-round editor: before Speech 1, debaters can still fix the
     // resolution + format (format drives speaker count + the AI judging
@@ -6791,6 +6798,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // to share a deadline, not one rule read twice.
   function sidesLocked(){
     if (state.phase !== 'round') return true;
+    if (state.topicStrikes && !['done','cancelled'].includes(state.topicStrikes.phase)) return true;
     if (state.speechIdx > 0) return true;
     return state.timerState !== 'ready';
   }
@@ -11065,6 +11073,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   }
   function roundStartBlock(){
     if (!state.room || state.isDuo || isSpectator() || state.speechIdx !== 0 || state.timerState !== 'ready') return '';
+    if (!String(state.motion || '').trim()) return 'Choose a topic before starting.';
+    if (state.topicStrikes && !['done','cancelled'].includes(state.topicStrikes.phase)) return 'Finish choosing the topic and sides first.';
     var connection = roundConnectionState();
     return connection.ready ? '' : connection.text;
   }
@@ -11077,10 +11087,10 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     if (!visible) return;
     var connection = roundConnectionState();
     var initial = state.speechIdx === 0 && state.timerState === 'ready';
-    var label = connection.ready && !initial ? '' : connection.text;
+    var blocked = roundStartBlock();
+    var label = initial && blocked ? blocked : connection.ready && !initial ? '' : connection.text;
     status.hidden = !label;
     if (status.textContent !== label) status.textContent = label;
-    var blocked = roundStartBlock();
     ['startConvoBtn','startFormalBtn'].forEach(function(id){ $(id).disabled = !!blocked; });
     // The normal renderer owns turn/finish locks. Only add the connection lock.
     var play = $('playPauseBtn');
@@ -11088,7 +11098,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var side = mySide();
     $('roundMobileSide').setAttribute('data-side', side || '');
     $('roundMobileSide').textContent = side ? 'You’re arguing ' + (side === 'pro' ? 'FOR' : 'AGAINST') : 'Your side is being assigned';
-    $('roundMobileTopic').textContent = state.motion || '';
+    $('roundMobileTopic').textContent = state.motion || 'Choose topic';
     var mobileStatus = $('roundMobileStatus');
     var next = blocked || (initial ? (isMyTurn() ? 'Ready. Start when you both want to begin.' : 'Ready. Waiting for the first speaker.') : label);
     if (mobileStatus.textContent !== next) mobileStatus.textContent = next;
@@ -11663,7 +11673,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   }
 
   // ── Phase transitions
-  function startRound(){
+  function startRound(chooseInRoom){
     if (/^Private-/.test(state.room) && !isLiveVideoUser(state.user)){
       showAuthGate();
       return;
@@ -11671,7 +11681,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     // Motion is editable in the setup box (contenteditable). Read it
     // straight from there so a revised motion is what the round uses.
     if (!tournamentControlsLocked()) state.motion = ($('motionDisplay').textContent || '').trim();
-    if (state.motion.length < 5){
+    if (state.motion.length < 5 && !(chooseInRoom === true && (prefill.source || '').indexOf('spar') === 0 && state.proUid && state.conUid)){
       alert('Add a motion first. Tap the Motion box and type or paste it.');
       try { $('motionDisplay').focus(); } catch(e){}
       return;
@@ -15222,10 +15232,11 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     }
 
     function motionChangeLocked(){
-      return tournamentControlsLocked() || motionLocked();
+      return tournamentControlsLocked() || motionLocked() || !!(window.__lrTopicStrikesPending && window.__lrTopicStrikesPending()) || !!(window.__lrDraftPending && window.__lrDraftPending());
     }
 
     function motionLockMessage(){
+      if (window.__lrTopicStrikesPending && window.__lrTopicStrikesPending()) return 'Finish or cancel strikes before changing the topic.';
       return tournamentControlsLocked()
         ? 'Tournament resolution and sides are fixed by the draw.'
         : 'The resolution locked when the first speech started.';
@@ -15309,6 +15320,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       var rmb = $('rmbMotion'); if (rmb && document.activeElement !== rmb) rmb.textContent = p.text;
       var brief = $('motionBrief'); if (brief) brief.hidden = true;
       var rb = $('rmbBrief'); if (rb) rb.hidden = true;
+      renderRound();
       ref.update({
         motion: p.text,
         background: '',
@@ -15365,12 +15377,12 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       var uid = myUid();
       var mine = uid && p.by === uid;
       var iAnswered = uid && accepts[uid] === true;
-      $('rmbpEyebrow').textContent = mine ? 'Your topic change' : 'Topic change proposed';
+      $('rmbpEyebrow').textContent = mine ? 'Your proposed topic' : 'Topic proposed';
       // Names routinely end in a period ("Benji N."), so never follow one
       // with sentence punctuation.
       $('rmbpBy').textContent = mine
-        ? 'The round keeps the current topic until ' + nameForUid(pending[0]) + ' agrees.'
-        : (p.byName || 'The other debater') + ' wants to debate this instead.'
+        ? 'Waiting for ' + nameForUid(pending[0]) + ' to agree.'
+        : (p.byName || 'The other debater') + ' wants to debate this.'
           + (p.source === 'audience' ? ' Pulled from the audience suggestions.' : '');
 
       var actions = $('rmbpActions');
@@ -15397,11 +15409,11 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       var yes = document.createElement('button');
       yes.type = 'button';
       yes.className = 'rmbp-accept';
-      yes.textContent = 'Accept the change';
+      yes.textContent = 'Use this topic';
       yes.addEventListener('click', function(){ answerMotionProposal(true); });
       var no = document.createElement('button');
       no.type = 'button';
-      no.textContent = 'Keep the current one';
+      no.textContent = state.motion ? 'Keep the current one' : 'Not this topic';
       no.addEventListener('click', function(){ answerMotionProposal(false); });
       actions.appendChild(yes);
       actions.appendChild(no);
@@ -15415,6 +15427,11 @@ window.DBLiveDraft.attach({
     get onRoundSnapshot(){ return onRoundSnapshot; },
     get state(){ return state; },
     get toast(){ return toast; }
+  });
+  window.DBLiveTopicChoice.attach({
+    get state(){ return state; }, get escHtml(){ return escHtml; },
+    get isSpectator(){ return isSpectator; }, get toast(){ return toast; },
+    get onRoundSnapshot(){ return onRoundSnapshot; }, get getRoundDocRef(){ return getRoundDocRef; }
   });    // ── Motion context (US / world) ──────────────────────────────────
     // Some motions have the same answer everywhere; others turn on where
     // they apply ("ban private schools", "abolish the electoral college").
@@ -15954,7 +15971,7 @@ window.DBLiveDraft.attach({
       if (!text || text === state.motion) return;
       if (motionChangeLocked()){
         toast(motionLockMessage());
-        var mdL = $('rmbMotion'); if (mdL) mdL.textContent = state.motion || '(motion not set)';
+        var mdL = $('rmbMotion'); if (mdL) mdL.textContent = state.motion || 'Choose topic';
         return;
       }
       if (bothSeatsIdentified() && !isSpectator() && myUid()){
@@ -16006,6 +16023,7 @@ window.DBLiveDraft.attach({
     });
     function openInlineMotionEditor(){
       var rmb = $('rmbMotion'); if (!rmb) return;
+      if (!state.motion) rmb.textContent = '';
       rmb.setAttribute('contenteditable', 'true');
       rmb.focus();
       try { var rng = document.createRange(); rng.selectNodeContents(rmb); rng.collapse(false); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rng); } catch(e){}
@@ -16027,7 +16045,12 @@ window.DBLiveDraft.attach({
     function syncMotionChangeBtns(){
       var seated = state.phase === 'round' && !isSpectator();
       var show = seated && !motionChangeLocked();
-      if (rmbTools){ rmbTools.hidden = !show; if (!show) rmbTools.open = false; }
+      if (rmbTools){
+        rmbTools.hidden = !show;
+        if (!show) rmbTools.open = false;
+        else if (!state.motion) rmbTools.open = true;
+        $('rmbToolsLabel').textContent = state.motion ? 'Debate something else' : 'Choose topic';
+      }
       if (rmbChange) rmbChange.hidden = !show;
       if (rmbRoll) rmbRoll.hidden = !show;
       // The draft needs a second person on the other bench; a solo or
@@ -16040,6 +16063,7 @@ window.DBLiveDraft.attach({
       if (rmbLock){
         rmbLock.textContent = tournamentControlsLocked()
           ? 'Tournament resolution and sides fixed by the draw'
+          : state.topicStrikes && !['done','cancelled'].includes(state.topicStrikes.phase) ? 'Finish or cancel strikes to choose another topic.'
           : 'Resolution locked after the round starts';
         rmbLock.hidden = !(seated && motionChangeLocked());
       }
@@ -16098,7 +16122,7 @@ window.DBLiveDraft.attach({
         // which is the point: the visible resolution must not change
         // until the opponent agrees.
         var rmbNow = $('rmbMotion');
-        if (rmbNow && document.activeElement !== rmbNow) rmbNow.textContent = state.motion || '(motion not set)';
+        if (rmbNow && document.activeElement !== rmbNow) rmbNow.textContent = state.motion || 'Choose topic';
         try { renderHouseGloss(); } catch(e){}
         try { renderSidesGuide(); } catch(e){}
         mmClose();
@@ -16111,9 +16135,9 @@ window.DBLiveDraft.attach({
       if (isSpectator()) return;
       if (motionChangeLocked()){ toast(motionLockMessage()); syncMotionChangeBtns(); return; }
       var both = bothSeatsIdentified();
-      if (mmSubmit) mmSubmit.textContent = both ? 'Propose change' : 'Save change';
+      if (mmSubmit) mmSubmit.textContent = both ? 'Propose topic' : 'Choose topic';
       if (mmHint) mmHint.textContent = both
-        ? 'The current topic stays in place until the other person accepts.'
+        ? (state.motion ? 'The current topic stays in place until the other person accepts.' : 'The other person needs to accept before the round starts.')
         : 'Nobody else is seated yet, so this takes effect right away.';
       if (mmStatus) mmStatus.textContent = '';
       if (mmText) mmText.value = state.motion || '';
@@ -16141,7 +16165,7 @@ window.DBLiveDraft.attach({
     });
     if (rmbDraft) rmbDraft.addEventListener('click', function(){
       if (motionChangeLocked()){ toast(motionLockMessage()); syncMotionChangeBtns(); return; }
-      if (window.__lrOpenDraft) window.__lrOpenDraft();
+      if (window.__lrInviteStrikes) window.__lrInviteStrikes();
     });
     var rmbEl = $('rmbMotion');
     if (rmbEl) rmbEl.addEventListener('blur', function(){
@@ -16153,10 +16177,10 @@ window.DBLiveDraft.attach({
         // now a request, and showing the new text while the opponent has
         // not agreed would say the round had already changed.
         setMotion(v, 'edit');
-        rmbEl.textContent = state.motion || '(motion not set)';
+        rmbEl.textContent = state.motion || 'Choose topic';
         try { gtag('event', 'live_round_motion_edit_inround'); } catch(e){}
       } else {
-        rmbEl.textContent = state.motion || '(motion not set)';
+        rmbEl.textContent = state.motion || 'Choose topic';
       }
     });
     var rfs = $('roundFormatSel');
@@ -16188,8 +16212,8 @@ window.DBLiveDraft.attach({
       }).then(function(){ if (btn) btn.disabled = false; });
     }
     var gmBtn = $('rebGenMotion');
-    var recentSpins = [];
-    if (gmBtn) gmBtn.addEventListener('click', async function(){
+    var differBtn = $('rmbDifferBtn'), recentSpins = [];
+    async function spinTopic(difference){
       if (isSpectator() || motionChangeLocked()) return;
       if (gmBtn.disabled) return;
       var from = state.motion, roundId = state.room, user = state.user, proposalAtStart = state.motionProposal;
@@ -16197,6 +16221,7 @@ window.DBLiveDraft.attach({
       var m = pool[Math.floor(Math.random()*pool.length)] || SPAR_MOTIONS[0];
       gmBtn.disabled = true;
       if (rmbRoll) rmbRoll.disabled = true;
+      if (differBtn) differBtn.disabled = true;
       try {
         if (user && user.getIdToken && bothSeatsIdentified()){
           var controller = new AbortController();
@@ -16206,17 +16231,18 @@ window.DBLiveDraft.attach({
             var response = await fetch('/api/room-topic-spin', {
               method: 'POST', signal: controller.signal,
               headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-              body: JSON.stringify({ room: roundId, avoid: recentSpins }),
+              body: JSON.stringify({ room: roundId, avoid: recentSpins, mode: difference ? 'difference' : 'spin' }),
             });
             var result = await response.json();
             if (!response.ok && response.status < 500){ toast(result.error || 'Could not spin a topic. Try again.'); return; }
+            if (!response.ok && difference){ toast('Could not check your matching answers. Try again.'); return; }
             if (response.ok){
               if (result.from !== from) return;
               if (typeof result.motion === 'string' && result.motion) m = result.motion;
             }
-          } catch (_) { /* Offline or unavailable: the ordinary pool remains usable. */ }
+          } catch (_) { if (difference){ toast('Could not check your matching answers. Try again.'); return; } }
           finally { clearTimeout(timeout); }
-        }
+        } else if (difference){ toast('Both people need to be in the room to check their matching answers.'); return; }
         // A slow response cannot replace a newer topic or start a proposal
         // after either person has begun speaking or changed accounts.
         if (state.room !== roundId || state.motion !== from || state.user !== user || state.motionProposal !== proposalAtStart || motionChangeLocked()) return;
@@ -16226,7 +16252,7 @@ window.DBLiveDraft.attach({
         // is actually in force; writing one for a rejected proposal would
         // spend a model call on a round nobody is having.
         var wasProposal = bothSeatsIdentified() && !isSpectator() && myUid();
-        setMotion(m, 'random');
+        setMotion(m, difference ? 'difference' : 'random');
         if (!wasProposal){
           state.background = '';
           var rmb = $('rmbMotion'); if (rmb && document.activeElement !== rmb) rmb.textContent = m;
@@ -16236,8 +16262,11 @@ window.DBLiveDraft.attach({
       } finally {
         gmBtn.disabled = false;
         if (rmbRoll) rmbRoll.disabled = false;
+        if (differBtn) differBtn.disabled = false;
       }
-    });
+    }
+    if (gmBtn) gmBtn.addEventListener('click', function(){ return spinTopic(false); });
+    if (differBtn) differBtn.addEventListener('click', function(){ return spinTopic(true); });
     function requestRoundBrief(btn){
       if (isSpectator() || motionLocked()) return;
       if (!state.motion){ toast('Set a topic first.'); return; }
@@ -19388,6 +19417,7 @@ window.DBLiveDraft.attach({
     if (state.phase !== 'round' || state.speechIdx !== 0) return '';
     if (state.timerState !== 'ready') return '';
     if (isSpectator() || !mySide()) return '';
+    if (!state.motion || (state.topicStrikes && !['done','cancelled'].includes(state.topicStrikes.phase))) return '';
     // A page heartbeat or old Ready nudge does not prove a working call.
     if (!state.isDuo && !roundConnectionState().ready) return '';
     // A running prep clock is a deliberate not-yet (the start-cue rule).
@@ -20001,6 +20031,7 @@ window.DBLiveDraft.attach({
     if (roomId && roomId !== state.room) return;
     if (!state.journeyArrived){ state.journeyArrived = true; liveJourney('room_arrived'); }
     if (window.__lrMergeDraftSnapshot) d = window.__lrMergeDraftSnapshot(d);
+    if (window.__lrMergeTopicChoice) d = window.__lrMergeTopicChoice(d);
     state.lastRoundDoc = d;
     state.lastRoundDocRoom = roomId || state.room;
     var priorDuo = state.isDuo, priorPartners = (state.proUid2||'')+'|'+(state.conUid2||'');
@@ -20041,7 +20072,7 @@ window.DBLiveDraft.attach({
     }
     var fixedTournamentMotion = tournamentDraftMotion(d);
     var incomingMotion = fixedTournamentMotion || d.motion;
-    if (incomingMotion && state.motion !== incomingMotion){ state.motion = incomingMotion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = incomingMotion; changedSetup = true; try { renderHouseGloss(); } catch(e){} }
+    if (typeof incomingMotion === 'string' && state.motion !== incomingMotion){ state.motion = incomingMotion; var md=$('motionDisplay'); if (md && document.activeElement !== md) md.textContent = incomingMotion; changedSetup = true; try { renderHouseGloss(); } catch(e){} }
     // The pre-round motion draft. Read before the proposal surfaces
     // below: while a draft is live the motion is not a thing either side
     // may propose changing, it is a thing they are still settling.
@@ -20169,6 +20200,10 @@ window.DBLiveDraft.attach({
     window.__lrTopicSnapshot = d.topicConversation || null;
     if (window.RoomTopic && d.topicConversation) window.RoomTopic.render(d.topicConversation);
     if (window.__lrRenderMotionProposal) { try { window.__lrRenderMotionProposal(d); } catch(e){} }
+    if (window.__lrPaintTopicChoice) window.__lrPaintTopicChoice();
+    if (window.__lrSyncMotionBtns) window.__lrSyncMotionBtns();
+    var topicReadyKey = state.motion + '|' + (state.topicStrikes && state.topicStrikes.phase || '');
+    if (topicReadyKey !== state.topicReadyKey){ state.topicReadyKey = topicReadyKey; paintRoundReadiness(); }
     // Pending side swap, same shape: one debater asked to trade sides.
     if (window.__lrRenderSideSwap) { try { window.__lrRenderSideSwap(d); } catch(e){} }
     // Motion context (US / world): classify once, then paint the setup
@@ -20650,8 +20685,10 @@ window.DBLiveDraft.attach({
             delete payload.posterUid;
             delete payload.posterName;
             delete payload.createdAt;
+            delete payload.motion;
+            delete payload.background;
           }
-          var live = d && (DBRoomTeams.enabled(d) || ((d.speechIdx | 0) > 0) || (d.speeches && d.speeches.length));
+          var live = d && (DBRoomTeams.enabled(d) || d.status === 'round' || d.status === 'ballot' || (d.currentTimer && d.currentTimer.state !== 'ready') || ((d.speechIdx | 0) > 0) || (d.speeches && d.speeches.length));
           if (live){
             var safe = {};
             if (payload.participantAvatars) safe.participantAvatars = payload.participantAvatars;
@@ -21185,22 +21222,12 @@ window.DBLiveDraft.attach({
         // already started, the snapshot will land in <500ms and our
         // setup view will auto-advance into the round in progress.
         subscribeRound();
-        // Spar matchmaking auto-start. If the URL says source=spar
-        // and we have no motion yet, the lex-first UID picks a
-        // deterministic motion from SPAR_MOTIONS (keyed off the
-        // room name so both clients converge on the same one) and
-        // kicks off the round automatically — no setup screen to
-        // click through. The peer's snapshot listener picks up the
-        // motion + speechIdx and follows.
-        if ((prefill.source || '').indexOf('spar') === 0 && !state.motion && state.proUid && state.conUid){
+        // Enter every matched room, including links carrying an explicitly
+        // chosen topic. Topic choice belongs inside the call, not at its door.
+        if ((prefill.source || '').indexOf('spar') === 0 && state.proUid && state.conUid && !isSpectator()){
           var iAmFirst = state.user.uid === state.proUid; // proUid = lex-first by spar convention
           var kickoff = function(){
-            // Bail if the round already started (peer published) or we
-            // left setup. pickSparMotion is keyed on the room name, so
-            // if BOTH clients reach this the deterministic motion is
-            // identical and the round-doc reconciliation converges
-            // instead of diverging — a double-start is safe.
-            if (state.motion || state.phase !== 'setup') return;
+            if (state.phase !== 'setup') return;
             // 2026-08-31, from a live round: a MID-ROUND reload arrives
             // exactly like a fresh spar client (motion= empty in the
             // URL, phase 'setup'), and when the snapshot lost the race
@@ -21213,16 +21240,15 @@ window.DBLiveDraft.attach({
             // A failed read seeds nothing; the snapshot decides.
             var ref = getRoundDocRef();
             var seed = function(){
-              if (state.motion || state.phase !== 'setup') return;
-              state.motion = pickSparMotion(state.room);
-              var md = $('motionDisplay'); if (md) md.textContent = state.motion;
-              startRound();
+              if (state.phase !== 'setup') return;
+              startRound(true);
             };
             if (!ref){ seed(); return; }
             ref.get().then(function(snap){
               var d = snap && snap.exists ? (snap.data() || {}) : null;
-              if (d && ((d.motion && String(d.motion).trim())
-                        || (d.speechIdx | 0) > 0
+              if (d) onRoundSnapshot(d, state.room);
+              if (state.phase !== 'setup') return;
+              if (d && ((d.speechIdx | 0) > 0
                         || (d.speeches && d.speeches.length)
                         || d.status === 'round' || d.status === 'done')){
                 try { gtag('event', 'live_kickoff_seed_blocked', { speech: d.speechIdx | 0 }); } catch(e){}

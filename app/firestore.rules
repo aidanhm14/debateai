@@ -281,6 +281,18 @@ service cloud.firestore {
       function canReadParent() {
         return canReadRound(get(/databases/$(database)/documents/live_rounds/$(roomId)).data);
       }
+      function topicStrikesOpen() {
+        return resource.data.get('topicStrikes', {}).get('phase', 'done') in ['offered', 'strike', 'motion', 'side'];
+      }
+      // The server owns the blind commitments and final topic/seat assignment.
+      function topicChoiceHeld() {
+        let changed = request.resource.data.diff(resource.data).affectedKeys();
+        return !changed.hasAny(['topicStrikes', 'topicStrikesRevision'])
+          && (!topicStrikesOpen() || !changed.hasAny(['motion', 'background', 'proUid', 'conUid', 'motionProposal', 'motionProposalAccepts', 'draft', 'topicConversation']))
+          && (request.resource.data.get('currentTimer', {}).get('state', '') != 'running'
+            || resource.data.get('currentTimer', {}).get('state', '') == 'running'
+            || (!topicStrikesOpen() && request.resource.data.get('motion', '').size() >= 5));
+      }
       // Missing gets let a participant create a fresh room transactionally.
       allow get: if !exists(/databases/$(database)/documents/live_rounds/$(roomId))
                  || canReadRound(resource.data);
@@ -289,6 +301,7 @@ service cloud.firestore {
                     && request.resource.data.isPrivate is bool
                     && isSeated(request.resource.data)
                     && stringUnder('motion', 4096)
+                    && !request.resource.data.keys().hasAny(['topicStrikes', 'topicStrikesRevision'])
                     && !request.resource.data.keys().hasAny(['teamSize','teamHostUid','teamLockedAt','teamSeatsOpenedAt','teamEnding','teamFinished','teamFinishedAt','proUid2','conUid2','proName2','conName2']);
 
       // The consent map can only be touched by the consenting user
@@ -383,6 +396,7 @@ service cloud.firestore {
                     && canReadRound(resource.data)
                     && leaderboardConsentChangeIsOwnUid()
                     && motionAcceptsChangeIsOwnUid()
+                    && topicChoiceHeld()
                     && seatsHeldOrTraded()
                     && teamSeatsHeld()
                     && teamCaptureAllowed()

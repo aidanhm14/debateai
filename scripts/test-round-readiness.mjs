@@ -4,7 +4,7 @@ import vm from 'node:vm';
 const html=readFileSync(new URL('../app/live-round.html',import.meta.url),'utf8');
 const source=html.slice(html.indexOf('  function roundConnectionState(){'),html.indexOf('  function paintRoundReadiness(){'));
 let participants={};
-const context={qs:new URLSearchParams(),state:{room:'test',proUid:'a',conUid:'b',speechIdx:0,timerState:'ready'},
+const context={qs:new URLSearchParams(),state:{motion:'Cities should build more parks.',room:'test',proUid:'a',conUid:'b',speechIdx:0,timerState:'ready'},
   room:{joined:false,call:{participants:()=>participants}},mySide:()=> 'pro',isSpectator:()=>false};
 vm.createContext(context);vm.runInContext(source,context);
 assert.match(context.roundStartBlock(),/Connecting/);
@@ -16,6 +16,8 @@ participants.duplicate={local:false,user_id:'a'};
 assert.match(context.roundStartBlock(),/Waiting/,'a second tab belonging to me is not my opponent');
 participants.peer={local:false,user_id:'b'};
 assert.equal(context.roundStartBlock(),'');
+context.state.motion='';assert.match(context.roundStartBlock(),/Choose a topic/);
+context.state.motion='Cities should build more parks.';context.state.topicStrikes={phase:'strike'};assert.match(context.roundStartBlock(),/Finish choosing/);delete context.state.topicStrikes;
 participants.local.tracks.audio.persistentTrack.readyState='ended';
 assert.match(context.roundStartBlock(),/microphone/);
 context.state.timerState='running';

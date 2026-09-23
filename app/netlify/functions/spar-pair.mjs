@@ -4,9 +4,7 @@ import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, errorResponse, jsonResponse } from './lib/response.mjs';
 import { sendToUser } from './lib/webpush.mjs';
 import { cleanAvatarIdentity } from './lib/avatar-design.mjs';
-import { resolveCaller } from './lib/caller.mjs';
-import { buildMatchMotionContext, ensurePairMotion } from './lib/spar-motion-generation.mjs';
-import { motionForPairArrival, draftConfigForPairMotion } from './lib/spar-motion-arrival.mjs';
+import { buildMatchMotionContext } from './lib/spar-motion-generation.mjs';
 import {
   cleanSparMatchProfile,
   hasPoliticalSignal,
@@ -668,33 +666,8 @@ export default async (request) => {
     // false for a human clicking Pass/Withdraw. Timers feed the
     // ghost-cancel heuristic below; human passes never do.
     const auto = !!body?.auto;
-    // Prepare once outside the transaction: Firestore may retry its callback.
-    // No provider spend on Pass, an explicit queued motion, or a stale pair.
-    // Both accept requests share the private room stamp and its deadline.
-    let preparedRoom = null;
-    let preparedMotionRef = null;
-    if (accept) {
-      try {
-        const [mineSnap, theirsSnap] = await Promise.all([myRef.get(), peerRef.get()]);
-        const mine = mineSnap.exists ? mineSnap.data() : null;
-        const theirs = theirsSnap.exists ? theirsSnap.data() : null;
-        if (mine?.status === 'consent' && theirs?.status === 'consent'
-            && mine.matchedWith === peerUid && theirs.matchedWith === myUid
-            && mine.room && mine.room === theirs.room && !mine.motion && !theirs.motion) {
-          preparedRoom = mine.room;
-          preparedMotionRef = db.collection('round_drafts').doc(preparedRoom);
-          const caller = await resolveCaller(request);
-          await ensurePairMotion(db, preparedRoom, myUid, {
-            callerKey: caller.named ? caller.key : 'ip_' + caller.ip,
-            ip: caller.ip,
-          });
-        }
-      } catch (err) {
-        // The reviewed arrival fallback was already stamped with the proposal.
-        // A failed generator cannot consume either person's acceptance.
-        console.warn('[spar-pair] motion preparation unavailable');
-      }
-    }
+    // Acceptance opens the call immediately. Suggested topics are chosen
+    // inside it, so no model request belongs in the entry handshake.
     // Everything a revert needs to put a doc back in the plain
     // 'waiting' shape. joinedAt refreshes so neither side gets
     // stale-skipped for time burned inside the consent window.
@@ -726,12 +699,11 @@ export default async (request) => {
     };
     try {
       const result = await db.runTransaction(async (tx) => {
-        const [mineSnap, theirsSnap, mySeatSnap, peerSeatSnap, motionSnap] = await Promise.all([
+        const [mineSnap, theirsSnap, mySeatSnap, peerSeatSnap] = await Promise.all([
           tx.get(myRef),
           tx.get(peerRef),
           tx.get(myTournamentSeatRef),
           tx.get(peerTournamentSeatRef),
-          preparedMotionRef ? tx.get(preparedMotionRef) : Promise.resolve(null),
         ]);
         if (mySeatSnap.exists) {
           if (mineSnap.exists) tx.delete(myRef);
@@ -839,16 +811,6 @@ export default async (request) => {
           consents,
           pairedParadigm: buildPairedParadigm(mine.paradigms, mine),
         };
-        const motionStamp = motionSnap?.exists ? motionSnap.data() : null;
-        const generatedMotion = motionForPairArrival(
-          motionStamp, mine, theirs, preparedRoom, myUid, peerUid,
-        );
-        if (generatedMotion) {
-          finals.pairedMotion = generatedMotion;
-          tx.update(preparedMotionRef, {
-            draftConfig: draftConfigForPairMotion(motionStamp.draftConfig, generatedMotion),
-          });
-        }
         // Per-side, not in `finals`: each doc skips the OTHER uid. This is
         // what stops the matcher handing you back the person you are in a
         // room with the moment either side requeues.
@@ -1142,12 +1104,7 @@ export default async (request) => {
           myMatchProfileSnap.data(), peerMatchProfileSnap.data(), draftSeed(myUid, peerUid, room),
         );
       }
-      // Negotiation is optional. Give both people the pertinent resolution
-      // as a timeout fallback. Fresh generation replaces it at final consent.
-      // A motion someone deliberately queued with still takes precedence.
-      if (!pairedMotion && privateDraftConfig.recommendedMotion) {
-        common.pairedMotion = privateDraftConfig.recommendedMotion;
-      }
+      // Matching suggestions remain private until someone chooses to spin or use strikes.
 
       // The motion draft. Both docs must have opted in: a client that
       // cannot render a draft must never be handed one, or it sits on a card

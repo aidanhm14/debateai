@@ -11,6 +11,7 @@ main script, with `data-page-source` so source guards also inspect them.
 | `connection.js` | Daily call lifecycle, retries, network health and receive quality |
 | `presence.js` | Seat/spectator heartbeats, departure/rejoin and quiet-room display |
 | `draft.js` | Optional topic negotiation, client refresh, synchronization and controls |
+| `topic-choice.js` | Optional blind strikes, safe snapshot merging and topic/side choice |
 | `verdict.js` | Decision presentation, unresolved results and post-round actions |
 
 Each controller receives explicit dependencies. The page's getters/setters

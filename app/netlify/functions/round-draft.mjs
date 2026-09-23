@@ -129,10 +129,11 @@ export async function runDraftAction(db, uid, body) {
     const uids = (Array.isArray(st.uids) ? st.uids : []).map(String);
     if (uids.length !== 2 || uids.indexOf(uid) === -1) return { ok: false, reason: 'not_a_debater' };
     const round = roundSnap.exists ? (roundSnap.data() || {}) : {};
+    if (round.topicStrikes && !['done', 'cancelled'].includes(round.topicStrikes.phase)) return { ok: false, reason: 'topic_strikes_pending' };
 
     // A round that already started is past the point where the motion is
     // still up for grabs. Nothing here may rewrite a round in progress.
-    const started = (round.speechIdx || 0) > 0
+    const started = (round.currentTimer && (round.currentTimer.state !== 'ready' || Number(round.currentTimer.accumulatedMs) > 0 || Number(round.currentTimer.startMs) > 0)) || (round.speechIdx || 0) > 0
       || (Array.isArray(round.speeches) && round.speeches.length > 0)
       || round.status === 'ballot' || round.status === 'complete';
     if (started) return { ok: false, reason: 'round_started' };

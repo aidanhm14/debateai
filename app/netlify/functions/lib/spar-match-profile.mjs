@@ -187,5 +187,5 @@ export function matchDeskDraftConfig(mine, theirs, seed) {
   const recommendedMotion = claims[Math.floor(hash / opposed.length) % claims.length];
   // Only motions leave this module, never issue ids, answers, inferred
   // positions, or instructions about which side either person should take.
-  return { suggestions, recommendedMotion };
+  return { suggestions, recommendedMotion, differenceSuggestions: opposed.flatMap(key => DESK_RESOLUTIONS[key]) };
 }

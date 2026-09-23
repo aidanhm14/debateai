@@ -105,7 +105,7 @@ for (const a of profiles) for (const b of profiles) {
     assert.ok(conflicts.some((key) => POLITICAL_MOTIONS[key].includes(config.recommendedMotion)));
     assert.ok(config.suggestions.every((text) => conflicts.some((key) => POLITICAL_MOTIONS[key].includes(text))));
   }
-  assert.ok(Object.keys(config).every((key) => ['suggestions', 'recommendedMotion'].includes(key)), 'no raw answers or issue metadata may leave the private profile layer');
+  assert.ok(Object.keys(config).every((key) => ['suggestions', 'recommendedMotion', 'differenceSuggestions'].includes(key)), 'no raw answers or issue metadata may leave the private profile layer');
 }
 for (const text of Object.values(POLITICAL_MOTIONS).flat()) {
   assert.ok(checkContent({ text, kind: 'motion' }).ok, 'personalized pools must satisfy the existing content boundary: ' + text);
@@ -219,15 +219,11 @@ assert.ok(!/\bconviction\s*:/.test(spar.match(/ref\.set\(\{([\s\S]*?)joinedAt:/)
 assert.match(pair, /collection\('spar_match_profiles'\)/);
 assert.match(pair, /draftConfig:\s*privateDraftConfig/);
 assert.match(pair, /privateDraftConfig = matchDeskDraftConfig\(/);
-// Exercise the arrival assignment from the real pair transaction. A test
-// of draft suggestions alone misses the ordinary path, which never opens
-// the optional motion negotiation.
-const arrivalAssignment = pair.match(/if \(!pairedMotion && privateDraftConfig\.recommendedMotion\) \{[\s\S]*?\n      \}/)?.[0];
-assert.ok(arrivalAssignment, 'normal pairing must receive the recommended resolution');
-const assignArrival = new Function('pairedMotion', 'privateDraftConfig', 'common', arrivalAssignment + '; return common;');
-assert.equal(assignArrival('', focused, { pairedMotion: '' }).pairedMotion, focused.recommendedMotion);
-assert.equal(assignArrival('Our explicitly chosen motion.', focused, { pairedMotion: 'Our explicitly chosen motion.' }).pairedMotion, 'Our explicitly chosen motion.');
-assert.equal(assignArrival('', {}, { pairedMotion: '' }).pairedMotion, '', 'a pair without disagreement keeps the ordinary fallback');
+// Suggestions stay available without choosing a topic before arrival.
+assert.doesNotMatch(pair, /common\.pairedMotion = privateDraftConfig\.recommendedMotion/);
+assert.match(pair, /\n        pairedMotion,/);
+assert.ok(focused.differenceSuggestions.length >= 2);
+assert.ok(!matchDeskDraftConfig(left, echo, 'same').differenceSuggestions, 'agreement never claims a difference');
 assert.match(rules, /match \/spar_match_profiles\/\{profileUid\}[\s\S]*allow read, write: if false;/);
 assert.match(accountDeleteLib, /'spar_match_profiles'/, 'account deletion must remove the sensitive profile');
 assert.match(accountDelete, /purgeIdentity/, 'account deletion must run the identity purge that removes the profile');

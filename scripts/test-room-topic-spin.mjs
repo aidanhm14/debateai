@@ -31,7 +31,7 @@ stamp.draftConfig = {};
 assert.ok(DRAFT_MOTIONS.casual.includes((await spin()).motion), 'skipped answers keep the ordinary pool');
 stamp.draftConfig = { suggestions: ['Abortion should be banned.'] };
 assert.ok(DRAFT_MOTIONS.casual.includes((await spin()).motion), 'old unsafe suggestions cannot resurface');
-for (const patch of [{ currentTimer: { state: 'running' } }, { speechIdx: 1 }, { tournamentId: 'event' }, { draft: { phase: 'offer' } }]) {
+for (const patch of [{ currentTimer: { state: 'running' } }, { speechIdx: 1 }, { tournamentId: 'event' }, { draft: { phase: 'offer' } }, { topicStrikes: { phase: 'strike' } }]) {
   Object.assign(round, patch);
   await assert.rejects(spin(), { status: 409 });
   for (const key of Object.keys(patch)) delete round[key];
@@ -46,15 +46,16 @@ const { readFileSync } = await import('node:fs');
 const vm = await import('node:vm');
 const html = readFileSync('app/live-round.html','utf8');
 const client = html.slice(html.indexOf("    var gmBtn = $('rebGenMotion');"), html.indexOf('    function requestRoundBrief(btn){'));
-for (const scenario of ['success','offline','denied','motion changed','started','account changed','proposal changed']) {
-  let click, release, locked = false, sent = [], requests = [];
+for (const difference of [false,true]) for (const scenario of ['success','offline','denied','motion changed','started','account changed','proposal changed']) {
+  let click, differenceClick, release, locked = false, sent = [], requests = [];
   const button = { disabled: false, addEventListener: (event, fn) => { click = fn; } };
   const otherButton = { disabled: false };
+  const differenceButton = { disabled: false, addEventListener: (event, fn) => { differenceClick = fn; } };
   const user = { uid: 'a', getIdToken: async () => 'token' };
   const state = { user, room: 'room', motion: 'Current topic.' };
   const pending = new Promise(resolve => { release = resolve; });
   const context = { state, SPAR_MOTIONS: DRAFT_MOTIONS.casual, rmbRoll: otherButton,
-    $: () => button, isSpectator: () => false, motionChangeLocked: () => locked,
+    $: id => id === 'rebGenMotion' ? button : id === 'rmbDifferBtn' ? differenceButton : null, isSpectator: () => false, motionChangeLocked: () => locked,
     bothSeatsIdentified: () => true, myUid: () => state.user.uid,
     setMotion: (...args) => sent.push(args), toast: () => {}, gtag: () => {},
     AbortController, setTimeout, clearTimeout,
@@ -66,18 +67,38 @@ for (const scenario of ['success','offline','denied','motion changed','started',
     },
   };
   vm.runInNewContext(client, context);
-  const first = click(); await new Promise(resolve => setImmediate(resolve));
-  await click(); assert.equal(requests.length, 1, 'double click does not start another spin');
+  const invoke = difference ? differenceClick : click;
+  const first = invoke(); await new Promise(resolve => setImmediate(resolve));
+  await invoke(); assert.equal(requests.length, 1, 'double click does not start another spin');
   assert.equal(button.disabled, true); assert.equal(otherButton.disabled, true);
   if (scenario === 'motion changed') state.motion = 'Changed while waiting.';
   if (scenario === 'started') locked = true;
   if (scenario === 'account changed') state.user = { uid: 'b' };
   if (scenario === 'proposal changed') state.motionProposal = { text: 'A new typed proposal.' };
   release(); await first;
-  assert.equal(sent.length, ['success','offline'].includes(scenario) ? 1 : 0, scenario);
+  assert.equal(requests[0].mode,difference?'difference':'spin');
+  assert.equal(sent.length, scenario === 'success' || (scenario === 'offline' && !difference) ? 1 : 0, scenario);
   if (scenario === 'success') assert.equal(sent[0][0], 'A matching-inspired topic.');
-  if (scenario === 'offline') assert.ok(DRAFT_MOTIONS.casual.includes(sent[0][0]));
+  if (scenario === 'offline' && !difference) assert.ok(DRAFT_MOTIONS.casual.includes(sent[0][0]));
   assert.equal(state.motion, scenario === 'motion changed' ? 'Changed while waiting.' : 'Current topic.', 'selection only enters the existing proposal flow');
   assert.equal(button.disabled, false); assert.equal(otherButton.disabled, false);
 }
 console.log('Topic spin client: proposals, offline fallback, duplicate clicks, stale topic/account/proposal responses and speech-start races passed.');
+
+// An explicit difference must come from BOTH saved answers, never a broad fallback.
+stamp.draftConfig = matchDeskDraftConfig({stances:{economy:'redistribute'}},{stances:{economy:'markets'}},'room');
+round.motion = '';
+const difference = await spinRoomTopic(db,'a',{room:'room',mode:'difference'},()=>0);
+assert.ok(stamp.draftConfig.differenceSuggestions.includes(difference.motion));
+assert.deepEqual(Object.keys(difference).sort(),['from','motion']);
+stamp.draftConfig = { suggestions: ['Cities should fund more parks.'], differenceSuggestions: [] };
+await assert.rejects(spinRoomTopic(db,'a',{room:'room',mode:'difference'}),{status:409});
+rows.set('spar_match_profiles/a',{stances:{economy:'redistribute'}});
+rows.set('spar_match_profiles/b',{stances:{economy:'markets'}});
+delete stamp.draftConfig.differenceSuggestions;
+assert.ok((await spinRoomTopic(db,'a',{room:'room',mode:'difference'},()=>0)).motion,'older room stamps can use the explicit request');
+rows.set('spar_match_profiles/b',{stances:{economy:'redistribute'}});
+await assert.rejects(spinRoomTopic(db,'a',{room:'room',mode:'difference'}),{status:409});
+stamp.uids=['a','outsider'];
+await assert.rejects(spinRoomTopic(db,'a',{room:'room',mode:'difference'}),{status:409});
+console.log('Where you differ: explicit disagreements, old rooms, no invented difference, topic-only responses passed.');

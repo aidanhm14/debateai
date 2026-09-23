@@ -5,10 +5,10 @@ import { readFileSync } from 'node:fs';
 import { draftFixture } from '../../scripts/test-support/draft-fixture.mjs';
 
 const source = readFileSync(new URL('../../app/live-round.html', import.meta.url), 'utf8');
-const between = (a, b) => source.slice(source.indexOf(a), source.indexOf(b, source.indexOf(a)));
+const between = (a, b) => { const start=source.indexOf(a), end=source.indexOf(b,start); if(start<0||end<0)throw new Error('Missing source boundary: '+a); return source.slice(start,end); };
 const draftModule = readFileSync(new URL('../../app/js/live-room/draft.js', import.meta.url), 'utf8');
 const timerModule = readFileSync(new URL('../../app/js/live-room/timers.js', import.meta.url), 'utf8');
-const snapshot = between('  function onRoundSnapshot(d){', '    // ── Snapshot repaint gating')
+const snapshot = between('  function onRoundSnapshot(d, roomId){', '    // ── Snapshot repaint gating')
   + "if (window.testPaintFailure) throw new Error('fixture-decoration'); }";
 const swap = between('    function applySeatSwap(){', '    function proposeSwap(){');
 const connectionModule = readFileSync(new URL('../../app/js/live-room/connection.js', import.meta.url), 'utf8');

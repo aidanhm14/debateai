@@ -1,5 +1,5 @@
-// Pure final-consent guard. Generated text becomes the round's motion only
-// while BOTH people are accepting this exact proposal. Never patch a room.
+// Pure final-consent guard. Generated text joins the private suggestion pool
+// while BOTH people are accepting this exact match. Never patch a room.
 export function motionForPairArrival(stamp, mine, theirs, room, myUid, peerUid) {
   if (!room || mine?.room !== room || theirs?.room !== room) return null;
   if (mine.status !== 'consent' || theirs.status !== 'consent') return null;

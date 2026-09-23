@@ -1,5 +1,8 @@
 # AGENTS.md
 
+> **Room topic choice (Aidan, 2026-09-23).** New ordinary matched rooms open the call with “Choose topic”. Matching suggestions never become an automatic resolution. Spin a topic, Propose a topic and Where you differ enter the shared acceptance flow. Where you differ uses explicit differences in both saved matching answers and never invents one from a generic topic. Offer strikes needs the other person’s acceptance, then five topics and two private strikes each. Reveal only after both commit; one person chooses a survivor and the other chooses a side. The private strike record is server-only, and its public projection is server-owned. No speech starts with an empty topic or pending strikes. Existing topics, ongoing rounds, explicit challenge/private topics and tournament draws remain intact. Matched links enter automatically with or without a prefilled topic.
+
+
 > **Public-chat spam protection (Aidan, 2026-09-23).** The Commons uses one Firestore transaction for per-account and per-IP rate limits, moderation bans and message creation. No per-instance or client-only limiter can replace it. Repeated content is normalized and blocked for ten minutes; three rejected sends within a minute trigger a five-minute posting cooldown. Account bans are deliberate human moderation, separate from automatic cooldowns. Confirmed promotional domains are blocked. Invalid supplied authentication cannot fall back to anonymous posting. Open chat tabs reconcile removals from each successful feed response. Private ban, limit and report-evidence collections remain server-only under default-deny rules.
 
 
