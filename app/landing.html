@@ -948,7 +948,7 @@ window.watchLive = (function () {
 <script src="/js/standings-refresh.js"></script>
 <link rel="stylesheet" href="/css/wordmark.css">
 <link rel="stylesheet" href="/css/home-simple.css?v=original-20260923">
-<link rel="stylesheet" href="/css/landing/homepage-design.css" data-page-source>
+<link rel="stylesheet" href="/css/landing/homepage-design.css?v=20260924-borderless" data-page-source>
 <!-- One finite entrance. The preparation guard expires even if the deferred
      module fails to load. Base markup stays visible with JavaScript off. -->
 <style id="landing-entry-guard">
@@ -3710,7 +3710,7 @@ window.watchLive = (function () {
      RETIRED on his newer explicit instruction; do not restore it.
      With no real messages the panel stays blank for signed-out visitors.
      Signed-in people keep the composer so they can start the chat.
-     Real highlights type in one at a time; an unchanged poll keeps its place.
+     Existing highlights paint in full, then continue typing at the bottom.
      All text lands via textContent, never innerHTML. The panel is
      display:none under 1360px, so nothing fetches until that layout
      is actually on screen. */
@@ -3729,6 +3729,10 @@ window.watchLive = (function () {
     var active = null;
     var timer = null;
     var hovering = false;
+    var following = true;
+    list.addEventListener('scroll', function(){
+      following = list.scrollHeight - list.clientHeight - list.scrollTop < 40;
+    });
     var reduced = window.matchMedia ? window.matchMedia('(prefers-reduced-motion:reduce)') : null;
     panel.addEventListener('mouseenter', function(){ hovering = true; });
     panel.addEventListener('mouseleave', function(){ hovering = false; });
@@ -3761,7 +3765,7 @@ window.watchLive = (function () {
       }
       active.offset = Math.min(active.chars.length, active.offset + Math.max(1, Math.ceil(active.chars.length / 100)));
       active.text.textContent = active.chars.slice(0, active.offset).join('');
-      list.scrollTop = list.scrollHeight;
+      if (following) list.scrollTop = list.scrollHeight;
       if (active.offset >= active.chars.length){
         active.node.classList.remove('is-typing');
         active = null;
@@ -3777,6 +3781,7 @@ window.watchLive = (function () {
         item.node.classList.remove('is-typing');
         group.appendChild(item.node);
       });
+      if (following) list.scrollTop = list.scrollHeight;
     }
     if (reduced && reduced.addEventListener) reduced.addEventListener('change', function(e){
       if (e.matches) showStatic();
@@ -3834,6 +3839,7 @@ window.watchLive = (function () {
       var nextKey = JSON.stringify(msgs.map(function(m){ return [m.room, m.label, m.handle, m.text, m.at]; }));
       if (nextKey === renderedKey) return;
       renderedKey = nextKey;
+      var initial = !group;
       if (!group){
         group = document.createElement('div');
         group.className = 'fs-chats-group';
@@ -3890,7 +3896,12 @@ window.watchLive = (function () {
       // New messages get the next turn; removed messages leave immediately.
       queue = added.concat(queue.filter(function(item){ return items.indexOf(item) !== -1; }));
       panel.classList.add('is-live');
-      if (reduced && reduced.matches) showStatic();
+      if (initial){
+        following = true;
+        showStatic();
+        if (!(reduced && reduced.matches)) schedule(1600);
+      }
+      else if (reduced && reduced.matches) showStatic();
       else if (timer === null) typeNext();
     }
 
