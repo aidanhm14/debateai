@@ -317,9 +317,61 @@
     t.muted.style.display = muted ? '' : 'none';
   }
 
+  var blockedAudio = new Map();
+  var soundButton = null;
+
+  function paintSoundButton(){
+    blockedAudio.forEach(function(stream, audio){
+      if (!audio.isConnected || audio.srcObject !== stream) blockedAudio.delete(audio);
+    });
+    if (!blockedAudio.size){
+      if (soundButton) soundButton.remove();
+      soundButton = null;
+      return;
+    }
+    if (!soundButton && context.room.wrap){
+      soundButton = document.createElement('button');
+      soundButton.type = 'button';
+      soundButton.className = 'cv-btn cv-sound';
+      soundButton.textContent = 'Enable sound';
+      soundButton.title = 'Your browser paused the audio. Enable sound to hear the room.';
+      soundButton.addEventListener('click', function(){
+        // Every play() must run inside this gesture, before awaiting any
+        // of them. A successful speaker must not hide a still-blocked one.
+        Object.keys(context.room.audios).forEach(function(key){ playRoomAudio(context.room.audios[key]); });
+      });
+      context.room.wrap.appendChild(soundButton);
+    }
+  }
+
+  function playRoomAudio(audio){
+    var stream = audio.srcObject;
+    if (!stream) return;
+    var attempt = {};
+    audio._lrPlayAttempt = attempt;
+    var pending;
+    try { pending = audio.play(); } catch(e){ pending = Promise.reject(e); }
+    Promise.resolve(pending).then(function(){
+      if (audio._lrPlayAttempt !== attempt || audio.srcObject !== stream) return;
+      blockedAudio.delete(audio);
+      paintSoundButton();
+    }).catch(function(e){
+      // Track swaps and teardown abort old plays. They must not bring a
+      // sound prompt back after a replacement stream has started.
+      if (audio._lrPlayAttempt !== attempt || audio.srcObject !== stream || !audio.isConnected) return;
+      if (e && e.name === 'AbortError') return;
+      blockedAudio.set(audio, stream);
+      paintSoundButton();
+    }).finally(function(){
+      if (audio._lrPlayAttempt === attempt) audio._lrPlayAttempt = null;
+    });
+  }
+
   function removeAudio(sid){
+    blockedAudio.delete(context.room.audios[sid]);
     try { context.room.audios[sid].srcObject = null; context.room.audios[sid].remove(); } catch(e){}
     delete context.room.audios[sid];
+    paintSoundButton();
   }
 
   function paintAudio(list){
@@ -339,17 +391,15 @@
           a = document.createElement('audio');
           a.autoplay = true; a.playsInline = true;
           a.setAttribute('playsinline', '');
+          a.addEventListener('playing', function(){
+            blockedAudio.delete(this);
+            paintSoundButton();
+          });
           context.room.audioHost.appendChild(a);
           context.room.audios[key] = a;
         }
-        attachTrack(a, track, pair[0] === 'judge' && window.RoomTopic ? window.RoomTopic.playRemote : null);
-        if (context.room.viewer && a.paused){
-          // Start immediately. Some browsers may still enforce their own
-          // autoplay policy, but the spectator surface never interrupts the
-          // broadcast with a separate sound-gate button.
-          var pr = a.play && a.play();
-          if (pr && pr.catch) pr.catch(function(){});
-        }
+        attachTrack(a, track, playRoomAudio);
+        if (a.paused && !a._lrPlayAttempt && !blockedAudio.has(a)) playRoomAudio(a);
       });
     });
     Object.keys(context.room.audios).forEach(function(sid){
