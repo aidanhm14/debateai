@@ -318,10 +318,6 @@ var ROUNDS = [
        carrying it. Everything else is a good round nobody arrives for.
        The opener rule draws from that bucket, so the first card a cold
        visitor meets is one of them. */
-    { lead:true, fmt:'Casual 1v1', motion:'Ghosting someone after one date is fine.',
-      a:{ nm:'Tyler', side:'For', face:'face49' }, b:{ nm:'Nora', side:'Against', face:'face18' },
-      open:47, drift:33, won:'b', score:'78 - 90', crowd:231, vol:398,
-      rfd:'Nora wins. A short message gives someone clarity. Avoiding a few uncomfortable words leaves the other person guessing.' },
     { lead:true, fmt:'Casual 1v1', motion:'You should tell your friends how much you earn.',
       a:{ nm:'Jake', side:'For', face:'face52' }, b:{ nm:'Grace', side:'Against', face:'face25' },
       open:44, drift:58, won:'a', score:'89 - 78', crowd:174, vol:322,
