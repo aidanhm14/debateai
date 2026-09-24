@@ -6,7 +6,7 @@
 
 
 
-const CACHE_NAME = 'debateos-v3689';
+const CACHE_NAME = 'debateos-v3690';
 
 
 
@@ -342,14 +342,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first for CDN libraries, fonts, and static assets
+  // Same-origin styles use the network-first fallback below. Cache-first
+  // CSS can pair fresh HTML with the previous layout before a new worker
+  // activates. CDN libraries, remote styles, fonts and images stay cached.
   if (
     url.hostname.includes('cdnjs.cloudflare.com') ||
     url.hostname.includes('fonts.googleapis.com') ||
     url.hostname.includes('fonts.gstatic.com') ||
     url.hostname.includes('gstatic.com/firebasejs') ||
     request.destination === 'font' ||
-    request.destination === 'style' ||
+    (request.destination === 'style' && url.origin !== self.location.origin) ||
     request.destination === 'image'
   ) {
     event.respondWith(
