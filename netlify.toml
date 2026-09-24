@@ -94,6 +94,28 @@
   status = 404
   force = true
 
+# ── Firebase Auth handler on our own origin (2026-09-24) ──
+# signInWithRedirect (the fallback every provider button takes when a
+# popup is blocked: iOS Safari, in-app webviews, popup blockers) round-
+# trips through authDomain. With authDomain on firebaseapp.com that is a
+# cross-site redirect, and partitioned third-party storage drops the
+# pending sign-in on the way back: the visitor lands anonymous with no
+# error. Measured 2026-09-24 on Apple (opener=false, redirect_uri on
+# firebaseapp.com, returned anonymous). Serving the handler here lets
+# authDomain be itsdebatable.com, so the whole trip stays same-site.
+# Firebase's documented "proxy auth requests" option. Both rules are
+# 200 rewrites (proxies), not redirects, and must precede any catch-all.
+[[redirects]]
+  from = "/__/auth/*"
+  to = "https://debateos-78ac5.firebaseapp.com/__/auth/:splat"
+  status = 200
+  force = true
+[[redirects]]
+  from = "/__/firebase/*"
+  to = "https://debateos-78ac5.firebaseapp.com/__/firebase/:splat"
+  status = 200
+  force = true
+
 # ── canonical-host normalization: www + http → https apex ──
 [[redirects]]
   from = "https://www.itsdebatable.com/*"
