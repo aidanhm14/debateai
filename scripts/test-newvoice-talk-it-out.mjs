@@ -65,7 +65,7 @@ check('a continuation is re-signed with the FIRST mint time', /signContinuation\
 check('the token is only issued to a caller with a uid', /roundToken: \(signedInUid && continueSecret\)/.test(realtime));
 check('the prior transcript is sanitized and only read on a continuation', /const priorTranscript = continued \? sanitizePriorTranscript\(body\.priorTranscript\) : ''/.test(realtime));
 check('scoping needs an EMPTY motion', /const scoping = mode === 'clash' && body\.scoping === true && !motion;/.test(realtime));
-check('the clash mint carries the tools', /const sessionTools = mode === 'clash' \? REALTIME_TOOLS : null;/.test(realtime) && /s\.tools = sessionTools; s\.tool_choice = 'auto';/.test(realtime));
+check('the clash mint carries the tools', /: mode === 'clash' \? REALTIME_TOOLS : null;/.test(realtime) && /s\.tools = sessionTools; s\.tool_choice = 'auto';/.test(realtime));
 check('the mint hands the tools and the token to the page', /tools: sessionTools,/.test(realtime) && /roundToken:/.test(realtime));
 check('every offered voice is allowed by the server', (() => {
   const m = realtime.match(/const ALLOWED_VOICES = new Set\(\[([\s\S]*?)\]\);/);

@@ -30,6 +30,7 @@
 //
 // Override the realtime model at deploy time with OPENAI_REALTIME_MODEL.
 
+import { parseTraining, trainingTitle, trainingInstructions } from './lib/training-scenario.mjs';
 import { LIVE_MODEL, validLiveOffer, liveVoiceConfig, createLiveVoice } from './lib/live-voice.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
@@ -969,6 +970,17 @@ export default async (request, context) => {
   let body = {};
   try { body = await request.json(); } catch (e) { body = {}; }
   if (!body || typeof body !== 'object') body = {};
+  let training = null;
+  if (Object.prototype.hasOwnProperty.call(body, 'training')) {
+    try {
+      if (body.mode !== 'clash') throw new Error('Training requires a conversation.');
+      training = parseTraining(body.training);
+    } catch (error) {
+      return new Response(JSON.stringify({ error: error.message, code: error.code || 'INVALID_TRAINING' }), {
+        status: 400, headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
+  }
   const useLive = body.transport === 'live' && body.mode === 'clash';
   if (body.transport === 'live' && (!useLive || !validLiveOffer(body.sdp))) {
     return new Response(JSON.stringify({ error: 'Could not connect your microphone.', code: 'INVALID_LIVE_OFFER' }), {
@@ -1191,7 +1203,7 @@ export default async (request, context) => {
     // could therefore carry a second instruction line into the prompt. The
     // persona fields below have always been sanitized; the motion is now
     // held to a stricter version of the same bar. See lib/topic-isolation.
-    const motion = sanitizeTopic(String(body.motion || '').slice(0, 500), mode === 'clash' ? 220 : 500);
+    const motion = training ? trainingTitle(training) : sanitizeTopic(String(body.motion || '').slice(0, 500), mode === 'clash' ? 220 : 500);
     const motionGuard = checkContent({ text: motion, kind: 'motion', minLength: 0 });
     if (!motionGuard.ok) {
       return new Response(JSON.stringify({
@@ -1341,7 +1353,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
     const smartness = Math.max(1, Math.min(5, parseInt(body.smartness, 10) || 1));
     const sideLabel = (side === 'gov' || side === 'pm' || side === 'mg') ? 'Government' : 'Opposition';
     const loopFormat = String(mode || format || 'clash').toLowerCase().slice(0, 40);
-    const [councilResearch, exemplarBlock, distillBlock] = await Promise.all([
+    const [councilResearch, exemplarBlock, distillBlock] = training ? ['', '', ''] : await Promise.all([
       smartness > 1
         ? gatherCouncil(motion, sideLabel, smartness, mode).catch((e) => { console.error('Council assembly failed:', e); return ''; })
         : Promise.resolve(''),
@@ -1498,7 +1510,9 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
     const clashToolsBlock = mode === 'clash'
       ? (continued ? continuationBlock(priorTranscript, voice) : '') + (scoping ? scopingBlock() : '') + flexBlock(voice)
       : '';
-    const instructions = mode === 'clash'
+    const instructions = training
+      ? trainingInstructions(training, difficulty) + clashLanguageBlock + (continued ? continuationBlock(priorTranscript, voice) : '')
+      : mode === 'clash'
       ? motionPolicyBlock + clashLanguageBlock + backgroundBlock + clashToolsBlock + clashModeBlock + '\n\n' + conversationBlock +
         (distillBlock ? '\n' + distillBlock + '\n' : '') +
         CLASH_DIFFICULTY[difficulty] +
@@ -1597,7 +1611,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
     // turn_detection + transcription inline; the GA mint endpoint takes
     // a smaller surface and you push the rest as a session.update event
     // over the data channel after the WebRTC connection opens.
-    const sessionTools = mode === 'clash' ? REALTIME_TOOLS : null;
+    const sessionTools = training ? REALTIME_TOOLS.filter(tool => tool.name === 'set_voice') : mode === 'clash' ? REALTIME_TOOLS : null;
     const gaBody = (m) => {
       const s = {
         type: 'realtime',
@@ -1652,7 +1666,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       model = LIVE_MODEL;
       lastLabel = 'Live /sessions';
       upstream = await createLiveVoice({ apiKey, uid: signedInUid, sdp: body.sdp, config: liveVoiceConfig({
-        instructions, motion, side, voice, language: body.aiLanguage, scoping, difficulty, debateStyle, priorTranscript,
+        instructions, motion, side, voice, language: body.aiLanguage, scoping, difficulty, debateStyle, priorTranscript, training,
       }) });
       if (!upstream.ok) lastErrText = JSON.stringify({ error: { message: 'GPT-Live could not connect. Check OpenAI model access, API balance, and permissions, then try again.' } });
     }

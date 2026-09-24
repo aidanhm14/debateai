@@ -129,7 +129,7 @@ test('missing timestamps and unrelated devices never receive assisted credit', (
 const voiceSource = fs.readFileSync(new URL('../app/newvoice.html', import.meta.url), 'utf8');
 const voiceHelper = voiceSource.slice(voiceSource.indexOf('function trackVoiceEvent('), voiceSource.indexOf('\n}', voiceSource.indexOf('function trackVoiceEvent(')) + 2);
 const judgeFunction = voiceSource.slice(voiceSource.indexOf('function judgeRound(){'), voiceSource.indexOf('\n/* Feed the learning loop'));
-async function voiceBallot(text) {
+async function voiceBallot(text, trainingRequested = false) {
   const events = [], elements = new Map();
   function element() {
     const node = { hidden: false, className: '', appendChild() {}, querySelector() { return null; } };
@@ -140,7 +140,7 @@ async function voiceBallot(text) {
     window: { track(event, metadata) { events.push({ event, metadata }); } },
     $: id => { if (!elements.has(id)) elements.set(id, element()); return elements.get(id); },
     document: { createElement: element, createTextNode: () => ({}) },
-    analyticsRoundId: 'finished-round', lastVerdictText: '', lastScore: null,
+    analyticsRoundId: 'finished-round', lastVerdictText: '', lastScore: null, trainingRequested,
     turns: [{ who: 'you', text: 'My argument.' }, { who: 'ai', text: 'The objection.' }, { who: 'you', text: 'My reply.' }],
     roundStartIdx: 0, currentMotion: 'Cities should have more parks.', side: 'for', roundJudge: null,
     SCORE_CALIBRATION: '', postLeaderboard() {},
@@ -166,6 +166,10 @@ test('empty or malformed Voice AI verdicts do not count as completed rounds', as
   for (const text of ['', 'No verdict available.', 'Winner: You.\nScore: 999\nBad score.']) {
     assert.equal((await voiceBallot(text)).length, 0);
   }
+});
+
+test('custom practice does not request a verdict or report a ranked completion', async () => {
+  assert.equal((await voiceBallot('Winner: You.\nScore: 90\nA strong case.', true)).length, 0);
 });
 
 test('storage fallback preserves the trusted-human presence gate and invalidates legacy trust', async () => {

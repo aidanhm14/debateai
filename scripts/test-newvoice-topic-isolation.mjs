@@ -101,9 +101,10 @@ check('the page sanitizes a handed ?motion=',
 check('the page sanitizes the shuffled topic',
   page.includes('let next = sanitizeTopic(randomClaim());'));
 check('the server sanitizes the motion before it enters the prompt',
-  /const motion = sanitizeTopic\(String\(body\.motion \|\| ''\)\.slice\(0, 500\)/.test(realtime));
+  /const motion = training \? trainingTitle\(training\) : sanitizeTopic\(String\(body\.motion \|\| ''\)\.slice\(0, 500\)/.test(realtime));
 check('the server sanitizes before the content guard reads it',
-  realtime.indexOf('const motion = sanitizeTopic(') < realtime.indexOf("checkContent({ text: motion, kind: 'motion'"));
+  realtime.indexOf('const motion = training ? trainingTitle(training) : sanitizeTopic(') >= 0 &&
+  realtime.indexOf('const motion = training ? trainingTitle(training) : sanitizeTopic(') < realtime.indexOf("checkContent({ text: motion, kind: 'motion'"));
 check('the clash prompt quotes the claim as the only topic',
   realtime.includes('THE CLAIM, exactly and only: "{motion}"'));
 check('the clash prompt marks everything else as private setup',
