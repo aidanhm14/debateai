@@ -31,8 +31,9 @@
 
   function nextSession(nowMs) { return schedule.nextSession(nowMs); }
 
-  function eventState(nowMs) {
-    var next = nextSession(nowMs);
+  function eventState(nowMs, city) {
+    var selected = SESSIONS.filter(function (s) { return s.city === city; })[0];
+    var next = selected ? schedule.nextFor(selected, nowMs) : nextSession(nowMs);
     var live = nowMs >= next.start && nowMs < next.start + LIVE_MS;
     return { start: next.start, live: live, endsAt: next.start + LIVE_MS, session: next.session };
   }
@@ -222,7 +223,17 @@
     '.sn-rsvp-form .sn-cta{width:auto;flex:0 0 auto;min-height:44px;font-size:.86rem;padding:10px 18px}' +
     '.sn-card--banner .sn-rsvp{max-width:460px}' +
     '.sn-rail-remind{margin-top:8px}' +
-    '.sn-rail-remind .sn-cta{width:100%;justify-content:center;font-size:.66rem;padding:6px 11px}';
+    '.sn-rail-remind .sn-cta{width:100%;justify-content:center;font-size:.66rem;padding:6px 11px}' +
+    '.sn-card--compact{width:100%;max-width:560px;margin:20px 0 0;padding:14px 16px;background:transparent;' +
+      'color:var(--ink,var(--fg,var(--text,#21211f)));border-color:var(--line,var(--border,rgba(33,33,31,.15)))}' +
+    '.sn-card--compact .sn-title{font-size:14px;color:inherit;margin:0;line-height:1.5}' +
+    '.sn-card--compact .sn-sub{font-size:13px;color:inherit;opacity:.8;margin:4px 0 0}' +
+    '.sn-card--compact .sn-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}' +
+    '.sn-card--compact .sn-cta{width:auto;padding:7px 12px;font-size:13px;line-height:1.4}' +
+    '.sn-card--compact .sn-cta--ghost{color:inherit;border-color:currentColor}' +
+    '.sn-card--compact .sn-rsvp-input{color:inherit;background:transparent;border:1px solid currentColor}' +
+    '.sn-card--compact .sn-rsvp-note{color:inherit}' +
+    '.sn-card--compact.sn-queue-quiet{border-color:var(--accent,var(--red,#c92e30))}';
 
   function injectCss() {
     if (document.getElementById('sparNightCss')) return;
@@ -235,7 +246,7 @@
   // ── Render ───────────────────────────────────────────
   var mounted = [];
   function render(el, variant, page) {
-    var st = eventState(Date.now());
+    var st = eventState(Date.now(), el.getAttribute('data-spar-night-city'));
     var live = st.live;
     // The pre-event -> live re-render changes the card's height (RSVP
     // panel and ghost button drop out). If the card sits above the
@@ -327,7 +338,15 @@
         '<p class="sn-rsvp-note" data-sn-rsvp-note>One reminder a week. Nothing else.</p>' +
       '</div>';
 
-    if (variant === 'rail') {
+    if (variant === 'compact') {
+      el.innerHTML = '<p class="sn-title"><strong>' +
+        (live ? 'Clash Hour is on: ' : 'Next Clash Hour: ') +
+        '<time datetime="' + new Date(st.start).toISOString() + '">' + local + '</time></strong>' +
+        ' (' + st.session.city + ' session).</p>' +
+        '<p class="sn-sub">' + (live ? 'Join this scheduled session.' : 'Join when more people are arriving.') + '</p>' +
+        '<div class="sn-actions">' + (live ? solid : remindBtn.replace('sn-cta--REMSTYLE', 'sn-cta--ghost')) +
+        calBtn.replace('sn-cta--CALSTYLE', 'sn-cta--ghost') + '</div>' + rsvpPanel;
+    } else if (variant === 'rail') {
       el.innerHTML = eyebrow +
         '<div class="sn-title">' + railTitle + '</div>' +
         '<div class="sn-sub">' + sub + '</div>' +
@@ -430,7 +449,7 @@
         // throw inside this .then, and the .catch below then told the
         // person "That did not save" about an RSVP that had saved.
         var calHref = '';
-        try { calHref = gcalUrl(eventState(Date.now())); } catch (e) {}
+        try { calHref = gcalUrl(eventState(Date.now(), el.getAttribute('data-spar-night-city'))); } catch (e) {}
         panel.innerHTML =
           '<p class="sn-rsvp-ok">On the list. Reminder lands Wednesday morning.</p>' +
           (calHref ? '<p class="sn-rsvp-note">Want it in your calendar too? ' +
@@ -473,8 +492,9 @@
     injectCss();
     slots.forEach(function (slot) {
       slot.setAttribute('data-sn-mounted', '1');
-      var variant = slot.getAttribute('data-spar-night') === 'rail' ? 'rail' : 'banner';
-      var page = /^\/spar/.test(location.pathname) ? 'spar' : 'landing';
+      var requested = slot.getAttribute('data-spar-night');
+      var variant = requested === 'rail' || requested === 'compact' ? requested : 'banner';
+      var page = /^\/spar/.test(location.pathname) ? 'spar' : (location.pathname.replace(/^\//, '').replace(/\.html$/, '') || 'landing');
       var m = render(slot, variant, page);
       mounted.push(m);
       ga('spar_night_seen', { page: page, variant: variant, live: m.live ? 1 : 0 });
@@ -484,6 +504,17 @@
 
   function boot() {
     scan();
+    function refreshQuietQueue() {
+      if (document.hidden || !document.querySelector('[data-spar-night="compact"]')) return;
+      fetch('/api/spar-queue').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }).then(function (data) {
+        var quiet = !!(data && !data.error && data.waiting === 0 && Date.now() - data.at < 120000);
+        document.querySelectorAll('[data-spar-night="compact"]').forEach(function (el) {
+          el.classList.toggle('sn-queue-quiet', quiet);
+        });
+      });
+    }
+    refreshQuietQueue();
+    if (document.querySelector('[data-spar-night="compact"]')) setInterval(refreshQuietQueue, 60000);
     // Catch slots inserted after load (the /spar rail builds in JS).
     var tries = 0;
     var late = setInterval(function () {

@@ -111,6 +111,13 @@ function commonStyles() {
     color:#3a3a3a;margin:0 0 32px;max-width:600px;
   }
 
+  .worked-example{width:100%;border-collapse:collapse;margin:0 0 28px;font-size:16px;line-height:1.6}
+  .worked-example caption{text-align:left;font-weight:700;margin-bottom:10px}
+  .worked-example th,.worked-example td{text-align:left;vertical-align:top;border-bottom:1px solid #eaeaea;padding:12px 10px}
+  .worked-example thead{background:#f7f6f2}
+  .worked-example th[scope="row"]{width:24%}
+  .example-action{margin:0 0 32px}
+
   .meta{
     font-size:13px;color:#6b6b6b;
     margin-bottom:44px;padding-bottom:28px;
@@ -232,8 +239,8 @@ function topNav() {
 }
 
 function renderFundamentalPage(item) {
-  const titleCore = `${item.question} · Debatable`;
-  const title = titleCore.length > 65 ? titleCore.slice(0, 62) + '…' : titleCore;
+  const titleCore = item.seoTitle || `${item.question} · Debatable`;
+  const title = item.seoTitle || (titleCore.length > 65 ? titleCore.slice(0, 62) + '…' : titleCore);
   const description = item.hook;
   const canonical = `${SITE_ORIGIN}/learn/fundamentals/${item.slug}`;
 
@@ -311,6 +318,13 @@ function renderFundamentalPage(item) {
 
   <p class="hook">${esc(item.hook)}</p>
 
+  ${item.introTable ? `<table class="worked-example">
+    <caption>A worked example: schools starting later</caption>
+    <thead><tr><th scope="col">Part</th><th scope="col">Example</th></tr></thead>
+    <tbody>${item.introTable.map(([part, example]) => `<tr><th scope="row">${esc(part)}</th><td>${esc(example)}</td></tr>`).join('')}</tbody>
+  </table>
+  <p class="example-action"><a href="${esc(item.ctaHref)}">${esc(item.ctaLabel)} →</a></p>` : ''}
+
   <div class="meta">Debate fundamentals · ${esc(item.readTime)} read</div>
 
   <div class="insort">
@@ -333,7 +347,7 @@ function renderFundamentalPage(item) {
   </section>` : ''}
 
   <div class="cta">
-    <p class="cta-line">Want to practice this against an AI that knows the format?</p>
+    <p class="cta-line">${esc(item.ctaPrompt || 'Try this in a casual one-on-one round against the AI.')}</p>
     <a class="cta-link" href="${esc(item.ctaHref)}">${esc(item.ctaLabel)} →</a>
   </div>
 

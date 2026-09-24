@@ -19,8 +19,14 @@ export const FUNDAMENTALS_BANK = {
 
   'claim-warrant-impact': {
     slug: 'claim-warrant-impact',
-    question: 'Claim, warrant, impact: the anatomy of a debate argument',
-    hook: 'Every debate argument has three parts. The claim is the position. The warrant is the reason it is true. The impact is why it matters. Skip any of them and the argument fails.',
+    question: 'Claim, Warrant, Impact: Definitions and Examples',
+    seoTitle: 'Claim, Warrant, Impact: Definitions and Examples | Debatable',
+    hook: 'The claim is what you argue. The warrant is the reasoning that supports it. The impact is why it matters. Together, they turn a position into an argument someone can answer.',
+    introTable: [
+      ['Claim', 'Schools should start later.'],
+      ['Warrant', 'An early start can prevent students from getting enough sleep.'],
+      ['Impact', 'Tired students may struggle to concentrate in class.'],
+    ],
     readTime: '6 min',
     takeaways: [
       'Claim is what you assert. Warrant is the reasoning. Impact is the consequence that matters.',
@@ -73,12 +79,10 @@ export const FUNDAMENTALS_BANK = {
         ],
       },
       {
-        heading: 'In practice across formats',
+        heading: 'Try the other side',
         body: [
-          "In APDA, the impromptu nature means you have to build claim-warrant-impact chains from memory under 15-minute prep. The strongest APDA debaters carry mental libraries of warrant-types (incentives, signaling, path dependence, externalities) that they can apply across motions.",
-          "In Policy, the warrant is usually a tagged evidence card. The 1AC reads tag (claim), cite (source), card body (warrant), tag-line summary (impact). Each card is one CWI chain.",
-          "In LD, the impact connects up to the framework. Claim is the policy position; warrant is the analysis; impact is what the framework cares about. If your framework is Util, your impact is wellbeing. If your framework is Kantian, your impact is the violation of the categorical imperative.",
-          "In PF and WSDC, the structure is similar but less formalized: a contention is a claim with one or more warrants and a stated impact. Judges flow it the same way.",
+          'Take the school-start example above and argue against a later start. What would change for families, transport, or activities after school? Choose one consequence and explain the chain that gets you there.',
+          'Say your claim, warrant, and impact out loud. Then ask another person to challenge the reasoning. Answer the specific step they questioned, rather than repeating your original claim.',
         ],
       },
     ],
@@ -94,7 +98,7 @@ export const FUNDAMENTALS_BANK = {
         why: 'Claim, warrant with named source, impact with magnitude. Judge flows all three. Argument lives.',
       },
     ],
-    related: ['asian-parli-pm-opening', 'apda-opp-case', 'ld-value-criterion'],
+    related: [],
     keywords: [
       'claim warrant impact debate',
       'warrant in debate',
@@ -106,8 +110,9 @@ export const FUNDAMENTALS_BANK = {
       'how to build a debate argument',
       'argument fundamentals debate',
     ],
-    ctaLabel: 'Practice building arguments',
-    ctaHref: '/practice?format=apda&motion=This%20house%20would%20ban%20political%20donations%20from%20corporations.',
+    ctaPrompt: 'Take the opposite side of the school-start example in a casual 1v1 against the AI.',
+    ctaLabel: 'Try arguing the other side',
+    ctaHref: '/practice?motion=Schools%20should%20start%20later.&side=con',
   },
 
   'weighing': {
