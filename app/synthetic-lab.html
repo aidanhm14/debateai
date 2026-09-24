@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="referrer" content="same-origin">
+  <title>Private debate lab | Debatable</title>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/synthetic-lab.css">
+  <script src="/js/synthetic-lab.js" defer></script>
+</head>
+<body>
+  <header class="lab-header">
+    <a href="/" aria-label="Debatable home"><img src="/assets/logo/debatable-wordmark.svg" alt="Debatable" width="147" height="32"></a>
+    <span class="private-label"><span></span> PRIVATE LAB</span>
+    <button id="logout" class="quiet" hidden>Lock lab</button>
+  </header>
+  <main>
+    <section id="gate" class="gate" aria-labelledby="gate-title">
+      <div class="eyebrow">A PLACE TO TEST THE ARGUMENT</div>
+      <h1 id="gate-title">The debate<br>behind the debate.</h1>
+      <p class="intro">Two AIs argue. Judges inspect the reasoning.<br>You decide what is worth learning from.</p>
+      <form id="unlock-form" class="unlock-form">
+        <label for="access-code">Access code</label>
+        <div class="unlock-row"><input id="access-code" type="password" autocomplete="current-password" required maxlength="256" placeholder="Enter your code"><button type="submit" id="unlock">Open lab <span aria-hidden="true">↗</span></button></div>
+        <p id="login-error" class="error" role="alert"></p>
+      </form>
+      <div class="gate-foot">PRIVATE EXPERIMENTS. SAVED ROUNDS. REVIEWED DATA.</div>
+    </section>
+
+    <section id="workspace" hidden aria-label="Debate lab">
+      <div class="page-intro"><div><div class="eyebrow">SYNTHETIC DEBATE / RESEARCH</div><h1>Let the arguments run.</h1><p>Watch a round, inspect the mistakes, keep the lessons.</p></div><div class="data-note">AI labels are provisional.<br>Training exports need your review.</div></div>
+      <p id="notice" class="notice" role="status" aria-live="polite"></p>
+      <div class="lab-grid">
+        <aside class="setup">
+          <form id="create-form">
+            <div class="section-heading"><span class="step-number">01</span><h2>Set the question</h2></div>
+            <label for="example">Start with an example</label>
+            <select id="example"></select>
+            <div id="example-context" class="hint"></div>
+            <div id="custom-fields" hidden>
+              <label for="motion">The question</label><textarea id="motion" rows="3" maxlength="500" placeholder="Should companies publish everyone's salary?"></textarea>
+              <label for="context">Scenario or constraints</label><textarea id="context" rows="3" maxlength="4000" placeholder="Facts both sides should take as given"></textarea>
+              <label for="family">Topic family</label><input id="family" maxlength="80" placeholder="pay-transparency" pattern="[a-z0-9][a-z0-9-]{2,79}">
+              <p class="hint">Give related examples the same family so they stay together in training or testing.</p>
+              <label for="evidence">Evidence and sources <span class="optional">optional</span></label><textarea id="evidence" rows="3" maxlength="8000" placeholder="Paste source excerpts with their URLs and dates"></textarea>
+            </div>
+            <label class="check"><input type="checkbox" id="swap">Switch which AI takes each side</label>
+            <div class="model-pair" id="model-pair"></div>
+            <button class="primary full" type="submit" id="start">Start a round <span aria-hidden="true">↗</span></button>
+            <p class="hint">Six turns, two judges, then candidate corrections. Keep this tab open while it runs. Every step is saved.</p>
+          </form>
+          <div class="saved-heading"><h2>Saved rounds</h2><button id="refresh" class="quiet" aria-label="Refresh saved rounds">Refresh</button></div>
+          <div id="saved-rounds" class="saved-rounds"></div>
+          <details class="dataset-tools"><summary>Export reviewed dataset</summary><p class="hint">Reviewed rounds stay in their assigned train, validation or test set.</p>
+            <label for="dataset-type">Dataset</label><select id="dataset-type">
+              <option value="debater-train">Better responses · train</option><option value="debater-validation">Better responses · validation</option>
+              <option value="preferences-train">Preference pairs · train</option><option value="preferences-validation">Preference pairs · validation</option>
+              <option value="judge-train">Judge labels · train</option><option value="judge-validation">Judge labels · validation</option>
+              <option value="judge-test-prompts">Judge benchmark · prompts</option><option value="judge-test-labels">Judge benchmark · answers</option><option value="debater-test">Response benchmark</option><option value="provenance">Review provenance</option>
+            </select><button id="export-dataset" class="secondary full">Download JSONL</button>
+          </details>
+          <details class="dataset-tools"><summary>Score a judge benchmark</summary>
+            <p class="hint">Run your model on the exported test prompts. Paste its predictions, one JSON object per line. Keep the answers hidden from it.</p>
+            <label for="predictions">Model predictions</label><textarea id="predictions" rows="5" placeholder='{"id":"round-id","winner":"con"}' maxlength="60000" spellcheck="false"></textarea>
+            <button id="score-benchmark" class="secondary full">Score against reviewed labels</button><p id="benchmark-result" class="hint" role="status"></p>
+          </details>
+        </aside>
+
+        <div class="round-area">
+          <section id="empty-round" class="empty-round"><div class="empty-mark" aria-hidden="true"><span>FOR</span><i>↔</i><span>AGAINST</span></div><h2>One question.<br>Two committed sides.</h2><p>Choose an example or bring your own. Each side sees the conversation so far and responds to it.</p><div class="empty-steps"><span>ARGUE</span><span>JUDGE</span><span>REPAIR</span><span>REVIEW</span></div></section>
+          <section id="round" hidden aria-labelledby="round-title">
+            <div class="round-heading"><div><div class="eyebrow" id="round-meta"></div><h2 id="round-title"></h2></div><button id="download-raw" class="quiet">Save raw JSON</button></div>
+            <div class="run-status"><div><span id="status-dot" class="status-dot"></span><strong id="run-status-text"></strong><span id="step-count"></span></div><button id="continue" class="secondary" hidden>Continue round</button><button id="pause" class="quiet" hidden>Pause after this step</button></div>
+            <progress id="progress" max="14" value="0" aria-label="Round progress"></progress>
+            <div id="transcript" class="transcript" aria-label="Debate transcript"></div>
+            <section id="judgments" class="judgments" aria-label="Judge evaluations"></section>
+            <section id="repairs" class="repairs" aria-label="Candidate corrections"></section>
+            <details id="review-panel" class="review-panel" hidden><summary>Review this round for your dataset</summary>
+              <p>Check the facts, the verdict and each correction. Approval marks your judgment of the data, not an automatic endorsement of the AI.</p>
+              <form id="review-form">
+                <label for="reviewer">Reviewer</label><input id="reviewer" required maxlength="100" placeholder="Your name or initials">
+                <label for="judge-choice">Start from a judge's annotation</label><select id="judge-choice"><option value="0">First judge</option><option value="1">Second judge</option><option value="none">Skip judge labels, review corrections only</option></select>
+                <label for="judgment-json">Reviewed judgment <span class="optional">edit any incorrect labels</span></label><textarea id="judgment-json" rows="12" spellcheck="false"></textarea>
+                <div id="repair-checks"></div>
+                <label for="review-notes">Review notes</label><textarea id="review-notes" rows="2" maxlength="4000"></textarea>
+                <label class="check"><input id="facts-reviewed" type="checkbox" required>I checked the factual claims and the selected labels and corrections.</label>
+                <button id="save-review" class="primary" type="submit">Save approved review</button>
+              </form>
+            </details>
+          </section>
+        </div>
+      </div>
+      <footer class="lab-footer">Debatable research lab <span>Saved privately. Separate from public rounds and rankings.</span></footer>
+    </section>
+  </main>
+</body>
+</html>
