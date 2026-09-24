@@ -1594,6 +1594,8 @@
       hidden: 'hidden',
     }, 'Change profile picture');
     sheet.appendChild(sheetPicture);
+    var primaryGrid = el('div', { class: 'ui-topbar-sheet-primary' });
+    sheet.appendChild(primaryGrid);
     pageLinks.forEach(function(L){
       var sheetLink = el('a', {
         href: L.href,
@@ -1615,7 +1617,9 @@
         sheetLink.appendChild(el('span', { class: 'ui-topbar-more-wip' }, 'In progress'));
         gateWip(sheetLink, L, 'sheet');
       }
-      sheet.appendChild(sheetLink);
+      var sheetMeta = MENU_META[String(L.href || '').split(/[?#]/)[0]];
+      if (sheetMeta && sheetMeta.desc) sheetLink.appendChild(el('small', { class: 'ui-topbar-sheet-description' }, sheetMeta.desc));
+      primaryGrid.appendChild(sheetLink);
     });
     // More groups: the same curated off-bar links the desktop dropdown
     // carries, and now with the same GROUPING it carries.
