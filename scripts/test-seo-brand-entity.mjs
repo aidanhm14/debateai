@@ -111,10 +111,10 @@ check('the public signup caption uses only the named-account total',
   /' sign-ups<\/b> so far\.<\/span>'/.test(landing)
   && !/' with Google, '/.test(landing)
   && !/' with email\.<\/span>'/.test(landing));
-check('example resolutions run the selected Source Sans 3 semibold, upright, black on light (2026-09-08)',
-  /\.fs-board h2\.fs-motion\{[^}]*font-family:var\(--font-display\)[^}]*font-weight:600[^}]*font-style:normal/.test(landing)
-  && /--font-display:'Source Sans 3'/.test(landing)
-  && /family=Source\+Sans\+3:wght@400\.\.900&/.test(landing)
+check('homepage uses restrained sans controls and upright serif resolutions (2026-09-24)',
+  /#fsBoard h2\.fs-motion\{\s*font-family:var\(--font-judge\) !important;font-weight:400;font-style:normal/.test(landing)
+  && /--font-display:'Helvetica Neue',Helvetica,Arial,sans-serif/.test(landing)
+  && /--font-judge:Georgia,'Times New Roman',serif/.test(landing)
   && /\[data-theme="light"\] \.fs-board h2\.fs-motion\{color:#0f0f12\}/.test(landing)
   && !/\.fs-motion\{[^}]*font-style:italic/.test(landing)
   && !/\.fs-motion\{[^}]*color:#(ef4444|dc2626)/.test(landing)
