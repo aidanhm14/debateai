@@ -1744,9 +1744,6 @@ window.watchLive = (function () {
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M19.7 5.1a18 18 0 0 0-4.5-1.4l-.6 1.2a16.6 16.6 0 0 0-5.2 0l-.6-1.2a18 18 0 0 0-4.5 1.4C1.5 9.2.7 13.2 1.1 17.2a18 18 0 0 0 5.5 2.8l1.1-1.8-1.7-.8.4-.3c3.6 1.7 7.6 1.7 11.2 0l.4.3-1.7.8 1.1 1.8a18 18 0 0 0 5.5-2.8c.5-4.6-.8-8.6-3.2-12.1ZM8.4 14.8c-1.1 0-1.9-1-1.9-2.2s.8-2.2 1.9-2.2 1.9 1 1.9 2.2-.8 2.2-1.9 2.2Zm7.2 0c-1.1 0-1.9-1-1.9-2.2s.8-2.2 1.9-2.2 1.9 1 1.9 2.2-.8 2.2-1.9 2.2Z" fill="currentColor"/></svg>
           <span>Discord</span>
         </a>
-        <!-- 2026-09-07, the founder: the Pause control came off this header.
-             The click handler further down stays null-guarded, so the
-             feed keeps scrolling with no control to stop it. -->
       </div>
       <div class="fs-chats-list" id="fsChatsList" aria-live="off"></div>
       <a class="fs-chats-cta" id="fsChatsJoin" href="/community" data-community-join data-cta="first-screen-chats-join">Join the conversation</a>
@@ -3722,8 +3719,8 @@ window.watchLive = (function () {
      RETIRED on his newer explicit instruction; do not restore it.
      With no real messages the panel stays blank for signed-out visitors.
      Signed-in people keep the composer so they can start the chat.
-     The real highlights repeat in a continuous loop; an unchanged poll
-     keeps its place. All text lands via textContent, never innerHTML. The panel is
+     Real highlights type in one at a time; an unchanged poll keeps its place.
+     All text lands via textContent, never innerHTML. The panel is
      display:none under 1360px, so nothing fetches until that layout
      is actually on screen. */
   (function(){
@@ -3735,8 +3732,15 @@ window.watchLive = (function () {
     var realRows = [];
     var MAX_ROWS = 24;
     var renderedKey = '';
-    var track = null;
     var group = null;
+    var items = [];
+    var queue = [];
+    var active = null;
+    var timer = null;
+    var hovering = false;
+    var reduced = window.matchMedia ? window.matchMedia('(prefers-reduced-motion:reduce)') : null;
+    panel.addEventListener('mouseenter', function(){ hovering = true; });
+    panel.addEventListener('mouseleave', function(){ hovering = false; });
     var pauseButton = document.getElementById('fsChatsPause');
     if (pauseButton) pauseButton.addEventListener('click', function(){
       var paused = panel.classList.toggle('is-paused');
@@ -3744,12 +3748,49 @@ window.watchLive = (function () {
       pauseButton.setAttribute('aria-label', paused ? 'Resume chat highlights' : 'Pause chat highlights');
       pauseButton.textContent = paused ? 'Resume' : 'Pause';
     });
-    function sizeFlow(){
-      if (!track || !group) return;
-      track.style.setProperty('--fs-chat-height', list.clientHeight + 'px');
-      track.style.setProperty('--fs-chat-duration', Math.max(24, group.scrollHeight / 14) + 's');
+    function schedule(delay){
+      clearTimeout(timer);
+      timer = setTimeout(typeNext, delay);
     }
-    if (window.ResizeObserver) new ResizeObserver(sizeFlow).observe(list);
+    function typeNext(){
+      timer = null;
+      if (!items.length || (reduced && reduced.matches)) return;
+      if (document.hidden || (mq && !mq.matches) || hovering || panel.contains(document.activeElement) || panel.classList.contains('is-paused')){
+        schedule(250);
+        return;
+      }
+      if (!active){
+        active = queue.shift();
+        queue.push(active);
+        active.offset = 0;
+        active.text.textContent = '';
+        active.node.classList.add('is-typing');
+        // Move each real highlight once per cycle, with no duplicate links.
+        group.appendChild(active.node);
+      }
+      active.offset = Math.min(active.chars.length, active.offset + Math.max(1, Math.ceil(active.chars.length / 100)));
+      active.text.textContent = active.chars.slice(0, active.offset).join('');
+      list.scrollTop = list.scrollHeight;
+      if (active.offset >= active.chars.length){
+        active.node.classList.remove('is-typing');
+        active = null;
+        schedule(1600);
+      } else schedule(28);
+    }
+    function showStatic(){
+      clearTimeout(timer);
+      timer = null;
+      active = null;
+      items.forEach(function(item){
+        item.text.textContent = item.chars.join('');
+        item.node.classList.remove('is-typing');
+        group.appendChild(item.node);
+      });
+    }
+    if (reduced && reduced.addEventListener) reduced.addEventListener('change', function(e){
+      if (e.matches) showStatic();
+      else if (items.length) schedule(1600);
+    });
 
     // The payload is a recency-sorted superset across every public
     // room. A plain newest-N cut lets one busy room fill the panel
@@ -3792,7 +3833,9 @@ window.watchLive = (function () {
         panel.classList.remove('is-live');
         list.innerHTML = '';
         renderedKey = '';
-        track = group = null;
+        clearTimeout(timer);
+        timer = active = group = null;
+        items = queue = [];
         return;
       }
       msgs = pickMix(msgs);
@@ -3800,12 +3843,19 @@ window.watchLive = (function () {
       var nextKey = JSON.stringify(msgs.map(function(m){ return [m.room, m.label, m.handle, m.text, m.at]; }));
       if (nextKey === renderedKey) return;
       renderedKey = nextKey;
-      track = document.createElement('div');
-      track.className = 'fs-chats-track';
-      group = document.createElement('div');
-      group.className = 'fs-chats-group';
+      if (!group){
+        group = document.createElement('div');
+        group.className = 'fs-chats-group';
+        list.appendChild(group);
+      }
+      var previous = items;
+      var added = [];
+      items = [];
       for (var i = 0; i < msgs.length; i++){
         var m = msgs[i];
+        var key = JSON.stringify([m.room, m.label, m.handle, m.text, m.at]);
+        var existing = previous.find(function(item){ return item.key === key; });
+        if (existing){ items.push(existing); continue; }
         var a = document.createElement('a');
         a.className = 'fs-chats-msg';
         // Discord rows are real messages from the community server's
@@ -3820,6 +3870,7 @@ window.watchLive = (function () {
           a.href = m.room === 'tournament' ? '/community#tournament' : '/community';
         }
         a.setAttribute('data-cta', 'first-screen-chats-msg');
+        a.setAttribute('aria-label', [m.label, m.handle, m.text].filter(Boolean).join(': '));
         var meta = document.createElement('span');
         meta.className = 'fs-chats-meta';
         // Every row names its room (2026-08-31, founder: "a smal title
@@ -3835,23 +3886,21 @@ window.watchLive = (function () {
         meta.appendChild(handle);
         var text = document.createElement('span');
         text.className = 'fs-chats-text';
-        text.textContent = String(m.text);
         a.appendChild(meta); a.appendChild(text);
-        group.appendChild(a);
+        var item = { key:key, node:a, text:text, chars:Array.from(String(m.text)), offset:0 };
+        items.push(item);
+        added.push(item);
       }
-      // The second copy joins the loop seamlessly, without repeating
-      // links in keyboard navigation or assistive reading.
-      var copy = group.cloneNode(true);
-      copy.classList.add('fs-chats-copy');
-      copy.setAttribute('aria-hidden', 'true');
-      Array.prototype.forEach.call(copy.querySelectorAll('a'), function(a){ a.setAttribute('tabindex', '-1'); });
-      track.appendChild(group);
-      track.appendChild(copy);
-      list.innerHTML = '';
-      list.appendChild(track);
-      list.scrollTop = 0;
+      previous.forEach(function(item){
+        if (items.indexOf(item) !== -1) return;
+        item.node.remove();
+        if (active === item) active = null;
+      });
+      // New messages get the next turn; removed messages leave immediately.
+      queue = added.concat(queue.filter(function(item){ return items.indexOf(item) !== -1; }));
       panel.classList.add('is-live');
-      sizeFlow();
+      if (reduced && reduced.matches) showStatic();
+      else if (timer === null) typeNext();
     }
 
     // A failed refresh preserves real messages already on screen;

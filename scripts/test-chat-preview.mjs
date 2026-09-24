@@ -106,7 +106,9 @@ function element() {
   const handlers = {};
   return { children: [], scrollTop: 0, clientHeight: 100, scrollHeight: 200, attributes, handlers,
     get innerHTML() { return ''; }, set innerHTML(value) { this.children = []; },
-    appendChild(child) { this.children.push(child); },
+    appendChild(child) { child.remove(); this.children.push(child); child.parent = this; },
+    remove() { if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); this.parent = null; },
+    contains() { return false; },
     setAttribute(key, value) { attributes.set(key, value); },
     addEventListener(name, handler) { handlers[name] = handler; },
     style: { setProperty() {} },
@@ -116,9 +118,11 @@ function element() {
       toggle: x => { if (classes.has(x)) { classes.delete(x); return false; } classes.add(x); return true; } } };
 }
 const panel = element(), list = element(), pause = element();
-let scheduled, nextPayload = new Error('Network unavailable');
+let scheduled, nextTick, nextPayload = new Error('Network unavailable');
+const tick = () => { const fn = nextTick; nextTick = null; assert.ok(fn, 'Typing has a scheduled next step'); fn(); };
 const storage = new Map([['da-fs-chats', JSON.stringify({ at: Date.now(), messages: [{ text: 'Nobody is here!' }] })]]);
 const context = { console, Date, setInterval: fn => { scheduled = fn; },
+  setTimeout: fn => { nextTick = fn; return 1; }, clearTimeout: () => { nextTick = null; },
   sessionStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
   document: { hidden: false, getElementById: id => id === 'fsChats' ? panel : id === 'fsChatsPause' ? pause : list,
     createDocumentFragment: element, createElement: element },
@@ -127,7 +131,8 @@ const context = { console, Date, setInterval: fn => { scheduled = fn; },
     return { ok: true, json: async () => nextPayload };
   },
 };
-context.window = { fetch: context.fetch, matchMedia: () => ({ matches: true }) };
+const reducedMotion = { matches: false, addEventListener: (name, fn) => { reducedMotion.change = fn; } };
+context.window = { fetch: context.fetch, matchMedia: query => query.includes('reduced-motion') ? reducedMotion : ({ matches: true }) };
 vm.createContext(context);
 const kickoff = landing.indexOf('/* Parse-time, before the panel');
 vm.runInContext(landing.slice(landing.indexOf('(function(){', kickoff), landing.indexOf('</script>', kickoff)), context);
@@ -143,10 +148,22 @@ scheduled();
 await new Promise(resolve => setImmediate(resolve));
 assert.equal(panel.classList.contains('is-live'), true, 'Real messages reveal the chat');
 const firstTrack = list.children[0];
-assert.equal(firstTrack.children.length, 2, 'Two equal groups form the seamless loop');
-assert.equal(firstTrack.children[0].children.length, payload.messages.length, 'Every real highlight is retained');
-assert.equal(firstTrack.children[1].attributes.get('aria-hidden'), 'true', 'The visual copy is not read twice');
-assert.ok(firstTrack.children[1].children.every(row => row.attributes.get('tabindex') === '-1'), 'Repeated links do not repeat in the tab order');
+assert.equal(firstTrack.children.length, 1, 'Messages arrive individually instead of painting a duplicate marquee');
+const firstRow = firstTrack.children[0], firstText = firstRow.children[1];
+const partial = firstText.textContent;
+assert.ok(partial.length > 0 && partial.length < firstRow.attributes.get('aria-label').length);
+tick();
+assert.ok(firstText.textContent.length > partial.length, 'The active message types forward');
+const held = firstText.textContent;
+panel.handlers.mouseenter(); tick();
+assert.equal(firstText.textContent, held, 'Hover pauses the typewriter for reading');
+panel.handlers.mouseleave();
+context.document.hidden = true; tick();
+assert.equal(firstText.textContent, held, 'Hidden tabs do not advance the feed');
+context.document.hidden = false;
+for (let i = 0; i < 1500; i++) tick();
+assert.equal(firstTrack.children.length, payload.messages.length, 'Cycling retains each real message exactly once');
+assert.equal(new Set(firstTrack.children).size, payload.messages.length, 'No duplicate links accumulate');
 pause.handlers.click();
 assert.equal(panel.classList.contains('is-paused'), true);
 assert.equal(pause.attributes.get('aria-pressed'), 'true');
@@ -155,7 +172,20 @@ assert.equal(panel.classList.contains('is-paused'), false);
 assert.equal(pause.textContent, 'Pause');
 scheduled();
 await new Promise(resolve => setImmediate(resolve));
-assert.equal(list.children[0], firstTrack, 'An unchanged refresh preserves the moving track instead of restarting it');
+assert.equal(list.children[0], firstTrack, 'An unchanged refresh preserves the typing position');
+nextPayload = { messages: [payload.messages[0], { room:'commons', label:'The Commons', handle:'New voice', text:'A fresh message 👋', at:Date.now() }] };
+scheduled();
+await new Promise(resolve => setImmediate(resolve));
+assert.ok(firstTrack.children.every(row => row.attributes.get('aria-label').includes(payload.messages[0].text)), 'Removed messages leave immediately');
+for (let i = 0; i < 250; i++) tick();
+assert.equal(firstTrack.children.length, 2, 'New messages enter the continuing queue');
+reducedMotion.matches = true;
+reducedMotion.change({ matches:true });
+assert.equal(nextTick, null, 'Reduced motion stops the animation');
+assert.equal(firstTrack.children[1].children[1].textContent, 'A fresh message 👋', 'Reduced motion shows complete text, including Unicode');
+reducedMotion.matches = false;
+reducedMotion.change({ matches:false });
+assert.ok(nextTick, 'Animation can resume when the motion preference changes');
 nextPayload = { messages: [], error: 'temporarily unavailable' };
 scheduled();
 await new Promise(resolve => setImmediate(resolve));

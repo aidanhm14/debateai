@@ -1,5 +1,7 @@
 # soul.md. Debatable · itsdebatable.com
 
+> **Homepage chat height and arrivals (Aidan, 2026-09-24).** The desktop highlights column extends down through the available first-screen space, with the join link or signed-in composer at the bottom. Real, attributed highlights type in one message at a time with no faded edges or scrolling marquee. Each highlight has one link even when the sequence repeats. Hover and keyboard focus pause the sequence; reduced motion shows the complete scrollable list. This supersedes the September 14 continuous-scroll instruction and the September 7 faded-edge treatment. Source messages, moderation and posting remain unchanged.
+
 > **Types of debates (Aidan, 2026-09-24).** The homepage has a simple
 > “Types of debates to have” section below the leaderboard and above See more.
 > Exactly four categories: sales training, lawyer training, negotiation
