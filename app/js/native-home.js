@@ -163,7 +163,7 @@
       .then(function () {
         if (!firebase.apps.length) firebase.initializeApp({
           apiKey: ['AIzaSyDDx','TYlyWLOJnFP99','e7XsLPb3FwIEijNNM'].join(''),
-          authDomain: 'debateos-78ac5.firebaseapp.com', projectId: 'debateos-78ac5',
+          authDomain: 'itsdebatable.com', projectId: 'debateos-78ac5',
           storageBucket: 'debateos-78ac5.firebasestorage.app', messagingSenderId: '860359449192',
           appId: '1:860359449192:web:f5dc0060dbd50d6c4fb9dd'
         });

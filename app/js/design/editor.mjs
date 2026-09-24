@@ -57,7 +57,7 @@ async function authInit(){
   function script(src){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=reject;document.head.appendChild(s);});}
   try{
     await script('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js');await script('https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js');
-    if(!firebase.apps.length)firebase.initializeApp({apiKey:['AIzaSyDDx','TYlyWLOJnFP99','e7XsLPb3FwIEijNNM'].join(''),authDomain:'debateos-78ac5.firebaseapp.com',projectId:'debateos-78ac5',appId:'1:860359449192:web:f5dc0060dbd50d6c4fb9dd'});
+    if(!firebase.apps.length)firebase.initializeApp({apiKey:['AIzaSyDDx','TYlyWLOJnFP99','e7XsLPb3FwIEijNNM'].join(''),authDomain:'itsdebatable.com',projectId:'debateos-78ac5',appId:'1:860359449192:web:f5dc0060dbd50d6c4fb9dd'});
     firebase.auth().onAuthStateChanged(u=>u&&!u.isAnonymous?bootstrap(u):disableWorkspace());
     $('sign-in').onclick=async()=>{try{await firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider());}catch(e){$('gate-message').textContent=e.message;}};
   }catch{$('gate-message').textContent='Sign-in could not load. Check your connection and reload.';}

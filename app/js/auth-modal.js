@@ -21,7 +21,7 @@
   var AUTH_SDK = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js';
   var CONFIG = {
     apiKey: ["AIzaSyDDx", "TYlyWLOJnFP99", "e7XsLPb3FwIEijNNM"].join(""),
-    authDomain: "debateos-78ac5.firebaseapp.com",
+    authDomain: "itsdebatable.com",
     projectId: "debateos-78ac5",
     storageBucket: "debateos-78ac5.firebasestorage.app",
     messagingSenderId: "860359449192",
@@ -227,10 +227,12 @@
   // Facebook, TikTok, Snapchat, LinkedIn, Threads, X) cannot complete a
   // Google or Apple sign-in. This is not our bug and not fixable from here:
   // Google refuses OAuth in embedded webviews outright, returning
-  // `disallowed_useragent`. The popup fails, the code falls back to
-  // signInWithRedirect, and that fails too — our authDomain is on
-  // firebaseapp.com, a different domain to the site, and third-party
-  // storage partitioning broke cross-domain redirect sign-in.
+  // `disallowed_useragent`. (Until 2026-09-24 the signInWithRedirect
+  // fallback also died on every browser: authDomain sat on
+  // firebaseapp.com and partitioned third-party storage dropped the
+  // pending sign-in on the way back. authDomain is itsdebatable.com now,
+  // with /__/auth/* proxied to Firebase in netlify.toml, so the redirect
+  // trip stays same-site. Google still refuses webviews outright.)
   //
   // So a visitor arriving from a social link used to tap the biggest button
   // on the modal, get "Google sign-in failed. Try again.", and try again

@@ -2131,7 +2131,7 @@
   var FB_AUTH_SDK = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js';
   var FB_CONFIG = {
     apiKey: ["AIzaSyDDx","TYlyWLOJnFP99","e7XsLPb3FwIEijNNM"].join(""),
-    authDomain: "debateos-78ac5.firebaseapp.com",
+    authDomain: "itsdebatable.com",
     projectId: "debateos-78ac5",
     storageBucket: "debateos-78ac5.firebasestorage.app",
     messagingSenderId: "860359449192",

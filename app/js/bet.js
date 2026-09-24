@@ -80,7 +80,7 @@
   $('cancel-age').addEventListener('click',function(){$('age-confirm').hidden=true;$('age-check').checked=false;$('bet-status').textContent='No bet placed.';});
   $('close-slip').addEventListener('click',function(){if(busy)return;selectedRoom='';++stateVersion;$('bet-slip').hidden=true;});
   try{
-    if(!firebase.apps.length)firebase.initializeApp({apiKey:['AIzaSyDDx','TYlyWLOJnFP99','e7XsLPb3FwIEijNNM'].join(''),authDomain:'debateos-78ac5.firebaseapp.com',projectId:'debateos-78ac5',storageBucket:'debateos-78ac5.firebasestorage.app',messagingSenderId:'860359449192',appId:'1:860359449192:web:f5dc0060dbd50d6c4fb9dd'});
+    if(!firebase.apps.length)firebase.initializeApp({apiKey:['AIzaSyDDx','TYlyWLOJnFP99','e7XsLPb3FwIEijNNM'].join(''),authDomain:'itsdebatable.com',projectId:'debateos-78ac5',storageBucket:'debateos-78ac5.firebasestorage.app',messagingSenderId:'860359449192',appId:'1:860359449192:web:f5dc0060dbd50d6c4fb9dd'});
     firebase.auth().onAuthStateChanged(function(u){user=u&&!u.isAnonymous?u:null;loadBoard();if(initialRoom){var room=initialRoom;initialRoom='';openSlip(room,false);}else refreshSlip();});
   }catch(e){loadBoard();if(initialRoom)openSlip(initialRoom,false);}
   setInterval(function(){if(document.hidden||busy)return;if(selectedRoom)refreshSlip();loadBoard();},30000);
