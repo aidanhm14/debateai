@@ -6,16 +6,24 @@
   form.querySelector('[type=submit]').disabled = false;
   var type = form.dataset.training;
   var error = document.getElementById('trainingError');
+  var status = document.getElementById('trainingStatus');
+  var examples = document.querySelectorAll('[data-training-example]');
   function fill(value) {
     ['situation', 'counterpart', 'goal'].forEach(function (name) { form.elements[name].value = value[name] || ''; });
     error.textContent = '';
   }
-  try { fill(schema.read(sessionStorage, type)); } catch (e) {}
-  document.querySelectorAll('[data-training-example]').forEach(function (button) {
+  try {
+    fill(schema.read(sessionStorage, type));
+    if (status) status.textContent = 'Your previous setup is ready to edit.';
+  } catch (e) {}
+  examples.forEach(function (button) {
     button.addEventListener('click', function () {
       try {
         fill(JSON.parse(button.dataset.trainingExample));
-        form.elements.situation.focus();
+        examples.forEach(function (example) { example.setAttribute('aria-pressed', String(example === button)); });
+        if (status) status.textContent = 'Example loaded. Edit any detail to make it yours.';
+        form.scrollIntoView({ block: 'start' });
+        form.elements.situation.focus({ preventScroll: true });
       } catch (e) { error.textContent = 'Could not load that example. You can write your own below.'; }
     });
   });

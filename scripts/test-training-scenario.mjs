@@ -113,16 +113,19 @@ assert.deepEqual(config.tools.map(t => t.name), ['set_voice']);
 // The real setup script handles edits, presets and tab-only handoff.
 let submit, navigated = '', saved, presetClick;
 const elements = Object.fromEntries(['situation', 'counterpart', 'goal'].map(name => [name, { value: '', focus() {} }]));
-const error = { textContent: '' }, button = { disabled: true };
-const form = { elements, dataset: { training: 'sales' }, querySelector: () => button, addEventListener: (name, fn) => { if (name === 'submit') submit = fn; } };
+const error = { textContent: '' }, status = { textContent: '' }, button = { disabled: true };
+let scrolled = false, pressed = '';
+const form = { elements, dataset: { training: 'sales' }, scrollIntoView() { scrolled = true; }, querySelector: () => button, addEventListener: (name, fn) => { if (name === 'submit') submit = fn; } };
 const setupContext = { window: { DBTrainingScenario: schema, location: { assign: url => { navigated = url; } } },
   sessionStorage: { getItem: () => null, setItem: (key, value) => { saved = { key, value }; } },
-  document: { getElementById: id => id === 'trainingForm' ? form : error, querySelectorAll: () => [{ dataset: { trainingExample: JSON.stringify(scenario) }, addEventListener: (_name, fn) => { presetClick = fn; } }] }
+  document: { getElementById: id => id === 'trainingForm' ? form : id === 'trainingStatus' ? status : error, querySelectorAll: () => [{ dataset: { trainingExample: JSON.stringify(scenario) }, setAttribute: (_name, value) => { pressed = value; }, addEventListener: (_name, fn) => { presetClick = fn; } }] }
 };
 vm.runInNewContext(readFileSync('app/js/training-setup.js', 'utf8'), setupContext);
 assert.equal(button.disabled, false);
 submit({ preventDefault() {} }); assert.equal(navigated, ''); assert.ok(error.textContent);
-presetClick(); elements.goal.value = 'Agree to a second meeting.'; submit({ preventDefault() {} });
+presetClick();
+assert.equal(scrolled, true); assert.equal(pressed, 'true'); assert.match(status.textContent, /Example loaded/);
+elements.goal.value = 'Agree to a second meeting.'; submit({ preventDefault() {} });
 assert.equal(navigated, '/newvoice?training=sales'); assert.ok(!navigated.includes('meeting'));
 assert.equal(JSON.parse(saved.value).goal, elements.goal.value);
 setupContext.sessionStorage.setItem = () => { throw Object.assign(new Error('blocked'), { name: 'SecurityError' }); };

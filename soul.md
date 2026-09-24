@@ -12,8 +12,11 @@
 > “Types of debates to have” section below the leaderboard and above See more.
 > Exactly four categories: sales training, lawyer training, negotiation
 > training, and belief expression training. Each links to its own short
-> subpage where people describe their situation, who the AI should play,
-> and the outcome they want. Starting points fill editable fields. Continue
+> subpage with a category-specific editorial illustration, a plain explanation of
+> the practice, and three scenario choices before the editable setup. People
+> describe their situation, who the AI should play, and the outcome they want.
+> Starting points fill editable fields, mark the selected example, and move
+> focus to the setup. Continue
 > opens voice settings with the scenario intact. The AI plays that counterpart,
 > with realistic questions and room for agreement. These customized practice
 > conversations are unranked, with a transcript rather than a debate verdict.
