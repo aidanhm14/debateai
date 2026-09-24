@@ -15,7 +15,7 @@ async function boot(page) {
   await page.addScriptTag({ content: read('js/voice-preview-momentum.js') });
   await page.addScriptTag({ content: `
     var $=id=>document.getElementById(id);
-    var liveVoice=null;
+    var liveVoice=null,paceUpdatePending=false;
     var status='live', currentMotion='Public transport should be free', scopingRound=false, autoStartPending=false;
     var turns=[{who:'you',text:'Buses help everyone reach work.'},{who:'ai',text:'But who should pay for the service?'}];
     var startBtn=$('startBtn'),startLabel=$('startLabel'),statusText=$('statusText'),capYouText=$('capYouText'),capAiText=$('capAiText');
@@ -28,7 +28,7 @@ async function boot(page) {
     var micStream={getTracks:()=>[{stop:()=>previewClosed.mic++}]},audioEl=null;
     var HANDOFF_RE=/^never$/;
     function reportSessionEnd(){} function stopArena(){} function paintMic(){} function setSpeaking(){}
-    function vtPush(){} function renderTs(){} function maybeLiveJudge(){} function requestAiTurn(){} function sendSessionConfig(){}
+    function vtPush(){} function renderTs(){} function maybeLiveJudge(){} function requestAiTurn(){} function sendSessionConfig(){} function applyPaceChange(){}
     function trackVoiceEvent(name,data){events.push({name,...data});}
     function show(name){document.querySelectorAll('.view').forEach(el=>el.classList.toggle('on',el.id===name));}
     function goStep(){} function fail(message){throw Error(message);}

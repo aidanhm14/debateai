@@ -122,10 +122,10 @@ check('timed round routes to /practice without naming formats',
   page.includes('href="/practice?entry=competitive&amp;format=quick&amp;handoff=newvoice"') &&
   !/APDA, BP, Asian Parliamentary, Worlds, Karl Popper, PF, LD, Policy, and Congress/.test(page));
 check('speed is settable before the round', page.includes('id="paceSeg"'));
-check('speed is settable during the round and pushed into the live session',
+check('speed is settable during the round without resending session config',
   page.includes("$('paceBtn').addEventListener('click'") &&
-  page.includes("if (dc && dc.readyState === 'open') sendSessionConfig(vadFallbackSent ? 'server' : 'semantic');") &&
-  page.includes("output: { voice: currentVoice, speed: PACE[paceKey] || 1.05 }"));
+  page.includes('liveVoice.setPace(paceKey)') &&
+  !page.slice(page.indexOf('function setPace(k){'), page.indexOf('function prepareConnectingStage(')).includes('sendSessionConfig'));
 check('the interrupt gate is armed before the opener is requested',
   page.includes('bargeIv = setInterval(bargeTick, 50);\n  requestOpeningTurn();'));
 check('an unattended autostart failure lands quietly on setup',

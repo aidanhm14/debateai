@@ -5,7 +5,7 @@
   'use strict';
   function create(options) {
     let ready = false, closing = false, closed = false, serial = 0;
-    let closeResolve, closeTimer;
+    let closeResolve, closeTimer, paceTimer, lastPace;
     const seen = new Set(), calls = new Set(), responses = new Map(), speechRequests = new Set();
     let rows = {};
     const id = () => 'db_live_' + (++serial);
@@ -17,6 +17,19 @@
     function instruct(content) {
       // Appends are capped at 500 tokens. Short app-owned directives only.
       return send({ type: 'session.instructions.append', delegation_id: null, content: String(content).slice(0, 1200) });
+    }
+    function setPace(pace) {
+      const labels = { calm: 'Slow (relaxed pace)', natural: 'Normal (natural pace)', quick: 'Fast (brisk pace)' };
+      if (!Object.prototype.hasOwnProperty.call(labels, pace) || !ready || closing || closed) return false;
+      clearTimeout(paceTimer);
+      // Instructions can interrupt Live speech. Send the final UI selection
+      // as quiet context instead: /api/docs/guides/live-delegation#share-ui-context.
+      if (pace !== lastPace) paceTimer = setTimeout(() => {
+        try {
+          if (send({ type: 'session.thinking.append', delegation_id: null, content: 'The speech speed control is now set to ' + labels[pace] + ', replacing the previous speed selection. The conversation and topic are unchanged.' })) lastPace = pace;
+        } catch (_) {}
+      }, 250);
+      return true;
     }
     function speak(content) {
       const eventId = id();
@@ -48,6 +61,7 @@
     function finish(event) {
       closed = true; closing = false; ready = false;
       clearTimeout(closeTimer);
+      clearTimeout(paceTimer);
       flush();
       if (closeResolve) { closeResolve(event); closeResolve = null; }
       if (options.onClosed) options.onClosed(event);
@@ -109,6 +123,7 @@
       if (closed) return Promise.resolve(null);
       if (closing) return closePromise;
       closing = true;
+      clearTimeout(paceTimer);
       closePromise = new Promise(resolve => { closeResolve = resolve; });
       closeTimer = setTimeout(() => finish({ incomplete: true }), timeoutMs);
       try { options.send({ type: 'session.close', event_id: id() }); }
@@ -116,7 +131,7 @@
       return closePromise;
     }
     let closePromise;
-    return { handle, instruct, speak, toolOutput, flush, close, get ready() { return ready; }, get closing() { return closing; } };
+    return { handle, instruct, setPace, speak, toolOutput, flush, close, get ready() { return ready; }, get closing() { return closing; } };
   }
   root.DBLiveVoice = { create };
 })(typeof window === 'undefined' ? globalThis : window);

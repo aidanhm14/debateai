@@ -95,6 +95,31 @@ assert.equal(finalized,true);
 assert.ok(committed.includes('Who pays for them? Really?'));
 const timed = browser.DBLiveVoice.create({send:()=>{},onReady:()=>{},onRow:()=>{},onTranscript:()=>{}});
 assert.equal((await timed.close(1)).incomplete,true);
+// Speed changes are quiet UI context, coalesced and scoped to this connection.
+const paceBrowser = {}, paceEvents = [], timers = new Map(); let timerId = 0;
+vm.runInNewContext(readFileSync('app/js/live-voice.js','utf8'), {
+ window: paceBrowser, setTimeout: fn => { timers.set(++timerId, fn); return timerId; }, clearTimeout: id => timers.delete(id),
+});
+const runTimers = () => { const pending = [...timers.values()]; timers.clear(); pending.forEach(fn => fn()); };
+const paced = paceBrowser.DBLiveVoice.create({send:event=>paceEvents.push(event),onReady:()=>{}});
+assert.equal(paced.setPace('quick'),false);
+await paced.handle({type:'session.started'});
+assert.equal(paced.setPace('invalid'),false);
+paced.setPace('quick'); paced.setPace('calm'); paced.setPace('natural');
+assert.equal(paceEvents.length,0);
+runTimers();
+assert.equal(paceEvents.length,1);
+assert.equal(paceEvents[0].type,'session.thinking.append');
+assert.equal(paceEvents[0].delegation_id,null);
+assert.match(paceEvents[0].content,/Normal \(natural pace\)/);
+await paced.handle({type:'session.thinking.appended',client_event_id:paceEvents[0].event_id});
+assert.equal(paceEvents.length,1,'acknowledging speed never requests speech');
+paced.setPace('quick'); paced.setPace('natural'); runTimers();
+assert.equal(paceEvents.length,1,'returning to the current speed cancels a pending change');
+paced.setPace('calm'); const paceClose=paced.close();
+assert.equal(paced.setPace('quick'),false);
+await paced.handle({type:'session.closed'}); await paceClose; runTimers();
+assert.deepEqual(paceEvents.map(e=>e.type),['session.thinking.append','session.close']);
 const page = readFileSync('app/newvoice.html','utf8');
 for (const match of page.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)) {
  if (!match[2].trim() || /ld\+json/.test(match[1])) continue;

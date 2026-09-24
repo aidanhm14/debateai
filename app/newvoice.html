@@ -1987,6 +1987,7 @@ const PACE = { calm: 0.95, natural: 1.05, quick: 1.2 };
 const PACE_ORDER = ['calm', 'natural', 'quick'];
 let difficulty = 'standard';
 let paceKey = 'natural';
+let paceUpdatePending = false;
 try {
   const d = localStorage.getItem('debateos-newvoice-diff');
   if (d && (d === 'chill' || d === 'standard' || d === 'ruthless')) difficulty = d;
@@ -2193,13 +2194,28 @@ if (pathGuide) {
 
 function paceLabel(k){ return { calm: 'Slow', natural: 'Normal', quick: 'Fast' }[k] || 'Normal'; }
 function setPace(k){
-  if (!PACE[k]) return;
+  if (!PACE_ORDER.includes(k) || k === paceKey) return;
   paceKey = k;
   paintSeg($('paceSeg'), 'pace', k);
   $('paceBtn').textContent = 'Speed: ' + paceLabel(k);
   try { localStorage.setItem('debateos-newvoice-pace', k); } catch (e) {}
-  // Mid-round: push the new pace into the live session.
-  if (dc && dc.readyState === 'open') sendSessionConfig(vadFallbackSent ? 'server' : 'semantic');
+  paceUpdatePending = true;
+  applyPaceChange();
+}
+
+function applyPaceChange(){
+  if (!paceUpdatePending || !dc || dc.readyState !== 'open') return;
+  if (liveVoice) {
+    if (liveVoice.setPace(paceKey)) paceUpdatePending = false;
+    return;
+  }
+  // Realtime accepts speed changes between responses. Keep the latest choice
+  // until then, without cancelling speech or resending voice/VAD/tool config.
+  if (aiTalking || awaitingResponse) return;
+  try {
+    dc.send(JSON.stringify({ type: 'session.update', session: { type: 'realtime', audio: { output: { speed: PACE[paceKey] } } } }));
+    paceUpdatePending = false;
+  } catch (e) {}
 }
 
 function prepareConnectingStage(motion){
@@ -2944,7 +2960,8 @@ function requestAiTurn(instructions){
    thought-end detection; it is measured from actual microphone activity. */
 function sendSessionConfig(kind){
   if (liveVoice) {
-    liveVoice.instruct('Keep spoken replies short. Speak at a ' + (paceKey === 'calm' ? 'relaxed' : paceKey === 'quick' ? 'brisk' : 'natural') + ' pace. Give the person time to finish their thought.');
+    liveVoice.instruct('Keep spoken replies short. The initial speech speed is ' + (paceKey === 'calm' ? 'relaxed' : paceKey === 'quick' ? 'brisk' : 'natural') + '. For later replies, use the latest speed control selection from UI context. A speed selection changes only your speaking pace: do not acknowledge it, repeat an opening, or start a new turn. Give the person time to finish their thought.');
+    paceUpdatePending = false;
     return;
   }
   if (!dc || dc.readyState !== 'open') return;
@@ -2972,6 +2989,7 @@ function sendSessionConfig(kind){
   if (negotiatedReasoningEffort) sess.reasoning = { effort: negotiatedReasoningEffort };
   try {
     dc.send(JSON.stringify({ type: 'session.update', session: sess }));
+    paceUpdatePending = false;
   } catch (e) {}
 }
 
@@ -3054,6 +3072,7 @@ function handleEvent(e){
     case 'response.done':
       aiTalking = false;
       awaitingResponse = false;
+      applyPaceChange();
       bargeMs = 0;
       aiHold = 0;
       aiTurnAt = 0;
@@ -3286,6 +3305,7 @@ function reportSessionEnd(){
 window.addEventListener('pagehide', reportSessionEnd);
 window.addEventListener('pagehide', () => { if (liveVoice) liveVoice.close(1000); });
 function cleanup(){
+  paceUpdatePending = false;
   if (liveVoice) { liveVoice.flush(); liveVoice = null; }
   $('openaiVoiceKey').disabled = false; activeVoiceKey = '';
   clearTimeout(previewStopTimer); previewStopTimer = null;
