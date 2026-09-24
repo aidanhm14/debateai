@@ -199,9 +199,12 @@ test('failed acceptance restores an actionable request', async ({ browser }) => 
   const w = await world(browser);
   try {
     w.pair(); w.failAccept(); const a = await w.page('a');
+    await expect(a.locator('.da-match-overlay')).toBeVisible();
+    await a.evaluate(() => { window.__originalInvite = document.querySelector('.da-match-overlay'); });
     await a.getByRole('button', { name: 'Accept', exact: true }).click();
-    await expect(a.getByRole('button', { name: 'Accept', exact: true })).toBeVisible();
-    await expect(a.getByText('Your acceptance did not reach us. Check your connection and press Accept again.')).toBeVisible();
+    await expect(a.getByRole('button', { name: 'Try again', exact: true })).toBeVisible();
+    await expect(a.getByText('Your acceptance did not reach us. Check your connection and try again.')).toBeVisible();
+    expect(await a.evaluate(() => window.__originalInvite === document.querySelector('.da-match-overlay'))).toBe(true);
   } finally { await w.close(); }
 });
 

@@ -28,8 +28,9 @@ for (const width of [360, 768, 1360]) {
     await expect(page.locator('#roundPlan')).toContainText('16 minutes');
     await expect(page.locator('#roundPlan li')).toHaveCount(4);
     await page.locator('#rmbToolsLabel').click();
-    await expect(page.locator('#rmbTools button:visible')).toHaveCount(2);
-    await expect(page.locator('#rmbRollBtn')).toContainText('Spin another topic');
+    await expect(page.locator('#rmbTools button:visible')).toHaveCount(3);
+    await expect(page.locator('#rmbDifferBtn')).toBeVisible();
+    await expect(page.locator('#rmbRollBtn')).toContainText('Spin a topic');
     await page.locator('#rmbChangeBtn').click();
     await expect(page.getByRole('dialog', { name: 'Propose a topic' })).toBeVisible();
     await expect(page.locator('#motionModalText')).toBeFocused();

@@ -42,6 +42,7 @@
   var STORAGE_KEY = 'da-sfx-muted';
   var MASTER_GAIN = 0.24;       // intentionally quieter than speech
   var ctx = null;               // lazy AudioContext
+  var playing = [];
   var SFX_BASE = '/audio/sfx/'; // where the pre-rendered MP3 bank lives
   var USE_RENDERED_SFX = false;
 
@@ -76,9 +77,13 @@
   }
   function setMuted(v){
     try { localStorage.setItem(STORAGE_KEY, v ? '1' : '0'); } catch(e){}
+    if (v) {
+      playing.splice(0).forEach(function(o){ try { o.stop(); } catch(e){} });
+      nextRingAt = 0;
+    } else arm();
   }
   function getCtx(){
-    if (ctx) return ctx;
+    if (ctx && ctx.state !== 'closed') return ctx;
     try {
       var Ctor = window.AudioContext || window.webkitAudioContext;
       if (!Ctor) return null;
@@ -91,9 +96,21 @@
   // suspends the context until a user gesture.
   function ensureRunning(){
     if (!ctx) return;
-    if (ctx.state === 'suspended'){
-      try { ctx.resume(); } catch(e){}
+    if (ctx.state === 'suspended' || ctx.state === 'interrupted'){
+      try { var result = ctx.resume(); if (result && result.catch) result.catch(function(){}); } catch(e){}
     }
+  }
+  function unlock(){
+    if (isSilenced()) return Promise.resolve(false);
+    var c = getCtx();
+    if (!c) return Promise.resolve(false);
+    if (c.state === 'running') return Promise.resolve(true);
+    try {
+      return Promise.race([
+        Promise.resolve(c.resume()).then(function(){ return c.state === 'running'; }, function(){ return false; }),
+        new Promise(function(resolve){ setTimeout(function(){ resolve(false); }, 1200); })
+      ]);
+    } catch(e){ return Promise.resolve(false); }
   }
 
   // Build a one-shot tone with attack-decay envelope. All sounds
@@ -113,12 +130,16 @@
     var c = getCtx();
     if (!c) return;
     ensureRunning();
+    // Never queue stale cues against a frozen audio clock.
+    if (c.state !== 'running') return;
     var t0 = c.currentTime + (opts.delayMs || 0) / 1000;
     var dur = opts.dur || 0.12;
     var peak = (opts.peak || 0.18) * (opts.gain || MASTER_GAIN);
     try {
       var o = c.createOscillator();
       var g = c.createGain();
+      playing.push(o);
+      o.onended = function(){ playing = playing.filter(function(n){ return n !== o; }); try { o.disconnect(); g.disconnect(); } catch(e){} };
       o.connect(g); g.connect(c.destination);
       o.type = opts.type || 'sine';
       o.frequency.setValueAtTime(opts.freq, t0);
@@ -248,14 +269,12 @@
   }
 
   function notify(){
-    preload();
-    if (playMP3('notify')) return;
     // Inbound DM / group message. A soft two-note rising "ding-dong"
     // (E6 → A6, perfect fourth) — lighter and quicker than success()'s
     // three-note arpeggio so a chat ping never reads as a milestone.
     // Low peaks so a notification mid-task isn't startling.
-    tone({ freq: 660, dur: 0.12, peak: 0.08, type: 'sine', delayMs: 0 });
-    tone({ freq: 880, dur: 0.18, peak: 0.08, type: 'sine', delayMs: 90 });
+    tone({ freq: 660, dur: 0.12, peak: 0.18, type: 'sine', delayMs: 0, urgent: true });
+    tone({ freq: 880, dur: 0.18, peak: 0.18, type: 'sine', delayMs: 90, urgent: true });
   }
 
   // ── Attention alert ────────────────────────────────────────────────
@@ -342,8 +361,9 @@
     // clock. If it never lands we stay silent, which is what a suspended
     // context meant regardless.
     try {
+      var requestedAt = Date.now();
       var p = c.resume();
-      if (p && p.then) p.then(function(){ schedule(n); }, function(){});
+      if (p && p.then) p.then(function(){ if (c.state === 'running' && Date.now() - requestedAt < 3000 && !isSilenced()) schedule(n); }, function(){});
       else schedule(n);
     } catch(e){}
   }
@@ -360,18 +380,16 @@
   // or a DM listener attaches) call arm() and pay for it then.
   var armed = false;
   function arm(){
-    if (armed) return;
     if (isSilenced()) return;   // don't leave armed: a later unmute re-arms
-    armed = true;
     function primeNow(){
-      try { getCtx(); ensureRunning(); } catch(e){}
+      if (!isSilenced()) { try { getCtx(); ensureRunning(); } catch(e){} }
     }
-    if (ctx && ctx.state === 'running') return;         // already unlocked
-    ['pointerdown', 'keydown', 'touchstart'].forEach(function(ev){
-      try { window.addEventListener(ev, primeNow, { once: true, capture: true, passive: true }); } catch(e){
-        try { window.addEventListener(ev, primeNow, true); } catch(_){}
-      }
-    });
+    if (!armed) {
+      armed = true;
+      ['pointerdown', 'keydown', 'touchend'].forEach(function(ev){
+        window.addEventListener(ev, primeNow, { capture: true, passive: true });
+      });
+    }
     primeNow(); // if a gesture already happened this page, this succeeds now
   }
   // Can we actually make a sound right now? Callers use this to decide
@@ -380,7 +398,7 @@
   function canSound(){
     if (isSilenced()) return false;
     var c = getCtx();
-    return !!(c && c.state !== 'suspended');
+    return !!(c && c.state === 'running');
   }
 
   // ── Round-clock sounds ─────────────────────────────────────────────
@@ -588,6 +606,7 @@
     notify: notify,
     alert: alert,
     arm: arm,
+    unlock: unlock,
     canSound: canSound,
     timeWarning: timeWarning,
     timeUp: timeUp,

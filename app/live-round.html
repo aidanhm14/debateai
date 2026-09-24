@@ -3919,10 +3919,10 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
             <details class="rmb-tools" id="rmbTools" hidden>
               <summary class="rmb-change rmb-change--draft rmb-tools-toggle" id="rmbToolsLabel">Debate something else</summary>
               <div class="rmb-tools-grid">
-                <button type="button" class="rmb-change" id="rmbRollBtn"><span class="rmb-ico" aria-hidden="true">&#127922;</span><span>Spin a topic<small>A fresh topic, including picks inspired by your matching answers.</small></span></button>
-                <button type="button" class="rmb-change" id="rmbDifferBtn"><span>Where you differ<small>A topic based on different answers you both gave.</small></span></button>
-                <button type="button" class="rmb-change" id="rmbChangeBtn"><span class="rmb-ico" aria-hidden="true">&#9998;</span><span>Propose a topic<small>Write one for the other person to accept.</small></span></button>
-                <button type="button" class="rmb-change" id="rmbDraftBtn"><span class="rmb-ico" aria-hidden="true">&#10005;</span><span>Offer strikes<small>Each person strikes two of five topics.</small></span></button>
+                <button type="button" class="rmb-change" id="rmbRollBtn"><span class="rmb-ico" aria-hidden="true">&#127922;</span><span>Spin a topic<small>Suggest something to debate.</small></span></button>
+                <button type="button" class="rmb-change" id="rmbDifferBtn"><span>Where you differ<small>From your matching answers.</small></span></button>
+                <button type="button" class="rmb-change" id="rmbChangeBtn"><span class="rmb-ico" aria-hidden="true">&#9998;</span><span>Propose a topic<small>Write your own.</small></span></button>
+                <button type="button" class="rmb-change" id="rmbDraftBtn"><span class="rmb-ico" aria-hidden="true">&#10005;</span><span>Offer strikes<small>Five topics, two strikes each.</small></span></button>
               </div>
             </details>
             <section id="topicStrikes" class="topic-strikes" aria-label="Choose with strikes" aria-live="polite" hidden></section>
@@ -3968,11 +3968,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
              snapshot; hidden on every path that does not need it. -->
         <div class="ready-beat" id="readyBeat" hidden></div>
         <div class="round-readiness" id="roundReadiness" role="status" hidden></div>
-        <details class="round-audio-help" id="roundAudioHelp">
-          <summary>Check microphone or fix sound</summary>
-          <p id="roundMicTest" role="status">Test your microphone before starting. The call is already live.</p>
-          <div class="row"><button type="button" class="btn" id="roundTestMic">Test microphone</button><button type="button" class="btn" id="roundEnableSound">Enable sound</button><button type="button" class="btn" id="roundReconnect">Reconnect call</button></div>
-        </details>
+
         <div class="round-action-dock" id="roundActionDock">
         <div class="round-mobile-context" id="roundMobileContext"><strong id="roundMobileSide"></strong><span id="roundMobileTopic"></span><span id="roundMobileStatus" role="status"></span></div>
         <div class="conversation-finish" id="conversationFinish" hidden>
@@ -4010,6 +4006,12 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
              sat in front of "Speech 1 of 4" and a clock at 5:00 with no
              way to learn nobody was coming. Filled by paintRoundQuiet();
              hidden whenever the room is beating. -->
+        <details class="round-audio-help" id="roundAudioHelp">
+          <summary>Sound and notifications</summary>
+          <p id="roundMicTest" role="status">Test your microphone before starting. The call is already live.</p>
+          <div class="row"><button type="button" class="btn" id="roundTestMic">Test microphone</button><button type="button" class="btn" id="roundEnableSound">Enable sound</button><button type="button" class="btn" id="roundReconnect">Reconnect call</button></div>
+          <div data-notification-setup></div>
+        </details>
         <div class="round-quiet" id="roundQuiet" hidden></div>
         <!-- The guest wall's notice to the OTHER debater (2026-09-07):
              filled by paintGuestHold() while the opponent's uid carries a
@@ -15248,10 +15250,10 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     function proposeMotion(text, source){
       var ref = proposalRef();
       var uid = myUid();
-      if (!ref || !uid) return false;
+      if (!ref || !uid) return Promise.resolve({ ok:false, error:'The room is not connected yet. Try again.' });
       if (motionChangeLocked()){
         toast(motionLockMessage());
-        return false;
+        return Promise.resolve({ ok:false, error:motionLockMessage() });
       }
       var accepts = {};
       accepts[uid] = true;
@@ -15267,9 +15269,12 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         motionProposalAccepts: accepts,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       };
-      ref.update(payload).catch(function(){ ref.set(payload, { merge: true }).catch(function(){}); });
-      try { gtag('event', 'live_round_motion_proposed', { source: source || 'edit' }); } catch(e){}
-      return true;
+      return ref.update(payload).then(function(){
+        try { gtag('event', 'live_round_motion_proposed', { source: source || 'edit' }); } catch(e){}
+        return { ok:true };
+      }).catch(function(){
+        return { ok:false, error:'Could not send your topic. Check your connection and try again.' };
+      });
     }
 
     // Answering someone else's proposal. Accepting writes ONLY your own
@@ -15968,21 +15973,23 @@ window.DBLiveDraft.attach({
     // a proposal when there is somebody to ask, and to a direct edit
     // when there is not.
     function setMotion(text, source){
-      if (!text || text === state.motion) return;
+      if (!text || text === state.motion) return Promise.resolve({ ok:true });
       if (motionChangeLocked()){
         toast(motionLockMessage());
         var mdL = $('rmbMotion'); if (mdL) mdL.textContent = state.motion || 'Choose topic';
-        return;
+        return Promise.resolve({ ok:false, error:motionLockMessage() });
       }
       if (bothSeatsIdentified() && !isSpectator() && myUid()){
-        proposeMotion(text, source);
-        toast('Change proposed. It takes effect when ' + nameForUid(
-          seatUids().filter(function(u){ return u !== myUid(); })[0]) + ' agrees.');
-        return;
+        return proposeMotion(text, source).then(function(result){
+          if (result.ok) toast('Topic proposed. Waiting for the other person to agree.');
+          else if (source !== 'modal') toast(result.error);
+          return result;
+        });
       }
       state.motion = text;
       var md = $('motionDisplay'); if (md) md.textContent = text;
       publishRoundMeta();
+      return Promise.resolve({ ok:true });
     }
     window.__lrSetMotion = setMotion;
     // The opponent's mic as the room receives it, for the voice judge to
@@ -16078,13 +16085,21 @@ window.DBLiveDraft.attach({
     // cannot be resolved here. Same trap the DM composer documents: bind
     // on first open, once.
     var mm = null, mmText = null, mmSubmit = null, mmHint = null, mmStatus = null;
-    var mmReturnFocus = null;
+    var mmReturnFocus = null, mmSaving = false, mmFocusTimer = null, mmSession = 0;
+    function mmViewport(){
+      var view = window.visualViewport;
+      if (!mm || !view) return;
+      mm.style.height = view.height + 'px';
+      mm.style.top = view.offsetTop + 'px';
+      mm.style.setProperty('--topic-viewport', view.height + 'px');
+    }
     function mmWire(){
       if (mm) return mm;
       mm = document.getElementById('motionModal');
       if (!mm) return null;
       mmText = $('motionModalText'); mmSubmit = $('motionModalSubmit');
       mmHint = $('motionModalHint'); mmStatus = $('motionModalStatus');
+      mm.addEventListener('cancel', function(e){ e.preventDefault(); mmClose(); });
       [].forEach.call(mm.querySelectorAll('[data-motion-close]'), function(c){
         c.addEventListener('click', mmClose);
       });
@@ -16111,22 +16126,24 @@ window.DBLiveDraft.attach({
         try { gtag('event', 'live_round_motion_roll_modal'); } catch(e){}
       });
       if (mmSubmit) mmSubmit.addEventListener('click', function(){
+        if (mmSaving) return;
         var v = ((mmText && mmText.value) || '').trim().replace(/\s+/g, ' ');
         if (!v){ if (mmStatus) mmStatus.textContent = 'Type a resolution first.'; return; }
         if (v === state.motion){ mmClose(); return; }
         if (motionChangeLocked()){ if (mmStatus) mmStatus.textContent = motionLockMessage(); syncMotionChangeBtns(); return; }
-        setMotion(v, 'modal');
-        // On the direct-edit path setMotion only repaints the setup
-        // field, so the round view has to be told. On the proposal path
-        // state.motion has not moved and this repaints the same string,
-        // which is the point: the visible resolution must not change
-        // until the opponent agrees.
-        var rmbNow = $('rmbMotion');
-        if (rmbNow && document.activeElement !== rmbNow) rmbNow.textContent = state.motion || 'Choose topic';
-        try { renderHouseGloss(); } catch(e){}
-        try { renderSidesGuide(); } catch(e){}
-        mmClose();
-        try { gtag('event', 'live_round_motion_change_modal'); } catch(e){}
+        var session = mmSession;
+        mmSaving = true; mmSubmit.disabled = true; mmText.readOnly = true;
+        mmStatus.textContent = 'Sending topic…';
+        Promise.resolve(setMotion(v, 'modal')).then(function(result){
+          if (session !== mmSession) return;
+          if (!result || !result.ok){ mmStatus.textContent = result && result.error || 'Could not send your topic. Try again.'; return; }
+          var rmbNow = $('rmbMotion');
+          if (rmbNow && document.activeElement !== rmbNow) rmbNow.textContent = state.motion || 'Choose topic';
+          try { renderHouseGloss(); renderSidesGuide(); } catch(e){}
+          mmClose();
+          try { gtag('event', 'live_round_motion_change_modal'); } catch(e){}
+        }).catch(function(){ if (session === mmSession) mmStatus.textContent = 'Could not send your topic. Try again.'; })
+          .finally(function(){ if (session === mmSession){ mmSaving = false; mmSubmit.disabled = false; mmText.readOnly = false; } });
       });
       return mm;
     }
@@ -16141,13 +16158,21 @@ window.DBLiveDraft.attach({
         : 'Nobody else is seated yet, so this takes effect right away.';
       if (mmStatus) mmStatus.textContent = '';
       if (mmText) mmText.value = state.motion || '';
+      mmSession++; mmSaving = false; mmSubmit.disabled = false; mmText.readOnly = false;
       mmReturnFocus = document.activeElement;
       mm.hidden = false; mm.classList.add('is-open');
+      if (!mm.open) mm.showModal();
+      mmViewport();
+      if (window.visualViewport){ window.visualViewport.addEventListener('resize', mmViewport); window.visualViewport.addEventListener('scroll', mmViewport); }
       document.body.classList.add('lr-modal-open');
-      setTimeout(function(){ if (mmText){ mmText.focus(); try { mmText.setSelectionRange(mmText.value.length, mmText.value.length); } catch(e){} } }, 30);
+      clearTimeout(mmFocusTimer);
+      mmFocusTimer = setTimeout(function(){ if (mm.open && mmText){ mmText.focus({preventScroll:true}); try { mmText.setSelectionRange(mmText.value.length, mmText.value.length); } catch(e){} } }, 30);
     }
     function mmClose(){
       if (!mm) return;
+      clearTimeout(mmFocusTimer); mmSession++; mmSaving = false; mmSubmit.disabled = false; mmText.readOnly = false;
+      if (mm.open) mm.close();
+      if (window.visualViewport){ window.visualViewport.removeEventListener('resize', mmViewport); window.visualViewport.removeEventListener('scroll', mmViewport); }
       mm.hidden = true; mm.classList.remove('is-open');
       document.body.classList.remove('lr-modal-open');
       try { if (mmReturnFocus && mmReturnFocus.focus) mmReturnFocus.focus(); } catch(e){}
@@ -21441,6 +21466,8 @@ window.DBLiveDraft.attach({
 })();
 </script>
 <script defer src="/js/notifications.js"></script>
+<link rel="stylesheet" href="/css/notification-setup.css">
+<script defer src="/js/notification-setup.js"></script>
 <style>
 .rc-dm{margin-left:8px;min-height:36px;padding:7px 12px;border-radius:9px;border:1px solid var(--accent,#ef4444);background:rgba(239,68,68,.1);color:var(--accent,#ef4444);font:inherit;font-size:.72rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:background .15s,transform .12s}
 .rc-dm:hover{background:rgba(239,68,68,.2);transform:translateY(-1px)}
@@ -21948,7 +21975,11 @@ body.lr-vid-off:not(.lr-mini):not(.lr-pip) .split{grid-template-columns:minmax(0
 
 /* ── 7. The change-resolution dialog. Centred card on desktop, bottom
       sheet on a phone. */
-.lr-sheet .lr-sheet-card{max-width:520px}
+.lr-sheet .lr-sheet-card{max-width:520px;max-height:calc(var(--topic-viewport,100dvh) - 36px);overflow:auto;overscroll-behavior:contain}
+#motionModal{width:100%;height:100%;max-width:none;max-height:none;margin:0;border:0;background:transparent;box-sizing:border-box}
+#motionModal::backdrop{background:rgba(0,0,0,.62)}
+#motionModal .dm-text{font-size:16px}
+#motionModal[hidden]{display:none!important}
 .lr-sheet-row{flex-wrap:wrap;gap:10px;margin-top:14px}
 .lr-btn-secondary{
   padding:9px 16px;border-radius:999px;font:inherit;font-size:.82rem;font-weight:700;
@@ -22166,7 +22197,7 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
      an inline contenteditable nobody could find: type it, or roll one,
      then propose. The consent flow underneath is unchanged, so with both
      seats filled the motion does not move until the opponent accepts. -->
-<div id="motionModal" class="dm-modal lr-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="motionModalTitle">
+<dialog id="motionModal" class="dm-modal lr-sheet" hidden aria-labelledby="motionModalTitle" aria-describedby="motionModalHint">
   <div class="dm-backdrop" data-motion-close></div>
   <div class="dm-card lr-sheet-card">
     <button type="button" class="dm-x" data-motion-close aria-label="Close">&times;</button>
@@ -22179,7 +22210,7 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
     </div>
     <div class="dm-status" id="motionModalStatus" role="status"></div>
   </div>
-</div>
+</dialog>
 <div id="dmModal" class="dm-modal" hidden role="dialog" aria-modal="true" aria-labelledby="dmTitle">
   <div class="dm-backdrop" data-dm-close></div>
   <div class="dm-card">

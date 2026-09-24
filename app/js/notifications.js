@@ -47,6 +47,29 @@
   // window or app actually pings you.
   function daAway(){ try { return document.hidden || !document.hasFocus(); } catch (_) { return !!document.hidden; } }
   function daCanOsNotify(){ return !!(window.Notification && Notification.permission === 'granted' && daAway()); }
+  // Mobile browsers require a service-worker notification. A notification
+  // click opens its destination; it never accepts a match on someone's behalf.
+  function daShowDeviceNotification(title, options){
+    options = options || {};
+    if (!daCanOsNotify() && !options.test) return Promise.resolve(false);
+    if (!window.Notification || Notification.permission !== 'granted') return Promise.resolve(false);
+    var url;
+    try { url = new URL(options.url || location.href, location.href); } catch (_) { return Promise.resolve(false); }
+    if (url.origin !== location.origin) return Promise.resolve(false);
+    var data = { body: options.body || '', icon: '/favicon.svg', tag: options.tag || 'debatable-alert', data: { url: url.href } };
+    function fallback(){
+      try {
+        var n = new Notification(title, data);
+        n.onclick = function(){ window.focus(); if (url.href !== location.href) location.href = url.href; n.close(); };
+        return true;
+      } catch (_) { return false; }
+    }
+    if (!('serviceWorker' in navigator)) return Promise.resolve(fallback());
+    return daEnsurePushServiceWorker().then(function(reg){
+      return reg.showNotification(title, data).then(function(){ return true; });
+    }).catch(fallback);
+  }
+  window.daShowDeviceNotification = daShowDeviceNotification;
   // Ask for notification permission on a real user gesture (Safari refuses
   // a passive request). Safe to call repeatedly; no-ops once decided.
   function daAskNotify(){
@@ -621,7 +644,10 @@
   function daPing(){
     daEnsureSfx().then(function (sfx) {
       if (!sfx) return;
-      try { (sfx.notify || sfx.success || function(){})(); } catch (_) {}
+      var ready = sfx.unlock ? sfx.unlock() : Promise.resolve(true);
+      return ready.then(function(ok){
+        if (ok) { try { (sfx.notify || sfx.success || function(){})(); } catch (_) {} }
+      });
     }).catch(function () {});
   }
   // Shared local notification for work that finishes away from the control
@@ -1312,8 +1338,7 @@
       daFlashTitle(who + ' is live');
       try {
         if (daCanOsNotify()) {
-          var ln = new Notification(who + more + ' is looking for a round', { body: 'Tap to meet them.', icon: '/favicon.svg', tag: 'da-live-now' });
-          ln.onclick = function () { window.focus(); try { location.href = '/spar'; } catch (_) {} ln.close(); };
+          daShowDeviceNotification(who + more + ' is looking for a round', { body: 'Tap to meet them.', url: '/spar', tag: 'da-live-now' });
         }
       } catch (_) {}
     }
@@ -1377,6 +1402,7 @@
           _daLiveAlertsError = ''; _daMessageAlertsError = '';
           try { localStorage.removeItem(DA_LIVE_ALERTS_KEY); } catch (_) {}
         }
+        window.dispatchEvent(new Event('debatable:notification-state'));
         if (!u || u.isAnonymous) {
           if (threadsUnsub) { try { threadsUnsub(); } catch (e) {} threadsUnsub = null; }
           if (repliesUnsub) { try { repliesUnsub(); } catch (e) {} repliesUnsub = null; }
@@ -1388,7 +1414,10 @@
           return;
         }
         myUid = u.uid;
-        daRegisterPush().then(function () { if (panel || pageEl) paintPanel(); }); // no permission prompt on load
+        daRegisterPush().then(function () {
+          window.dispatchEvent(new Event('debatable:notification-state'));
+          if (panel || pageEl) paintPanel();
+        }); // no permission prompt on load
         // Reconcile the live-alert toggle with the server copy so it reads
         // right across devices (localStorage is only this device's cache).
         u.getIdToken().then(function (tok) {
@@ -1398,6 +1427,7 @@
           if (!p) { maybeOfferDeviceLiveAlerts(u); return; }
           try { localStorage.setItem(DA_LIVE_ALERTS_KEY, p.liveAlerts ? '1' : '0'); } catch (_) {}
           daMergeMutedFromServer(p.mutedThreads);
+          window.dispatchEvent(new Event('debatable:notification-state'));
           if (panel || pageEl) paintPanel();
           maybeOfferDeviceLiveAlerts(u);
         }).catch(function () { maybeOfferDeviceLiveAlerts(u); });
@@ -2011,6 +2041,7 @@
     }
 
     function paintPanel() {
+      window.dispatchEvent(new Event('debatable:notification-state'));
       if (pageEl) paintPage();
       if (!panel) return;
       var oldScroller = panel.querySelector('.ui-bell-panel__scroll');
@@ -2149,8 +2180,7 @@
       try {
         if (daCanOsNotify()) {
           var title = disp.isGroup ? disp.name : ('New message from ' + disp.name);
-          var n = new Notification(title, { body: preview, icon: '/favicon.svg', tag: 'da-thread-' + disp.href });
-          n.onclick = function () { window.focus(); location.href = disp.href; n.close(); };
+          daShowDeviceNotification(title, { body: preview, url: disp.href, tag: 'da-thread-' + disp.href });
         }
       } catch (_) {}
     }
@@ -3004,8 +3034,7 @@
       daFlashTitle('Match found!'); // cross-platform (incl. iOS) tab-title ping
       try {
         if (daCanOsNotify()) {
-          var nn = new Notification('Match found', { body: 'vs ' + (d.matchedWithName || 'someone') + '. Tap to accept.', icon: '/favicon.svg', tag: 'da-spar-match' });
-          nn.onclick = function () { window.focus(); accept(d); nn.close(); };
+          daShowDeviceNotification('Match found', { body: 'vs ' + (d.matchedWithName || 'someone') + '. Open the invitation to accept.', tag: 'da-spar-match' });
         }
       } catch (e) {}
       var C = 2 * Math.PI * 32;
@@ -3135,13 +3164,22 @@
 
     function recoverBackgroundConsent(peerUid) {
       if (navigating || !pendingMatch || pendingMatch.matchedWith !== peerUid) return;
-      var latest = pendingMatch, seen = pendingSeenAt;
       awaitingPeer = false;
-      showMatch(latest);
-      pendingSeenAt = seen;
-      consentRoom = latest.room;
-      var sub = overlay && overlay.querySelector('.da-match-sub');
-      if (sub) sub.textContent = 'Your acceptance did not reach us. Check your connection and press Accept again.';
+      stopWaitPhases();
+      var latest = pendingMatch;
+      if (!overlay) return;
+      if (overlay.__tick) clearInterval(overlay.__tick);
+      var card = overlay.querySelector('.da-match-card');
+      card.innerHTML = '<div class="da-match-eyebrow">Still waiting for your answer</div>' +
+        '<div class="da-match-name">' + escHtml(latest.matchedWithName || 'Your opponent') + '</div>' +
+        '<p class="da-match-sub" role="status">Your acceptance did not reach us. Check your connection and try again.</p>' +
+        '<div class="da-match-btns"><button type="button" class="da-match-btn da-match-btn--decline">Decline</button><button type="button" class="da-match-btn da-match-btn--accept">Try again</button></div>';
+      card.querySelector('.da-match-btn--accept').addEventListener('click', function(){ accept(pendingMatch || latest); });
+      card.querySelector('.da-match-btn--decline').addEventListener('click', function(){ decline(pendingMatch || latest); });
+      card.querySelector('.da-match-btn--accept').focus();
+      overlay.__tick = setInterval(function(){
+        if (consentSecondsLeft(pendingMatch || latest, false, pendingSeenAt, Date.now()) <= 0) decline(pendingMatch || latest, true);
+      }, 1000);
     }
 
     // Patch the live invite card to say they have already committed.
@@ -3181,8 +3219,7 @@
       daFlashTitle(nm + ' is waiting.');
       try {
         if (daCanOsNotify()) {
-          var an = new Notification(nm + ' accepted', { body: 'The room opens the moment you do.', icon: '/favicon.svg', tag: 'da-spar-match' });
-          an.onclick = function () { window.focus(); accept(d); an.close(); };
+          daShowDeviceNotification(nm + ' accepted', { body: 'Open the invitation to join them.', tag: 'da-spar-match' });
         }
       } catch (e) {}
       try { if (window.gtag) gtag('event', 'spar_bg_peer_accepted_shown'); } catch (e) {}
@@ -3326,8 +3363,7 @@
       daAlert(3);
       try {
         if (daCanOsNotify()) {
-          var rn = new Notification('Your round is starting', { body: 'vs ' + ((d && d.matchedWithName) || 'your opponent') + '. Tap to join.', icon: '/favicon.svg', tag: 'da-spar-match' });
-          rn.onclick = function () { window.focus(); rn.close(); };
+          daShowDeviceNotification('Your round is starting', { body: 'vs ' + ((d && d.matchedWithName) || 'your opponent') + '. Tap to join.', url: href, tag: 'da-spar-match' });
         }
       } catch (e) {}
       setTimeout(function () { location.href = href; }, 2200);

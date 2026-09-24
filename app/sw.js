@@ -6,7 +6,7 @@
 
 
 
-const CACHE_NAME = 'debateos-v3687';
+const CACHE_NAME = 'debateos-v3689';
 
 
 
@@ -110,6 +110,7 @@ self.addEventListener('notificationclick', (event) => {
   let url = (event.notification.data && event.notification.data.url) || '/';
   try {
     const u = new URL(url, self.location.origin);
+    if (u.origin !== self.location.origin || !/^https?:$/.test(u.protocol)) return;
     u.searchParams.set('src', 'push');
     // Record the KIND, never the raw tag: go-live tags are 'da-live-<uid>'
     // and a DM tag carries a thread id, so passing them through would put a
@@ -125,12 +126,21 @@ self.addEventListener('notificationclick', (event) => {
     // decorate, and appending our params to a third-party link would leak
     // where the click came from.
     url = u.origin === self.location.origin ? u.pathname + u.search + u.hash : url;
-  } catch (e) { /* a malformed url still navigates, just untagged */ }
+  } catch (e) { return; }
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cls) => {
-      for (const c of cls) {
-        if ('focus' in c) { try { c.navigate && c.navigate(url); } catch (e) {} return c.focus(); }
-      }
+      // Reuse the exact destination without reloading its call. Never
+      // navigate an arbitrary existing tab away from a live round.
+      const canonical = value => {
+        const u = new URL(value, self.location.origin);
+        u.pathname = u.pathname.replace(/\.html$/, '').replace(/\/$/, '') || '/';
+        u.searchParams.delete('src'); u.searchParams.delete('pk');
+        u.searchParams.sort();
+        return u.href;
+      };
+      const target = canonical(url);
+      const existing = cls.find(c => { try { return canonical(c.url) === target; } catch (_) { return false; } });
+      if (existing && 'focus' in existing) return existing.focus();
       return self.clients.openWindow ? self.clients.openWindow(url) : null;
     })
   );

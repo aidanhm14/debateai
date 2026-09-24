@@ -5185,6 +5185,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       // updatePingedLine only once the server reports a push it actually
       // delivered, so it never claims a ping that did not happen.
       '<div class="pinged-line" id="pingedLine" hidden></div>' +
+      '<details class="queue-device-setup"><summary>Get notified. Set up this device or your phone</summary><div data-notification-setup></div></details>' +
       // 2026-09-01, Aidan on a screenshot of this screen: 'get rid of all
       // these it overwhelms the /spar page'. Gone from the searching state:
       // the Use-the-wait AI offer card, the quiet-hours Spar Night card and
@@ -6622,12 +6623,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   }
 
   function requestPingPermission(){
-    try {
-      if (window.Notification && Notification.permission === 'default'){
-        var r = Notification.requestPermission();
-        if (r && r.catch) r.catch(function(){});
-      }
-    } catch(e){}
+    // A timer cannot ask permission. The explicit setup button owns it.
+    if (window.daEnsureSfx) window.daEnsureSfx();
   }
 
   function pingMatchFound(name){
@@ -6646,12 +6643,10 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     else { try { if (window.SFX){ if (SFX.success) SFX.success(); else if (SFX.notify) SFX.notify(); } } catch(e){} }
     try {
       if (away && window.Notification && Notification.permission === 'granted'){
-        var n = new Notification('Opponent ready', {
-          body: 'vs ' + (name || 'your opponent') + '. Jump back in to start.',
-          icon: '/favicon.svg',
-          tag: 'da-spar-match'
+        if (window.daShowDeviceNotification) window.daShowDeviceNotification('Opponent ready', {
+          body: 'vs ' + (name || 'your opponent') + '. Open the invitation to respond.',
+          url: '/spar', tag: 'da-spar-match'
         });
-        n.onclick = function(){ try { window.focus(); } catch(e){} try { n.close(); } catch(e){} };
       }
     } catch(e){}
   }
@@ -9489,6 +9484,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
 <script defer src="/js/signup-nudge.js"></script>
 <script defer src="/js/notifications.js"></script>
+<link rel="stylesheet" href="/css/notification-setup.css">
+<script defer src="/js/notification-setup.js"></script>
 <script defer src="/js/spar-onboarding.js"></script>
 </body>
 </html>

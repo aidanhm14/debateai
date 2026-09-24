@@ -182,12 +182,14 @@ client.onThreads(inbound(0)); client.onThreads(inbound(1));
 assert.equal(client.dmUnread, 1); assert.equal(client.announced.length, 1); assert.equal(client.announced[0][2], true);
 client.daIsMuted = () => true; client.onThreads(inbound(2));
 assert.equal(client.dmUnread, 0); assert.equal(client.announced.length, 1);
-const attention = { showToast() {}, daPing() {}, daFlashTitle() {}, daCanOsNotify: () => true, Notification: function () { attention.constructors++; }, constructors: 0 };
+const attention = { showToast() {}, daPing() {}, daFlashTitle() {}, daCanOsNotify: () => true,
+  daShowDeviceNotification: (title, options) => { attention.notifications.push({ title, options }); }, notifications: [] };
 vm.runInNewContext(source.slice(source.indexOf('    function announce(disp'), source.indexOf('    function showToast(disp')) + '\nthis.announce = announce;', attention);
 attention.announce({ name: 'Public Alias' }, 'private preview', true);
-assert.equal(attention.constructors, 0, 'DMs rely on the persistent push banner, with no second OS constructor');
+assert.equal(attention.notifications.length, 0, 'DMs rely on the persistent push banner, with no second OS notification');
 attention.announce({ name: 'Forum', isGroup: true }, 'Public reply');
-assert.equal(attention.constructors, 1, 'existing forum reply notifications survive');
+assert.equal(attention.notifications.length, 1, 'existing forum reply notifications survive through the mobile-capable helper');
+assert.equal(attention.notifications[0].options.body, 'Public reply');
 
 for (const page of ['spar', 'messages', 'friends', 'live-round']) {
   const html = readFileSync(new URL('../app/' + page + '.html', import.meta.url), 'utf8');
