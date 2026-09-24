@@ -1,5 +1,14 @@
 # soul.md. Debatable · itsdebatable.com
 
+> **Types of debates (Aidan, 2026-09-24).** The homepage has a simple
+> “Types of debates to have” section below the leaderboard and above See more.
+> Exactly four categories: sales training, lawyer training, negotiation
+> training, and belief expression training. Each links to its own short
+> subpage with a custom statement, For/Against choice, and three examples.
+> Continue opens the existing AI voice setup for review. These are argument
+> practice entry points, not new counterpart simulations or outcome scoring.
+> The stranger board remains the first screen.
+
 > **Room topic choice (Aidan, 2026-09-23).** New ordinary matched rooms open the call with “Choose topic”. Matching suggestions never become an automatic resolution. Spin a topic, Propose a topic and Where you differ enter the shared acceptance flow. Where you differ uses explicit differences in both saved matching answers and never invents one from a generic topic. Offer strikes needs the other person’s acceptance, then five topics and two private strikes each. Reveal only after both commit; one person chooses a survivor and the other chooses a side. The private strike record is server-only, and its public projection is server-owned. No speech starts with an empty topic or pending strikes. Existing topics, ongoing rounds, explicit challenge/private topics and tournament draws remain intact. Matched links enter automatically with or without a prefilled topic.
 
 

@@ -32,6 +32,10 @@ const DYNAMIC = new Set([
 ]);
 
 const URLS = [
+  { path: '/sales-training', changefreq: 'monthly', priority: '0.72', lastmod: '2026-09-24' },
+  { path: '/lawyer-training', changefreq: 'monthly', priority: '0.72', lastmod: '2026-09-24' },
+  { path: '/negotiation-training', changefreq: 'monthly', priority: '0.72', lastmod: '2026-09-24' },
+  { path: '/belief-expression-training', changefreq: 'monthly', priority: '0.72', lastmod: '2026-09-24' },
   // ── DELISTED 2026-08-24: app shells with no crawlable content ──────
   // Measured on production: each of these server-renders between 9 and
   // 142 words, because the page is a JavaScript shell that paints after
