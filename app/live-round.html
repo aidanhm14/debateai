@@ -3677,6 +3677,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
 
   <!-- RIGHT: Round panel. swaps between setup, round, and ballot views. -->
   <div class="panel" id="panel">
+    <div class="spectator-match-slot" data-da-pill-slot="end" hidden></div>
     <section class="judge-overview" aria-label="Your AI judge">
     <div class="stage-rail" id="roomStage" aria-label="The AI judge">
       <div class="stage-seat stage-seat--pro" id="stageProSeat">
@@ -5906,6 +5907,12 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         && state.user.uid !== state.proUid2 && state.user.uid !== state.conUid2;
   }
 
+  // Use the resolved seat, including room-only links. A stage renderer or
+  // a participant opening their own spectator link must never be queued.
+  window.daIsRoundSpectator = function(){
+    return !prefill.stage && isSpectator() && !mySide();
+  };
+
   // Keep page progress and control ownership explicit. Every client
   // already enforces turn ownership; this makes the rule visible before
   // a user reaches for a disabled control.
@@ -6337,6 +6344,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var ms = mySide();
     var spectator = isSpectator();
     document.body.classList.toggle('spectator-mode', spectator);
+    if (window.DARoundPresence) window.DARoundPresence.refresh();
     try { if (spectator) ensureSpecMenu(); } catch(e){}
     // "Live transcript" is what the person producing it calls it. A
     // watcher is reading captions, and the language select next to the
@@ -17111,6 +17119,7 @@ window.DBLiveDraft.attach({
   }
 
   function enterAudienceMode(){
+    if (window.DARoundPresence) window.DARoundPresence.refresh();
     // Dormant while watching needs no host approval
     // (WATCH_ADMISSION_ENABLED is false),
     // so this falls straight through and the viewer is in. Kept ahead of

@@ -16,7 +16,7 @@
  * other tab reads it before offering a round. Two kinds, because they
  * mean different things to the matchmaker:
  *
- *   'round' — in a human round or watching the tournament broadcast.
+ *   'round' — in a human round or on the tournament desk.
  *             Nothing may offer a round, and the queue doc should be
  *             dropped: that tab has no card to answer with, so a peer
  *             accepting into it lands in an empty room.
@@ -53,7 +53,7 @@
   // Public tournament pages are spectator surfaces for now. Publishing the
   // same busy signal here also pauses a general Spar matcher left open in a
   // second tab, which a path guard in the visible tab cannot reach.
-  var SPECTATOR_RE = /^\/(?:open|tournament|tournaments|watch)(?:\.html)?(?:\/|$)/;
+  var SPECTATOR_RE = /^\/(?:open|tournament|tournaments)(?:\.html)?(?:\/|$)/;
   // Which tab wrote the marker. Two round tabs at once is rare, but closing
   // one must not un-busy the other.
   var TAB = 'p' + Math.random().toString(36).slice(2, 10);
@@ -61,6 +61,7 @@
   function path() { try { return location.pathname || ''; } catch (e) { return ''; } }
   function myKind() {
     var p = path();
+    if (/^\/live-round(?:\.html)?(?:\/|$)/.test(p) && window.daIsRoundSpectator && window.daIsRoundSpectator()) return '';
     if (ROUND_RE.test(p) || SPECTATOR_RE.test(p)) return 'round';
     if (VOICE_AI_RE.test(p)) return 'voice-ai';
     if (SPAR_RE.test(p)) return 'spar';
@@ -77,8 +78,16 @@
   var kind = myKind();
 
   function beat() {
-    if (!kind) return;
-    try { localStorage.setItem(KEY, JSON.stringify({ kind: kind, at: Date.now(), tab: TAB, path: path() })); } catch (e) {}
+    var next = myKind();
+    var changed = next !== kind;
+    if (changed) {
+      clear();
+      kind = next;
+    }
+    if (kind) {
+      try { localStorage.setItem(KEY, JSON.stringify({ kind: kind, at: Date.now(), tab: TAB, path: path() })); } catch (e) {}
+    }
+    if (changed) window.dispatchEvent(new Event('debatable:round-role'));
   }
   function clear() {
     try {
@@ -91,10 +100,11 @@
   window.DARoundPresence = {
     kind: read,                                   // '' | 'round' | 'spar' | 'voice-ai'
     mine: function () { return kind; },
+    refresh: beat,
     clear: clear
   };
 
-  if (!kind) return;
+  if (!kind && !/^\/live-round(?:\.html)?(?:\/|$)/.test(path())) return;
   beat();
   setInterval(beat, BEAT_MS);
   // A visible tab is the authoritative one; re-stamp on focus so a marker

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import './test-spectator-matching.mjs';
 
 const read = (path) => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 
@@ -16,29 +17,29 @@ const spotlightApi = read('app/netlify/functions/director-spotlight.mjs');
 const tournamentApi = read('app/netlify/functions/tournament.mjs');
 const dropin = read('app/netlify/functions/tournament-dropin.mjs');
 
-const routeGuard = "var MATCHING_PAUSED = /^\\/(?:open|tournament|tournaments|watch)(?:\\.html)?(?:\\/|$)/.test(location.pathname);";
+const routeGuard = "var MATCHING_PAUSED = /^\\/(?:open|tournament|tournaments)(?:\\.html)?(?:\\/|$)/.test(location.pathname);";
 assert.ok(
   notifications.includes(routeGuard),
-  'background Spar must pause on tournament and watch routes',
+  'background Spar must pause on tournament desk routes',
 );
-const pausedRoute = /^\/(?:open|tournament|tournaments|watch)(?:\.html)?(?:\/|$)/;
-for (const path of ['/open', '/open.html', '/tournament', '/tournaments', '/watch', '/watch/']) {
+const pausedRoute = /^\/(?:open|tournament|tournaments)(?:\.html)?(?:\/|$)/;
+for (const path of ['/open', '/open.html', '/tournament', '/tournaments']) {
   assert.ok(pausedRoute.test(path), 'expected paused route: ' + path);
 }
-for (const path of ['/practice', '/spar', '/watchparty', '/tournament-rules']) {
+for (const path of ['/practice', '/spar', '/watch', '/watch/', '/watchparty', '/tournament-rules']) {
   assert.equal(pausedRoute.test(path), false, 'unexpected paused route: ' + path);
 }
-assert.match(notifications, /var ON_ROUND = \/\\\/\(live-round\|/, 'spectator rounds must retain the live-round exclusion');
+assert.match(notifications, /var ON_ROUND = \/\\\/\(live-round\|/, 'round pages must retain participant protection');
 assert.ok(
-  presence.includes('var SPECTATOR_RE = /^\\/(?:open|tournament|tournaments|watch)') &&
+  presence.includes('var SPECTATOR_RE = /^\\/(?:open|tournament|tournaments)') &&
   presence.includes("if (ROUND_RE.test(p) || SPECTATOR_RE.test(p)) return 'round';"),
-  'spectator mode must pause matchmaking in other tabs',
+  'tournament desks must pause matchmaking in other tabs',
 );
 for (const [name, source] of [['open', open], ['tournament', tournament], ['tournaments', tournaments], ['watch', watch]]) {
   assert.ok(source.includes('<script defer src="/js/round-presence.js"></script>'), name + ' must publish spectator presence');
 }
 for (const guard of [
-  '!ON_ROUND && !ON_SPAR && !MATCHING_PAUSED',
+  '!inRound() && !ON_SPAR && !MATCHING_PAUSED',
   '!busyElsewhere() && !MATCHING_PAUSED',
   '(inRound() || MATCHING_PAUSED)',
 ]) {

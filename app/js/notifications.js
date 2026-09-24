@@ -892,6 +892,10 @@
       '@media(max-width:480px){#da-bell-toasts{top:calc(58px + env(safe-area-inset-top,0px));left:12px;right:12px;width:auto;transform:none}}' +
       '.da-spar-pill{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:999px;background:transparent;border:1px solid var(--dab-border);color:var(--dab-dim);cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:700;letter-spacing:.01em;transition:color .15s,border-color .15s,background .15s;white-space:nowrap}' +
       '.da-spar-pill:hover{color:var(--dab-text);border-color:var(--dab-border-strong)}' +
+      '.spectator-match-slot{padding:10px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;border-bottom:1px solid var(--dab-border)}' +
+      '.spectator-match-slot[hidden]{display:none}' +
+      '.spectator-match-slot .da-spar-pill{min-height:44px;height:auto;white-space:normal;text-align:left}' +
+      '.da-spar-watch-help{font-size:.78rem;line-height:1.4;color:var(--dab-dim);flex:1 1 190px}' +
       '.da-spar-pill__dot{width:8px;height:8px;border-radius:50%;background:var(--dab-ghost);transition:background .2s}' +
       '.da-spar-pill.is-on{color:var(--dab-ok);border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.08)}' +
       '[data-theme="light"] .da-spar-pill.is-on,[data-lighting="light"] .da-spar-pill.is-on,body.light-theme .da-spar-pill.is-on{color:#166534;border-color:rgba(22,101,52,.5);background:rgba(22,101,52,.08)}' +
@@ -2276,21 +2280,17 @@
     // match navigates away; declining leaves the AI session running.
     var ON_VOICE_AI = /^\/(?:newvoice|voice-debate)(?:\.html)?(?:\/|$)/.test(location.pathname);
     var ON_ROUND = /\/(live-round|exhibition|casual-room|room-judge)/.test(location.pathname);
+    var ON_WATCH = /^\/watch(?:\.html)?(?:\/|$)/.test(location.pathname);
+    function watching() { return ON_WATCH || !!(window.daIsRoundSpectator && window.daIsRoundSpectator()); }
     var voiceDeclined = ON_VOICE_AI && !!window.__daVoiceInvitesPaused;
     // /spar runs its OWN foreground matchmaker against the same queue doc.
     // Suppress the background matcher there so the two don't fight over the
     // doc; /spar instead sets the availability flag + sends the user to
     // prep, and the matcher activates on the next page.
     var ON_SPAR = /\/spar(?:\.html)?(?:[/?#]|$)/.test(location.pathname);
-    // Tournament and broadcast surfaces are view-only for the public until
-    // public tournament pairing is deliberately enabled. The shared topbar
-    // loads this matcher on all four pages, and background availability now
-    // defaults on for eligible accounts, so without a route-level pause a
-    // spectator can receive the general Spar "Debater found" card while
-    // watching the admins. /live-round is already covered by ON_ROUND,
-    // including ?spectate=1. Keep the standing availability preference, but
-    // remove the queue doc and do not show the pill or a match card here.
-    var MATCHING_PAUSED = /^\/(?:open|tournament|tournaments|watch)(?:\.html)?(?:\/|$)/.test(location.pathname);
+    // Tournament desks retain their own pairing flow. Watch and resolved
+    // round spectators can opt into ordinary matches without leaving video.
+    var MATCHING_PAUSED = /^\/(?:open|tournament|tournaments)(?:\.html)?(?:\/|$)/.test(location.pathname);
     // Those two answer for THIS tab. js/round-presence.js publishes the same
     // fact across tabs, so a second tab opened mid-round stops reading as
     // idle and queueing the debater for a second round. 'round' behaves like
@@ -2298,7 +2298,7 @@
     // an invite with, so a peer accepting lands in an empty room); 'spar'
     // behaves like ON_SPAR (that tab's foreground matcher owns the doc, so
     // stay off it rather than delete it).
-    function inRound() { return ON_ROUND || daPresenceKind() === 'round'; }
+    function inRound() { return (ON_ROUND && !watching()) || daPresenceKind() === 'round'; }
     function inSpar() { return ON_SPAR || daPresenceKind() === 'spar'; }
     function busyElsewhere() { return inRound() || inSpar() || !!tournamentSeat || (daPresenceKind() === 'voice-ai' && !ON_VOICE_AI); }
 
@@ -2500,13 +2500,28 @@
       if (!pill) return;
       // A tournament viewer has one job: watch the admin stream. Hide the
       // general Spar control there even when availability is standing on.
-      var show = myUid && !ON_ROUND && !ON_SPAR && !MATCHING_PAUSED;
+      var show = myUid && (!ON_ROUND || watching()) && !ON_SPAR && !MATCHING_PAUSED;
       pill.style.display = show ? 'inline-flex' : 'none';
+      pill.setAttribute('aria-pressed', available ? 'true' : 'false');
       var lab = pill.querySelector('.da-spar-pill__lab');
       if (tournamentSeat) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Tournament match'; pill.title = 'Your tournament room has your seat. General matching is paused until the result is in. Tap to open the tournament desk.'; pill.setAttribute('aria-label', 'Reserved for your tournament match. Open the tournament desk.'); }
       else if (voiceDeclined) { pill.classList.remove('is-on'); if (lab) lab.textContent = 'Voice AI'; pill.title = 'Live invitations are paused while you continue with the AI. Tap to receive them again.'; pill.setAttribute('aria-label', pill.title); }
       else if (available) { pill.classList.add('is-on'); if (lab) lab.textContent = 'Available'; pill.title = "You're available. Keep this tab open while you do other things, and we'll ping you when someone wants to debate. Tap to turn off."; pill.setAttribute('aria-label', "Available for live debates. Tap to turn off."); }
       else { pill.classList.remove('is-on'); if (lab) lab.textContent = 'Spar live'; pill.title = 'Get matched with a real person while you browse, without sitting on the Spar page.'; pill.setAttribute('aria-label', 'Go available for live debates'); }
+      if (watching() && !tournamentSeat) {
+        if (lab) lab.textContent = available ? 'Round alerts on' : 'Notify me to debate';
+        pill.title = available ? 'We will invite you when a match is found. Tap to turn off.' : 'Keep watching while we find you someone to debate. You choose whether to join.';
+        pill.setAttribute('aria-label', (lab ? lab.textContent + '. ' : '') + pill.title);
+      }
+      var slot = pill.parentNode;
+      if (slot && slot.classList.contains('spectator-match-slot')) {
+        slot.hidden = !show;
+        var help = slot.querySelector('.da-spar-watch-help');
+        if (!help) { help = document.createElement('span'); help.className = 'da-spar-watch-help'; help.setAttribute('aria-live', 'polite'); slot.appendChild(help); }
+        help.hidden = !show;
+        var helpText = busyElsewhere() ? 'Invitations are paused while you have another round or reserved seat.' : available ? 'Keep this tab open. Accept an invitation to join your own round.' : 'Keep watching. Get an invitation when someone is ready to debate.';
+        if (help.textContent !== helpText) help.textContent = helpText;
+      }
     }
 
     // Server-owned tournament reservations make an assigned seat exclusive
@@ -2596,7 +2611,7 @@
         if (!quiet) sparNote(inRound() ? "You're already in a round in another tab. We'll make you matchable again when it ends." : "Your other tab is already looking for an opponent.");
         return;
       }
-      if (available && myUid && !ON_ROUND && !ON_SPAR && !MATCHING_PAUSED) {
+      if (available && myUid && !inRound() && !ON_SPAR && !MATCHING_PAUSED) {
         if (quiet) suppressAvailableNoteOnce = true;
         goAvailable();
         // Going live = ping the pool of opted-in debaters (server enforces a
@@ -2789,8 +2804,9 @@
     // running whether or not the tab is visible. It steps out of the queue
     // for as long as the round lasts and steps back in when it ends, so
     // availability survives the round instead of being spent by it.
-    var pausedForRound = false;
+    var pausedForRound = busyElsewhere();
     function busyGuard() {
+      paintPill();
       if (busyElsewhere()) {
         if (!available || pausedForRound) return;
         pausedForRound = true;
@@ -2809,6 +2825,7 @@
       if (available && myUid && !MATCHING_PAUSED && !navigating && !overlay) goAvailable();
     }
     setInterval(busyGuard, 10 * 1000);
+    window.addEventListener('debatable:round-role', busyGuard);
 
     // ── own-doc listener: drives the match card ──
     function watchOwnDoc() {
@@ -3428,7 +3445,7 @@
         // loud, because being silently matchable is not consent.
         // Match cards still always require an Accept; nothing here can
         // pull anyone into a round without a tap.
-        if (queueUser && !available && !voiceDeclined && !busyElsewhere() && !MATCHING_PAUSED) {
+        if (queueUser && !available && !watching() && !voiceDeclined && !busyElsewhere() && !MATCHING_PAUSED) {
           var optedOut = false;
           try { optedOut = localStorage.getItem(LSKEY) === '0'; } catch (e) {}
           if (!optedOut && agBand()) {

@@ -283,6 +283,8 @@ Do not relax the rule or allow a sender to replace a conversation member.
 
 **Public names (2026-09-10, Aidan):** Google and other sign-in names never supply a public name or initial. Every board and page uses the stable account alias from `public-identity.js`, or the nickname the person explicitly chose in `displayNameOverride`. Recommend nicknames. Clearing one restores the same generated alias. Secondary-page wordmarks include a pulsing home link with a static reduced-motion version.
 
+**Spectator match invitations (2026-09-24).** People watching on `/watch` or spectating `/live-round` can turn on "Notify me to debate" and keep watching until an ordinary match invitation arrives. Existing availability is respected, but a new spectator is not automatically enlisted. Accepting joins their own round; declining keeps the watched round open. Spectating no longer publishes a participant's cross-tab busy marker. Actual participants, stage renderers, tournament desks, and reserved tournament seats remain protected from a second match. This supersedes the earlier blanket Watch and live-round spectator matchmaking exclusions.
+
 ## 1. What this is (one sentence)
 
 Debatable is a **live arena and media company for casual spoken argument, open to anyone who wants to argue something out.** One or two people take each side, a simple clock keeps the round moving, and the judge explains what won. The leaderboard supplies the cast; broadcasts, replays, and clips make the best rounds worth following. Lives at **itsdebatable.com** (canonical since 2026-07-22; debateai.com and the other legacy domains 301 there).
