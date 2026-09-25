@@ -125,33 +125,38 @@ check(
 check(!landing.includes('data-cta="landing-quick-board"'), 'landing quick row does not duplicate the leaderboard below it');
 
 const watch = read('app/watch.html');
+const watchCss = read('app/css/watch-library.css');
+const watchBrowse = read('app/js/watch-library.js');
 check(
-  (watch.match(/data-pan-shelf role=/g) || []).length === 2
-    && watch.includes("window.matchMedia('(prefers-reduced-motion: reduce)')")
-    && watch.includes("['pointerdown','touchstart','wheel','keydown','focusin','mouseenter']")
-    && watch.includes("new IntersectionObserver(function(entries)")
-    && watch.includes('animateTo(target, 2800')
-    && watch.includes("shelf.id === 'replaysGrid' ? 1300 : 6500"),
-  'watch shelves preview their overflow smoothly and yield to human control',
+  (watch.match(/class="yt-card"/g) || []).length >= 9
+    && (watch.match(/data-duration="[0-9]+" data-channel=/g) || []).length >= 9
+    && !watch.includes('data-pan-shelf')
+    && watchCss.includes('@media(prefers-reduced-motion:reduce)'),
+  'Watch exposes a larger attributed example library without moving the browsing grid',
 );
 check(
-  watch.includes('<span class="cue-scroll">Scroll</span><span class="cue-swipe">Swipe</span>')
-    && watch.includes('.watch-shelf.no-overflow .watch-shelf-cue'),
-  'watch shelves visibly explain horizontal browsing only when content overflows',
+  watch.includes('role="search"')
+    && watch.includes('id="watchQuery"')
+    && watch.includes('id="watchTopics"')
+    && watch.includes('id="watchReset"')
+    && watchBrowse.includes("query.addEventListener('input'")
+    && watchBrowse.includes("document.addEventListener('watch:feed-updated', applyFilters)"),
+  'Watch search and topic filters also apply when community recordings arrive',
 );
 check(
-  watch.includes('href="/watch/youtube" aria-label="See the full YouTube debates gallery"')
-    && watch.includes('href="/watch/debatable" aria-label="See the full Debatable debates gallery"')
+  watch.includes('href="/watch/youtube" data-watch-nav="youtube"')
+    && watch.includes('href="/watch/debatable" data-watch-nav="debatable"')
     && watch.includes("path === '/watch/youtube' ? 'youtube'")
-    && watch.includes("data-watch-gallery=\"youtube\"")
-    && watch.includes("data-watch-gallery=\"debatable\""),
-  'each Watch source opens its own full gallery view',
+    && watch.includes("setAttribute('data-watch-view', mode || 'all')"),
+  'each Watch source keeps its address and chooses its view before first paint',
 );
 check(
-  watch.includes('body.social-watch .rail-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))')
-    && watch.includes('html[data-watch-gallery="debatable"] .watch-main{display:none}')
-    && watch.includes('html[data-watch-gallery="youtube"] .watch-rail{display:none}'),
-  'gallery views expand the selected source into a responsive grid',
+  watchCss.includes('grid-template-columns:repeat(3,minmax(0,1fr))')
+    && watchCss.includes('html[data-watch-view="debatable"] .watch-main')
+    && watchCss.includes('html[data-watch-view="youtube"] .watch-rail')
+    && watchCss.includes('@media(max-width:520px)')
+    && watchCss.includes('grid-template-columns:minmax(0,1fr)'),
+  'Watch source views share a responsive video grid',
 );
 for (const path of ['netlify.toml', 'app/netlify.toml']) {
   const redirects = read(path);
@@ -438,9 +443,9 @@ check(
 check(
   !watch.includes('/css/social-depth.css')
     && !watch.includes('id="uiNeuralCanvas"')
-    && watch.includes("--font-body:'DM Sans'")
-    && watch.includes("font-family:'Source Serif 4',Georgia,serif !important"),
-  'Watch keeps the restrained editorial surface without decorative depth assets',
+    && watch.includes('/css/watch-library.css')
+    && watchCss.includes("font-family:'Inter',Arial,sans-serif"),
+  'Watch keeps its video-first surface without decorative depth assets',
 );
 check(inlineScriptsParse('app/watch.html'), 'app/watch.html inline scripts parse');
 const challenges = read('app/challenges.html');

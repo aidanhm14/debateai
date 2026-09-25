@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Watch Debates Live and Online | Debatable</title>
+<title>Watch Example Debates, Replays and Live Rounds | Debatable</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
 <meta name="description" content="Watch debates live and online on Debatable. Take a spectator seat, play published replays, and read the judge's decision." />
 <meta name="robots" content="index,follow,max-image-preview:large,max-video-preview:-1,max-snippet:-1">
@@ -78,9 +78,11 @@
       if (requested === 'youtube' || requested === 'debatable') mode = requested;
     } catch(e){}
   }
+  if (!mode && new URLSearchParams(location.search).get('view') === 'live') mode = 'live';
+  document.documentElement.setAttribute('data-watch-view', mode || 'all');
   if (!mode) return;
   document.documentElement.setAttribute('data-watch-gallery', mode);
-  document.title = mode === 'youtube' ? 'YouTube Debate Gallery | Debatable' : 'Debatable Replay Gallery | Debatable';
+  document.title = mode === 'youtube' ? 'Example Debates | Debatable' : mode === 'live' ? 'Live Debates | Debatable' : 'Debatable Replay Gallery | Debatable';
 })();
 </script>
 
@@ -615,208 +617,6 @@ footer a{color:var(--dim)}
 .ls-shot-fallback i{display:flex;align-items:center;justify-content:center;background:var(--surface2);color:var(--faint);
   font:800 11px 'Geist Mono',monospace;letter-spacing:.08em;font-style:normal}
 
-/* ── Watch and learn: real debates hosted on YouTube ─────────────────
-   These are OTHER PEOPLE'S videos on someone else's platform, so every
-   card links out rather than embedding. Two reasons, both deliberate:
-   an embed whose owner has disabled embedding renders a dead black box
-   on our highest-intent page, and an in-page player implies a
-   relationship with these organisations that we do not have. The
-   YouTube wordmark and the per-card channel line are what keep the
-   provenance honest. */
-.yt-sec{margin-top:38px}
-.yt-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:6px}
-.yt-head-actions,.rail-actions{display:flex;align-items:center;justify-content:flex-end;gap:14px;flex-wrap:wrap}
-.gallery-title-link{color:inherit;text-decoration:none}
-.gallery-title-link:hover{text-decoration:underline;text-underline-offset:4px}
-.gallery-open{display:inline-flex;align-items:center;gap:7px;color:var(--red-link);font-size:13.5px;font-weight:800;text-decoration:none;white-space:nowrap}
-.gallery-open span{font-size:18px;line-height:1;transition:transform .18s ease}
-.gallery-open:hover span{transform:translateX(3px)}
-.gallery-open:focus-visible,.gallery-title-link:focus-visible{outline:2px solid var(--red);outline-offset:4px;border-radius:4px}
-.yt-badge{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--dim)}
-.yt-mark{display:inline-flex;align-items:center;justify-content:center;width:34px;height:24px;
-  background:#ff0000;border-radius:6px;flex:0 0 auto}
-.yt-mark svg{width:11px;height:13px;display:block}
-.yt-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px 14px;margin-top:16px}
-@media(max-width:720px){.yt-grid{grid-template-columns:1fr}}
-.yt-card{display:block;text-decoration:none;color:inherit}
-.yt-thumb{display:block;position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;
-  background:var(--surface2);border:1px solid var(--border)}
-.yt-thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s ease}
-.yt-card:hover .yt-thumb img{transform:scale(1.04)}
-.yt-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-.yt-play span{width:56px;height:39px;background:rgba(0,0,0,.72);border-radius:9px;
-  display:flex;align-items:center;justify-content:center;transition:background .2s ease}
-.yt-card:hover .yt-play span{background:#ff0000}
-.yt-play svg{width:19px;height:22px;display:block}
-.yt-dur{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.82);color:#fff;
-  border-radius:5px;padding:2px 6px;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
-.yt-body{padding-top:11px}
-.yt-event{display:block}
-.yt-motion{display:block}
-.yt-event{font-size:11.5px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--red-link)}
-.yt-card h3{font-size:16.5px;font-weight:700;line-height:1.34;margin:5px 0 0}
-.yt-card:hover h3{text-decoration:underline;text-underline-offset:2px}
-.yt-motion{color:var(--dim);font-size:14px;line-height:1.48;margin-top:6px}
-.yt-foot{display:flex;align-items:center;gap:7px;margin-top:8px;color:var(--faint);font-size:13px}
-.yt-foot .yt-chan{font-weight:700}
-.yt-note{color:var(--faint);font-size:14px;line-height:1.6;margin-top:18px;max-width:820px}
-.yt-note a{color:var(--red-link);text-decoration:none;font-weight:600}
-.yt-note a:hover{text-decoration:underline}
-
-/* ── Two-column body: main reading column, recordings rail beside it */
-.watch-cols{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:30px;align-items:start;margin-top:38px}
-.watch-main,.watch-rail{min-width:0}
-/* social-depth turns this grid into a column. Carrying grid's start
-   alignment into flex makes both columns take their max-content width. */
-.social-watch .watch-cols{align-items:stretch}
-@media(max-width:1080px){.watch-cols{grid-template-columns:1fr;gap:38px}}
-.watch-rail{position:sticky;top:96px}
-@media(max-width:1080px){.watch-rail{position:static;order:-1}}
-.rail-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
-.rail-head h2{font-size:20px;font-weight:800}
-.rail-all{color:var(--red-link);font-weight:700;font-size:13.5px;text-decoration:none}
-.rail-all:hover{text-decoration:underline}
-.rail-list{display:grid;gap:12px;margin-top:14px;max-height:min(72vh,940px);overflow-y:auto;
-  padding-right:4px;scrollbar-width:thin}
-@media(max-width:1080px){.rail-list{max-height:none;overflow:visible;
-  grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}}
-/* The rail is narrow, so a replay card goes horizontal here: a small
-   still on the left, the motion and the debaters on the right. The card
-   markup is unchanged, only its layout, so loadFeed keeps working. */
-.rail-list .card{display:grid;grid-template-columns:132px minmax(0,1fr);gap:11px;align-items:start}
-/* A bare 1fr keeps its min-content floor. Real replay titles could make
-   that hidden track wider than the phone and trigger horizontal auto-fit. */
-@media(max-width:1080px){.rail-list .card{grid-template-columns:minmax(0,1fr)}}
-.rail-list .card .thumb{margin:0}
-.rail-list .card-body{padding-top:1px}
-.rail-list .card h3{font-size:14.5px;line-height:1.35}
-.rail-list .card .foot{font-size:12px;margin-top:5px;flex-direction:column;align-items:flex-start;gap:2px}
-.rail-list .hl-line{display:none}
-@media(max-width:720px){
-  .watch-cols{margin-top:30px;gap:34px}
-  .rail-list,.yt-grid{display:flex;overflow-x:auto;gap:12px;scroll-snap-type:x mandatory;
-    scrollbar-width:none;padding:0 18px 8px 0}
-  .social-watch .watch-rail .rail-list{overflow-x:auto;overflow-y:hidden}
-  .rail-list::-webkit-scrollbar,.yt-grid::-webkit-scrollbar{display:none}
-  .rail-list .card{display:block;flex:none;width:78vw;max-width:300px;scroll-snap-align:start}
-  .yt-card{flex:none;width:82vw;max-width:320px;scroll-snap-align:start}
-  .yt-motion{display:none}
-  .yt-note{font-size:13px;margin-top:12px}
-}
-
-/* The social frame used to turn Watch back into one full-width feed and
-   restore its billboard-sized hero. Keep the masthead as a label, then
-   give Debatable and outside debates equal visual weight. The shelves
-   scroll inside their panels so a live feed can grow without lengthening
-   the page one card at a time. */
-body.social-watch .page-head{max-width:none;margin-top:52px;padding:42px 0 26px;border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent;box-shadow:none;overflow:visible}
-html.dbnative body.social-watch .page-head{margin-top:0;padding-top:20px}
-body.social-watch .page-head::after{display:none}
-body.social-watch .page-title{max-width:none;margin:0;font-family:'Source Serif 4',Georgia,serif !important;font-size:clamp(2.35rem,3.7vw,3.4rem);font-weight:600;line-height:1.02;letter-spacing:-.035em}
-.watch-masthead{display:flex;align-items:center;gap:20px}
-.watch-masthead .watch-bet{margin-left:auto;flex-shrink:0}
-.watch-join{display:inline-flex;align-items:center;justify-content:center;max-width:330px;min-height:66px;padding:14px 24px;
-  border:1px solid var(--red);border-radius:9px;background:var(--red);box-shadow:none;color:#fff;text-align:center;
-  text-decoration:none;font-size:16px;font-weight:750;line-height:1.25;transition:background .15s ease,border-color .15s ease}
-.watch-join:hover{background:var(--red-deep);border-color:var(--red-deep)}
-.watch-join:focus-visible{outline:3px solid var(--text);outline-offset:3px}
-body.social-watch .watch-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;align-items:stretch;margin-top:22px}
-body.social-watch .watch-main{min-width:0}
-body.social-watch .watch-rail,
-body.social-watch .yt-sec{box-sizing:border-box;height:100%;margin:0;padding:22px;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:none}
-body.social-watch .watch-rail{position:static;order:0}
-body.social-watch .yt-grid,
-body.social-watch .rail-list{display:flex;gap:12px;max-height:none;overflow-x:auto;overflow-y:hidden;padding:0 2px 10px 0;scroll-snap-type:x mandatory;scrollbar-width:thin}
-body.social-watch .yt-card,
-body.social-watch .rail-list .card{display:block;flex:0 0 calc(50% - 6px);min-width:235px;max-width:none;scroll-snap-align:start}
-body.social-watch .rail-list .card .thumb{margin:0 0 10px}
-.watch-shelf{position:relative;min-width:0}
-.watch-shelf::after{content:"";position:absolute;z-index:2;top:0;right:0;bottom:10px;width:72px;
-  background:linear-gradient(90deg,transparent,var(--surface) 86%);pointer-events:none;
-  opacity:1;transition:opacity .45s ease}
-.watch-shelf-cue{position:absolute;z-index:3;right:8px;top:50%;display:inline-flex;align-items:center;gap:7px;
-  min-height:36px;padding:7px 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface);
-  box-shadow:0 6px 18px rgba(20,20,24,.14);color:var(--text);font-size:12px;font-weight:850;
-  letter-spacing:.02em;pointer-events:none;transform:translateY(-50%);opacity:1;
-  transition:opacity .45s ease,transform .45s ease}
-.watch-shelf-cue b{font-size:18px;line-height:1;animation:watch-shelf-nudge 1.8s ease-in-out infinite}
-.watch-shelf-cue .cue-swipe{display:none}
-.watch-shelf.has-panned::after,.watch-shelf.no-overflow::after{opacity:0}
-.watch-shelf.has-panned .watch-shelf-cue,.watch-shelf.no-overflow .watch-shelf-cue{opacity:0;transform:translate(8px,-50%)}
-.watch-shelf .is-auto-panning{scroll-snap-type:none!important}
-@keyframes watch-shelf-nudge{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
-
-@media(max-width:900px){
-  body.social-watch .watch-cols{grid-template-columns:minmax(0,1fr);gap:18px}
-  body.social-watch .watch-rail{order:-1}
-}
-@media(max-width:720px){
-  body.social-watch .page-head{margin-top:46px;padding:24px 0 18px}
-  body.social-watch .page-title{font-size:1.95rem;letter-spacing:-.025em}
-  .watch-masthead{gap:14px}
-  .watch-join{max-width:184px;min-height:54px;padding:10px 13px;border-radius:8px;font-size:13px}
-  body.social-watch .watch-rail,
-  body.social-watch .yt-sec{padding:16px;border-radius:12px}
-  body.social-watch .yt-card,
-  body.social-watch .rail-list .card{flex-basis:86%;min-width:0;width:auto;max-width:320px}
-  .watch-shelf-cue .cue-scroll{display:none}
-  .watch-shelf-cue .cue-swipe{display:inline}
-  .ls-row{grid-template-columns:104px minmax(0,1fr);gap:11px;padding:12px}
-  .ls-shot{width:104px}
-  .ls-watch{grid-column:2;justify-self:start;padding:8px 14px}
-}
-@media(prefers-reduced-motion:reduce){.watch-shelf-cue b{animation:none}}
-
-/* Dedicated galleries. The overview stays compact and horizontally
-   browseable; opening either source turns only that shelf into a full
-   grid. The replay gallery keeps the same element so live feed updates,
-   filters and inline playback continue to work without parallel logic. */
-.gallery-heading{display:none}
-.gallery-return{display:inline-flex;align-items:center;gap:7px;margin-bottom:10px;color:var(--red-link);
-  font-size:14px;font-weight:800;text-decoration:none}
-.gallery-return:hover{text-decoration:underline;text-underline-offset:3px}
-.gallery-page-sub{max-width:680px;margin-top:8px;color:var(--dim);font-size:16px;line-height:1.5}
-html[data-watch-gallery] .watch-home-title{display:none}
-html[data-watch-gallery="youtube"] .gallery-heading-youtube,
-html[data-watch-gallery="debatable"] .gallery-heading-debatable{display:block}
-html[data-watch-gallery] .wait-banner,
-html[data-watch-gallery] #liveNowStrip,
-html[data-watch-gallery] #liveBand,
-html[data-watch-gallery] .watch-basics,
-html[data-watch-gallery] .watch-reference{display:none!important}
-html[data-watch-gallery] .watch-cols{grid-template-columns:minmax(0,1fr);margin-top:24px}
-html[data-watch-gallery="youtube"] .watch-rail{display:none}
-html[data-watch-gallery="debatable"] .watch-main{display:none}
-html[data-watch-gallery] body.social-watch .yt-sec,
-html[data-watch-gallery] body.social-watch .watch-rail{height:auto;padding:28px}
-html[data-watch-gallery] body.social-watch .yt-grid,
-html[data-watch-gallery] body.social-watch .rail-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:26px 18px;max-height:none;overflow:visible;padding:0;scroll-snap-type:none;scrollbar-width:auto}
-html[data-watch-gallery] body.social-watch .yt-card,
-html[data-watch-gallery] body.social-watch .rail-list .card{display:block;min-width:0;width:auto;max-width:none}
-html[data-watch-gallery] .watch-shelf::after,
-html[data-watch-gallery] .watch-shelf-cue,
-html[data-watch-gallery] .gallery-open{display:none}
-html[data-watch-gallery="youtube"] .yt-head>div:first-child,
-html[data-watch-gallery="debatable"] .rail-head>h2{display:none}
-html[data-watch-gallery="youtube"] .yt-head,
-html[data-watch-gallery="debatable"] .rail-head{justify-content:flex-end}
-html[data-watch-gallery] .yt-note{max-width:none}
-@media(max-width:900px){
-  html[data-watch-gallery] body.social-watch .yt-grid,
-  html[data-watch-gallery] body.social-watch .rail-list{grid-template-columns:repeat(2,minmax(0,1fr))}
-}
-@media(max-width:620px){
-  html[data-watch-gallery] .page-head{padding-top:76px}
-  html[data-watch-gallery] .watch-masthead{align-items:flex-end}
-  html[data-watch-gallery] .watch-join{display:none}
-  html[data-watch-gallery] body.social-watch .yt-sec,
-  html[data-watch-gallery] body.social-watch .watch-rail{padding:16px}
-  html[data-watch-gallery] body.social-watch .yt-grid,
-  html[data-watch-gallery] body.social-watch .rail-list{grid-template-columns:minmax(0,1fr);gap:22px}
-  .yt-head-actions,.rail-actions{gap:10px}
-}
-
 /* ── Stance card, ported from /spectate ──────────────────────────────
    The "where do you stand" before/after pair. The preferences builder
    and the full-screen setup takeover did NOT come across: this page is
@@ -889,6 +689,7 @@ html[data-watch-gallery] .yt-note{max-width:none}
 .watch-bet{display:inline-flex;align-items:center;justify-content:center;gap:14px;min-height:46px;padding:10px 26px;border:1px solid #81c15d;border-radius:999px;background:linear-gradient(#bce8a5,#98cf7f);color:#172b16;font-weight:800;text-decoration:none;box-shadow:inset 0 1px 0 #e2f8d5,0 3px 0 #476e35,0 7px 18px #0c361933;white-space:nowrap}.watch-bet:focus-visible{outline:3px solid #72a956;outline-offset:4px}
 @media(max-width:640px){.watch-masthead{flex-wrap:wrap}.watch-masthead .watch-home-title{flex:1 1 220px}.watch-masthead .watch-join{max-width:none;flex:1 1 100%;min-height:44px}}
 </style>
+<link rel="stylesheet" href="/css/watch-library.css">
   <!-- BreadcrumbList (2026-08-11 SEO sweep). These pages carried no
        structured data at all, so Google had nothing to build a SERP
        breadcrumb from and fell back to the raw URL line. Breadcrumbs are
@@ -911,10 +712,8 @@ html[data-watch-gallery] .yt-note{max-width:none}
        page changes, change it here in the same edit.
 
        Deliberately NOT emitted: VideoObject or an ItemList of replays.
-       The replay corpus is filled client-side and is currently empty, and
-       marking up video that a visitor cannot find on the page is exactly
-       what earns a manual action. VideoObject belongs on /w/{id}, per
-       round, once that round actually has a recording. -->
+       Replay discovery is filled client-side. VideoObject belongs on the
+       individual /w/{id} playback page, not this browsing hub. -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -923,7 +722,7 @@ html[data-watch-gallery] .yt-note{max-width:none}
       {
         "@type": "Question",
         "name": "Do I need an account to watch?",
-        "acceptedAnswer": { "@type": "Answer", "text": "For a full round, yes. Playing a published replay and taking a viewer seat both require a free account. A tournament stream playing on this page does not." }
+        "acceptedAnswer": { "@type": "Answer", "text": "Example debates open on YouTube. Playing a Debatable replay or taking a live viewer seat requires a free Debatable account. A public broadcast playing on this page does not." }
       },
       {
         "@type": "Question",
@@ -949,7 +748,7 @@ html[data-watch-gallery] .yt-note{max-width:none}
   }
   </script>
 </head>
-<body class="social-watch">
+<body class="watch-library">
 
 <!-- Shared topbar. Same nav, theme toggle, and auth slot as the rest of
      the site; this page is a common first landing for spectators, so it
@@ -959,25 +758,48 @@ html[data-watch-gallery] .yt-note{max-width:none}
 <script defer src="/js/topbar.js"></script>
 <script src="/js/broadcast-viewer.js"></script>
 
-<div class="wrap">
+<a class="watch-skip" href="#watchResults">Skip to videos</a>
+<aside class="watch-sidebar" aria-label="Watch navigation">
+  <nav class="watch-nav" aria-label="Browse videos">
+    <a href="/watch" data-watch-nav="all"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10H3z"/><path d="M9 20v-7h6v7"/></svg><span>Discover</span></a>
+    <a href="/watch/youtube" data-watch-nav="youtube"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m10 9 5 3-5 3z"/></svg><span>Example debates</span></a>
+    <a href="/watch/debatable" data-watch-nav="debatable"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11a8 8 0 0 1-8 8H6l-4 3V11a9 9 0 0 1 18-3"/><path d="m10 7 5 4-5 4z"/></svg><span>On Debatable</span></a>
+    <a href="/watch?view=live" data-watch-nav="live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M7 7a7 7 0 0 0 0 10M17 7a7 7 0 0 1 0 10M4 4a11 11 0 0 0 0 16M20 4a11 11 0 0 1 0 16"/></svg><span>Live now</span></a>
+  </nav>
+  <div class="watch-channels">
+    <p class="watch-nav-label">Explore channels</p>
+    <a href="/watch/youtube?channel=Intelligence%20Squared"><span class="channel-mark iq" aria-hidden="true">iQ</span>Intelligence Squared</a>
+    <a href="/watch/youtube?channel=OxfordUnion"><span class="channel-mark ox" aria-hidden="true">OU</span>Oxford Union</a>
+    <a href="/watch/youtube?channel=Jubilee"><span class="channel-mark ju" aria-hidden="true">J</span>Jubilee</a>
+    <a href="/watch/youtube?channel=Open%20to%20Debate"><span class="channel-mark ot" aria-hidden="true">O</span>Open to Debate</a>
+  </div>
+  <div class="watch-side-invite"><b>Got a different take?</b><p>Find someone to argue it out.</p><a href="/spar">Start a round <span aria-hidden="true">&rarr;</span></a></div>
+</aside>
+<main class="wrap watch-content">
   <header class="page-head">
     <div class="watch-masthead">
-      <h1 class="page-title watch-home-title">Watch the debates.</h1>
-      <div class="gallery-heading gallery-heading-youtube">
-        <a class="gallery-return" href="/watch">&larr; All debates</a>
-        <h1 class="page-title">YouTube debates.</h1>
-        <p class="gallery-page-sub">All three picks, in one place.</p>
-      </div>
-      <div class="gallery-heading gallery-heading-debatable">
-        <a class="gallery-return" href="/watch">&larr; All debates</a>
-        <h1 class="page-title">Debatable debates.</h1>
-        <p class="gallery-page-sub">Every published round and clip.</p>
-      </div>
-      <a class="watch-join" id="ctaDebate" href="/spar">Want to argue instead of watch? Join a live room.</a>
+      <h1 class="page-title">Watch<span class="watch-title-dot">.</span></h1>
+      <form class="watch-search" id="watchSearch" role="search">
+        <label class="sr-only" for="watchQuery">Search debates, topics or channels</label>
+        <input type="search" id="watchQuery" placeholder="Search debates" autocomplete="off">
+        <button type="submit" aria-label="Search debates"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button>
+      </form>
+      <a class="watch-join" id="ctaDebate" href="/spar">Start a round <span aria-hidden="true">&rarr;</span></a>
     </div>
     <div class="spectator-match-slot" data-da-pill-slot="end" hidden></div>
   </header>
-
+  <div class="watch-filters" id="watchTopics" role="group" aria-label="Filter videos by topic">
+    <button type="button" class="topic-chip" data-topic="all" aria-pressed="true">All topics</button>
+    <button type="button" class="topic-chip" data-topic="technology" aria-pressed="false">Technology & AI</button>
+    <button type="button" class="topic-chip" data-topic="money" aria-pressed="false">Money & work</button>
+    <button type="button" class="topic-chip" data-topic="culture" aria-pressed="false">Society & culture</button>
+    <button type="button" class="topic-chip" data-topic="life" aria-pressed="false">Everyday life</button>
+    <button type="button" class="topic-chip" data-topic="short" aria-pressed="false">Short watches</button>
+  </div>
+  <div id="watchResults" class="watch-results" tabindex="-1">
+    <div class="watch-result-row"><p id="watchResultCount" class="watch-result-count" role="status" aria-live="polite"></p><button type="button" id="watchReset" class="watch-reset" hidden>Clear filters</button></div>
+    <div id="watchEmpty" class="watch-empty" hidden><h2>No debates found</h2><p>Try a different topic, name or channel.</p></div>
+  </div>
   <!-- Waiting state and open rooms, both ported from /spectate when that
        page folded into this one. The banner flips from waiting to
        watching the moment /api/watch-live reports an open public round. -->
@@ -986,14 +808,14 @@ html[data-watch-gallery] .yt-note{max-width:none}
       <span class="wait-dot" aria-hidden="true"></span>
       <div>
         <strong>No live round right now</strong>
-        <p>Watch a replay while you wait for a live round.</p>
+        <p>Explore the examples, or start a round of your own.</p>
       </div>
     </div>
     <div class="wait-meta">
       <div class="timer-wrap">
         <span class="timer-label">Checking</span>
       </div>
-      <a class="wait-link" href="#replaysSec">Browse replays</a>
+      <a class="wait-link" href="/watch">Browse debates</a>
     </div>
   </section>
 
@@ -1076,233 +898,128 @@ html[data-watch-gallery] .yt-note{max-width:none}
        stay clearly attributed; Debatable moves first when they stack. -->
   <div class="watch-cols">
     <div class="watch-main">
-  <!-- ── WATCH AND LEARN ─────────────────────────────────────────────
-       Championship rounds hosted on YouTube by the organisations that
-       ran them. Every card LINKS OUT rather than embedding, on purpose:
-       an embed whose owner disabled embedding paints a dead black box on
-       our highest-intent page, and an in-page player would imply a
-       relationship with these organisations that we do not have. The
-       wordmark and the per-card channel line carry the provenance.
-       Titles, channels, motions, results and durations were all read off
-       the videos themselves on 2026-09-02 -- do not add a card whose
-       motion or result you have not checked, and keep the topics inside
-       the site's content boundary. -->
-  <section class="yt-sec" id="watch-learn">
-    <div class="yt-head">
-      <div>
-        <h2 class="sec-title"><a class="gallery-title-link" href="/watch/youtube">YouTube debates</a></h2>
-        <div class="sec-sub">Three picks from outside Debatable.</div>
-      </div>
-      <div class="yt-head-actions">
-      <a class="gallery-open" href="/watch/youtube" aria-label="See the full YouTube debates gallery">See gallery <span aria-hidden="true">&rarr;</span></a>
-      <span class="yt-badge">
-        <span class="yt-mark" aria-hidden="true"><svg viewBox="0 0 24 28"><path fill="#fff" d="M8 5v18l14-9z"/></svg></span>
-        On YouTube
-      </span>
-      </div>
-    </div>
-    <div class="watch-shelf">
-    <div class="yt-grid" data-pan-shelf role="region" aria-label="YouTube debate picks. Scroll horizontally for more." tabindex="0">
-      <a class="yt-card" href="https://www.youtube.com/watch?v=cwSXDr7XkNc" target="_blank" rel="noopener noreferrer">
+  <!-- External videos keep their uploader attribution and open on YouTube.
+       Verified titles, uploaders and durations: September 25, 2026. -->
+  <section class="yt-sec" id="watch-learn" aria-labelledby="examplesTitle">
+    <div class="library-section-head"><div><h2 id="examplesTitle">Worth an argument</h2><p>Example debates. Opposing views. See what changes your mind.</p></div></div>
+    <div class="yt-grid" id="examplesGrid">
+      <a class="yt-card" href="https://www.youtube.com/watch?v=ay4bKauK-UU" target="_blank" rel="noopener noreferrer" data-topic="technology" data-duration="2811" data-channel="Intelligence Squared" aria-label="Break up the tech giants? Intelligence Squared. 46:51. Watch on YouTube, opens in a new tab.">
+        <span class="yt-thumb">
+          <img src="https://i.ytimg.com/vi/ay4bKauK-UU/hqdefault.jpg" alt="" loading="eager" decoding="async" width="480" height="360">
+          <span class="yt-kind">Full debate</span><span class="yt-play" aria-hidden="true">▶</span><span class="yt-dur">46:51</span>
+          <span class="yt-open" aria-hidden="true">Watch on YouTube ↗</span>
+        </span>
+        <div class="yt-body"><span class="channel-mark iq" aria-hidden="true">iQ</span><div class="yt-copy">
+          <h3>Break up the tech giants?</h3><p class="yt-channel">Intelligence Squared</p><p class="yt-description">A case for breaking up big tech meets the argument for keeping it together.</p>
+        </div></div>
+      </a>
+      <a class="yt-card" href="https://www.youtube.com/watch?v=ZJpD2TbCm8w" target="_blank" rel="noopener noreferrer" data-topic="culture" data-duration="4821" data-channel="OxfordUnion" aria-label="Should we cancel cancel culture? OxfordUnion. 1:20:21. Watch on YouTube, opens in a new tab.">
+        <span class="yt-thumb">
+          <img src="https://i.ytimg.com/vi/ZJpD2TbCm8w/hqdefault.jpg" alt="" loading="eager" decoding="async" width="480" height="360">
+          <span class="yt-kind">Full debate</span><span class="yt-play" aria-hidden="true">▶</span><span class="yt-dur">1:20:21</span>
+          <span class="yt-open" aria-hidden="true">Watch on YouTube ↗</span>
+        </span>
+        <div class="yt-body"><span class="channel-mark ox" aria-hidden="true">OU</span><div class="yt-copy">
+          <h3>Should we cancel cancel culture?</h3><p class="yt-channel">OxfordUnion</p><p class="yt-description">Accountability, free speech and the power of a public backlash.</p>
+        </div></div>
+      </a>
+      <a class="yt-card" href="https://www.youtube.com/watch?v=jWi12C1ZDlI" target="_blank" rel="noopener noreferrer" data-topic="life" data-duration="4552" data-channel="Jubilee" aria-label="Vegans vs meat eaters. Jubilee. 1:15:52. Watch on YouTube, opens in a new tab.">
+        <span class="yt-thumb">
+          <img src="https://i.ytimg.com/vi/jWi12C1ZDlI/hqdefault.jpg" alt="" loading="eager" decoding="async" width="480" height="360">
+          <span class="yt-kind">Middle Ground</span><span class="yt-play" aria-hidden="true">▶</span><span class="yt-dur">1:15:52</span>
+          <span class="yt-open" aria-hidden="true">Watch on YouTube ↗</span>
+        </span>
+        <div class="yt-body"><span class="channel-mark ju" aria-hidden="true">J</span><div class="yt-copy">
+          <h3>Vegans vs meat eaters</h3><p class="yt-channel">Jubilee</p><p class="yt-description">People with opposing diets put their reasons on the table.</p>
+        </div></div>
+      </a>
+      <a class="yt-card" href="https://www.youtube.com/watch?v=cwSXDr7XkNc" target="_blank" rel="noopener noreferrer" data-topic="money" data-duration="6216" data-channel="Jubilee" aria-label="1 capitalist vs 20 anti-capitalists. Jubilee. 1:43:36. Watch on YouTube, opens in a new tab.">
         <span class="yt-thumb">
           <img src="https://i.ytimg.com/vi/cwSXDr7XkNc/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
-          <span class="yt-play"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M8 5v14l11-7z"/></svg></span></span>
-          <span class="yt-dur">1:43:36</span>
+          <span class="yt-kind">Surrounded</span><span class="yt-play" aria-hidden="true">▶</span><span class="yt-dur">1:43:36</span>
+          <span class="yt-open" aria-hidden="true">Watch on YouTube ↗</span>
         </span>
-        <div class="yt-body">
-          <span class="yt-event">Jubilee · Surrounded</span>
-          <h3>1 Capitalist vs 20 Anti-Capitalists</h3>
-          <p class="yt-motion">Patrick Bet-David takes the middle seat and defends capitalism against twenty people who want it gone. One against a room, on the clock.</p>
-          <div class="yt-foot"><span class="yt-chan">Jubilee</span><span aria-hidden="true">&middot;</span><span>4.5M views</span></div>
-        </div>
+        <div class="yt-body"><span class="channel-mark ju" aria-hidden="true">J</span><div class="yt-copy">
+          <h3>1 capitalist vs 20 anti-capitalists</h3><p class="yt-channel">Jubilee</p><p class="yt-description">Patrick Bet-David defends capitalism against a room of challengers.</p>
+        </div></div>
       </a>
-      <a class="yt-card" href="https://www.youtube.com/watch?v=ZJpD2TbCm8w" target="_blank" rel="noopener noreferrer">
+      <a class="yt-card" href="https://www.youtube.com/watch?v=irHgknaS2jA" target="_blank" rel="noopener noreferrer" data-topic="money" data-duration="6510" data-channel="Open to Debate" aria-label="Are the rich taxed enough? Open to Debate. 1:48:30. Watch on YouTube, opens in a new tab.">
         <span class="yt-thumb">
-          <img src="https://i.ytimg.com/vi/ZJpD2TbCm8w/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
-          <span class="yt-play"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M8 5v14l11-7z"/></svg></span></span>
-          <span class="yt-dur">1:20:21</span>
+          <img src="https://i.ytimg.com/vi/irHgknaS2jA/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
+          <span class="yt-kind">Full debate</span><span class="yt-play" aria-hidden="true">▶</span><span class="yt-dur">1:48:30</span>
+          <span class="yt-open" aria-hidden="true">Watch on YouTube ↗</span>
         </span>
-        <div class="yt-body">
-          <span class="yt-event">Oxford Union</span>
-          <h3>This House Would Cancel &lsquo;Cancel Culture&rsquo;</h3>
-          <p class="yt-motion">A full chamber debate in the Oxford Union. Set-piece speeches, floor speeches, then the house divides and walks through the doors.</p>
-          <div class="yt-foot"><span class="yt-chan">OxfordUnion</span><span aria-hidden="true">&middot;</span><span>Full debate</span></div>
-        </div>
+        <div class="yt-body"><span class="channel-mark ot" aria-hidden="true">O</span><div class="yt-copy">
+          <h3>Are the rich taxed enough?</h3><p class="yt-channel">Open to Debate</p><p class="yt-description">Two sides make their case on taxes, fairness and economic growth.</p>
+        </div></div>
       </a>
-      <a class="yt-card" href="https://www.youtube.com/watch?v=144uOfr4SYA" target="_blank" rel="noopener noreferrer">
+      <a class="yt-card" href="https://www.youtube.com/watch?v=uqeqnE7CLr8" target="_blank" rel="noopener noreferrer" data-topic="technology" data-duration="3476" data-channel="OxfordUnion" aria-label="Artificial intelligence: an inhuman future? OxfordUnion. 57:56. Watch on YouTube, opens in a new tab.">
+        <span class="yt-thumb">
+          <img src="https://i.ytimg.com/vi/uqeqnE7CLr8/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
+          <span class="yt-kind">Panel discussion</span><span class="yt-play" aria-hidden="true">▶</span><span class="yt-dur">57:56</span>
+          <span class="yt-open" aria-hidden="true">Watch on YouTube ↗</span>
+        </span>
+        <div class="yt-body"><span class="channel-mark ox" aria-hidden="true">OU</span><div class="yt-copy">
+          <h3>Artificial intelligence: an inhuman future?</h3><p class="yt-channel">OxfordUnion</p><p class="yt-description">An Oxford Union panel considers what an AI-shaped future could look like.</p>
+        </div></div>
+      </a>
+      <a class="yt-card" href="https://www.youtube.com/watch?v=mzxloGKgfvU" target="_blank" rel="noopener noreferrer" data-topic="life" data-duration="7283" data-channel="ends &amp; means" aria-label="Is monogamy wrong? ends &amp; means. 2:01:23. Watch on YouTube, opens in a new tab.">
+        <span class="yt-thumb">
+          <img src="https://i.ytimg.com/vi/mzxloGKgfvU/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
+          <span class="yt-kind">Full debate</span><span class="yt-play" aria-hidden="true">▶</span><span class="yt-dur">2:01:23</span>
+          <span class="yt-open" aria-hidden="true">Watch on YouTube ↗</span>
+        </span>
+        <div class="yt-body"><span class="channel-mark em" aria-hidden="true">e&m</span><div class="yt-copy">
+          <h3>Is monogamy wrong?</h3><p class="yt-channel">ends &amp; means</p><p class="yt-description">A philosophical debate about relationships, commitment and exclusivity.</p>
+        </div></div>
+      </a>
+      <a class="yt-card" href="https://www.youtube.com/watch?v=144uOfr4SYA" target="_blank" rel="noopener noreferrer" data-topic="technology" data-duration="6440" data-channel="Policy-Relevant Science &amp; Technology" aria-label="Does AI pose an existential threat? Policy-Relevant Science &amp; Technology. 1:47:20. Watch on YouTube, opens in a new tab.">
         <span class="yt-thumb">
           <img src="https://i.ytimg.com/vi/144uOfr4SYA/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
-          <span class="yt-play"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M8 5v14l11-7z"/></svg></span></span>
-          <span class="yt-dur">1:47:19</span>
+          <span class="yt-kind">Munk debate</span><span class="yt-play" aria-hidden="true">▶</span><span class="yt-dur">1:47:20</span>
+          <span class="yt-open" aria-hidden="true">Watch on YouTube ↗</span>
         </span>
-        <div class="yt-body">
-          <span class="yt-event">Munk Debate · Artificial Intelligence</span>
-          <h3>Does AI pose an existential threat?</h3>
-          <p class="yt-motion">Yoshua Bengio and Max Tegmark face Melanie Mitchell and Yann LeCun. The audience votes before and after, and the skeptical side moves the room three points.</p>
-          <div class="yt-foot"><span class="yt-chan">Munk Debates</span><span aria-hidden="true">&middot;</span><span>Against won the swing</span></div>
-        </div>
+        <div class="yt-body"><span class="channel-mark ps" aria-hidden="true">P</span><div class="yt-copy">
+          <h3>Does AI pose an existential threat?</h3><p class="yt-channel">Policy-Relevant Science &amp; Technology</p><p class="yt-description">Bengio and Tegmark debate Mitchell and LeCun on the risks of AI.</p>
+        </div></div>
+      </a>
+      <a class="yt-card" href="https://www.youtube.com/watch?v=j9M8dx23lvQ" target="_blank" rel="noopener noreferrer" data-topic="culture" data-duration="58" data-channel="OxfordUnion" aria-label="Cancel culture, in 60 seconds. OxfordUnion. 0:58. Watch on YouTube, opens in a new tab.">
+        <span class="yt-thumb">
+          <img src="https://i.ytimg.com/vi/j9M8dx23lvQ/hqdefault.jpg" alt="" loading="lazy" decoding="async" width="480" height="360">
+          <span class="yt-kind">Highlights</span><span class="yt-play" aria-hidden="true">▶</span><span class="yt-dur">0:58</span>
+          <span class="yt-open" aria-hidden="true">Watch on YouTube ↗</span>
+        </span>
+        <div class="yt-body"><span class="channel-mark ox" aria-hidden="true">OU</span><div class="yt-copy">
+          <h3>Cancel culture, in 60 seconds</h3><p class="yt-channel">OxfordUnion</p><p class="yt-description">A short exchange from the Oxford Union’s cancel culture debate.</p>
+        </div></div>
       </a>
     </div>
-    <span class="watch-shelf-cue" aria-hidden="true"><span class="cue-scroll">Scroll</span><span class="cue-swipe">Swipe</span><b>&rarr;</b></span>
-    </div>
-    <p class="yt-note">Hosted on YouTube by the organisations that ran them. They open in a new tab. Debatable is not affiliated with them. <a href="/spar">Take a side yourself</a>.</p>
+    <p class="yt-note">These videos open on YouTube. Debatable is not affiliated with the featured channels.</p>
   </section>
 
     </div>
 
-    <aside class="watch-rail" aria-label="Published round replays">
-  <!-- Replay library. The grid ships pre-filled with static stills from
-       recent rounds, so the section is never a spinner: with no published
-       recordings the stills ARE the section (and what a crawler reads),
-       and when recordings exist loadFeed swaps in the real cards. -->
+    <section class="watch-rail" aria-label="Published round replays">
+  <!-- Only published recordings and clips populate the community feed. -->
   <section class="sec" id="replaysSec" style="margin-top:0">
     <div class="rail-head">
-      <h2><a class="gallery-title-link" href="/watch/debatable">Debatable debates</a></h2>
+      <h2><a class="gallery-title-link" href="/watch/debatable">From the Debatable community</a></h2>
       <div class="rail-actions">
-      <a class="gallery-open" href="/watch/debatable" aria-label="See the full Debatable debates gallery">See gallery <span aria-hidden="true">&rarr;</span></a>
-      <a class="rail-all" href="/spar">Get in one</a>
+      <a class="gallery-open" href="/watch/debatable" aria-label="See the full Debatable debates gallery">View all <span aria-hidden="true">&rarr;</span></a>
+
       </div>
     </div>
     <div class="feed-chips" id="feedChips" aria-label="Filter the feed">
-      <button class="fchip on" type="button" data-filter="all">All</button>
-      <button class="fchip" type="button" data-filter="round">Rounds</button>
-      <button class="fchip" type="button" data-filter="clip">Clips</button>
+      <button class="fchip on" type="button" data-filter="all" aria-pressed="true">All</button>
+      <button class="fchip" type="button" data-filter="round" aria-pressed="false">Rounds</button>
+      <button class="fchip" type="button" data-filter="clip" aria-pressed="false">Clips</button>
     </div>
-    <div class="watch-shelf">
-    <div class="rail-list" id="replaysGrid" data-pan-shelf role="region" aria-label="Debatable debate replays. Scroll horizontally for more." tabindex="0">
-      <div class="card still">
-        <div class="thumb" aria-hidden="true">
-          <img class="th-img" src="/assets/replays/76cda947-3a6c-4a53-ab22-55225681f45c.jpg" alt="" loading="lazy" decoding="async">
-          <span class="th-tag">Round</span>
-        </div>
-        <div class="card-body">
-          <h3>This House would make voting compulsory</h3>
-          <div class="foot"><span>Mika I. vs Nia R.</span><span>Aug 18, 2026</span></div>
-        </div>
-      </div>
-      <div class="card still">
-        <div class="thumb" aria-hidden="true">
-          <img class="th-img" src="/assets/replays/ae474fd4-ec1c-437d-b40c-198e4a811d7a.jpg" alt="" loading="lazy" decoding="async">
-          <span class="th-tag">Round</span>
-        </div>
-        <div class="card-body">
-          <h3>This House regrets the rise of social media</h3>
-          <div class="foot"><span>Eli E. vs Sasha S.</span><span>Aug 18, 2026</span></div>
-        </div>
-      </div>
-      <div class="card still">
-        <div class="thumb" aria-hidden="true">
-          <img class="th-img" src="/img/politics/capitol.jpg" alt="" loading="lazy" decoding="async">
-          <span class="th-tag">Round</span>
-        </div>
-        <div class="card-body">
-          <h3>This House would adopt universal basic income</h3>
-          <div class="foot"><span>Benji R. vs Zoya K.</span><span>Aug 15, 2026</span></div>
-        </div>
-      </div>
-      <div class="card still">
-        <div class="thumb" aria-hidden="true">
-          <img class="th-img" src="/assets/replays/1a35d7af-df86-4c08-81d4-72b3c2d68a29.jpg" alt="" loading="lazy" decoding="async">
-          <span class="th-tag">Round</span>
-        </div>
-        <div class="card-body">
-          <h3>This House would ban single-use plastics outright</h3>
-          <div class="foot"><span>Cleo A. vs Wade G.</span><span>Aug 15, 2026</span></div>
-        </div>
-      </div>
-    </div>
-    <span class="watch-shelf-cue" aria-hidden="true"><span class="cue-scroll">Scroll</span><span class="cue-swipe">Swipe</span><b>&rarr;</b></span>
-    </div>
+    <div class="rail-list" id="replaysGrid" aria-label="Debatable debate replays" aria-busy="true"><p class="feed-empty">Loading published rounds…</p></div>
     <p class="sec-sub" id="replaysSub" style="margin:14px 0 0;font-size:13.5px">A round is published only when everyone in it agrees. Tournament preliminary footage stays private by default. <a href="/live" style="color:var(--red);font-weight:700;text-decoration:none">See what is live</a></p>
   </section>
 
-    </aside>
+    </section>
   </div>
-
-  <!-- Each shelf gives one quiet preview pan after it enters the viewport.
-       Any sign of human control cancels it permanently, so the page never
-       competes with someone who is already browsing. -->
-  <script>
-  (function(){
-    var reduceMotion = false;
-    try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
-
-    Array.prototype.forEach.call(document.querySelectorAll('[data-pan-shelf]'), function(shelf){
-      var frame = shelf.parentElement;
-      var timer = 0;
-      var raf = 0;
-      var stopped = false;
-      var started = false;
-
-      function maxScroll(){ return Math.max(0, shelf.scrollWidth - shelf.clientWidth); }
-      function refreshOverflow(){ frame.classList.toggle('no-overflow', maxScroll() < 8); }
-      function cancelPreview(){
-        if (stopped) return;
-        stopped = true;
-        clearTimeout(timer);
-        cancelAnimationFrame(raf);
-        shelf.classList.remove('is-auto-panning');
-        frame.classList.add('has-panned');
-      }
-      function animateTo(left, duration, done){
-        if (stopped || document.hidden) return;
-        var from = shelf.scrollLeft;
-        var distance = left - from;
-        var began = 0;
-        shelf.classList.add('is-auto-panning');
-        function step(now){
-          if (stopped) return;
-          if (!began) began = now;
-          var progress = Math.min(1, (now - began) / duration);
-          var eased = .5 - Math.cos(Math.PI * progress) / 2;
-          shelf.scrollLeft = from + distance * eased;
-          if (progress < 1) raf = requestAnimationFrame(step);
-          else {
-            shelf.classList.remove('is-auto-panning');
-            if (done) done();
-          }
-        }
-        raf = requestAnimationFrame(step);
-      }
-      function preview(){
-        refreshOverflow();
-        if (stopped || reduceMotion || maxScroll() < 8 || shelf.scrollLeft > 4) return;
-        var first = shelf.firstElementChild;
-        var second = first && first.nextElementSibling;
-        var step = second ? second.offsetLeft - first.offsetLeft : shelf.clientWidth * .55;
-        var target = Math.min(maxScroll(), Math.max(120, step));
-        if (target < 8) return;
-        frame.classList.add('has-panned');
-        animateTo(target, 2800, function(){
-          timer = setTimeout(function(){
-            animateTo(0, 2200);
-          }, 700);
-        });
-      }
-      function schedule(){
-        if (started || stopped || reduceMotion) return;
-        started = true;
-        timer = setTimeout(preview, shelf.id === 'replaysGrid' ? 1300 : 6500);
-      }
-
-      ['pointerdown','touchstart','wheel','keydown','focusin','mouseenter'].forEach(function(type){
-        shelf.addEventListener(type, cancelPreview, { passive:true });
-      });
-      window.addEventListener('resize', refreshOverflow, { passive:true });
-      if (window.MutationObserver) new MutationObserver(refreshOverflow).observe(shelf, { childList:true });
-      refreshOverflow();
-
-      if ('IntersectionObserver' in window){
-        var observer = new IntersectionObserver(function(entries){
-          if (!entries[0].isIntersecting) return;
-          observer.disconnect();
-          schedule();
-        }, { threshold:.3 });
-        observer.observe(frame);
-      } else schedule();
-    });
-  })();
-  </script>
 
   <!-- Stance before and after, ported from /spectate when it folded in.
        Hidden until a motion resolves; nothing here is published or
@@ -1368,20 +1085,6 @@ html[data-watch-gallery] .yt-note{max-width:none}
     </section>
 
 
-  <!-- Three open beats replace the old five-section explainer. The
-       deeper answers remain plain HTML inside the drawer below. -->
-  <section class="watch-basics" id="how-to-watch">
-    <div class="basics-head">
-      <span class="basics-kicker">One round</span>
-      <h2>Choose a round to watch.</h2>
-    </div>
-    <ol class="basics-grid">
-      <li><b>Choose</b><span>Open a <a href="/live">live room</a> or pick a replay. The question and running time are up front.</span></li>
-      <li><b>Watch</b><span>Watch both people speak and follow the round clock.</span></li>
-      <li><b>Read the result</b><span>The judge's written decision tells you who won and why.</span></li>
-    </ol>
-  </section>
-
   <details class="watch-reference" id="faq">
     <summary>
       <span><b>New here?</b><small>Account rules, replays, and other places to watch</small></span>
@@ -1393,7 +1096,7 @@ html[data-watch-gallery] .yt-note{max-width:none}
         <div class="faq-list">
           <details class="faq-q">
             <summary>Do I need an account to watch?</summary>
-            <p>For a full round, yes. Playing a published replay and taking a viewer seat both require a free account. A tournament stream playing on this page does not.</p>
+            <p>Example debates open on YouTube. Playing a Debatable replay or taking a live viewer seat requires a free Debatable account. A public broadcast playing on this page does not.</p>
           </details>
           <details class="faq-q">
             <summary>Are these real people or AI?</summary>
@@ -1429,7 +1132,8 @@ html[data-watch-gallery] .yt-note{max-width:none}
   <footer>
     <a href="/">Home</a> · <a href="/live">Live rounds</a> · <a href="/spar">Find an opponent</a> · <a href="/community">Community</a> · <a href="/leaderboard">Leaderboard</a>
   </footer>
-</div>
+</main>
+<script defer src="/js/watch-library.js"></script>
 
 <script>
 (function(){
@@ -2395,10 +2099,6 @@ html[data-watch-gallery] .yt-note{max-width:none}
   var recCache = {};
   var feedItems = [];      // { kind:'round'|'clip', ts, format, data }
   var feedFilter = 'all';
-  // The static round stills the grid ships with. Held so a thin feed can
-  // keep them UNDER the real cards rather than replacing a full-looking
-  // grid with two: one published clip should not empty the page.
-  var stillsHTML = '';
 
   function replayCard(rec){
     // An ANCHOR, not a button. The grid is filled by fetch, so a crawler
@@ -2408,6 +2108,7 @@ html[data-watch-gallery] .yt-note{max-width:none}
     // middle-click open the standalone page, which a button swallowed.
     var a = document.createElement('a');
     a.className = 'card' + (rec.teaser ? ' soon' : '');
+    a.dataset.duration = String(rec.duration || 0);
     a.href = '/w/' + encodeURIComponent(rec.id);
     // The round's best AI-cut moment rides the card as ONE quiet line
     // under the title: a separate moment card doubled the round with a
@@ -2465,26 +2166,18 @@ html[data-watch-gallery] .yt-note{max-width:none}
     return a;
   }
 
-  var STILL_FLOOR = 4;
   function renderFeed(){
-    if (!feedItems.length) return;   // nothing published: the stills are the grid
     var grid = $('replaysGrid');
-    var list = feedItems.filter(function(it){
-      if (feedFilter === 'all') return true;
-      return it.kind === feedFilter;
-    });
+    var list = feedItems.filter(function(it){ return feedFilter === 'all' || it.kind === feedFilter; });
     grid.innerHTML = '';
     list.forEach(function(it){
-      grid.appendChild(it.kind === 'clip' ? clipCard(it.data, true) : replayCard(it.data));
+      var card = it.kind === 'clip' ? clipCard(it.data, true) : replayCard(it.data);
+      if (it.kind === 'clip') card.dataset.duration = String(Math.max(0, (it.data.end || 0) - (it.data.start || 0)));
+      grid.appendChild(card);
     });
-    // Top up a thin feed with the stills, which are what this grid shows
-    // when nothing is published anyway. Not under the clip filter: a
-    // still is a round, and a filter that returns rounds is broken.
-    if (feedFilter !== 'clip' && list.length < STILL_FLOOR && stillsHTML){
-      grid.insertAdjacentHTML('beforeend', stillsHTML);
-    } else if (!list.length){
-      grid.innerHTML = '<p class="feed-empty">Nothing under that filter yet.</p>';
-    }
+    if (!list.length) grid.innerHTML = '<p class="feed-empty">No published ' + (feedFilter === 'clip' ? 'clips' : 'rounds') + ' yet. <a href="/watch/youtube">Browse example debates</a> while you wait.</p>';
+    grid.setAttribute('aria-busy', 'false');
+    document.dispatchEvent(new Event('watch:feed-updated'));
   }
 
   $('feedChips').addEventListener('click', function(e){
@@ -2493,16 +2186,17 @@ html[data-watch-gallery] .yt-note{max-width:none}
     feedFilter = b.getAttribute('data-filter');
     Array.prototype.forEach.call(this.querySelectorAll('.fchip'), function(c){
       c.classList.toggle('on', c === b);
+      c.setAttribute('aria-pressed', String(c === b));
     });
     renderFeed();
     try { gtag('event', 'watch_feed_filter', { filter: feedFilter }); } catch(e2){}
   });
 
   function loadFeed(){
-    stillsHTML = $('replaysGrid').innerHTML;
+    $('replaysGrid').setAttribute('aria-busy', 'true');
     Promise.all([
-      fetch('/api/recordings').then(function(r){ return r.json(); }).catch(function(){ return null; }),
-      fetch('/api/clips').then(function(r){ return r.json(); }).catch(function(){ return null; }),
+      fetch('/api/recordings').then(function(r){ if (!r.ok) throw new Error('recordings'); return r.json(); }).catch(function(){ return null; }),
+      fetch('/api/clips').then(function(r){ if (!r.ok) throw new Error('clips'); return r.json(); }).catch(function(){ return null; }),
     ]).then(function(res){
       var recs = (res[0] && res[0].recordings) || [];
       var clips = (res[1] && res[1].clips) || [];
@@ -2522,12 +2216,14 @@ html[data-watch-gallery] .yt-note{max-width:none}
         feedItems.push({ kind: 'clip', ts: Math.round((c.createdAt || 0) / 1000), data: c });
       });
       feedItems.sort(function(a, b){ return b.ts - a.ts; });
-      if (!feedItems.length) return;
+      if (!res[0] && !res[1]) throw new Error('feed unavailable');
       $('replaysSub').textContent = 'Newest first. Recordings publish shortly after a round ends.';
       renderFeed();
     }).catch(function(){
-      // The static stills are already in the grid and are a better face
-      // than an error box.
+      $('replaysGrid').innerHTML = '<p class="feed-empty">Replays could not load. <button class="btn" type="button" id="retryFeed">Try again</button></p>';
+      $('replaysGrid').setAttribute('aria-busy', 'false');
+      $('retryFeed').addEventListener('click', loadFeed);
+      document.dispatchEvent(new Event('watch:feed-updated'));
     });
   }
 
@@ -2604,7 +2300,11 @@ html[data-watch-gallery] .yt-note{max-width:none}
       var banner=document.querySelector('.wait-banner');
       if(!rounds.length){
         strip.classList.remove('has-rounds');
-        if(banner)banner.classList.remove('live');
+        if(banner){
+          banner.classList.remove('live');
+          banner.querySelector('strong').textContent='No live round right now';
+          banner.querySelector('p').textContent='Explore the examples, or start a round of your own.';
+        }
         return;
       }
       rows.innerHTML=rounds.map(function(r){
@@ -2738,17 +2438,7 @@ html[data-watch-gallery] .yt-note{max-width:none}
             format: (q.get('format') || '').trim().slice(0, 40)
           });
         }
-        return fetch('/api/debate-of-week')
-          .then(function(r){ return r.ok ? r.json() : null; })
-          .then(function(d){
-            if (!d || !d.motion) return null;
-            return {
-              roundId: 'dotw-' + new Date().toISOString().slice(0, 10),
-              motion: String(d.motion).slice(0, 2000),
-              format: String(d.format || '').slice(0, 40)
-            };
-          })
-          .catch(function(){ return null; });
+        return Promise.resolve(null);
       }
 
       function showPhase(name){

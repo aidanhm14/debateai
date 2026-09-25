@@ -84,3 +84,5 @@ the newer layout adjusted around it.
 - [2026-09-06 — background edge shapes](2026-09-06-background-edge-shapes.md): replaced the static rose perimeter with the original moving web spread across the viewport.
 
 - [Live popup illustration, September 23](2026-09-23-live-popup-illustration.md): replaced with the advertised room thumbnail at Aidan’s request.
+
+- [Watch shelves, September 25, 2026](watch-shelves-2026-09-25.md): previous compact shelves, masthead and explainer, replaced by the example-debate library.
