@@ -111,3 +111,13 @@ options. Welcome mail now matches the shared schedule: 9pm India, London and
 New York, with `/clash-hours` as the calendar chooser. This supersedes the earlier
 four-city welcome copy. Apple subscriptions and .ics downloads use stable event
 UIDs and explicit time-zone rules; Google links open the next occurrence.
+
+Today's separate member invitation is `clash-calendar-2026-09-25`, through
+`/api/admin/clash-calendar`. Preview is read-only. `PREPARE` freezes the verified,
+deduplicated cohort and message hash. `SEND` rechecks account preferences plus
+Resend suppressions/audience opt-outs, uses individual envelopes and a durable
+identical batch/idempotency key, and stops at midnight London time. Never expand
+that frozen manifest or reuse this campaign for a later invitation. Receipts live
+under `email_campaigns/clash-calendar-2026-09-25`. This does not consume the Gmail
+welcome allowance. Resend's secret is available only inside Netlify; an API env
+read returns a masked value and must not be treated as the usable key.
