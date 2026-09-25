@@ -1987,10 +1987,10 @@ var FORMATS = {
     { code: 'C2', name: 'Against Rebuttal', side: 'con', time: 180 }],
 
     rules: {
-      P1: 'You are Pro, constructive. Build the whole case for the topic: 2-3 arguments, each one a claim, then why it is true, then why it matters. Direct and conversational. Nothing to respond to yet.',
-      C1: 'You are Con, constructive. Do two jobs. Answer Pro\'s arguments one by one, naming each, then build your own 2-3 arguments the same way: claim, why it is true, why it matters.',
-      P2: 'You are Pro rebuttal. Answer Con\'s best arguments by name, rebuild your own where they were hit, and say why Pro wins overall. NO new arguments.',
-      C2: 'You are Con rebuttal. Final word. Answer Pro\'s rebuttal, compare what each side is left holding, say why Con wins. NO new arguments.'
+      P1: 'You are For, constructive. Build the whole case for the topic: 2-3 arguments, each one a claim, then why it is true, then why it matters. Direct and conversational. Nothing to respond to yet.',
+      C1: 'You are Against, constructive. Do two jobs. Answer For\'s arguments one by one, naming each, then build your own 2-3 arguments the same way: claim, why it is true, why it matters.',
+      P2: 'You are For rebuttal. Answer Against\'s best arguments by name, rebuild your own where they were hit, and say why For wins overall. NO new arguments.',
+      C2: 'You are Against rebuttal. Final word. Answer For\'s rebuttal, compare what each side is left holding, say why Against wins. NO new arguments.'
     },
     prep: 300,
     entry: 'easy',
@@ -5608,7 +5608,7 @@ Do not down-shift merely because this is the user's first round on the platform.
 ` : usePlainRegister ? `
 
 ────────────────────────────────────────────────────────
-PLAIN-LANGUAGE REGISTER — SELECTED FOR THIS USER
+PLAIN-LANGUAGE REGISTER, SELECTED FOR THIS USER
 ────────────────────────────────────────────────────────
 
 This is a casual 1v1. Use intelligent, accessible language and drop circuit jargon:
@@ -5621,7 +5621,7 @@ This is a casual 1v1. Use intelligent, accessible language and drop circuit jarg
 - Sentences shorter. Examples concrete. One main argument done well
   beats three half-explained ones.
 - Still smart. Still witty. Still NOT robotic. The voice rules above
-  all apply — beginner-tone means dropping JARGON, not dropping
+  all apply, beginner-tone means dropping JARGON, not dropping
   intelligence or personality.
 - Concrete > abstract. "When the city banned plastic bags in 2019,
   here's what actually happened…" beats any framework name.
@@ -5649,7 +5649,11 @@ circuit shorthand merely because they have completed another round.
   usePlainRegister ?
   `FINAL REGISTER OVERRIDE: Speak to an intelligent layperson. Translate every technical instruction above into plain English. Do not say "framework," "warrant," "cross-apply," "impact calculus," "ballot story," or other circuit shorthand unless you immediately explain the term in ordinary language.${teachTerms ? ' They asked to be taught competitive debate, so name at most one real term per speech, plain English first and the term in parentheses after.' : ''}` :
   '';
-  var isRebuttal = speech.code.includes('R') || speech.code === 'LOR' || speech.code === 'PMR' || speech.code === 'GW' || speech.code === 'OW' || speech.code.startsWith('Reply');
+  var isRebuttal = speech.code.includes('R') || speech.code === 'LOR' || speech.code === 'PMR' || speech.code === 'GW' || speech.code === 'OW' || speech.code.startsWith('Reply')
+  // The casual format's rebuttals are P2/C2: no R in the code, so without
+  // this they were handed the constructive template while the format rule
+  // said NO new arguments (found on the real prompt 2026-09-24).
+  || format === 'quick' && (speech.code === 'P2' || speech.code === 'C2');
   var isWhip = speech.code === 'GW' || speech.code === 'OW';
   var isReply = speech.code.startsWith('Reply');
   var isFirst = speech.code === 'PM' || speech.code === 'LO' || speech.code === 'AC' || speech.code === 'NC' || speech.code === 'P1' || speech.code === 'C1';
@@ -5823,6 +5827,30 @@ nouns can stay in their native form. The motion stays as-given.
 ══════════════════════════════════════════════════════\n\n` :
   '';
 
+  // CASUAL 1V1 (format 'quick') gets its own body instead of the tournament
+  // case template below. Measured on the real prompt 2026-09-24: the plain
+  // register block banned "framework", "warrant" and "judge", then the CASE
+  // STRUCTURE block taught exactly those words, the 759-word floor with
+  // "add a real number" produced an invented EPI survey, and nothing banned
+  // em dashes (16 in two speeches). The tournament formats are untouched.
+  var isCasual = format === 'quick';
+  var casualTarget = Math.round((targetWordCount || Math.floor(speech.time / 60) * 170) * 0.5);
+  var casualBlock = `LENGTH: about ${casualTarget} words. Hard ceiling ${Math.round(casualTarget * 1.2)}. This is a typed casual round, not a tournament speech. Say what you have to say and stop. A short speech that lands beats a long one that pads.
+
+HOW THIS SPEECH IS BUILT (spoken aloud, no markdown, no headers, no bullet points, no lettered sub-points, no named labels for your points):
+${isRebuttal ? `- Start with their strongest point, named in their words, and answer it. Then the next one.
+- Rebuild your own points where they were hit. Do not add new arguments. This is the last word.
+- Finish with two or three sentences on what each side is left holding and why yours weighs more.` : `- One or two sentences on what the disagreement actually is and who it lands on. No roadmap, no "let me", no "here is why".
+${history ? '- Answer each of their points by name before building yours.\n' : ''}- Two or three arguments, each one: the claim, why it is true, why it matters to a real person. Spend the most time on the best one.
+- Say what the other side will say back to your best argument, and why it still holds.`}
+
+RULES THAT ARE NOT NEGOTIABLE:
+- Plain words. Do not say "framework", "warrant", "extend", "cross-apply", "drop", "voting issue", "ballot", "flow", or "judge". Argue like a sharp person, not a tournament.
+- No em dashes anywhere. Use periods and commas.
+- Do not invent a statistic, survey, study, price, wage, ruling, quotation, or a named person. If you do not know a real number, argue the mechanism instead. A real, well-known example is welcome. A made-up one loses you the round.
+- No sign-off lines ("Proud to oppose", "Thank you") and no preface ("Let me answer", "Three things"). Your first sentence is already an argument.
+- Sound like someone explaining a strong opinion to a smart friend. Short sentences for claims, longer ones for the mechanism. Confident, not smug.`;
+
   return `${langDirective}You are a skilled ${aiLabel} debater in a ${fmt.name} debate. Motion/Resolution: "${motion}".
 ${audienceRegisterNote}
 ${traitPrompt}
@@ -5870,7 +5898,7 @@ After your plan, write ONLY the speech text. No plan tags, no markdown, no stage
 
 ${DEBATE_VOICE_GUIDELINES}
 
-CRITICAL. WORD COUNT FLOOR (NON-NEGOTIABLE): This speech MUST be AT LEAST ${Math.round((targetWordCount || Math.floor(speech.time / 60) * 170) * 0.92)} words and TARGET ${targetWordCount || Math.floor(speech.time / 60) * 170} words. This is a ${Math.floor(speech.time / 60)}-minute speech at the user's chosen speed.${targetWordCount > Math.floor(speech.time / 60) * 200 ? ` The user chose HIGH SPEED (${targetWordCount} words in ${Math.floor(speech.time / 60)} min). You MUST write significantly more content than a normal-speed speech. Pack in more arguments, more warrants, denser analysis. Every sentence must earn its place.` : targetWordCount < Math.floor(speech.time / 60) * 150 ? ` The user chose SLOW SPEED (${targetWordCount} words in ${Math.floor(speech.time / 60)} min). Write fewer, more deliberate arguments. Go deeper on each point rather than covering more ground.` : ''}
+${isCasual ? casualBlock : `CRITICAL. WORD COUNT FLOOR (NON-NEGOTIABLE): This speech MUST be AT LEAST ${Math.round((targetWordCount || Math.floor(speech.time / 60) * 170) * 0.92)} words and TARGET ${targetWordCount || Math.floor(speech.time / 60) * 170} words. This is a ${Math.floor(speech.time / 60)}-minute speech at the user's chosen speed.${targetWordCount > Math.floor(speech.time / 60) * 200 ? ` The user chose HIGH SPEED (${targetWordCount} words in ${Math.floor(speech.time / 60)} min). You MUST write significantly more content than a normal-speed speech. Pack in more arguments, more warrants, denser analysis. Every sentence must earn its place.` : targetWordCount < Math.floor(speech.time / 60) * 150 ? ` The user chose SLOW SPEED (${targetWordCount} words in ${Math.floor(speech.time / 60)} min). Write fewer, more deliberate arguments. Go deeper on each point rather than covering more ground.` : ''}
 
 THE #1 FAILURE MODE TO AVOID is delivering a speech that runs short. LLMs default to concise; debaters use every second. If your draft is under ${Math.round((targetWordCount || Math.floor(speech.time / 60) * 170) * 0.92)} words, you are NOT done — keep building. Specifically, if you're short:
 - Add a third or fourth contention. Real constructives at this length carry 3-4 substantive arguments, not 2.
@@ -6100,6 +6128,7 @@ ${isFirst ? `VOCABULARY & TONE:
 - Dismissive when earned: "That argument is dead on arrival" or "Their link chain doesn't survive first contact with the real world." But only when you've actually shown why. confidence without warrant is bluster.
 - Vary your energy. Not every sentence is a haymaker. Build quietly, then punch. Some of the most devastating debate moments are said calmly: "And that's the point they can't get around."
 - COLLOQUIAL FLAIR (use sparingly, ~10-15% of the speech): Code-switch between precision and real-talk ONLY when it carries analytical weight. Good: "Americans love to act like Europeans when it's politically convenient, but nobody's actually paying the tax" (observational, names a real tension). "Politics is just vibes, and their argument doesn't flow because it rests on one unnamed assumption: that voters are paying attention." (substantive, wit points at a mechanism). "This is where their case falls apart and they know it, their own evidence contradicts their impact." Bad, NEVER DO THIS: empty slang used as a dismissal with no reasoning attached. "That's a vibe." "That's cap." "Skill issue." "Mid." "Cooked." "NPC behavior." Standalone slang without a WARRANT attached reads as cheap and LLM-chasing-cool. If you want to mock an argument, name the specific failure in the same breath: not "that's a vibe" but "that's a vibe dressed up as analysis, there's no mechanism, no named actor, no number." The word "vibe" is allowed as observational commentary ("politics runs on vibes," "the current discourse is pure vibes") but NEVER as a one-word dismissal of an opponent's argument.` : ''}
+`}
 
 ${audienceRegisterReminder}`;
 }
@@ -8173,7 +8202,7 @@ function App() {
         };
 
         // Strip <plan>/<thinking> tags from AI output. including incomplete open tags during streaming
-        var stripPlan = (text) => text.replace(/<plan>[\s\S]*?<\/plan>/gi, '').replace(/<plan>[\s\S]*$/gi, '').replace(/<\/?plan>/gi, '').replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').replace(/<thinking>[\s\S]*$/gi, '').replace(/<\/?thinking>/gi, '').trim();
+        var stripPlan = (text) => text.replace(/\s*\u2014\s*/g, ', ').replace(/<plan>[\s\S]*?<\/plan>/gi, '').replace(/<plan>[\s\S]*$/gi, '').replace(/<\/?plan>/gi, '').replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').replace(/<thinking>[\s\S]*$/gi, '').replace(/<\/?thinking>/gi, '').trim();
 
         // ── Live-streaming TTS pipeline ──
         // Audio starts playing as soon as first ~25 words have TTS ready,
