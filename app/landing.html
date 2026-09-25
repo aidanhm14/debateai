@@ -476,12 +476,20 @@
         localStorage.setItem('da-theme-light-v3', '1');
       }
     } catch(e){}
+    /* 2026-09-25 per the founder: A/B the black-and-white (crimson)
+       landing for NEW visitors. An unset visitor is bucketed 50/50
+       light/crimson here, before first paint, and the arm sticks in
+       da-theme so the rest of the site follows it. Saved prefs and the
+       topbar toggle still win. GA4 reads theme_ab_view / theme_ab.
+       ?themeAb=light|crimson forces an arm for QA. */
+    var THEME_AB_SPLIT = 0.5; /* share of new visitors who get crimson */
     if (!t || t === 'day') {
-      t = 'light';
+      t = Math.random() < THEME_AB_SPLIT ? 'crimson' : 'light';
       try {
         var q = (location.search || '').toLowerCase();
         if (/[?&]themeab=crimson(?:&|$)/.test(q)) t = 'crimson';
-      } catch(e){ t = 'light'; }
+        else if (/[?&]themeab=light(?:&|$)/.test(q)) t = 'light';
+      } catch(e){}
       try {
         localStorage.setItem('da-theme', t);
         localStorage.setItem('da-theme-ab', t);
@@ -495,7 +503,7 @@
       window.__themeAb = ab;
       if (window.gtag) {
         gtag('set', 'user_properties', { theme_ab: ab });
-        gtag('event', 'theme_ab_view', { variant: ab, assigned: !!window.__themeAbAssigned });
+        gtag('event', 'theme_ab_view', { variant: ab, assigned: !!window.__themeAbAssigned, experiment: 'landing_theme_v2' });
         /* This script runs in <head>, usually BEFORE gtag exists, in
            which case topbar.js reports the arm instead. The flag marks
            the case where it did land, so the landing does not count

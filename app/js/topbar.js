@@ -2012,7 +2012,12 @@
        dark the brand default) stays retired: light is the default now. */
     var saved = '';
     try { saved = localStorage.getItem(themeStorageKey) || ''; } catch(e){}
-    /* 2026-08-22 per the founder: the 2026-08-19 70/30 light/crimson
+    /* 2026-09-25: the landing's <head> script buckets NEW visitors 50/50
+       light/crimson again (landing_theme_v2) and stamps da-theme-light-v3
+       on assignment, so the migration below never touches a fresh crimson
+       arm. Unset visitors who arrive on any OTHER page still default to
+       light here; only the landing assigns.
+       2026-08-22 per the founder: the 2026-08-19 70/30 light/crimson
        bucket is retired, light is the default for everyone. Visitors the
        old split AUTO-bucketed into crimson (da-theme-ab === 'crimson',
        never toggled away) are migrated back to light exactly once,
@@ -2059,7 +2064,7 @@
          could not, plus every other topbar page. */
       if (window.gtag && !window.__themeAbSent) {
         gtag('set', 'user_properties', { theme_ab: abArm });
-        gtag('event', 'theme_ab_view', { variant: abArm, assigned: abAssigned });
+        gtag('event', 'theme_ab_view', { variant: abArm, assigned: abAssigned, experiment: 'landing_theme_v2' });
         window.__themeAbSent = true;
       }
     } catch(e){}
