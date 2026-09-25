@@ -141,7 +141,8 @@ check('sitemap marks changed brand surfaces fresh',
   /path: '\/'[\s\S]{0,100}lastmod: '2026-09-13'/.test(sitemap)
   && /path: '\/debatable'[\s\S]{0,120}lastmod: '2026-09-13'/.test(sitemap));
 check('sitemap submits the canonical AI and learn entry pages',
-  /path: '\/practice'/.test(sitemap)
+  /path: '\/newvoice'/.test(sitemap)
+  && !/path: '\/practice'/.test(sitemap)
   && !/path: '\/debate-an-ai'/.test(sitemap)
   && /path: '\/learn'[\s\S]{0,120}lastmod: '2026-08-28'/.test(sitemap));
 

@@ -309,7 +309,7 @@ check(
 // Watch stays in the top menu, leaving the AI door beneath Meet someone.
 check(
   !/<a\b[^>]*data-cta="(?:first-screen-watch|mhome-watch)"/.test(landing)
-    && read('app/js/topbar.js').includes("{ href: '/watch',         label: 'Watch & clips', big: true }"),
+    && read('app/js/topbar.js').includes("{ href: '/watch',         label: 'Watch & vote', big: true }"),
   'landing keeps Watch in the top menu instead of the action rows',
 );
 // 2026-09-03, the founder: the live-right-now count is one plain red line

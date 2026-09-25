@@ -55,7 +55,7 @@
         + '<div style="font-weight:800;font-size:.96rem;margin-bottom:2px">✓ '+planLabel+' is active.</div>'
         + '<div style="font-weight:500;opacity:.9;font-size:.82rem">Your team is upgraded. Receipt is on its way to your email.</div>'
         + '</div>'
-        + '<a href="/practice" style="padding:8px 16px;background:rgba(255,255,255,.18);color:#fff;border-radius:999px;font-size:.78rem;font-weight:800;letter-spacing:.04em;text-decoration:none;white-space:nowrap;border:1px solid rgba(255,255,255,.32)">Run a round →</a>'
+        + '<a href="/newvoice" style="padding:8px 16px;background:rgba(255,255,255,.18);color:#fff;border-radius:999px;font-size:.78rem;font-weight:800;letter-spacing:.04em;text-decoration:none;white-space:nowrap;border:1px solid rgba(255,255,255,.32)">Run a round →</a>'
         + '<button type="button" aria-label="Dismiss" style="background:transparent;border:none;color:rgba(255,255,255,.85);font-size:1rem;cursor:pointer;padding:0 4px;font-family:inherit">✕</button>'
       : '<div style="flex:1;min-width:200px;line-height:1.45">'
         + '<div style="font-weight:800;font-size:.96rem;margin-bottom:2px">Checkout cancelled.</div>'

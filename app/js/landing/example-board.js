@@ -140,7 +140,7 @@
       if (Math.random() < 0.5) {
         r = ROUNDS[i];
         t = r.a; r.a = r.b; r.b = t;
-        r.won = r.won === 'a' ? 'b' : 'a';
+        r.won = r.won === 'a' ? 'b' : r.won === 'b' ? 'a' : null;
         r.open = 100 - r.open;
         r.drift = 100 - r.drift;
         r.score = r.score.split(' - ').reverse().join(' - ');
@@ -567,6 +567,23 @@
   // animation. Before 2026-08-22 the split was 4600/2600, which meant a
   // visitor glancing at the card mostly caught "The AI judge is deciding".
   var TICK_MS = 420, RUN_MS = 3400, HOLD_MS = 6200;
+  var OPPONENT_MS = 2520, opponentElapsed = 0, opponentIndex = 0;
+  var invitationOpponents = [], invitationSeen = {};
+  ROUNDS.forEach(function(round){
+    if (round.kind === 'challenge' && !round.matched) return;
+    [round.a, round.b].forEach(function(seat){
+      if (!seat.face || seat.nm === 'Anonymous' || invitationSeen[seat.face]) return;
+      invitationSeen[seat.face] = true; invitationOpponents.push(seat);
+    });
+  });
+  function cycleInvitationOpponent(){
+    if (!invitationOpponents.length) return;
+    var seat = invitationOpponents[opponentIndex++ % invitationOpponents.length];
+    if (el.fsNameA.textContent === seat.nm && invitationOpponents.length > 1) seat = invitationOpponents[opponentIndex++ % invitationOpponents.length];
+    el.fsFaceA.src = '/img/round/faces/' + seat.face + '.jpg';
+    el.fsNameA.textContent = seat.nm;
+    setClips(seat.face, null);
+  }
 
   function paintMkt(){
     if (el.fsViewers) el.fsViewers.textContent = viewers;
@@ -777,6 +794,7 @@
 
   function paintRound(i){
     var r = ROUNDS[i];
+    opponentElapsed = 0;
     el.fsMotion.textContent = r.motion;
     el.fsMotion.classList.toggle('is-open-topic', !!r.openTopic && !r.title);
     if (el.fsTitle){ el.fsTitle.textContent = r.title || ''; el.fsTitle.hidden = !r.title; }
@@ -841,7 +859,7 @@
     el.fsNameB.textContent = r.b.nm;   el.fsSideB.textContent = r.b.side;
     if (el.fsNameAmini) el.fsNameAmini.textContent = r.a.nm;
     if (el.fsNameBmini) el.fsNameBmini.textContent = r.b.nm;
-    el.fsWinner.textContent = (r.won === 'a' ? r.a.nm : r.b.nm) + ' wins';
+    el.fsWinner.textContent = r.won ? (r.won === 'a' ? r.a.nm : r.b.nm) + ' wins' : 'Good chat';
     if (el.fsBallotCard) el.fsBallotCard.classList.toggle('is-b', r.won === 'b');
     // The score strings are "aPts - bPts" on the 100 scale. Render them
     // name-attributed so the numbers read as each debater's speaker
@@ -858,10 +876,15 @@
     } else {
       el.fsScore.textContent = r.score;
     }
-    paintCard(r, pts);
+    if (r.won) paintCard(r, pts);
+    else {
+      el.fsScore.textContent = 'No decision';
+      el.fsCard.replaceChildren();
+      var note = document.createElement('p'); note.textContent = r.rfd; el.fsCard.appendChild(note);
+    }
 
     verdictReady = !!(el.fsWinner.textContent.trim()
-      && el.fsCard && el.fsCard.children.length >= 4);
+      && el.fsCard && (r.won ? el.fsCard.children.length >= 4 : !!el.fsCard.textContent.trim()));
     if (el.fsBallotK){
       el.fsBallotK.textContent = verdictReady ? 'Decision' : 'Generating result';
     }
@@ -908,6 +931,10 @@
     if (document.hidden) return;
     elapsed += TICK_MS;
     if (ROUNDS[idx].kind === 'challenge'){
+      if (ROUNDS[idx].matched && ROUNDS[idx].openTopic && !ROUNDS[idx].title && !held()) {
+        opponentElapsed += TICK_MS;
+        if (opponentElapsed >= OPPONENT_MS) { cycleInvitationOpponent(); opponentElapsed = 0; }
+      }
       // Nothing to run, so it holds for one judged card's worth of time and
       // hands the board back. Shorter than RUN+HOLD would leave a reader
       // halfway through the motion.

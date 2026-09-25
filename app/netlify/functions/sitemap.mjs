@@ -59,7 +59,6 @@ const URLS = [
   // and already ranks position 7 for it, so the two were competing and
   // the thin one was holding the higher priority.
   { path: '/',                changefreq: 'daily',   priority: '1.0', lastmod: '2026-09-13' },
-  { path: '/practice',       changefreq: 'weekly',  priority: '0.95' },
   { path: '/flow',           changefreq: 'weekly',  priority: '0.93', lastmod: '2026-08-10' },
   { path: '/newvoice',        changefreq: 'weekly',  priority: '0.93', lastmod: '2026-07-25' },
   { path: '/voice-debate',    changefreq: 'weekly',  priority: '0.92' },
@@ -87,7 +86,7 @@ const URLS = [
   // submitting both would be two URLs for one page against one canonical.
   { path: '/watch',           changefreq: 'daily',   priority: '0.84', lastmod: '2026-09-13' },
   { path: '/champions',       changefreq: 'weekly',  priority: '0.80' },
-  // /debate-an-ai now redirects to /practice, which is listed above.
+  // Retired typed practice redirects to /newvoice, which is listed above.
   // Submit only the canonical destination of each acquisition page.
   { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-09-20' },
   // Politics acquisition cluster. /political-debate is the product-intent

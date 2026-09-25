@@ -992,7 +992,7 @@ a.vr-row:hover{background:rgba(239,68,68,.06)}
   content:"+";font-size:1.4rem;font-weight:300;color:var(--text-ghost);
   line-height:.6;
 }
-.settings[open] summary::after{content:"\2212"}
+.settings[open]>summary::after,.settings-group[open]>summary::after{content:"\2212"}
 .settings-body{padding:0 20px 20px}
 .set-row{
   display:grid;grid-template-columns:170px 1fr;gap:14px;align-items:start;
@@ -1306,6 +1306,10 @@ html.dbnative body.profile-page .settings > summary{
   .native-me-head{grid-template-columns:48px minmax(0,1fr) auto}
   .native-me-head .avatar{width:48px!important;height:48px!important}
 }
+/* Account settings: short primary choices, details on demand. */
+.settings-group{border-top:1px solid var(--border,rgba(128,128,128,.25));padding:16px 0}.settings-group>summary{font-weight:700;cursor:pointer;min-height:28px}
+.settings-body select{font:inherit;max-width:100%;padding:10px 14px;border:1px solid var(--border,#bbb);background:var(--bg-card,#fff);color:inherit;border-radius:8px}
+.capture-choice{display:flex;align-items:center;gap:12px;min-height:32px}.capture-choice .set-toggle{flex:0 0 44px}.capture-choice>label:last-child{font-size:14px;line-height:1.4}.set-toggle input:focus-visible+.set-track{outline:2px solid var(--accent);outline-offset:3px}.settings-body .hint{max-width:65ch;font-size:12px;line-height:1.5}.set-status{position:sticky;bottom:12px;background:var(--bg-card,#fff)}
 </style>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=DM+Sans:opsz,wght@9..40,400..900&family=Geist+Mono:wght@400..700&family=Inter:wght@400..900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
   <link rel="stylesheet" href="/css/social-depth.css?v=2">
@@ -1912,7 +1916,8 @@ async function fillRank(s){
 // read/write on that collection.
 function renderSettings(user, profileData){
   const d = profileData || {};
-  const nameOverride = d.displayNameOverride || '';
+  const chosenIdentity = window.DBIdentity && DBIdentity.forUser(user);
+  const nameOverride = d.displayNameOverride || (chosenIdentity && chosenIdentity.chosen ? chosenIdentity.name : '') || '';
   const optOut = d.leaderboardOptOut === true;
   // Default the preference on; eligibility still requires a saved 18+
   // confirmation. An existing false is an opt-out and must stay false.
@@ -1937,41 +1942,48 @@ function renderSettings(user, profileData){
           <div class="key">Display name</div>
           <div>
             <input id="setName" type="text" autocomplete="nickname" value="${escapeHtml(nameOverride)}" maxlength="32" placeholder="${escapeHtml(ph)}"/>
-            <div class="hint">Use a nickname to keep your real name private. It stays the same on the leaderboard and in every round. Leave it blank to use your anonymous name. Your Google name is never shown.</div>
+            <div class="hint">Your public nickname, used in rounds and on the leaderboard. Leave blank to use your generated name.</div>
           </div>
+        </div>
+        <div class="set-row">
+          <label class="key" for="setIdeology">Public viewpoint</label>
+          <div><select id="setIdeology">${['Not given','Socialist','Capitalist','Leftist','Right-wing','Centrist','Liberal','Conservative','Libertarian'].map(label => `<option ${d.publicIdeology === label ? 'selected' : ''}>${label}</option>`).join('')}</select><p class="hint">Optional. This label appears beside your name on the leaderboard. Your private matching answers stay private.</p></div>
         </div>
         <div class="set-row">
           <div class="key">Show on leaderboard</div>
           <div>
-            <label class="set-toggle"><input id="setLb" type="checkbox" ${optOut?'':'checked'}/><span class="set-track"></span></label>
+            <label class="set-toggle"><input id="setLb" aria-label="Show on leaderboard" type="checkbox" ${optOut?'':'checked'}/><span class="set-track"></span></label>
             <div class="hint">When off, future voice rounds stop writing to the public board. Past entries stay until you ask for a delete.</div>
           </div>
         </div>
         <div class="set-row">
           <div class="key">Sound effects</div>
           <div>
-            <label class="set-toggle"><input id="setSfx" type="checkbox" ${muted?'':'checked'}/><span class="set-track"></span></label>
+            <label class="set-toggle"><input id="setSfx" aria-label="Sound effects" type="checkbox" ${muted?'':'checked'}/><span class="set-track"></span></label>
             <div class="hint">Sign-in chime, decision reveal, streak transitions. Honored across the site.</div>
           </div>
         </div>
+        <details class="settings-group" open><summary>Saved rounds &amp; privacy</summary>
         <div class="set-row">
           <div class="key">Store my round transcripts</div>
           <div>
-            <label class="set-toggle"><input id="setCapture" type="checkbox" ${captureOn?'checked':''}/><span class="set-track"></span></label>
-            <div class="hint">Keeps the text of your spoken rounds so your decision can be reopened later and your progress can be measured. Private to your account; nobody else can read it. Turn it off and rounds still run and still get a ballot, they just are not stored, cannot be reopened, and do not count toward your progress. <a href="/privacy#transcripts" style="color:var(--accent);text-decoration:underline">What exactly gets stored.</a></div>
+            <div class="capture-choice"><label class="set-toggle"><input id="setCapture" aria-label="Always save my future rounds" type="checkbox" ${captureOn?'checked':''}/><span class="set-track"></span></label><label for="setCapture">Always save my future rounds</label></div>
+            <div class="hint">Save your spoken rounds privately so you can reopen decisions and track progress. Turn this off to stop saving future transcripts. You can still debate and get a decision. <a href="/privacy#transcripts" style="color:var(--accent);text-decoration:underline">What exactly gets stored.</a></div>
           </div>
         </div>
+        </details><details class="settings-group"><summary>Research sharing</summary>
         <div class="set-row">
           <div class="key">Research &amp; training corpus</div>
           <div>
             <label class="set-toggle"><input id="setCorpus" aria-label="Research sharing" type="checkbox" ${corpusOn?'checked':''}/><span class="set-track"></span></label>
-            <div class="hint">On by default. Confirm you are 18 or older and save before any rounds contribute. Real arguments help researchers study opposing views and test whether AI judgments are consistent. Future typed rounds and voice transcripts may join a research dataset licensed to AI labs. We remove account identifiers and scrub personal details before export; audio and video are excluded. Past rounds stay out. Turn sharing off any time. Your saved choice is always respected. <a href="/privacy#corpus" style="color:var(--accent);text-decoration:underline">Details in the privacy policy.</a></div>
+            <div class="hint">Sharing starts only after an 18+ confirmation and Save. Future text transcripts may enter a research dataset licensed to AI labs after identifiers and personal details are removed. Audio, video, and past rounds stay out. You can turn sharing off any time. <a href="/privacy#corpus" style="color:var(--accent);text-decoration:underline">Details in the privacy policy.</a></div>
             <label class="set-check" style="display:flex;align-items:flex-start;gap:8px;margin-top:10px;font-size:13px;line-height:1.4;cursor:pointer">
-              <input id="setCorpusAge" type="checkbox" ${ageAttested?'checked':''} style="margin-top:2px;flex:0 0 auto"/>
-              <span>I confirm I am 18 or older. Required to contribute to the corpus. Under-18 rounds are never licensed, regardless of this toggle.</span>
+              <input id="setCorpusAge" type="checkbox" ${ageAttested ? 'hidden disabled' : ''} ${ageAttested?'checked':''} style="margin-top:2px;flex:0 0 auto"/>
+              <span>${ageAttested ? '18+ confirmation saved. You do not need to answer again.' : 'I confirm I am 18 or older. Required to share rounds for research.'}</span>
             </label>
           </div>
         </div>
+        </details><details class="settings-group"><summary>Account, picture &amp; round preferences</summary>
         <div class="set-row">
           <div class="key">Email</div>
           <div class="val">${escapeHtml(user.email || '—')}</div>
@@ -1990,6 +2002,7 @@ function renderSettings(user, profileData){
             <div class="hint">Microphone mode, how long a pause before the AI replies, how hard it is to interrupt, and the defaults a new round starts with. Kept separate from this page because those are per-device and work signed out.</div>
           </div>
         </div>
+        </details>
         <div class="set-actions">
           <button class="set-btn primary" id="saveSettings" type="button">Save</button>
           <a class="set-btn" href="/pricing">Plan &amp; billing</a>
@@ -2110,6 +2123,7 @@ function wireSettings(user, rows){
         try { localStorage.setItem('debateos-transcript-capture', captureNow ? '1' : '0'); } catch(_){}
         await db.collection('user_profiles').doc(user.uid).set({
           displayNameOverride: name || null,
+          publicIdeology: document.getElementById('setIdeology')?.value === 'Not given' ? null : document.getElementById('setIdeology')?.value,
           leaderboardOptOut: !lbOn,
           transcriptCapture: captureNow,
           transcriptCaptureAt: new Date(),
@@ -2513,7 +2527,7 @@ function renderSignedOut(){
   if(btn) btn.addEventListener('click', () => {
     if(window.openAuthModal){ window.openAuthModal('signin'); return; }
     if(!auth || !firebase.auth.GoogleAuthProvider){
-      mount.innerHTML = `<div class="state"><h3>Couldn't load auth</h3><p>Your browser blocked the Firebase sign-in script. Try a different browser, or open this page outside an in-app browser like Instagram or TikTok.</p><a class="cta" href="/practice">Open the app</a></div>`;
+      mount.innerHTML = `<div class="state"><h3>Couldn't load auth</h3><p>Your browser blocked the Firebase sign-in script. Try a different browser, or open this page outside an in-app browser like Instagram or TikTok.</p><a class="cta" href="/newvoice">Open the app</a></div>`;
       return;
     }
     const provider = new firebase.auth.GoogleAuthProvider();
@@ -2533,7 +2547,7 @@ function renderError(msg){
     <div class="state">
       <h3>Couldn't load your dashboard</h3>
       <p>${escapeHtml(clean)} Refresh once. If it sticks, run a round and the dashboard fills in from there.</p>
-      <a class="cta" href="/practice">Start a round</a>
+      <a class="cta" href="/newvoice">Start a round</a>
     </div>
   `;
 }
@@ -2895,7 +2909,7 @@ function renderDashboard(user, rows, profileData, progress){
     ${savedRoundsSectionHtml()}
 
     <div class="cta-strip">
-      <a href="/practice"><span class="cl">Typed</span><span class="ct">Beat the AI</span><span class="cs">Full round, AI judge, decision at the end.</span></a>
+
       <a href="/voice-debate"><span class="cl">Voice</span><span class="ct">Talk it out</span><span class="cs">Live speech, interruptions, a real timer.</span></a>
       <a href="/live"><span class="cl">Human vs human</span><span class="ct">Go live</span><span class="cs">Real opponents, same AI judge.</span></a>
       <a href="/spar?inbox=1"><span class="cl">Messages</span><span class="ct">Your inbox</span><span class="cs">DMs with debaters you've matched or invited.</span></a>

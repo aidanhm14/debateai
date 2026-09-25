@@ -342,7 +342,7 @@
     // Watch (the audience surface), Predict (the market) and Tournaments
     // (the event engine) are the scale bets; utility rows stay small so
     // the hierarchy means something.
-    { href: '/watch',         label: 'Watch & clips', big: true },
+    { href: '/watch',         label: 'Watch & vote', big: true },
     // 2026-09-23: restored under Learn & prep per the founder.
     { href: '/credentials',   label: 'Certificate' },
     // 2026-06-15: Coach surfaced into the bar per the founder. /coach is the
@@ -1287,7 +1287,7 @@
     });
     watchBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
       + '<circle cx="8" cy="8" r="6.4"/><path d="M6.3 4.8l4.8 3.2-4.8 3.2z"/></svg>'
-      + '<span>Watch</span>';
+      + '<span>Watch &amp; vote</span>';
     watchBtn.addEventListener('click', function(){ navTrack('nav_watch_click', { from: location.pathname }); });
     // Friends tab (2026-09-01, the founder: "have the friends system more
     // instituted into the design ... add the 'friends' tab for those
@@ -2444,8 +2444,9 @@
   function openNameEditor(){
     withIdentity(function(ID){
       if (!ID.openEditor) return;
-      try { localStorage.setItem(NAME_ASKED_KEY, '1'); } catch(e){}
-      ID.openEditor().then(function(res){
+      var user = fbRealUser();
+      if (ID.markNameAsked) ID.markNameAsked(user);
+      ID.openEditor({ user: user }).then(function(res){
         if (res && res.ok) navTrack('display_name_set', { surface: 'topbar' });
       });
     });
@@ -2459,14 +2460,19 @@
       ID.hydrate(user).then(function(){
         paintUserName(slot, user);
         if (!ID.needsName || !ID.needsName(user)) return;
+        if (ID.hydrationReady && !ID.hydrationReady(user)) return;
         if (!promptAllowedHere()) return;
         var asked = '';
-        try { asked = localStorage.getItem(NAME_ASKED_KEY) || ''; } catch(e){}
+        asked = ID.nameAsked && ID.nameAsked(user);
         if (asked) return;
         // Deferred a beat so it lands after the page has painted rather
         // than on top of whatever the visitor was already reading.
-        setTimeout(openNameEditor, 1200);
-      });
+        setTimeout(function(){
+          var current = fbRealUser();
+          if (!current || current.uid !== user.uid || !ID.needsName(current) || (ID.nameAsked && ID.nameAsked(current))) return;
+          openNameEditor();
+        }, 1200);
+      }).catch(function(){ /* Failed hydration must not re-ask a saved name. */ });
     });
   }
 
@@ -3346,7 +3352,7 @@
   var TABS = [
     { href: '/friends', label: 'Friends', match: /^\/(friends|messages|chat)(\/|$)/,
       ic: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' },
-    { href: '/watch', label: 'Watch', match: /^\/(watch|spectate|live|livedebates|w|replays)(\/|$)/,
+    { href: '/watch', label: 'Watch & vote', match: /^\/(watch|spectate|live|livedebates|w|replays)(\/|$)/,
       ic: '<rect x="2" y="4" width="20" height="16" rx="3"/><path d="m10 8 6 4-6 4Z"/>' },
     { href: '/', label: 'Debate', primary: true, match: /^\/(?:(?:landing|home|spar|debate-chat|practice|partners)(?:\/|$))?$/,
       ic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>' },

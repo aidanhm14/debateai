@@ -4,7 +4,7 @@
    Drop <script defer src="/js/onboarding.js"></script> on any page
    where signed-in users land. First time a real (non-anonymous)
    user shows up without onboarding answers on user_profiles/{uid},
-   a short card asks: competitive experience, age range, background,
+   a short card asks: competitive experience, background,
    goals, and how they found us. Every step is tappable-once; the whole thing is
    skippable. Answers merge-set into user_profiles/{uid}.onboarding
    so admin analytics can read them via the admin SDK.
@@ -47,15 +47,6 @@
       options: [
         { v: 'learn', label: 'Learn to explain my ideas' },
         { v: 'argue', label: 'Find someone to debate' },
-      ] },
-    { key: 'ageRange', title: 'How old are you, roughly?',
-      sub: 'Used for age-appropriate matching.',
-      options: [
-        { v: '13-15', label: '13 to 15' },
-        { v: '16-18', label: '16 to 18' },
-        { v: '19-24', label: '19 to 24' },
-        { v: '25+', label: '25 or older' },
-        { v: 'na', label: 'Prefer not to say' },
       ] },
     { key: 'role', title: 'Which best describes you?',
       options: [

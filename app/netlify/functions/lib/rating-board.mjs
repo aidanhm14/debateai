@@ -65,6 +65,7 @@ export async function fetchRatingRows(db, { limit = 100 } = {}) {
       uid,
       xp: progress.get(uid)?.xp ?? null,
       name: publicIdentity(uid, p).name,
+      publicIdeology: ['Socialist','Capitalist','Leftist','Right-wing','Centrist','Liberal','Conservative','Libertarian'].includes(p.publicIdeology) ? p.publicIdeology : null,
       photoURL: typeof p.photoURL === 'string' ? p.photoURL.slice(0, 500) : '',
       avatarIdentity: p.avatarIdentity || null,
       rating: disp.rating,

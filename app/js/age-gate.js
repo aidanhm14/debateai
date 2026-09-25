@@ -67,6 +67,7 @@
     }).then(function (r) {
       return r.json().then(function (j) { return { ok: r.ok, status: r.status, body: j }; });
     }).then(function (r) {
+      if (!firebase.auth().currentUser || firebase.auth().currentUser.uid !== u.uid) { cb(''); return; }
       if (r.status === 409 && r.body && (r.body.band === 'minor' || r.body.band === 'adult')) {
         try { localStorage.setItem(KEY, r.body.band); } catch (e) {}
         cb(r.body.band);
@@ -78,7 +79,36 @@
 
   // Ask once, then call cb(band). If already answered, calls back
   // synchronously without rendering anything.
+  var ageOwner = null, ageRead = null;
   window.daAskAgeBand = function (cb) {
+    var user;
+    try { user = window.firebase && firebase.auth().currentUser; } catch(e) {}
+    var owner = user ? user.uid : '';
+    if (owner !== ageOwner) {
+      ageOwner = owner; ageRead = null;
+      try { localStorage.removeItem(KEY); } catch(e) {}
+      var stale = document.getElementById('daAgeGate');
+      if (stale) stale.remove();
+    }
+    if (user && !ageRead) {
+      var pending = user.getIdToken().then(function(token){
+        return fetch('/api/age-band', { headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(8000) });
+      }).then(function(r){ return r.ok ? r.json() : {}; }).catch(function(){ return {}; }).then(function(data){
+        if (ageRead !== pending || !firebase.auth().currentUser || firebase.auth().currentUser.uid !== owner) return;
+        try {
+          if (data.band === 'adult' || data.band === 'minor') localStorage.setItem(KEY, data.band);
+          else localStorage.removeItem(KEY);
+        } catch(e) {}
+        ageRead = true;
+      });
+      ageRead = pending;
+    }
+    if (ageRead && typeof ageRead.then === 'function') {
+      ageRead.then(function(){
+        if (ageOwner === owner && firebase.auth().currentUser && firebase.auth().currentUser.uid === owner) window.daAskAgeBand(cb);
+      });
+      return;
+    }
     var have = window.daAgeBand();
     if (have) { cb(have); return; }
     if (document.getElementById('daAgeGate')) return;
@@ -100,6 +130,8 @@
       '</div>';
 
     function pick(band) {
+      var active = window.firebase && firebase.auth().currentUser;
+      if (owner !== (active ? active.uid : '')) { wrap.remove(); window.daAskAgeBand(cb); return; }
       // prefs-sync.js intercepts localStorage.setItem for SYNCED_KEYS,
       // so this one line is also what carries the answer across devices.
       try { localStorage.setItem(KEY, band); } catch (e) {}
@@ -150,11 +182,7 @@
   }
   window.daSessionCount = sessionCount;
   window.daAgeAskDue = function () {
-    if (window.daAgeBand()) return false;
-    var snoozed = 0;
-    try { snoozed = parseInt(localStorage.getItem(SNOOZE), 10) || 0; } catch (e) {}
-    if (snoozed && Date.now() < snoozed) return false;
-    return sessionCount() >= ASK_AFTER_SESSIONS;
+    return false; // Age is asked once at the live queue, never as a browsing nudge.
   };
 
   // The corner card. Not a modal: nothing is blocked, the page stays

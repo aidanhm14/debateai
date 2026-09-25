@@ -459,5 +459,9 @@ var ROUNDS = [
       motion:'Taxes, immigration, healthcare, or your own. Pick the fight.',
       a:{ nm:'Abby' }, b:{ nm:'Owen' } }
   );
+  ROUNDS.push({ fmt:'Casual 1v1', motion:'Friends should split the bill equally even when they order different things.',
+    a:{ nm:'Sarah', side:'For', face:'face46' }, b:{ nm:'Nick', side:'Against', face:'face53' },
+    open:50, drift:50, won:null, score:'', crowd:0, vol:0,
+    rfd:'Neither side resolved when convenience should outweigh paying for what you ordered. A good exchange, with no winner called.' });
   return ROUNDS;
 };

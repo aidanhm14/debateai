@@ -101,3 +101,46 @@ test('a gated sign-in resumes its destination after modal cleanup', async ({ pag
   await expect(page).toHaveURL('https://debatable.test/community');
   expect(errors).toEqual([]);
 });
+
+for (const code of ['auth/operation-not-allowed','auth/popup-blocked','auth/popup-closed-by-user']) {
+  test(`Apple ${code} uses the appropriate recovery`,async({page})=>{
+    const errors=await chooser(page);
+    await page.evaluate(code=>{
+      firebase.auth.OAuthProvider=function(){this.addScope=()=>{};};
+      firebase.auth().signInWithPopup=()=>{calls.push('apple-popup');return Promise.reject({code});};
+      firebase.auth().signInWithRedirect=()=>{calls.push('apple-redirect');return Promise.resolve();};
+    },code);
+    await page.locator('#daTerms').check();await page.locator('#daApple').click();
+    await expect.poll(()=>page.evaluate(()=>calls.includes('apple-popup'))).toBe(true);
+    if(code==='auth/popup-blocked')await expect.poll(()=>page.evaluate(()=>calls.includes('apple-redirect'))).toBe(true);
+    else {
+      if(code==='auth/operation-not-allowed')await expect(page.locator('.da-err')).toContainText('Use Google or email');
+      else await expect(page.locator('.da-err')).toBeEmpty();
+      expect(await page.evaluate(()=>calls.includes('apple-redirect'))).toBe(false);
+    }
+    await expect(page.locator('#daG')).toBeEnabled();expect(errors).toEqual([]);
+  });
+}
+
+for(const accepted of [false,true])test(`external Apple button shows terms and errors, previous acceptance ${accepted}`,async({page})=>{
+  const errors=await chooser(page);
+  if(accepted)await page.locator('#daTerms').check();
+  await page.getByRole('button',{name:'Close',exact:true}).click();
+  await page.evaluate(()=>{
+    firebase.auth.OAuthProvider=function(){this.addScope=()=>{};};
+    firebase.auth().signInWithPopup=()=>{calls.push('apple-popup');return Promise.reject({code:'auth/operation-not-allowed'});};
+    document.getElementById('open').onclick=()=>dbAppleSignIn();
+  });
+  await page.locator('#open').click();
+  await expect(page.locator('#ditAuth')).toBeVisible();
+  if(!accepted){
+    await expect(page.locator('#daTerms')).not.toBeChecked();
+    await expect(page.locator('.da-err')).toContainText('Tick the box');
+    expect(await page.evaluate(()=>calls.includes('apple-popup'))).toBe(false);
+    await page.locator('#daTerms').check();
+    await page.locator('#daApple').click();
+  }
+  await expect(page.locator('.da-err')).toContainText('Use Google or email');
+  expect(await page.evaluate(()=>calls.filter(c=>c==='apple-popup').length)).toBe(1);
+  expect(errors).toEqual([]);
+});

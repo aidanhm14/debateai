@@ -355,7 +355,7 @@
       html += '<div class="rb-row' + (r.rank === 1 ? ' rb-row--top' : '') + '" data-href="/leaderboard" data-rb="leaderboard-row">'
         + '<span class="rb-rk' + medal + '">' + (r.rank || '·') + '</span>'
         + avaCell(r, i, avaUsed, avaTaken)
-        + '<span class="rb-who"><span class="rb-nm">' + esc(r.name) + '</span>' + (r.rank ? '' : '<small>In placement</small>') + '</span>'
+         + '<span class="rb-who"><a class="rb-nm" href="/users?uid=' + encodeURIComponent(r.uid || '') + '">' + esc(r.name) + '</a><small class="rb-ideology">' + esc(r.publicIdeology || 'Not given') + '</small><a class="rb-profile-link" href="/users?uid=' + encodeURIComponent(r.uid || '') + '">Profile details →</a>' + (r.rank ? '' : '<small>In placement</small>') + '</span>'
         + '<span class="rb-pts"><span class="rb-metric"><span class="rb-metric-value">' + (isRated ? Math.round(r.rating) : fmtScore(r.score)) + '</span><small class="rb-metric-label">' + (isRated ? 'Rating' : 'Round score') + '</small></span>'
         + '<a class="rb-chal-btn" href="' + chalHref + '" data-rb="leaderboard-challenge">Challenge</a>'
         + '</span></div>';

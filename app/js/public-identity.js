@@ -274,7 +274,8 @@
     return ref.set({
       displayNameOverride: check.name,
       usernameOverride: handle || null,
-      displayNameUpdatedAt: new Date()
+      displayNameUpdatedAt: new Date(),
+      namePromptCompleted: true
     }, { merge: true }).then(function () {
       return { ok: true, name: check.name, username: handle, synced: true };
     }).catch(function (err) {
@@ -301,19 +302,50 @@
      an empty profile field is the absence of a choice, not a choice of
      nothing. */
   var hydrating = null;
+  var hydratingOwner = '';
+  var hydrationReady = {};
+  var firestoreLoad = null;
+  function ensureFirestore() {
+    if (global.firebase && typeof global.firebase.firestore === 'function') return Promise.resolve();
+    if (firestoreLoad) return firestoreLoad;
+    if (!global.document) return Promise.reject(new Error('Profile storage unavailable'));
+    firestoreLoad = new Promise(function(resolve, reject){
+      var script = global.document.createElement('script');
+      script.src = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js';
+      script.onload = function(){ if (global.firebase && typeof global.firebase.firestore === 'function') resolve(); else { firestoreLoad = null; reject(new Error('Profile storage unavailable')); } };
+      script.onerror = function(){ firestoreLoad = null; reject(new Error('Profile storage unavailable')); };
+      global.document.head.appendChild(script);
+    });
+    return firestoreLoad;
+  }
+  function markNameAsked(user) {
+    var owner = ownerOf(user);
+    lsSet('debatable-name-asked:' + owner, '1');
+    var ref = profileDoc(user);
+    if (ref) ref.set({ namePromptCompleted: true }, { merge: true }).catch(function(){});
+  }
+  function nameAsked(user) { return lsGet('debatable-name-asked:' + ownerOf(user)) === '1'; }
+
   function hydrate(user) {
     var target = user || currentUser();
     var ref = profileDoc(target);
+    if (!ref && target && !target.isAnonymous) return ensureFirestore().then(function(){ if (!profileDoc(target)) throw new Error('Profile storage unavailable'); return hydrate(target); });
     if (!ref) return Promise.resolve(forUser(target));
-    if (hydrating) return hydrating;
+    var requestOwner = ownerOf(target);
+    if (hydrating && hydratingOwner === requestOwner) return hydrating;
+    hydratingOwner = requestOwner;
     hydrating = ref.get().then(function (snap) {
       var d = (snap && snap.exists && snap.data()) || {};
+      hydrationReady[requestOwner] = true;
+      if (d.namePromptCompleted) lsSet('debatable-name-asked:' + requestOwner, '1');
       var remote = cleanName(d.displayNameOverride);
       var remoteHandle = cleanUsername(d.usernameOverride);
       var owner = ownerOf(target);
       var local = cachedFor(owner);
       var localUnclaimed = !lsGet(OWNER_KEY) && cleanName(lsGet(NAME_KEY));
 
+      var active = currentUser();
+      if (active && active.uid !== target.uid) return forId(target.uid);
       if (remote) {
         lsSet(NAME_KEY, remote);
         lsSet(USER_KEY, remoteHandle);
@@ -709,6 +741,9 @@
     openEditor: openEditor,
     generatedFor: function (user) { return forId(user && user.uid ? user.uid : browserSeed()); },
     needsName: needsName,
+    nameAsked: nameAsked,
+    markNameAsked: markNameAsked,
+    hydrationReady: function(user){ return !!hydrationReady[ownerOf(user)]; },
     setName: setName,
     clearName: clearName,
     hydrate: hydrate,

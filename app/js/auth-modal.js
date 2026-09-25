@@ -773,7 +773,20 @@
   // key). Inside the Capacitor shell the reliable path is the native
   // @capacitor-firebase/authentication plugin — see mobile/IOS_SETUP.md.
   // Exposed as window.dbAppleSignIn so the native sign-in UI can call it.
+  function appleErrorMessage(code) {
+    if (/operation-not-allowed|unauthorized-domain|invalid-oauth|invalid-credential|missing-or-invalid-nonce/.test(code)) return 'Apple sign-in is unavailable right now. Use Google or email while we fix it.';
+    if (/account-exists-with-different-credential/.test(code)) return 'This email already uses another sign-in method. Use that method to access your account.';
+    if (/network-request-failed/.test(code)) return 'Could not reach Apple sign-in. Check your connection and try again.';
+    return 'Apple sign-in failed. Try again, or use Google or email.';
+  }
+  // The /spar button calls Apple directly. Keep terms and errors visible.
+  function showAppleChooser() {
+    if (!modal || !modal.classList.contains('on')) {
+      openAuthModal('signin', { liveVideo: /^\/spar(?:\.html)?\/?$/.test(location.pathname) });
+    }
+  }
   function doAppleSignIn() {
+    showAppleChooser();
     if (!requireTerms()) return;
     setErr('');
     bootstrap(function () {
@@ -790,7 +803,7 @@
           }).then(function () { finishSignIn('apple_native'); }).catch(function (err) {
             var code = (err && (err.code || err.message)) || 'unknown';
             if (/cancel|1001/i.test(code)) return;
-            setErr('Apple sign-in failed. Try again.');
+            setErr(appleErrorMessage(code));
           });
           return;
         }
@@ -823,7 +836,12 @@
           finishSignIn('apple');
         }).catch(function (err) {
           var code = (err && err.code) || 'unknown';
-          if (code === 'auth/popup-closed-by-user' && (Date.now() - t0) > 1200) return;
+          if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
+          if (code !== 'auth/popup-blocked' && code !== 'auth/operation-not-supported-in-this-environment') {
+            setErr(appleErrorMessage(code));
+            track('sign_in_error', { method: 'apple', code: code });
+            return;
+          }
           try {
             var canLink = current && current.isAnonymous && current.linkWithRedirect && !appleLinkRejected;
             var redirect = canLink ? current.linkWithRedirect(provider) : auth.signInWithRedirect(provider);
