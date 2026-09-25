@@ -161,6 +161,8 @@ html.dbnative .page-head{padding-top:20px}
 .vote-thesis strong{color:var(--text)}
 .vote-thesis a{color:var(--red);font-weight:800;text-decoration:none;white-space:nowrap}
 .vote-thesis a:hover{text-decoration:underline;text-underline-offset:3px}
+.vote-count{display:block;margin-top:6px;font-size:14px;color:var(--faint)}
+.vote-count strong{color:var(--text);font-variant-numeric:tabular-nums}
 
 /* ── Live band */
 .live-band{display:none;margin-top:26px;border:1px solid rgba(239,68,68,.35);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
@@ -791,7 +793,27 @@ footer a{color:var(--dim)}
     </div>
     <div class="spectator-match-slot" data-da-pill-slot="end" hidden></div>
   </header>
-  <p class="vote-thesis">Watch an example, or give your verdict in an eligible Debatable round’s audience controls.</p>
+  <p class="vote-thesis">Watch an example, or give your verdict in an eligible Debatable round’s audience controls. <span class="vote-count" id="voteCount" hidden></span></p>
+  <script>
+  /* Watch & vote count (2026-09-25). Real rows from /api/persuasion-index,
+     rendered only once the fetch resolves with numbers; a failed read
+     leaves the span hidden rather than printing a zero. */
+  (function(){
+    var el = document.getElementById('voteCount');
+    if (!el || !window.fetch) return;
+    fetch('/api/persuasion-index').then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
+      if (!j || typeof j.stancesRecorded !== 'number' || typeof j.verdictsRecorded !== 'number') return;
+      var s = j.stancesRecorded, v = j.verdictsRecorded;
+      var fmt = function(n){ return n.toLocaleString('en-US'); };
+      if (!s && !v) { el.textContent = 'No audience votes recorded yet.'; }
+      else {
+        el.innerHTML = '<strong>' + fmt(s) + '</strong> audience vote' + (s === 1 ? '' : 's') +
+          ' and <strong>' + fmt(v) + '</strong> written verdict' + (v === 1 ? '' : 's') + ' recorded so far.';
+      }
+      el.hidden = false;
+    }).catch(function(){});
+  })();
+  </script>
   <div class="watch-collections" id="watchCollections" role="group" aria-label="Browse debate collections">
     <button type="button" data-collection-filter="all" aria-pressed="true">All debates</button>
     <button type="button" data-collection-filter="college" aria-pressed="false">APDA &amp; college</button>

@@ -109,11 +109,33 @@ async function index(db) {
     ? Math.round((switched / counted) * 1000) / 10
     : null;
 
+  // Two raw counts for the Watch & vote header (2026-09-25, Aidan: "yes
+  // show a vote count"). Raw on purpose: `votesCounted` above is the
+  // WEIGHTED tally that survives the watch-time gate and is 0 until the
+  // corpus can carry it, so it would print a zero over a real audience.
+  // These are the rows that exist: every stance a viewer recorded
+  // (before or after a round), and every written audience verdict left
+  // in a live room. Null when the read fails, never 0 by default; the
+  // page only renders a number it actually received.
+  let stancesRecorded = null, verdictsRecorded = null;
+  try {
+    const [stances, verdicts] = await Promise.all([
+      db.collection('opinion_deltas').count().get(),
+      db.collectionGroup('audienceEvals').count().get(),
+    ]);
+    stancesRecorded = stances.data().count;
+    verdictsRecorded = verdicts.data().count;
+  } catch (err) {
+    console.error('persuasion-index raw counts failed:', err.message);
+  }
+
   return {
     updatedAt: new Date().toISOString(),
     rounds: docs.length,
     publishableRounds: publishable,
     votesCounted: counted,
+    stancesRecorded,
+    verdictsRecorded,
     holdoutVotes: holdout,
     stakedVotesExcluded: excluded,
     deliveryControlledRounds: controlled,

@@ -20,7 +20,7 @@ Legend: **Verified live** = observed on production. **Implemented, mock-tested**
 | R10 | Mobile Explore horizontally varied | **Verified live** | `topbar.js` | Two-column grid at 390px, four on tablet. |
 | R11 | Apple sign-in without breaking Google or email | **Verified live** (browser) | `auth-modal.js`, `netlify.toml` proxy, all 67 `authDomain`, Apple Services ID | Root cause: redirect fallback round-tripped through firebaseapp.com and lost the session to partitioned storage. authDomain is now itsdebatable.com with `/__/auth/*` proxied. Google redirect reaches accounts.google.com on the new handler; Apple reaches its real sign-in page; Aidan completed one real Apple sign-in in Codex's browser and the session persisted across reload. Not exercised: iOS Safari and the native app. |
 | R12 | Better evaluated YouTube debate examples, incl. parliamentary | **Verified live** (2026-09-25) | `/watch`, `scripts/data/watch-library.json` | Aidan: "find the parliamentary rounds". Nine finals added under a new Parliamentary finals collection (WUDC 2023 and 2026, EUDC 2022 and 2025, APDA Nationals 2015, CUDC 2024, Canadian Parliamentary 2024, Australs 2020, WSDC 2016); every id verified with YouTube oEmbed, durations read from the watch pages. No evaluation scores are shown because none exist. |
-| R13 | "Watch & Vote" | **Partial** | `watch.html` | Title and copy changed; voting points at the existing audience controls in eligible live rounds. No vote on YouTube examples and no numeric counter ("and number" still unclear). No fake totals. |
+| R13 | "Watch & Vote" | **Verified live** (2026-09-25) | `watch.html`, `persuasion-index.mjs` | Aidan: "yes show a vote count". The header now prints the real totals from the public index: audience votes recorded (`opinion_deltas` rows) and written verdicts (`audienceEvals`), rendered only after the fetch returns numbers, "No audience votes recorded yet" on a true zero, nothing on a failed read. Voting itself still happens in eligible live rounds; YouTube examples take no votes. |
 | R14 | Ask display name once | Implemented, mock-tested | `public-identity.js`, `topbar.js` | Prompt waits for profile hydration; completion saved per account. |
 | R15 | More homepage people imagery | Implemented, mock-tested | `example-rounds.js`, `example-board.js` | Existing supplied pool widened; no invented results. |
 | R16 | Faster rotation on one side | Implemented, mock-tested | `example-board.js` | Left column 2.52s, right fixed, completed rounds 9.6s, reduced motion respected. Side chosen from the 4:20 to 5:20 window. |
@@ -40,9 +40,7 @@ Legend: **Verified live** = observed on production. **Implemented, mock-tested**
 
 ## Decisions still needed
 
-R28, R18, R12 and R01 were decided by Aidan on 2026-09-25 and are shipped (`f06224ff`, `dc6cd737`); the stage is open.
-
-1. **R13 "and number".** Say whether a vote count was wanted on Watch & Vote.
+None. R28, R18, R12, R01 and R13 were decided by Aidan on 2026-09-25 and are shipped; the stage is open. Every item in R01 to R29 is now implemented or intentionally preserved.
 
 ## What was not done and why
 
