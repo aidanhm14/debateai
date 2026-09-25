@@ -6,7 +6,7 @@ const marker = source.indexOf("event.target.closest('[data-consent-unavailable]'
 const script = source.slice(source.lastIndexOf("  document.addEventListener('click'", marker), source.indexOf('  // Re-render the consent card', marker));
 assert.ok(marker > 0);
 async function scenario({ consent = true, matched = false, release = true } = {}) {
-  let click, answer, deleted = false, recovered = false, unmatches = 0;
+  let click, answer, deleted = false, recovered = false, unmatches = 0, waitingRemoved = false;
   const button = { disabled: false };
   const state = { lastConsentDoc: { matchedWith: 'peer' } };
   const context = {
@@ -14,6 +14,7 @@ async function scenario({ consent = true, matched = false, release = true } = {}
     document: { addEventListener: (_, fn) => { click = fn; }, getElementById: () => ({}) },
     sendConsent: () => new Promise(resolve => { answer = resolve; }),
     leaveQueueQuietly: () => { deleted = true; }, recoverConsentCard: () => { recovered = true; }, joinQueue() {},
+    removeWaitRail: () => { waitingRemoved = true; },
     firebaseAuth: { currentUser: { getIdToken: async () => 'fixture' } },
     fetch: async () => { unmatches++; return { ok: release }; },
   };
@@ -21,10 +22,12 @@ async function scenario({ consent = true, matched = false, release = true } = {}
   click({ target: { closest: () => button } });
   assert.equal(state.pausingMatch, true);
   assert.equal(deleted, false, 'Do not delete our queue doc while peer release is in flight');
+  assert.equal(waitingRemoved, false, 'Keep the waiting layout while peer release is in flight');
   if (matched) state.pausedMatchDoc = { status: 'matched' };
   answer(consent);
   for (let i = 0; i < 15; i++) await Promise.resolve();
   assert.equal(deleted, consent && release);
+  assert.equal(waitingRemoved, consent && release, 'Remove the waiting layout only after pausing succeeds');
   assert.equal(recovered, !consent || !release);
   assert.equal(unmatches, consent && matched ? 1 : 0);
 }

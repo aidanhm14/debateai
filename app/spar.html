@@ -4613,6 +4613,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // helpers move to another closure.
     var wrapHost = document.querySelector('.wrap');
     if (wrapHost) wrapHost.classList.remove('spar-search-layout');
+    document.body.classList.remove('spar-waiting');
+    syncPresenceBackground();
     var staleRail = document.getElementById('waitRail');
     if (staleRail) staleRail.remove();
     var staleRoom = document.getElementById('sparRoom');
@@ -4991,7 +4993,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (state.incomingFriendInvite){
       return '<section class="friend-challenge friend-challenge--incoming" id="friendChallengeCard" aria-live="polite">' +
         '<div class="friend-challenge__top">' +
-          '<span class="friend-challenge__mark" aria-hidden="true">&#8599;</span>' +
           '<span class="friend-challenge__copy">' +
             '<span class="friend-challenge__eyebrow">Friend challenge</span>' +
             '<h2 id="friendInviteStatusTitle">Joining your friend</h2>' +
@@ -5003,21 +5004,19 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     var url = friendInviteUrl();
     return '<section class="friend-challenge" id="friendChallengeCard">' +
       '<div class="friend-challenge__top">' +
-        '<span class="friend-challenge__mark" aria-hidden="true">&#8644;</span>' +
         '<span class="friend-challenge__copy">' +
-          '<span class="friend-challenge__eyebrow">Waiting alone?</span>' +
-          '<h2>Challenge a friend</h2>' +
-          '<p>Send one link. The first friend to open it takes the seat; your search for a stranger keeps running too.</p>' +
+          '<h2>Invite a friend</h2>' +
+          '<p>Share your link to meet someone you know. Your search stays open while you wait.</p>' +
         '</span>' +
       '</div>' +
       '<div class="friend-challenge__actions">' +
-        '<button class="btn primary" id="shareFriendInviteBtn" type="button">Send invite</button>' +
-        '<button class="btn" id="copyFriendInviteBtn" type="button">Copy link</button>' +
+        '<button class="btn primary" id="copyFriendInviteBtn" type="button">Copy link</button>' +
+        '<button class="btn" id="shareFriendInviteBtn" type="button">Share invite</button>' +
         '<button class="btn" id="showFriendQrBtn" type="button" aria-expanded="false">Show QR</button>' +
       '</div>' +
-      '<div class="friend-challenge__link">' +
+      '<details class="friend-challenge__link"><summary>View invite link</summary>' +
         '<input id="friendInviteLink" type="text" readonly aria-label="Friend challenge link" value="' + escHtml(url) + '">' +
-      '</div>' +
+      '</details>' +
       '<div class="friend-challenge__qr" id="friendInviteQr" hidden>' +
         '<div class="friend-challenge__qr-code" id="friendInviteQrCode" aria-label="QR code for the friend challenge"></div>' +
         '<div class="friend-challenge__qr-copy"><strong>Scan to take the open seat</strong>You both confirm before any camera or mic turns on.</div>' +
@@ -5135,134 +5134,46 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // not being seen. Copy is painted per state by the handler in
   // renderSearching, so this markup is the shell only.
   function alertsCtaHtml(){
-    return '<div class="alerts-cta" id="alertsCta" hidden style="margin:14px auto 0;max-width:430px;padding:11px 13px;border:1px solid rgba(34,197,94,.32);background:rgba(34,197,94,.06);border-radius:12px;text-align:left">' +
-        '<div style="display:flex;align-items:center;gap:11px">' +
-          '<span aria-hidden="true" style="flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;background:rgba(34,197,94,.14);color:#22c55e"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>' +
-          '<span style="flex:1;min-width:0;font-size:.76rem;color:var(--text-dim);line-height:1.45"><strong id="alertsTitle" style="color:var(--text);font-weight:700;display:block;font-size:.82rem;margin-bottom:1px">Get pinged when someone goes live</strong><span id="alertsBody">Leave this page and we will notify you the moment someone is looking for a round, even in another app.</span></span>' +
-          '<button type="button" class="btn" id="alertsEnableBtn" style="flex-shrink:0;background:#22c55e;color:#06210f;border:none;border-radius:9px;padding:8px 14px;font-weight:800;font-size:.78rem;cursor:pointer">Turn on</button>' +
-        '</div>' +
+    return '<div class="alerts-cta" id="alertsCta" hidden>' +
+        '<div class="alerts-cta__copy"><strong id="alertsTitle">Queue alerts</strong><p id="alertsBody">Get a notification when someone is looking for a round.</p></div>' +
+        '<button type="button" class="btn" id="alertsEnableBtn">Turn on</button>' +
       '</div>';
   }
   function renderSearching(){
     shell.innerHTML =
-      '<h1>Finding your <em>match...</em></h1>' +
-      '<p>We\'ll offer you a live matchup. Once you both say yes, the room opens.</p>' +
-      '<p id="deskWaitingNote" role="status" hidden></p>' +
-      '<section class="keep-open" aria-label="While you wait">' +
-        '<p><strong>Keep this tab open.</strong> Give people a moment to join. We&#8217;ll chime when your match is ready.</p>' +
+      '<header class="wait-heading">' +
+        '<div><p class="wait-kicker">Live matchmaking</p><h1>Finding your next debate</h1></div>' +
+        '<button type="button" class="btn wait-cancel" id="cancelBtn">Stop searching</button>' +
+      '</header>' +
+      '<p class="wait-intro">We will offer you a match. The room opens when you both accept.</p>' +
+      '<section class="wait-search" aria-label="Search status">' +
+        '<div class="wait-search__row">' +
+          '<div class="status" id="statusText" role="status"><span id="statusMain">Searching the live queue</span><span class="dim" id="statusSub" hidden>Checking who is free right now.</span></div>' +
+          '<div class="countdown" id="countdownNum">No time limit</div>' +
+        '</div>' +
+        '<p class="keep-open">Keep this tab open. Your invitation will appear here.</p>' +
+        '<p id="deskWaitingNote" role="status" hidden></p>' +
+        '<div class="meta-strip" id="metaStrip" aria-live="polite">' +
+          '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> <span id="metaQueueLabel">available now</span></span>' +
+          '<span class="meta-cell meta-missed-cell" id="metaMissedCell" hidden><strong id="metaMissed">0</strong> <span id="metaMissedLabel">round attempts in the past 7 days</span></span>' +
+        '</div>' +
+        '<div class="pinged-line" id="pingedLine" hidden></div>' +
+        '<div class="queue-stats" id="queueStats">' + renderWaitlist([], formatParam) + '</div>' +
       '</section>' +
-      // 2026-08-31, the founder off a screenshot of exactly these two
-      // lines: "delete". The AI-judge and avatar reassurances are gone
-      // from the searching column; the headline plus the globe carry the
-      // screen, and the leaderboard rail on the left is the new texture.
-      // The avatar promise still gets answered where the choice is made,
-      // in the room's own camera bar.
-      // 2026-09-04, the founder's own words for the wait, near verbatim:
-      // the searching screen says what is actually happening instead of
-      // explaining the motion slate to someone who has no opponent yet.
-      // The wait note that sat here moved into the keep-open strip at the
-      // top of the column (2026-09-04), so the ask to stay is said once.
-      // Globe of rooms opening worldwide — replaces the prior radar
-      // sweep + fabricated-handles disc. Reads as "minds lighting up
-      // across time zones," not "tracking targets." Self-contained
-      // module in /js/global-debate-map.js mounts after this innerHTML
-      // lands and owns the SVG inside the .globe-frame host.
-      '<div class="globe-wrap"><div class="globe-frame">' +
-          '<div id="globalDebateMap" role="img" aria-label="Globe with debate rooms opening between cities"></div>' +
-        '</div></div>' +
-      // Real-presence caption. Hidden until /api/presence-live returns
-      // at least one live visitor; then the dots on the globe above are
-      // real city-level locations and this line says so. Never shows a
-      // number the server didn't count.
-      '<div id="globeLiveNote" hidden style="margin:-2px auto 10px;font-size:.72rem;max-width:340px;text-align:center;color:var(--text-dim);font-weight:500"></div>' +
-      // Live ops strip. Wired to real Firestore via startMetaLive():
-      // queue cell = spawnable peers waiting in matchmaking_queue
-      // (self excluded so the user doesn't see "1 waiting" when only
-      // they're in line). The dot turns live ONLY for spawnable queue
-      // peers. (The old "open DM invites" cell read from waitlist_posts,
-      // which nothing writes to anymore since the join-the-waitlist
-      // board was replaced by the /tournaments link — 2026-08-11.)
-      '<div class="meta-strip" id="metaStrip" aria-live="polite">' +
-        '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> <span id="metaQueueLabel">available now</span></span>' +
-        '<span class="meta-cell meta-missed-cell" id="metaMissedCell" hidden><strong id="metaMissed">0</strong> <span id="metaMissedLabel">round attempts in the past 7 days</span></span>' +
-      '</div>' +
-      // Recent-attempts timeline cut in the 2026-08-05 cozy pass — the
-      // rotating "a debater looked for X" rows added a whole extra text
-      // module; the meta-strip's weekly count carries the same honesty.
-      // renderRecentSeeks() no-ops without #seekFeed.
-      // The status sub-line element stays (startStatusCycle writes both
-      // spans and bails if either is missing) but is display:none in CSS.
-      '<div class="status" id="statusText"><span id="statusMain">Searching the live queue</span><span class="dim" id="statusSub" style="display:none">Checking who is free right now.</span></div>' +
-      '<div class="countdown" id="countdownNum">Searching for an opponent. No time limit.</div>' +
-      // 2026-09-04, the founder: "say we're pinging the network via
-      // notifications, let's be transparent and readable". Painted by
-      // updatePingedLine only once the server reports a push it actually
-      // delivered, so it never claims a ping that did not happen.
-      '<div class="pinged-line" id="pingedLine" hidden></div>' +
-      '<details class="queue-device-setup"><summary>Get notified. Set up this device or your phone</summary><div data-notification-setup></div></details>' +
-      // 2026-09-01, Aidan on a screenshot of this screen: 'get rid of all
-      // these it overwhelms the /spar page'. Gone from the searching state:
-      // the Use-the-wait AI offer card, the quiet-hours Spar Night card and
-      // async-round line, the Voice-AI link, the Matchmaker-profile recap,
-      // and the whole Round-setup card (judge type / language / bench).
-      // Every JS reference to their ids is null-guarded, so the wiring
-      // below no-ops; restore from git history at this commit if asked.
-      // ── The wait offer ───────────────────────────────────────────
-      // 2026-09-02. Measured over the 7 days to today: 140 sessions
-      // joined the queue and 47 of them ended with nothing at all. The
-      // machinery for this offer was intact the whole time (startCountdown
-      // reveals #aiOpponentOffer, the click handlers below wire it to
-      // leaveQueueForAi) and the ELEMENT had been deleted the day before,
-      // so the reveal had nothing to reveal and spar_ai_choice fired 3
-      // times in a week. A feature can be fully built and reachable by
-      // nobody; check the element exists before trusting the mechanism.
-      //
-      // Restored as ONE LINE rather than the card that was removed. The
-      // removal was right: the card stacked with four other cards on a
-      // screen someone reads while waiting, and it appeared at 12
-      // seconds, which is before most matches even land. This appears at
-      // AI_OFFER_AFTER_SEC and is a sentence with a button in it.
-      //
-      // It is an OFFER and never a redirect. The standing product rule is
-      // that we never bulldoze a waiting human into an AI round, so the
-      // human queue keeps running underneath, Keep waiting silences it
-      // for the session, and nothing here navigates on its own.
-      // 2026-09-04, the founder off a screenshot of this screen ("delete all
-      // this too"): the AI offer strip, the first-in-line card, the queue
-      // diagnostic line and the camera/mic foot line all came off. The
-      // searching screen is the globe and Cancel. The offer timer below
-      // still runs and finds no element, which is a no-op by its own guard.
-      '<div class="quiet-links">' +
-        '<button type="button" class="link-btn" id="editMatchProfileBtn">Matching preferences (optional)</button>' +
-        '<button type="button" class="link-btn" id="cancelBtn">Cancel</button>' +
-      '</div>' +
-      // 2026-09-04, the founder: Challenge a friend sits under the globe,
-      // and the two other doors spread under it. The friend card node is
-      // never moved into the rail any more; the rail is Discord + Commons.
-      alertsCtaHtml() +
-      '<div id="friendChallengeHome">' + friendChallengeHtml() + '</div>' +
-      '<div class="wait-doors">' +
-        '<a class="wait-rail__link" href="/newvoice?handoff=spar-wait-rail"><span class="wait-rail__link-copy"><strong>Practice solo</strong><span>Talk to a clearly labeled AI opponent.</span></span><span class="wait-rail__arrow" aria-hidden="true">→</span></a>' +
-        '<a class="wait-rail__link" href="/live"><span class="wait-rail__link-copy"><strong>Browse scheduled rounds</strong><span>Pick a time when other people are online.</span></span><span class="wait-rail__arrow" aria-hidden="true">→</span></a>' +
-      '</div>' +
-      // organized-pivot links cut in the 2026-08-05 cozy pass — /live and
-      // Discord both live in the while-you-wait rail; the same sentence
-      // repeated under the setup card was pure noise.
-      // pairingTicker removed (2026-05-25): the "Recent pairing · @x ↔ @y · paired in Ns"
-      // line cycled 8 fabricated handles every 3s. Same dead-internet dishonesty
-      // ruled out in community.html (May 2026). Status text below is the honest signal.
-      '<div class="queue-stats" id="queueStats">' + renderWaitlist([], formatParam) + '</div>' +
-      // Watch-a-round panel: live rounds happening right now that anyone
-      // (incl. guests) can drop into as a spectator. Directly answers
-      // "can't see who's around." Populated by mountWatchPanel() from the
-      // public-read live_rounds collection; hidden until there's at least
-      // one round to watch so it never shows an empty shell.
-      '<div class="watch-panel" id="watchPanel" hidden></div>' +
-      // Live diagnostic line. Always visible during the search (unlike
-      // Shows: peer count from the last query, my uid tail (so two
-      // test windows confirm they're on different accounts), and the
-      // last spar-pair attempt outcome (success/soft-fail reason).
-      '';
+      '<section class="wait-tools" aria-label="While you wait">' +
+        '<div id="friendChallengeHome">' + friendChallengeHtml() + '</div>' +
+        '<aside class="wait-settings" aria-label="Search settings">' +
+          '<h2>Notifications</h2>' +
+          alertsCtaHtml() +
+          '<details class="queue-device-setup"><summary>Device and phone setup</summary><div data-notification-setup></div></details>' +
+          '<div class="wait-preferences"><button type="button" class="link-btn" id="editMatchProfileBtn">Matching preferences <span aria-hidden="true">&rarr;</span></button><p>Optional. Choose what you like talking about.</p></div>' +
+        '</aside>' +
+      '</section>' +
+      '<nav class="wait-doors" aria-label="Other ways to debate">' +
+        '<a class="wait-rail__link" href="/newvoice?handoff=spar-wait-rail"><span class="wait-rail__link-copy"><strong>Debate the AI</strong><span>Start a conversation now.</span></span><span class="wait-rail__arrow" aria-hidden="true">&rarr;</span></a>' +
+        '<a class="wait-rail__link" href="/live"><span class="wait-rail__link-copy"><strong>Scheduled rounds</strong><span>Find a time to meet.</span></span><span class="wait-rail__arrow" aria-hidden="true">&rarr;</span></a>' +
+      '</nav>' +
+      '<div class="watch-panel" id="watchPanel" hidden></div>';
     document.getElementById('cancelBtn').addEventListener('click', cancelQueue);
     (function(){
       var aiBtn = document.getElementById('aiNowBtn');
@@ -5317,13 +5228,13 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         return deviceState;
       }
       var COPY = {
-        ready:   ['Get pinged when someone joins', 'Turn on notifications on this phone or computer. When someone is looking for a round, tap the alert to meet them.', 'Turn on'],
-        guest:   ['Get pinged when someone joins', 'Sign in to receive alerts on your devices. The rounds you have already played stay yours.', 'Sign in'],
+        ready:   ['Queue alerts', 'Get a notification when someone is looking for a round.', 'Turn on'],
+        guest:   ['Queue alerts', 'Sign in to receive alerts on your devices.', 'Sign in'],
         install: ['Get alerts on your iPhone or iPad', 'Tap Share, then Add to Home Screen. Open Debatable from that icon and turn on alerts there.', ''],
         denied:  ['Alerts are blocked in this browser', 'Allow notifications for Debatable in your browser site settings, then come back to this screen.', ''],
         working: ['Setting up alerts...', 'Waiting for notification permission and a saved connection for this device.', ''],
         error:   ['Alerts need another try', 'Could not finish setup. Check your connection and notification permissions, then try again.', 'Try again'],
-        on:      ['Alerts are on for this device', 'When someone joins the live queue, tap the notification to meet them. Turn alerts off any time in the bell menu.', '']
+        on:      ['Queue alerts are on', 'This device will notify you when someone joins. Manage alerts in the bell menu.', '']
       };
       function paint(){
         var s = stateNow();
@@ -5400,7 +5311,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // bounces, bots executing the JS, and (since the sign-in gate) guests
     // who hit the wall and never search. It now fires inside joinQueue,
     // when a search actually begins, so the public count is real intent.
-    mountGlobalMap('globalDebateMap');
     wireFriendChallenge();
     wireSetupCard();
     mountWaitRail();
@@ -5685,6 +5595,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     var host = document.querySelector('.wrap');
     if (!host) return;
     host.classList.add('spar-search-layout');
+    document.body.classList.add('spar-waiting');
+    syncPresenceBackground();
     var rail = document.createElement('aside');
     rail.id = 'waitRail';
     rail.className = 'wait-rail';
@@ -5749,6 +5661,8 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (existing) existing.remove();
     var host = document.querySelector('.wrap');
     if (host) host.classList.remove('spar-search-layout');
+    document.body.classList.remove('spar-waiting');
+    syncPresenceBackground();
     hideSparRoom();
   }
 
@@ -6205,15 +6119,24 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // Flat 2D presence background (#presenceMapBg, fixed behind the UI).
   // The module fetches, polls, resizes, and pulses on its own; empty
   // state is just faint land dots, so there is nothing to fake.
+  var presenceBgHandle = null;
+  function syncPresenceBackground(){
+    if (document.body.classList.contains('spar-waiting')){
+      if (presenceBgHandle) presenceBgHandle.stop();
+      presenceBgHandle = null;
+      return;
+    }
+    var host = document.getElementById('presenceMapBg');
+    if (host && window.PresenceMap && !presenceBgHandle){
+      presenceBgHandle = window.PresenceMap.mount(host, { palette: 'auto', landAlpha: 0.75 });
+    }
+  }
   (function mountPresenceBg(retries){
     if (!window.PresenceMap) {
       if (retries > 0) return setTimeout(function(){ mountPresenceBg(retries - 1); }, 80);
       return;
     }
-    var host = document.getElementById('presenceMapBg');
-    // landAlpha up from the module's 0.5 default for the same reason the
-    // host opacity moved to .5: the land dots have to read as continents.
-    if (host) window.PresenceMap.mount(host, { palette: 'auto', landAlpha: 0.75 });
+    syncPresenceBackground();
   })(50);
 
   // Legacy world-globe mount, kept for the SIGN-IN GATE only. That
@@ -7794,6 +7717,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       return unmatch.then(function(){
         leaveQueueQuietly();
         try { localStorage.setItem('da-spar-bg','0'); } catch(e){}
+        removeWaitRail();
         shell.innerHTML = '<div class="consent-wrap"><h1>You are unavailable.</h1><p class="lede">New match requests are paused. Come back whenever you feel like a conversation.</p><div class="btn-row"><button class="btn primary" id="availableAgain">I am available again</button><a class="btn ghost" href="/newvoice">Talk to AI</a></div></div>';
         document.getElementById('availableAgain').onclick = function(){ state.cancelled = false; joinQueue(); };
       }).catch(function(){ state.cancelled = false; button.disabled = false; recoverConsentCard(); });
@@ -7835,7 +7759,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         // Hold the notice on screen — tryMatch repaints the stats slot
         // every ~2s and would otherwise blink this away unread.
         state.noticeUntil = Date.now() + 7000;
-        stats.innerHTML = '<div class="consent-availability">' + (iPassed ? 'Match declined. Looking for someone else.' : passed ? 'The other person declined. Looking for someone else.' : 'This match expired or became unavailable. Looking for someone else.') + ' Busy? <button type="button" data-consent-unavailable>Unavailable</button> pauses matching.</div>';
+        stats.innerHTML = '<div class="consent-availability" role="status"><span>' + (iPassed ? 'Match declined. Looking for someone else.' : passed ? 'They declined. Looking for someone else.' : 'That match is no longer available. Your search continues.') + '</span><button type="button" data-consent-unavailable>Pause matching</button></div>';
       }
     }
   }
@@ -9499,6 +9423,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 <script defer src="/js/signup-nudge.js"></script>
 <script defer src="/js/notifications.js"></script>
 <link rel="stylesheet" href="/css/notification-setup.css">
+<link rel="stylesheet" href="/css/spar-waiting.css?v=20260925">
 <script defer src="/js/notification-setup.js"></script>
 <script defer src="/js/spar-onboarding.js"></script>
 </body>
