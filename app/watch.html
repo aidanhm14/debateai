@@ -156,7 +156,7 @@ html.dbnative .page-head{padding-top:20px}
 .hero-cta .cta-ghost{background:var(--surface);color:var(--text);border:1px solid var(--border);box-shadow:var(--shadow)}
 .hero-cta .cta-ghost:hover{background:var(--surface-hover);border-color:rgba(239,68,68,.45);transform:translateY(-1px)}
 .hero-cta-note{color:var(--faint);font-size:13px;line-height:1.45;margin-top:8px}
-.vote-thesis{margin-top:17px;max-width:760px;padding:14px 16px;border-left:3px solid var(--red);
+.vote-thesis{margin-top:4px;max-width:760px;padding:12px 16px;border-left:3px solid var(--red);
   background:rgba(239,68,68,.07);color:var(--dim);font-size:16px;line-height:1.5}
 .vote-thesis strong{color:var(--text)}
 .vote-thesis a{color:var(--red);font-weight:800;text-decoration:none;white-space:nowrap}
@@ -959,12 +959,31 @@ footer a{color:var(--dim)}
         <button class="vote-close" type="button" id="voteClose" aria-label="Close the voting guide">&times;</button>
       </div>
       <div class="vote-panel-body">
+        <div class="vote-explain">
         <ol class="vote-steps">
           <li><b>Before the round</b>Pick For, Against, or Neither, and say how sure you are. Your call is private until the decision, so nobody follows the crowd.</li>
           <li><b>During the round</b>Tap That moved me whenever a point lands. Add a word on why if you want. The judge never sees it.</li>
           <li><b>After the decision</b>Say where you actually landed and how sure you are now.</li>
-          <li><b>The reveal</b>Once the ballot is in, everyone sees how the room moved next to the judge's decision. The two disagree often. That is the game.</li>
+          <li><b>The reveal</b>Once the decision is in, everyone sees how the room moved next to the judge's call. The two disagree often. That is the game.</li>
         </ol>
+        <!-- 2026-09-25, the founder: "make this easier to understand with a
+             graph". The reveal is the step people cannot picture from prose,
+             so it is drawn: the room's split before and after, with the
+             judge's call beside it. EXAMPLE numbers, labelled as such; no
+             real round is quoted here. -->
+        <figure class="vote-shift" aria-label="Example of the reveal: how a room moved before and after a round">
+          <figcaption><b>What the reveal shows</b><span>Example numbers, one room of viewers.</span></figcaption>
+          <div class="vs-row"><span class="vs-label">Before</span><div class="vs-bar"><i class="vs-for" style="width:38%"><span>For 38%</span></i><i class="vs-neither" style="width:22%"><span>22%</span></i><i class="vs-against" style="width:40%"><span>Against 40%</span></i></div></div>
+          <div class="vs-row"><span class="vs-label">After</span><div class="vs-bar"><i class="vs-for" style="width:54%"><span>For 54%</span></i><i class="vs-neither" style="width:10%"><span>10%</span></i><i class="vs-against" style="width:36%"><span>Against 36%</span></i></div></div>
+          <div class="vs-foot">
+            <span class="vs-key"><i class="vs-for"></i>For</span>
+            <span class="vs-key"><i class="vs-neither"></i>Neither</span>
+            <span class="vs-key"><i class="vs-against"></i>Against</span>
+            <span class="vs-judge">Judge: For</span>
+          </div>
+          <p class="vs-read">The room moved 16 points toward For and the judge agreed. When the room and the judge disagree, that shows here too.</p>
+        </figure>
+        </div>
         <div class="vote-preview" id="votePreview" aria-label="Preview of the voting panel">
           <div class="vp-tag">Preview. Nothing here is saved.</div>
           <div class="vp-card">
@@ -996,6 +1015,7 @@ footer a{color:var(--dim)}
               <button type="button" class="vp-primary" id="vpSubmit">Submit</button>
             </div>
             <div class="vp-phase" data-vp-phase="done" hidden>
+              <div class="vs-mini" id="vpChart" aria-label="Your call before and after"></div>
               <p class="vp-done" id="vpDone"></p>
               <button type="button" class="vp-ghost" id="vpAgain">Run it again</button>
             </div>
@@ -2519,6 +2539,13 @@ footer a{color:var(--dim)}
     $('vpSubmit').addEventListener('click', function(){
       var label = { pro: 'For', con: 'Against', undecided: 'Neither' };
       var moved = pickAfter && pickAfter !== pick;
+      var cls = { pro: 'vs-for', con: 'vs-against', undecided: 'vs-neither' };
+      function bar(when, side, conf){
+        var w = Math.max(14, Number(conf) || 0);
+        return '<div class="vs-row"><span class="vs-label">' + when + '</span><div class="vs-bar"><i class="' + (cls[side] || 'vs-neither') +
+          '" style="width:' + w + '%"><span>' + (label[side] || 'Neither') + ' \u00b7 ' + conf + '</span></i></div></div>';
+      }
+      $('vpChart').innerHTML = bar('Before', pick, $('vpConf').value) + bar('After', pickAfter || pick, $('vpConfAfter').value);
       $('vpDone').textContent = 'You went in ' + (label[pick] || 'undecided') + ' at ' + $('vpConf').value +
         ' and came out ' + (label[pickAfter || pick]) + ' at ' + $('vpConfAfter').value + '. ' +
         (moved ? 'That is a mind changed, and it counts toward how the room moved.' : 'You held your ground, and that counts too.') +
