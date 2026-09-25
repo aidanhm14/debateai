@@ -28,6 +28,17 @@
  *  - Same content bar as real chat: the site's motion boundary, the
  *    highlight filter, no em dashes, no retired brand language.
  *
+ * POLITICS FIRST (same day, second pass). Aidan: "make the comment section
+ * better and more absurd but not dumb/cringe talk rather pertinent
+ * politics etc". Topics were picked from what X was trending and what the
+ * week's political news covered, and then written fresh: no post is
+ * copied. The rules for political lines are enforced by the guard too:
+ * issues, never individuals (no politician is named); no war and no
+ * election-fraud claims; nothing that turns on a group's rights; no fact
+ * about a current event that could be false next week; both sides get a
+ * real argument; and a line tied to a date (the midterms) carries an
+ * `until` and retires on its own.
+ *
  * DETERMINISTIC BY WALL CLOCK. Time is cut into one-minute slots and each
  * slot's episode is a pure function of the slot number, so two visitors at
  * the same moment see the same room, and a reload shows the same history
@@ -40,6 +51,8 @@
   var VERSION = 'chatter-2026-09-25';
   var SLOT_MS = 60000;
   var DAY_MS = 86400000;
+  // Polls open 2026-11-03; midday UTC keeps the count right across zones.
+  var MIDTERMS = Date.UTC(2026, 10, 3, 12);
 
   /* People: [handle, IANA zone, city as they would type it, region, language].
      Region and language let an episode ask for a speaker who fits the line
@@ -110,78 +123,76 @@
   // How a name is written when someone else mentions it in a line.
   var SHORT = { 'd.nguyen': 'nguyen', 'taiga.k': 'taiga', 'dre.w': 'dre', 'Callum P': 'callum', 'Varun M': 'varun' };
 
-  /* Everyday clashes only, the same bar suggested topics meet (soul.md,
-     2026-09-14 and 2026-09-19): a real choice with a cost or a competing
-     value on each side. No taste rankings of food, pets or entertainment,
-     no fandom or sports trivia, and the site-wide motion boundary applies
-     the same way it applies to real rooms. [noun as people say it, the
-     yes-or-no version]. */
+  /* Live political questions first, everyday clashes after, all meeting
+     the bar suggested topics meet (soul.md, 2026-09-14 and 2026-09-19): a
+     real choice with a cost or a competing value on each side. Policies
+     and institutions, never politicians. No taste rankings of food, pets
+     or entertainment, nothing that turns on a group's rights, and the
+     site-wide motion boundary applies the same way it applies to real
+     rooms. [noun as people say it, the yes-or-no version]. */
   var TOPICS = [
-    ['tipping', 'should tipping be replaced with higher wages'],
-    ['school uniforms', 'should schools get rid of uniforms'],
-    ['the four day work week', 'should the four day work week be normal'],
-    ['phones in school', 'should phones be banned during school hours'],
-    ['homework', 'should homework be optional'],
-    ['social media age limits', 'should social media be 16 and up'],
-    ['remote work', 'is remote work better than the office'],
-    ['self checkout', 'should stores keep human cashiers'],
-    ['college', 'is college still worth it'],
-    ['space exploration', 'is space exploration worth the money'],
-    ['nuclear power', 'should we build more nuclear plants'],
-    ['zoos', 'should zoos exist'],
-    ['cashless shops', 'should shops be allowed to refuse cash'],
-    ['daylight saving time', 'should daylight saving time end'],
-    ['car free city centers', 'should city centers ban cars'],
-    ['free public transport', 'should public transport be free'],
-    ['going through your partners phone', 'is it ever ok to go through your partners phone'],
-    ['group projects', 'should group projects be graded individually'],
-    ['grading on a curve', 'is grading on a curve fair'],
-    ['open plan offices', 'should open plan offices go away'],
-    ['ai for homework', 'should students be allowed to use ai for homework'],
-    ['standardized tests', 'should colleges drop standardized tests'],
-    ['gap years', 'should gap years be normal'],
-    ['sharing locations', 'should couples share their locations'],
-    ['athlete salaries', 'are pro athletes paid too much'],
-    ['the minimum wage', 'should the minimum wage go up'],
-    ['rent control', 'does rent control actually help renters'],
-    ['lab grown meat', 'should lab grown meat be sold in supermarkets'],
-    ['electric cars', 'should new petrol cars be phased out'],
-    ['dating a friends ex', 'is it ever ok to date a friends ex'],
-    ['later school start times', 'should school start later'],
-    ['voting at 16', 'should the voting age be 16'],
+    ['term limits', 'should congress have term limits'],
+    ['age limits for politicians', 'should there be a maximum age to run for office'],
+    ['congress trading stocks', 'should members of congress be banned from trading stocks'],
+    ['the electoral college', 'should the us get rid of the electoral college'],
+    ['ranked choice voting', 'should the us switch to ranked choice voting'],
+    ['third parties', 'is voting third party a wasted vote'],
+    ['gerrymandering', 'should independent commissions draw every district'],
+    ['mid decade redistricting', 'should states be allowed to redraw maps between censuses'],
+    ['the filibuster', 'should the senate get rid of the filibuster'],
+    ['supreme court term limits', 'should supreme court justices have term limits'],
+    ['voter id', 'should you need a photo id to vote'],
+    ['election day as a holiday', 'should election day be a national holiday'],
     ['compulsory voting', 'should voting be compulsory'],
+    ['voting at 16', 'should the voting age be 16'],
+    ['open primaries', 'should primaries be open to every voter'],
+    ['online voting', 'should people be able to vote on their phones'],
+    ['campaign spending caps', 'should there be a limit on spending in a single race'],
+    ['lobbying bans', 'should former members of congress be banned from lobbying'],
+    ['press access', 'should the white house get to pick which reporters come in'],
+    ['tariffs', 'do tariffs protect jobs or just raise prices'],
+    ['the gas tax', 'should the us suspend the federal gas tax'],
+    ['the minimum wage', 'should the federal minimum wage go up'],
+    ['tax free tips', 'should tips be tax free'],
+    ['tipping', 'should tipping be replaced with higher wages'],
+    ['student loans', 'should student loans be forgiven'],
+    ['free college', 'should public college be free'],
+    ['the national debt', 'should the us cut spending to pay down the debt'],
+    ['public health insurance', 'should the us have public health insurance for everyone'],
     ['universal basic income', 'should there be a universal basic income'],
-    ['ghosting', 'is ghosting ever ok'],
-    ['fast fashion', 'should fast fashion be taxed'],
-    ['plastic bag bans', 'should plastic bags be banned'],
-    ['lending money to friends', 'should you ever lend money to friends'],
-    ['participation trophies', 'should kids get participation trophies'],
-    ['cursive', 'should schools still teach cursive'],
-    ['unpaid internships', 'should unpaid internships be banned'],
-    ['free college', 'should college be free'],
-    ['white lies', 'is it ok to lie to spare someones feelings'],
-    ['reclining plane seats', 'is it ok to recline your seat on a plane'],
-    ['splitting the bill', 'should you always split the bill evenly'],
-    ['paying on a first date', 'should whoever asked pay on the first date'],
-    ['hosting the olympics', 'is hosting the olympics worth it for a city'],
-    ['paying college athletes', 'should college athletes be paid'],
-    ['living with your parents', 'is living with your parents at 25 fine'],
-    ['meetings', 'should most meetings be emails'],
-    ['learning a second language', 'should everyone learn a second language in school'],
-    ['coding in school', 'should kids learn to code in primary school'],
-    ['free school lunches', 'should school lunches be free'],
-    ['chore money', 'should kids get paid for chores'],
-    ['owning a car', 'do you need a car in your twenties'],
-    ['sunday shopping', 'should shops close on sundays'],
-    ['weekend homework', 'should weekends be homework free'],
-    ['screen time for kids', 'should kids have screen time limits'],
-    ['three year degrees', 'should degrees be three years instead of four'],
-    ['work emails after hours', 'should work emails after hours be banned'],
-    ['jury duty pay', 'should jury duty pay a real wage'],
-    ['splitting rent', 'should roommates split rent by room size'],
+    ['the four day work week', 'should the four day work week be normal'],
+    ['ai and jobs', 'should companies pay a tax when ai replaces workers'],
+    ['ai liability', 'should ai companies be liable for what their models do'],
+    ['data centers', 'should data centers pay more for electricity'],
+    ['nuclear power', 'should we build more nuclear plants'],
+    ['electric cars', 'should new petrol cars be phased out'],
+    ['rent control', 'does rent control actually help renters'],
+    ['zoning', 'should cities allow apartments on every residential street'],
+    ['free buses', 'should city buses be free'],
+    ['city grocery stores', 'should cities run their own grocery stores'],
+    ['bike lanes', 'should cities turn car lanes into bike lanes'],
+    ['car free city centers', 'should city centers ban cars'],
+    ['recycled drinking water', 'should cities turn wastewater into drinking water'],
+    ['social media age limits', 'should social media be 16 and up'],
+    ['phones in school', 'should phones be banned during school hours'],
+    ['ai for homework', 'should students be allowed to use ai for homework'],
+    ['daylight saving time', 'should daylight saving time end'],
+    ['unions', 'should it be easier to form a union'],
+    ['federal job cuts', 'should the federal government have fewer workers'],
     ['sugar taxes', 'should sugary drinks be taxed'],
     ['the drinking age', 'should the us drinking age be 18'],
-    ['pet bans in rentals', 'should landlords be allowed to ban pets']
+    ['sunset clauses', 'should every new government program come with an end date'],
+    ['remote work', 'is remote work better than the office'],
+    ['college', 'is college still worth it'],
+    ['splitting the bill', 'should you always split the bill evenly'],
+    ['going through your partners phone', 'is it ever ok to go through your partners phone'],
+    ['dating a friends ex', 'is it ever ok to date a friends ex'],
+    ['ghosting', 'is ghosting ever ok'],
+    ['white lies', 'is it ok to lie to spare someones feelings'],
+    ['lending money to friends', 'should you ever lend money to friends'],
+    ['living with your parents', 'is living with your parents at 25 fine'],
+    ['unpaid internships', 'should unpaid internships be banned'],
+    ['work emails after hours', 'should work emails after hours be banned']
   ];
 
   /* Episodes. One line per message, "A: text", in the order they are sent.
@@ -190,6 +201,8 @@
      Time windows use the speaker's local hour: late (23 to 3), night (21 to
      2), morning (6 to 10), day (10 to 17), evening (17 to 22). With no time
      window a speaker is someone awake (7 to 1). Places: us, eu, nonus. Languages: es, pt, in.
+     until=YYYY-MM-DD retires an episode on that date (UTC), for lines tied
+     to one event; {mdays} is the days left until the 2026 midterms.
      In a line, [a|b|c] picks one; {topic} {topicQ} {topic2} {topic2Q} fill
      from TOPICS; {city} {time} {weekday} describe the speaker; {A} {B} {C}
      {D} are another scripted speaker's short name. The first line of every
@@ -199,7 +212,7 @@
     `A: [anyone|anybody] up for a quick one? [any side|either side is fine|dont care which side]
 B: what topic
 A: [dealers choice|you pick|surprise me]
-B: school uniforms. im against
+B: term limits. im against
 A: bet. ill defend them`,
     `A: looking for someone to argue about {topic} with. ill take whatever side you dont want
 B: im in but give me 5 min
@@ -255,10 +268,6 @@ A: thats the spirit`,
 B: same, lets be rusty together
 A: {topic}?
 B: [sure|go|yes]`,
-    `A: will argue literally anything right now. [im bored|procrastinating hard|exam tomorrow and i refuse to study]
-B: tipping at self checkout
-A: pro. obviously
-C: oh no`,
     `A: anyone want to argue about {topic}? [either side|ill take either side|i dont mind which side]`,
     `A: quick round on {topic} anyone? 10 min`,
     `A: im pro on {topic}. who wants con
@@ -268,7 +277,7 @@ B: [me|ill take it|i will]`,
 B: [yes|no|depends]
 C: [depends on who you ask|no lol|obviously yes]`,
     `A: someone give me a topic i know nothing about. i want to suffer
-B: [rent control|lab grown meat|hosting the olympics]
+B: [rent control|the filibuster|mid decade redistricting]
 A: [perfect|oh no|i asked for this]`,
     `A: anyone good at arguing the side they dont believe? i want to practice that
 B: its the only way ive ever changed my mind about anything
@@ -323,10 +332,6 @@ B: {topicQ}
 A: thats not even bad
 C: {topic2Q}
 A: ok thats bad`,
-    `#A=evening|night
-A: kinda want to argue something silly tonight
-B: is water wet
-A: oh were doing this`,
     `#A=es
 A: alguien para una rápida? i can do english too
 B: english pls, my spanish is bad
@@ -336,13 +341,354 @@ B: si. i mean yes`,
 A: need a round yaar, my brain is fried from studying
 B: same. {topic}?
 A: done`,
-    `#A=evening
-A: who else just finished work and wants to argue about something useless
-B: me. i want to argue about whether cereal is soup
-A: that was settled. no`,
     `#A=morning B=evening|night
 A: morning argument to wake up? anyone
 B: its {time} here but sure`,
+
+    // Politics: the live questions (2026-09-25, second pass)
+    `#A=us until=2026-11-02
+A: {mdays} days until the midterms and my uncle already has a spreadsheet
+B: of what
+A: every close race in the country. color coded. none of them are his
+C: the most informed spectator in america`,
+    `#A=us until=2026-11-02
+A: {mdays} days until the midterms and im getting 9 texts a day asking me to chip in 5
+B: reply stop
+A: they have a stop for the stop
+C: at this point its a pen pal`,
+    `#until=2026-11-04
+A: gas prices are going to decide more races this year than any ad
+B: gas and groceries. people vote with their receipts
+C: people vote with vibes and right now the vibes are receipts`,
+    `#A=us until=2026-11-04
+A: living in a swing state during campaign season is like being the last slice of pizza at a party
+B: everyone wants you and nobody asks how you are
+A: exactly
+C: this is too real`,
+    `#A=us until=2026-11-04
+A: if midterm turnout clears half the country ill argue any topic you give me
+B: bold
+C: {topicQ}
+A: after the midterms`,
+    `#A=us
+A: we get a day off for presidents but not for picking them. make election day a holiday
+B: half the country would just go to the beach
+C: then put a polling place at the beach
+A: turnout would triple honestly`,
+    `A: ranked choice voting would break my family group chat. we cant even agree on a restaurant
+B: thats the point though. you rank them and nobody gets their last pick
+C: my family would rank "not whatever uncle picks" first`,
+    `#C=us
+A: the electoral college is a group project where seven states do all the work
+B: and everyone else still gets their name on it
+C: as someone in a swing state i am tired of being the group project`,
+    `A: congress should have term limits like the president does. why is this even controversial
+B: then lobbyists end up as the only people who know how anything works
+C: lobbyists already know how everything works
+B: ...fair`,
+    `A: there is a minimum age to run for office. why not a maximum
+B: voters can already vote people out
+A: voters also keep voting them back in
+C: thats democracy working. you just dont like the result`,
+    `A: members of congress trading stocks might be the only bipartisan thing that actually works in washington
+B: lol
+C: bipartisan in the sense that both parties are great at it
+D: index funds only. let them feel the market like the rest of us`,
+    `A: the filibuster is talking for 12 hours and calling it democracy. i do that on calls and get muted
+B: it protects whoever is in the minority though
+C: every party loves the filibuster right up until it wins the senate
+A: this is the most correct thing anyone has said today`,
+    `A: supreme court justices should get 18 year terms. nobody should have the same job from 50 to 90
+B: tenured professors do
+C: tenured professors dont decide what the constitution means
+B: some of them think they do`,
+    `A: gerrymandering is just redistricting with a villain arc
+B: both parties do it when they get the chance
+A: yes. thats why its a villain arc and not a villain
+C: independent commissions or nothing
+B: commissions get appointed by someone too`,
+    `A: redrawing district maps in the middle of the decade should not be allowed. theres a census every ten years for a reason
+B: its legal in a lot of states
+A: that is my complaint
+C: and once one state does it the other side does it back
+B: an arms race but with crayons`,
+    `A: voting third party is not a wasted vote. its a message
+B: a message nobody reads
+C: every big party was a third party once
+B: in like 1854
+C: still counts`,
+    `#A=us
+A: needing a photo id to vote seems normal to me. i need one to buy cold medicine
+B: cold medicine isnt a constitutional right
+C: then make the id free and automatic for everyone and the fight goes away
+A: ok i actually agree with that
+B: same honestly`,
+    `#A=us C=us
+A: suspend the federal gas tax until prices come down. easy
+B: then what pays for the roads
+A: the roads can wait
+C: the roads cannot wait. have you driven on them`,
+    `A: tariffs are just a sales tax that went to law school
+B: or leverage in a trade fight
+C: leverage i pay for at the checkout
+B: short term pain for a better deal later
+C: my groceries are very short term`,
+    `A: every tariff should come with a gift receipt that says who paid for it
+B: it would just say "you"
+C: or "a factory that reopened in ohio". depends who you ask
+A: ok both receipts are real`,
+    `#A=us
+A: city run grocery stores sound great until you remember the dmv is government run
+B: the post office is government run and its honestly fine
+C: the post office might be the one thing everyone agrees on
+A: ok then the post office should run the grocery store`,
+    `A: free buses would be the best thing a city could do
+B: nothing is free. someone pays for the bus
+A: yes. everyone. through taxes. thats what free means in a city
+C: faster buses beat free buses`,
+    `A: every country has the same housing argument. only the accents change
+B: can confirm. same one in {city}
+C: build more homes. thats the whole argument
+D: build them where though
+C: and now the accents are back`,
+    `A: most housing problems are zoning problems in a trench coat
+B: some of it is interest rates
+A: interest rates are in the trench coat too
+C: its a very big trench coat`,
+    `A: data centers should have to pay my electric bill for a month and see how it feels
+B: they bring jobs though
+C: like 40 jobs and a humming noise
+B: and tax money
+C: and a humming noise`,
+    `A: if ai takes everyones job who buys the stuff the ai makes
+B: other ais
+C: and then they unionize
+A: i hate that this is a real question now`,
+    `A: if an ai breaks the law who goes to court. the company, the user, or the ai
+B: the ai. make it take the stand
+C: it would ask for a lawyer
+A: and the lawyer would be an ai
+C: and we are back where we started`,
+    `A: companies that replace workers with ai should pay a tax for every job they cut
+B: how would you even count that
+A: easy. they brag about it on the earnings call
+C: "we achieved significant efficiencies"
+B: lol`,
+    `A: australia banned social media for under 16s and im waiting to see if the kids just moved to group chats
+B: they moved to group chats in about a day
+C: group chats are social media with better privacy
+A: so did the ban work or not
+C: yes`,
+    `A: forgiving student loans is fair to the people who have them and unfair to everyone who already paid theirs off
+B: so its unfair either way
+C: then fix what college costs so nobody needs forgiving
+A: the one answer both sides clap for and nobody does`,
+    `A: the national debt is a number so big nobody can feel it and that is the whole problem
+B: or it barely matters because we borrow in our own currency
+C: every economist in the chat just felt that`,
+    `#B=us C=us
+A: cutting government jobs sounds efficient until you need a passport in a hurry
+B: the passport office is the final boss
+C: or the irs phone line
+B: the irs phone line is where hold music goes to retire`,
+    `#C=us
+A: should the white house get to pick which reporters come in? genuinely asking
+B: its their building
+C: its technically our building
+B: and im technically not allowed in it`,
+    `A: some cities want to turn wastewater back into drinking water and people are losing it
+B: its not about clean, its about knowing
+C: the water doesnt know where it came from. you do
+A: most philosophical thing anyone has said about sewage`,
+    `#A=us B=us C=us
+A: the most bipartisan thing in america is hating daylight saving time
+B: and hating the dmv
+C: a dst and dmv coalition would sweep all 50 states
+A: platform: pick a time and stay there`,
+    `A: public health insurance for everyone. yes or no
+B: yes if i get to keep my doctor
+C: no if it means waiting months for anything
+A: we already wait months for anything
+C: fair but right now i can complain to someone`,
+    `A: former members of congress should wait ten years before they can become lobbyists
+B: ten is a lot
+A: they had plenty of time to think about it
+C: lifetime ban and a nice plaque`,
+    `A: there should be a cap on how much anyone can spend on one race
+B: spending is speech. thats the whole court case
+C: then my speech costs a lot less than theirs
+B: that is... also the whole court case`,
+    `A: rule for politics at family dinner. ban it or lean in
+B: lean in, but everyone has to argue the side they dont believe
+C: that would end my family
+A: or save it`,
+    `#A=us D=us
+A: name one thing both parties actually agree on
+B: robocalls should be illegal
+C: potholes are bad
+D: the other party is worse
+A: ok thats three`,
+    `A: read the news for 5 minutes and now i have 11 opinions
+B: argue one of them
+A: which one
+B: the one youre least sure about`,
+    `A: polls are just vibes with a margin of error
+B: the margin of error is also a vibe
+C: the only poll i trust is my group chat`,
+    `A: politicians should have to write their own posts. no staff, no interns
+B: that would be chaos
+A: yes. finally some honesty
+C: we would learn so much and none of it good`,
+    `#C=us
+A: every bill should fit on one page
+B: the tax code would be illegal
+A: correct
+C: congress patch notes: fixed an issue where rent was affordable`,
+    `A: tie the minimum wage to local rent. rent goes up, the wage goes up
+B: then rent goes up because the wage went up
+C: its turtles all the way down
+A: its landlords all the way down`,
+    `#A=us B=us
+A: tax free tips sound great until every job becomes a tip job
+B: or its the rare tax cut that actually reaches waiters
+C: my dentist asked for a tip
+B: ok the dentist should not get the tax cut`,
+    `#A=us
+A: congress works a three day week and nobody is asking them to take a pay cut
+B: they do a lot back home in their districts
+C: i also do a lot back home`,
+    `A: every time gas goes up someone in my family says theyre buying an electric car, then gas goes down
+B: the prices can hear you
+C: most reliable cycle in economics`,
+    `#A=us
+A: the fed should have to explain every rate decision to a room of people with credit card debt
+B: they would just say "data dependent"
+C: my rent is also data dependent`,
+    `A: politics turned into sports for people who hate sports
+B: and sports turned into politics for people who hate politics
+C: and i just want to argue about bike lanes
+A: bike lanes are the most political thing in any city`,
+    `A: unions are having a moment and i think its because everyone is tired
+B: or because rent is high
+C: those are the same reason`,
+    `#C=nonus
+A: every country thinks its politics is the most chaotic. its a competition nobody wins
+B: we are winning though
+C: {city} would like a word
+B: take it. genuinely`,
+    `A: local elections decide your rent, your roads and your schools and almost nobody votes in them
+B: because nobody knows when they are
+C: and there are always 40 names ive never heard of
+A: this is how the parking board ends up running the city`,
+    `A: most political arguments online are two people who want the same thing fighting about the vibe
+B: this is the most reasonable thing ive read today and i hate it`,
+    `A: we can do banking on our phones but not voting. explain that
+B: banks get hacked all the time
+A: and yet i still have my money
+C: mostly`,
+    `#A=us
+A: open primaries would fix more than people think
+B: or let the other side pick your candidate
+A: they already pick your candidate by who they attack
+C: this chat is too cynical for a {weekday}`,
+    `A: every new government program should come with an end date. if it works, renew it
+B: the renewal vote would be chaos
+A: so is the current plan, which is forever
+C: sunset clauses are the most boring good idea in politics`,
+    `A: it takes longer to get a permit for a house than to build the house
+B: the permits exist for a reason
+C: the reason is usually a meeting
+A: and the meeting needed a permit`,
+    `#A=us
+A: the government already knows what i owe in taxes. why do i have to guess and then get graded on it
+B: because someone makes money off the guessing
+C: this is one of those ideas both sides like and nothing happens
+A: my favorite genre`,
+    `#A=eu B=us C=eu
+A: watching american politics from europe is like watching a show where every episode is the season finale
+B: watching european politics from america is like a show that got renewed for 40 seasons
+C: both of you are describing the uk`,
+    `#A=in
+A: election season in india makes american election season look like a group chat
+B: how long does it go
+A: weeks. multiple phases. hundreds of millions of people
+C: thats not an election thats a tour`,
+    `A: need someone to take the other side on the electoral college. my roommate agrees with me and its ruining my week
+B: im in. which side are you
+A: keep it
+B: then im against. lets go`,
+    `A: anyone want to argue term limits? i have strong feelings about both sides
+B: pick one
+A: thats the problem`,
+    `A: taking the unpopular side of any political question for the next 20 min. hit me
+B: {topicQ}
+A: oh thats unpopular with everyone. perfect`,
+    `A: the debt ceiling is a vote on whether to pay for stuff we already bought
+B: its the only leverage the minority party gets
+C: every party discovers it cares about the debt the day it loses the white house`,
+    `A: during a shutdown the people running airport security work without pay and congress still gets paid
+B: that cant be real
+A: it is. their pay doesnt need a new vote
+C: the one bill that always passes`,
+    `A: supreme court justices should follow the same ethics rules as every other court in the country
+B: who would enforce it on the highest court
+C: a slightly higher court
+A: the court of appeals of the court`,
+    `A: every city council meeting is three hours of homeowners explaining why nobody else should get to live here
+B: some of them just care about parking
+C: parking is the most powerful lobby in america`,
+    `A: my ambulance ride cost more than the flight i took to get to the city
+B: the flight didnt come with a paramedic
+A: the flight came with pretzels
+C: this is the whole healthcare debate in two messages`,
+    `A: social security: raise the retirement age or raise the payroll tax cap. pick one
+B: why not both
+C: because both of those lose elections
+A: and doing nothing wins them every time`,
+    `A: tax carbon and mail everyone the money back
+B: so its a tax that pays you
+A: if you pollute less than average, yes
+C: why does this sound like a scam when its the opposite of a scam`,
+    `A: i should be allowed to fix my own phone without voiding the warranty
+B: farmers have been fighting this for their tractors for years
+C: the most bipartisan coalition in america is people who want to fix things`,
+    `A: political ads should have to say when they use ai
+B: sure, and when they use stock footage of a farm
+C: every campaign owns the same farm`,
+    `A: we can drive a car on the moon but not take a fast train between two cities
+B: the moon had fewer lawsuits
+C: and no environmental review for the moon`,
+    `A: school vouchers let the money follow the kid
+B: or they pull money out of the school most kids still go to
+C: both sides say they care about the kids and honestly they probably both do`,
+    `A: a big inheritance is the least earned money there is. tax it
+B: it was already taxed when they earned it
+A: and then it grew
+C: this argument ends every thanksgiving in my family`,
+    `A: age checks on websites sound fine until you have to upload a passport to read a recipe
+B: or kids see things they really shouldnt
+C: both of those are true, which is why nobody has solved it`,
+    `A: every political debate should mute the mic of whoever isnt speaking
+B: they tried that
+C: and it was the best one`,
+    `A: live fact checks during debates. yes or no
+B: who checks the fact checkers
+C: the comments`,
+    `A: the tax code is millions of words long and im expected to follow all of them
+B: you use like four of them
+C: and an accountant for the rest
+A: an accountant is a translator for a language congress made up`,
+    `A: some places make you get a license to braid hair. for hair
+B: public safety
+C: the hair is fine
+B: ok the hair is fine`,
+    `A: every new regulation should have to delete an old one
+B: then someone deletes the one about lead in paint
+C: delete the one about fax machines first
+A: see, we agree on fax machines`,
+    `A: a year of national service after school. yes or no
+B: yes if it pays
+C: it would be the biggest group project in history`,
 
     // Hot takes that turn into a few lines
     `A: hot take: group projects should be graded individually
@@ -350,11 +696,6 @@ B: thats not even hot, everyone agrees
 C: i dont. carrying people taught me more than any class did
 B: thats trauma talking
 C: lol`,
-    `A: cereal is soup and i will defend this [to anyone|with my life|in any round]
-B: soup has to be hot
-A: gazpacho
-B: ...
-B: fine`,
     `A: daylight saving time should just [go away|end|be abolished]. nobody benefits
 B: farmers?
 C: pretty sure the farmer thing is a myth
@@ -376,10 +717,6 @@ C: lmao`,
     `A: splitting the bill evenly is wrong if someone only got a salad
 B: counterpoint: nobody wants to do math at dinner
 A: then dont order the steak`,
-    `A: self checkout was a mistake
-B: it was fine until the weight sensor
-C: unexpected item in bagging area
-B: exactly`,
     `A: the four day week only works for office jobs
 B: nurses already do long shifts on fewer days though
 A: hm
@@ -394,15 +731,6 @@ B: where is here
 A: {city}. they ask for tips at self checkout now
 B: wait really
 A: really`,
-    `A: participation trophies never hurt anyone
-B: they hurt the kids who actually won
-A: did they though
-B: yes. i was one of them
-A: lol ok`,
-    `A: learning cursive is pointless now
-B: signatures?
-A: my signature is a line
-C: same`,
     `A: universities should drop lectures and just post the videos
 B: then what are we paying for
 A: exactly
@@ -419,11 +747,6 @@ B: thats what im worried about`,
     `A: open plan offices were a mistake and im tired of pretending they werent
 B: theyre fine with headphones
 A: so the solution is to pretend youre not in an office`,
-    `A: gift cards are a perfectly good gift
-B: its money with extra steps
-C: its money with fewer choices
-A: its money with thought behind it
-B: minimal thought`,
     `A: nuclear is the obvious answer for clean energy and im tired of pretending it isnt
 B: waste though
 A: the waste is tiny next to what coal puts out
@@ -478,10 +801,6 @@ A: coding is algebra with a reason to care`,
 B: some emails should be meetings though
 C: name one
 B: ...fine`,
-    `#B=morning
-A: morning people are not better at life, theyre just louder about it
-B: as a morning person i feel attacked
-A: good`,
     `A: fast fashion should be taxed like cigarettes
 B: thats a lot
 A: the landfills are a lot
@@ -489,19 +808,6 @@ C: tax the brands not the people buying it
 A: ok thats better`,
     `A: plastic bag bans are the most annoying good policy
 B: this is extremely accurate`,
-    `A: surprise parties are for the people throwing them, not the person being surprised
-B: [this is so true|correct|facts]
-C: i love surprise parties
-A: you would`,
-    `A: texting is better than calling and i will not be taking calls about it
-B: lol
-C: calling is faster though
-A: calling is an ambush`,
-    `A: streaming was supposed to be cheaper than cable and now its worse
-B: its still cheaper if you rotate
-A: nobody rotates
-B: i rotate
-A: you are one person`,
     `A: you dont need a car in your twenties if you live in a city
 B: depends on the city
 A: obviously
@@ -539,10 +845,6 @@ A: ok both are unfair, tests are less unfair`,
     `A: living with your parents at 25 is just smart
 B: depends on the parents lol
 A: ok that is the whole argument actually`,
-    `A: city life > countryside and its not close
-B: you have never heard silence
-A: i dont want to hear silence
-C: this explains a lot`,
     `A: kids should get less screen time, not zero
 B: who decides how much less
 A: the parents obviously
@@ -555,62 +857,29 @@ A: fair i dont have one`,
     `A: college athletes should get paid, the schools make so much off them
 B: some of them get scholarships
 A: a scholarship isnt a salary`,
-    `A: tiny homes are cute until you need to store anything
-B: you just own less stuff
-A: i like my stuff`,
     `A: should weekends be homework free? yes. next question
 B: some classes need practice every day though
 A: then assign less during the week`,
-    `A: people who clap when the plane lands are right and i will not apologize
-B: absolutely not
-C: theyre celebrating being alive, let them`,
     `A: the office is good actually. for like two days a week
 B: this is the correct amount
 C: zero is the correct amount`,
     `A: gyms that make you cancel in person should be illegal
 B: [agreed|yes|this one is easy]
 C: some places already banned that i think`,
-    `A: is it ever ok to text someone "k"
-B: no
-C: only if you want them to spiral
-A: noted`,
     `A: is it rude to change your mind in the middle of an argument
 B: no, thats the whole point
 C: its rude to not tell anyone
 A: fair`,
-    `A: whats the most useless thing youve argued about and lost
-B: whether a pop tart is a ravioli
-C: which way the toilet paper goes
-A: those are both important actually`,
 
     // Just talking
-    `A: hey all
-B: [hey|hi|yo]
-A: whats everyone arguing about today
-B: {topic}, apparently
-C: still?`,
-    `#A=evening
-A: brb dinner`,
     `A: back. did i miss anything
-B: [not really|someone said cereal is soup|a whole thing about {topic}]
+B: [not really|someone tried to defend {topic2}|a whole thing about {topic}]
 A: [ok good|oh no|of course]`,
     `#A=late
 A: its {time} in {city} and i should be asleep
 B: go to sleep
 A: after one more round
 B: you said that last night`,
-    `A: anyone else [procrastinating|avoiding] an essay right now
-B: me. 2000 words due tomorrow
-C: me but its a lab report
-A: solidarity`,
-    `#A=morning
-A: [coffee number three|third coffee] and its not even noon
-B: rookie numbers`,
-    `A: hows everyones week going
-B: long
-C: good actually. finished exams
-A: congrats
-C: thanks. i dont know what to do with myself now`,
     `#A=late
 A: gn everyone
 B: gn`,
@@ -629,36 +898,14 @@ A: same lmao`,
 A: anyone here practicing english by arguing? im so slow still
 B: me! slow is fine, clear is better
 A: thank you, that helps`,
-    `#A=day
-A: who else is supposed to be working right now
-B: 🙋
-C: me but im arguing about work so it counts`,
     `A: is it weird that i like losing arguments sometimes
 B: no, thats how you know you learned something
 C: yes`,
-    `A: happy {weekday}
-B: is it {weekday} already
-C: [every day is the same|time isnt real|dont remind me]`,
     `A: first day of classes tomorrow and im arguing with strangers instead of packing
 B: priorities`,
-    `A: [finally|officially] done with midterms
-B: howd it go
-A: dont ask`,
-    `A: sorry if i disappear, my cat keeps sitting on the keyboard`,
-    `#A=morning C=night|late
-A: [gm|good morning] from {city}
-B: gm
-C: its {time} here but gm`,
-    `A: its [raining|pouring] in {city}. perfect arguing weather
-B: [sunny here, also perfect arguing weather|its always arguing weather]`,
     `A: i just got called "argumentative" at work like its a bad thing
 B: was it about the thermostat
 A: ...maybe`,
-    `#A=evening
-A: my little brother just asked me if a straw has one hole or two. i need backup
-B: one. its a long hole
-C: two. obviously
-A: this is going to ruin my night`,
     `A: tried to argue with my professor today. lost
 B: on what
 A: whether the reading was assigned
@@ -686,9 +933,9 @@ C: i write 3 words and cant read them later`,
 B: who told you that
 A: my english teacher. she was right about most things`,
     `A: whats a topic where arguing the other side changed your mind
-B: school uniforms honestly
-C: nuclear power
-A: same, nuclear`,
+B: the electoral college honestly
+C: rent control
+A: same, rent control`,
     `A: note to self: stop agreeing with the first thing they say just to seem nice`,
     `A: practiced my opening out loud on the bus. got looks`,
     `A: today i learned the word "sophistry" and im going to use it way too much
@@ -704,10 +951,6 @@ C: the "thats a good point" pivot is undefeated`,
     `A: i keep starting every reply with "so"
 A: every single one
 A: so. anyway`,
-    `A: arguing with my roommate about whether water is wet. need backup
-B: its not wet, it makes things wet
-C: its wet
-A: this is not helping`,
     `#A=night
 A: i always argue better at night and i dont know why
 B: nobody is watching the clock
@@ -719,10 +962,7 @@ A: fair`,
 B: lol why
 A: i said it 4 times at dinner
 C: thats fair of them`,
-    `#A=day
-A: back from class`,
     `A: brb`,
-    `A: im back`,
     `A: that feeling when you think of the perfect response 2 hours later
 B: every time
 C: the shower comeback
@@ -739,8 +979,9 @@ B: it never left`,
     `A: i need someone to tell me im wrong about {topic}
 A: please`,
     `A: does anyone have a good topic that isnt politics
-B: {topicQ}
-A: [perfect|ooh ok|that works]`,
+B: should cities run their own grocery stores
+A: that is politics
+B: everything is politics if you try hard enough`,
     `A: lost an argument to my 12 year old cousin today. she was right
 B: happens to the best of us`,
     `A: my grandma argues better than anyone i know. no notes, just confidence
@@ -755,10 +996,6 @@ B: its the most normal thing ive heard today`,
 B: we all do that
 C: slow down when youre losing, speed up when youre winning. my rule
 A: ill try`,
-    `#A=pt+morning
-A: bom dia everyone
-B: bom dia
-C: good morning i think`,
     `A: be honest, does anyone actually like the side they get
 B: never
 C: once. and i still lost
@@ -795,39 +1032,22 @@ A: trying to get better at comebacks that arent just "no u"
 B: "no u" is undefeated though
 A: its not an argument
 B: neither is anything after midnight`,
-    `A: arguing hungry is a mistake. learned that today
-B: hangry takes are the worst takes`,
-    `A: {city} has the best food and im willing to argue it
-B: go on then
-A: no i just wanted to say it`,
-    `A: my english teacher would be proud of how much im arguing right now
-B: or horrified`,
     `A: whos actually good at staying on topic
 B: not me. i started on {topic} and ended up on {topic2}
 A: honestly impressive`,
     `A: [anyone want|who wants] a round on {topic}? ill take either side`,
-    `A: hi all`,
-    `A: coffee first then arguing`,
-    `A: im [so|very] ready to be wrong about something today`,
     `A: honestly {topic} might be the best topic. nobody agrees on it`,
-    `A: going for a walk, back in 20`,
     `A: trying to get better at not saying "like" every 3 words`,
     `A: why does every argument with my sister end in "whatever"`,
     `A: need to stop conceding points i didnt have to concede`,
     `A: i think i talk too fast when im nervous. tips?
 B: pause after every point. feels weird, sounds better`,
-    `A: my laptop is at 4% and i refuse to get up`,
     `A: every time i win an argument with my dad he changes the subject
 B: thats a concession
 A: thats what i said`,
-    `#A=late
-A: {time} and still going`,
     `A: reading about {topic} for a paper and now i have opinions`,
     `A: tip for anyone new: you dont have to win, you just have to be clear`,
     `A: my opinion on {topic} changed twice today`,
-    `A: {weekday} arguments hit different`,
-    `A: hello from {city}
-B: [hey|hi|hello]`,
     `A: the best arguments ive heard all week started with "i might be wrong but"
 B: honestly yes`,
     `A: anyone else keep a list of topics they want to argue someday
@@ -947,10 +1167,14 @@ B: basically same`
   var PARSED = EPISODES.map(function (raw, index) {
     var rows = raw.split('\n');
     var rules = {};
+    var until = 0;
     if (rows[0].charAt(0) === '#') {
       rows.shift().slice(1).trim().split(/\s+/).forEach(function (pair) {
         var bits = pair.split('=');
-        rules[bits[0]] = bits[1];
+        if (bits[0] === 'until') {
+          var d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(bits[1] || '');
+          until = d ? Date.UTC(+d[1], +d[2] - 1, +d[3]) : 0;
+        } else rules[bits[0]] = bits[1];
       });
     }
     var lines = [];
@@ -960,14 +1184,14 @@ B: basically same`
     });
     var roles = [];
     lines.forEach(function (line) { if (roles.indexOf(line.role) === -1) roles.push(line.role); });
-    return { index: index, rules: rules, lines: lines, roles: roles };
+    return { index: index, rules: rules, until: until, lines: lines, roles: roles };
   });
 
   function expand(text, rng, ctx, speaker, at) {
     var out = text.replace(/\[([^\[\]]*\|[^\[\]]*)\]/g, function (_, body) {
       return pick(rng, body.split('|'));
     });
-    return out.replace(/\{(topic2Q|topicQ|topic2|topic|city|time|weekday|A|B|C|D)\}/g, function (_, key) {
+    return out.replace(/\{(topic2Q|topicQ|topic2|topic|city|time|weekday|mdays|A|B|C|D)\}/g, function (_, key) {
       if (key === 'topic') return ctx.topic[0];
       if (key === 'topicQ') return ctx.topic[1];
       if (key === 'topic2') return ctx.topic2[0];
@@ -975,6 +1199,7 @@ B: basically same`
       if (key === 'city') return speaker[2];
       if (key === 'time') return timeLabel(localTime(speaker[1], at), rng);
       if (key === 'weekday') return localTime(speaker[1], at).weekday;
+      if (key === 'mdays') return String(Math.max(1, Math.ceil((MIDTERMS - at) / DAY_MS)));
       var other = ctx.cast[key];
       return other ? shortName(other[0]) : '';
     });
@@ -1020,7 +1245,9 @@ B: basically same`
       for (var tries = 0; tries < 30 && !chosen; tries++) {
         var person = pick(rng, PEOPLE);
         if (used[person[0]] || avoided(avoid, person)) continue;
-        if (fits(person, ep.rules[role], at)) chosen = person;
+        // An episode runs up to two slots, so the person has to fit at
+        // both ends of it, or someone cast at 1:59 speaks at 2:00.
+        if (fits(person, ep.rules[role], at) && fits(person, ep.rules[role], at + 2 * SLOT_MS)) chosen = person;
       }
       if (!chosen) return null;
       cast[role] = chosen;
@@ -1044,6 +1271,7 @@ B: basically same`
       var order = permutation(day, Math.floor(sod / n));
       for (var attempt = 0; attempt < 8 && !result; attempt++) {
         var ep = PARSED[order[(sod + attempt * 17) % n]];
+        if (ep.until && slotStart >= ep.until) continue;
         var cast = castFor(ep, rng, start);
         if (!cast) continue;
         var ctx = { cast: cast, topic: pick(rng, TOPICS), topic2: null };

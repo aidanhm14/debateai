@@ -7,6 +7,9 @@
 //     filter, no em dashes, no banned phrases, no crowd-noun "debaters")
 //   - no praise of the site, no claims about the judge, ranks, results,
 //     prizes or money, no retired format jargon
+//   - politics as issues, never individuals: no politician named, no war,
+//     no election-fraud claim, no slur, nothing that turns on a group's
+//     rights, and a line tied to a date retires on that date
 //   - no name that could be taken for a real account's generated alias
 //   - every episode opens on a line that stands on its own
 //   - the schedule is a pure function of the clock and never interleaves
@@ -75,6 +78,16 @@ const PRODUCT = /\b(debatable|this (site|app|platform)|the (site|app|platform)|j
 const MONEY = /\$\s?\d|\bprize|\bbount(y|ies)\b|\btournament|\bpurse\b|\bwinnings\b|\bcash prize|\bpaid tier|\bsubscription\b/i;
 const JARGON = /\b(apda|pf|ld|bp|poi|pois|whip|pmr|lor|rebuttal speech|parli|worlds|policy debate|speaker points?|motion)\b/i;
 const URLISH = /(https?:\/\/|www\.|\.com\b|\.org\b)/i;
+// Politics (2026-09-25, second pass): issues, never individuals.
+const POLITICIANS = /\b(trump|biden|harris|kamala|vance|obama|clinton|hillary|musk|elon|xi|putin|netanyahu|bibi|mamdani|newsom|desantis|ocasio|aoc|pelosi|schumer|mcconnell|sanders|bernie|rfk|kennedy|zelensky|modi|starmer|macron|massie|donalds|cruz|hawley|abbott|hochul|cuomo|trudeau|carney|milei|lula|orban|meloni|erdogan|farage|sunak|jeffries|thune|hegseth|rubio|leavitt|gabbard|bondi|vought|mike johnson|speaker johnson)\b/i;
+const SLURS = /\b(libs|libtards?|maga|woke(?!\s+up)|commies?|fascists?|nazis?|groomers?|rinos?|snowflakes?|cucks?|leftists?|trumpers?|demonrats?|repugs?|sheeple)\b/i;
+const WAR = /\b(wars?|warfare|bomb(s|ing|ed)?|missiles?|troops|soldiers?|invasions?|invade[ds]?|airstrikes?|nukes?|iran|israel|gaza|hamas|hezbollah|ukraine|russia|taiwan|venezuela|nato)\b/i;
+const FRAUD = /\b(fraud|frauds|rigged|stolen|cheated)\b/i;
+const GROUPS = /\b(immigra\w*|deport\w*|migrants?|refugees?|asylum|border wall|ice raids?|transgender|trans|gay|lesbian|lgbt\w*|queer|racial|racism|racist|affirmative action|dei|religio\w*|muslims?|christians?|jews?|jewish|hindus?|sikhs?|guns?|firearms?|second amendment)\b/i;
+// Civic terms that share a word with the product list above.
+const CIVIC = /\branked choice\b/gi;
+// A line that only makes sense before a date must carry an until.
+const TIMEBOUND = /\b(midterms?|this year|in october|this fall|election day is)\b|\{mdays\}/i;
 
 function checkLine(text, where) {
   assert.ok(text && text.trim(), 'empty line at ' + where);
@@ -84,7 +97,12 @@ function checkLine(text, where) {
   const low = text.toLowerCase();
   for (const b of BANNED) assert.ok(!low.includes(b), 'banned phrase "' + b + '" at ' + where + ': ' + text);
   assert.doesNotMatch(text, /\bdebaters?\b/i, 'crowd noun "debaters" at ' + where + ': ' + text);
-  assert.doesNotMatch(text, PRODUCT, 'product claim at ' + where + ': ' + text);
+  assert.doesNotMatch(text.replace(CIVIC, ''), PRODUCT, 'product claim at ' + where + ': ' + text);
+  assert.doesNotMatch(text, POLITICIANS, 'names a politician at ' + where + ': ' + text);
+  assert.doesNotMatch(text, SLURS, 'partisan slur at ' + where + ': ' + text);
+  assert.doesNotMatch(text, WAR, 'war at ' + where + ': ' + text);
+  assert.doesNotMatch(text, FRAUD, 'fraud claim at ' + where + ': ' + text);
+  assert.doesNotMatch(text, GROUPS, 'turns on a group at ' + where + ': ' + text);
   assert.doesNotMatch(text, MONEY, 'money or prize claim at ' + where + ': ' + text);
   assert.doesNotMatch(text, JARGON, 'retired format jargon at ' + where + ': ' + text);
   assert.doesNotMatch(text, URLISH, 'link at ' + where + ': ' + text);
@@ -118,12 +136,16 @@ function variants(text) {
   }
   return out;
 }
-const FILL = { topic: 'tipping', topicQ: 'should tipping be replaced with higher wages', topic2: 'zoos', topic2Q: 'should zoos exist',
-  city: 'lisbon', time: '4pm', weekday: 'friday', A: 'tiago', B: 'dele', C: 'mira', D: 'ayo' };
+const FILL = { topic: 'tipping', topicQ: 'should tipping be replaced with higher wages', topic2: 'the filibuster', topic2Q: 'should the senate get rid of the filibuster',
+  city: 'lisbon', time: '4pm', weekday: 'friday', mdays: '39', A: 'tiago', B: 'dele', C: 'mira', D: 'ayo' };
 const fill = t => t.replace(/\{(\w+)\}/g, (_, k) => { assert.ok(k in FILL, 'unknown placeholder {' + k + '}'); return FILL[k]; });
 for (const ep of bank.episodes) {
   assert.ok(ep.lines.length >= 1 && ep.lines.length <= 6, 'episode ' + ep.index + ' length');
   assert.equal(ep.lines[0].role, 'A', 'episode ' + ep.index + ' must open with role A');
+  const bound = ep.lines.some(l => TIMEBOUND.test(l.text));
+  if (bound) assert.ok(ep.until, 'episode ' + ep.index + ' only makes sense before a date and needs an until: ' + ep.lines[0].text);
+  if (ep.until) assert.ok(ep.until > Date.UTC(2026, 0, 1) && ep.until < Date.UTC(2030, 0, 1), 'episode ' + ep.index + ' until is not a real date');
+  if (ep.lines.some(l => /\{mdays\}/.test(l.text))) assert.ok(ep.until <= Date.UTC(2026, 10, 2), 'episode ' + ep.index + ' counts down and must retire before the count reaches 1');
   for (const [role, rule] of Object.entries(ep.rules)) {
     assert.ok(ep.roles.includes(role), 'episode ' + ep.index + ' constrains a role that never speaks');
     for (const alt of rule.split('|')) for (const tok of alt.split('+')) {
@@ -156,6 +178,36 @@ for (let i = 1; i < lines.length; i++) {
   assert.ok(lines[i].at >= lines[i - 1].at, 'between() must be ordered');
   if (lines[i].ep !== lines[i - 1].ep) assert.equal(lines[i].i, 0, 'episode ' + lines[i].ep + ' interleaves with ' + lines[i - 1].ep);
 }
+// Lines tied to a date: every until= tag parsed (a malformed date would
+// parse as "forever"), the countdown is right on the line's own clock,
+// they run before the date and never after it.
+const untilTags = (MODULE.match(/`#[^`\n]*\buntil=/g) || []).length;
+const dated = bank.episodes.filter(ep => ep.until);
+assert.equal(dated.length, untilTags, 'every until= tag must parse to a date');
+assert.ok(dated.length >= 3, 'the midterm lines are dated');
+const MIDTERMS = Date.UTC(2026, 10, 3, 12);
+let datedSeen = 0, countdowns = 0;
+for (const l of lines) {
+  if (bank.episodes[l.e].until) datedSeen++;
+  const m = /^(\d+) days until the midterms/.exec(l.text);
+  if (!m) continue;
+  countdowns++;
+  assert.equal(+m[1], Math.ceil((MIDTERMS - l.at) / 86400000), 'countdown is wrong: ' + l.text);
+}
+assert.ok(datedSeen > 0 && countdowns > 0, 'dated lines run before their date');
+const LATE = Date.UTC(2026, 9, 31, 0, 0, 0);
+let lateCountdown = 0;
+for (let h = 0; h < 144; h++) {
+  for (const l of C.between(LATE + h * 3600000, LATE + (h + 1) * 3600000)) {
+    const ep = bank.episodes[l.e];
+    if (!ep.until) continue;
+    assert.ok(!(l.i === 0 && l.at >= ep.until + 60000), 'episode ' + l.e + ' opened after its date: ' + l.text);
+    assert.ok(l.at < ep.until + 3600000, 'episode ' + l.e + ' still talking an hour after its date: ' + l.text);
+    const m = /^(\d+) days until/.exec(l.text);
+    if (m) { lateCountdown++; assert.ok(+m[1] >= 2, 'countdown reached ' + m[1] + ': ' + l.text); }
+  }
+}
+assert.ok(lateCountdown > 0, 'the countdown still runs in the last days before it retires');
 // Fresh module, same clock, same room: a reload must not reshuffle.
 const C2 = loadModule();
 for (const t of [T0, T0 + 3.7e6, T0 + 9.1e6, T0 + 86400000 * 2 + 1234567]) {
