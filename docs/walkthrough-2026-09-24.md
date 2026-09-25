@@ -15,7 +15,7 @@ The September 25 follow-up authorizes connecting the feedback form, fixing AI pr
 
 ## Feedback form
 
-The published [round-decision feedback form](https://docs.google.com/forms/d/e/1FAIpQLSe3UddjNT5ljSkR09hfa-PTk2SMftnrJQdGJs8bzZYKBkuUNw/viewform) has an optional round reference, optional usefulness rating, optional issue category and required description. Email collection and public results summaries are disabled. `ROUND_FEEDBACK_FORM_URL` is configured in Netlify production with functions scope. `/api/round-feedback-form` exposes only a validated public form URL; `/round-feedback` provides the handoff. No test response was submitted. The Apps Script helper defaults to the existing form ID and does not need to be run again.
+The published [round-decision feedback form](https://docs.google.com/forms/d/e/1FAIpQLSe3UddjNT5ljSkR09hfa-PTk2SMftnrJQdGJs8bzZYKBkuUNw/viewform) has an optional round reference, optional usefulness rating, optional issue category and required description. Email collection and public results summaries are disabled. `app/round-feedback-config.json` contains the public responder URL. `/api/round-feedback-form` serves this static JSON, and the client validates the Google Forms destination before showing the link. `/round-feedback` provides the handoff. The initial server function hit Netlify’s 4KB Lambda environment limit on creation, so it was replaced with static public configuration. The previously configured Netlify `ROUND_FEEDBACK_FORM_URL` value is unused and was left intact; no secrets or environment scopes were changed. No test response was submitted. The Apps Script helper defaults to the existing form ID and does not need to be run again.
 
 ## Apple verification
 
