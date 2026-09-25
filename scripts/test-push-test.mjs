@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {makeHandler} from '../app/netlify/functions/push-test.mjs';
+import {isVapidRejection} from '../app/netlify/functions/lib/webpush.mjs';
+const calls=[];
+const send=async(uid,payload)=>{calls.push({uid,payload});return {sent:2,web:{sent:1,rejected:1},native:{sent:1}}};
+const request=(opts={})=>new Request('https://itsdebatable.com/api/push-test',{method:'POST',headers:{Authorization:'Bearer test'},body:JSON.stringify({recipientUid:'another-person',title:'untrusted'}),...opts});
+let handler=makeHandler({verify:async()=>({sub:'self'}),rate:async()=>({ok:true}),send});
+assert.equal((await handler(request({headers:{}}))).status,401);
+assert.equal((await handler(new Request('https://itsdebatable.com/api/push-test'))).status,405);
+let res=await handler(request());assert.deepEqual(await res.json(),{sent:2,web:1,native:1,needsSetup:true});
+assert.equal(calls[0].uid,'self');assert.equal(calls[0].payload.title,'Your Debatable notification test');
+handler=makeHandler({verify:async()=>({sub:'guest',firebase:{sign_in_provider:'anonymous'}}),send});assert.equal((await handler(request())).status,401);
+handler=makeHandler({verify:async()=>({sub:'self'}),rate:async()=>({ok:false}),send});assert.equal((await handler(request())).status,429);assert.equal(calls.length,1);
+assert.equal(isVapidRejection({statusCode:400,body:'VapidPkHashMismatch'}),true);
+assert.equal(isVapidRejection({statusCode:400,body:'unrelated'}),false);
+console.log('Push test: authenticated self only, fixed copy, rate limits, native/web acceptance and Apple stale keys passed');

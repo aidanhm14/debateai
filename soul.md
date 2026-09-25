@@ -2001,3 +2001,11 @@ Target consumer tier: **Individual at $10/year** — the frame is "one tournamen
 
 
 - **Public Challenges reuse the live room (2026-09-18, Aidan).** `/challenge/new`, `/challenge/{slug}` and `/challenges` are one public 1v1 challenge flow. The composer creates live challenges, either ready now or scheduled, with the chosen side, optional statement and optional opponent username. This supersedes the async default and the instruction to send challenge scheduling elsewhere; legacy async records stay readable. Acceptance reserves the opposite side transactionally. The existing challenge room handoff now accepts open challenges as well as direct ones, keeps server-verified age groups and video account providers, and waits until the scheduled time before opening. The board uses existing public aliases and ladder ratings. Watch interest is an authenticated, idempotent count; no synthetic audience is added. Creator acceptance alerts reuse existing device push and opted-in SMS. Completion reads the existing room ballot, and replay links require an already-published recording. Challenge room tokens enforce the two accepted seats and receive-only public spectators. Normal matchmaking, judging, rating math and recording consent remain unchanged.
+
+
+- **Three Clash Hours and calendars** (2026-09-25, Aidan): signup welcome mail
+  and the member calendar invitation use the three shared daily sessions at 9pm
+  India, London and New York. This supersedes the four-city welcome copy from
+  September 21. `/clash-hours` offers Google Calendar, Apple subscriptions and
+  iCalendar downloads. The notification setup test uses real server delivery to
+  the signed-in person's registered devices, reporting provider acceptance.

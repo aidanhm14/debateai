@@ -45,12 +45,12 @@ ok('personal welcome is signed by Aidan without credentials', () => { assert.mat
 ok('the crowd is people, not debaters', () => assert.doesNotMatch(text, /\bdebaters\b/i));
 ok('the ask is a reply, and it says who reads it', () => assert.match(text, /Reply to this email/i));
 ok('the welcome stays focused on meeting people, not upselling', () => assert.doesNotMatch(text, /\$|pricing/));
-ok('all four local 9 pm sessions are explicit', () => { for (const place of ['Eastern time (New York)', 'London time', 'India time (IST)', 'Sydney time']) assert.ok(text.includes('9 pm ' + place)); });
+ok('all three local 9 pm sessions are explicit', () => { for (const place of ['Eastern time (New York)', 'London time', 'India time (IST)']) assert.ok(text.includes('9 pm ' + place)); });
 ok('feedback form and friend invitation are included', () => { assert.match(text, /docs.google.com\/forms/); assert.match(text, /friend/); });
 ok('unverified email is not mailed', () => assert.equal(welcomeEligibility(google({emailVerified:false}), null).reason, 'email_unverified'));
 ok('disabled account is not mailed', () => assert.equal(welcomeEligibility(google({disabled:true}), null).reason, 'disabled'));
 ok('no image, button, or pixel: text only', () => { assert.doesNotMatch(html, /<img|<table|background:#dc2626|border-radius:999px/); });
-ok('few links', () => assert.ok((html.match(/<a /g) || []).length <= 4, 'more than four links reads as a newsletter'));
+ok('few links', () => assert.ok((html.match(/<a /g) || []).length <= 5, 'keep the welcome concise with one calendar chooser'));
 ok('the unsubscribe link rides the onboarding stream', () => assert.match(html, /Unsubscribe|Reply to opt out/));
 ok('subject is lowercase and short', () => { assert.equal(SUBJECT, SUBJECT.toLowerCase()); assert.ok(SUBJECT.length < 60); });
 
@@ -67,3 +67,6 @@ ok('the delivery queue runs each minute', () => assert.match(queue, /schedule: '
 console.log(`welcome-email: ${n} checks passed`);
 
 await import('./test-gmail-welcome.mjs');
+
+assert.ok(text.includes('https://itsdebatable.com/clash-hours'));
+assert.ok(!text.includes('Sydney time'));

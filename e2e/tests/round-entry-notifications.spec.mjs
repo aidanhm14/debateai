@@ -52,7 +52,7 @@ async function settings(page, { ios = false, denied = false, fail = false } = {}
   await page.goto('https://debatable.test/notifications');
   await page.setContent('<main><div data-notification-setup></div></main>');
   await page.evaluate(({ ios, denied, fail }) => {
-    window.__permissionCalls = 0; window.__registrations = 0; window.__notices = []; window.__prefs = [];
+    window.__permissionCalls = 0; window.__registrations = 0; window.__notices = []; window.__prefs = []; window.__pushTests = 0;
     if (ios) Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'iPhone' });
     function N(){ throw new Error('Mobile Notification constructor is unavailable'); }
     N.permission = denied ? 'denied' : 'default';
@@ -67,6 +67,7 @@ async function settings(page, { ios = false, denied = false, fail = false } = {}
     window.firebase = { auth: () => ({ currentUser: user }) };
     window.fetch = async (url, options = {}) => {
       const post = options.method === 'POST';
+      if (url.includes('push-test')) { window.__pushTests++; return {ok:true,json:async()=>({sent:2,web:1,native:1})}; }
       if (post && url.includes('push-subscribe')) window.__registrations++;
       if (post && url.includes('notify-prefs')) window.__prefs.push(JSON.parse(options.body));
       return { ok: !(fail && post), json: async () => ({ configured: true, publicKey: 'BA' }) };
@@ -87,9 +88,10 @@ test('notification setup waits for a click, registers the device and tests mobil
   await page.getByRole('button', { name: 'Turn on notifications' }).click();
   await expect(page.locator('[data-notify-help]')).toContainText('on for this device');
   expect(await page.evaluate(() => [window.__permissionCalls, window.__registrations, window.__prefs.length])).toEqual([1, 1, 0]);
-  await page.getByRole('button', { name: 'Send a test notification' }).click();
-  await expect(page.locator('[data-notify-status]')).toContainText('Test sent');
-  expect(await page.evaluate(() => window.__notices[0].options.data.url)).toBe('https://debatable.test/notifications');
+  await page.getByRole('button', { name: 'Test my registered devices' }).click();
+  await expect(page.locator('[data-notify-status]')).toContainText('accepted the test for 2 devices');
+  expect(await page.evaluate(() => window.__pushTests)).toBe(1);
+  expect(await page.evaluate(() => window.__notices.length)).toBe(0);
   await page.locator('[data-notify-live]').check();
   await expect(page.locator('[data-notify-status]')).toHaveText('New-round alerts are on.');
   await page.locator('[data-notify-live]').uncheck();

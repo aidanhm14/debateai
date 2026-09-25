@@ -15,3 +15,13 @@ Phone behavior follows [WebKit's Home Screen push requirements](https://webkit.o
 Verification includes browser fixtures at phone and desktop widths, real browser Web Audio unlock, permission/subscription/provider boundaries, retry preservation, matching consent, and service-worker click routing. The browser tests intercept account/device registration and notification delivery; they do not establish receipt on a physical phone or test a real two-person call. The production registration configuration was checked read-only.
 
 Run `node scripts/test-notification-delivery.mjs`, `node scripts/test-live-alert-setup.mjs` and `e2e/tests/round-entry-notifications.spec.mjs`, alongside the existing room panel, cleanup and match invitation suites.
+
+## 2026-09-25: real delivery test
+
+The setup panel now calls authenticated `/api/push-test`. It sends fixed test copy
+only to the caller's browser and native registrations, with 2/minute and 10/day
+limits. No recipient or content is accepted from the client. The result reports
+provider acceptance, not a claim that a banner was displayed. The button is also
+available inside native iOS/Android apps, where `window.Notification` is absent.
+Apple's 400 VapidPkHashMismatch/BadJwtToken responses now count as stale-key
+rejections so the test can recommend registration again.

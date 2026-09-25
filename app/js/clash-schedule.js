@@ -8,11 +8,11 @@
 }(typeof window !== 'undefined' ? window : this, function () {
   var LIVE_MS = 90 * 60 * 1000;
   var SESSIONS = [
-    { hour: 21, city: 'India', name: 'India evening', tz: 'Asia/Kolkata',
+    { id: 'india', hour: 21, city: 'India', name: 'India evening', tz: 'Asia/Kolkata',
       zones: [['India', 'Asia/Kolkata'], ['Singapore', 'Asia/Singapore'], ['Sydney', 'Australia/Sydney']] },
-    { hour: 21, city: 'London', name: 'Europe evening', tz: 'Europe/London',
+    { id: 'london', hour: 21, city: 'London', name: 'Europe evening', tz: 'Europe/London',
       zones: [['London', 'Europe/London'], ['Berlin', 'Europe/Berlin'], ['Lagos', 'Africa/Lagos']] },
-    { hour: 21, city: 'New York', name: 'US evening', tz: 'America/New_York',
+    { id: 'new-york', hour: 21, city: 'New York', name: 'US evening', tz: 'America/New_York',
       zones: [['New York', 'America/New_York'], ['Chicago', 'America/Chicago'], ['Los Angeles', 'America/Los_Angeles']] }
   ];
   function parts(ms, tz) {
@@ -55,6 +55,7 @@
       + '&ctz=' + encodeURIComponent(st.session.tz)
       + '&recur=' + encodeURIComponent('RRULE:FREQ=DAILY');
   }
-  return { LIVE_MS: LIVE_MS, SESSIONS: SESSIONS, parts: parts,
+  function calendarPageUrl(st) { return '/clash-hours#' + st.session.id; }
+  return { calendarPageUrl: calendarPageUrl, LIVE_MS: LIVE_MS, SESSIONS: SESSIONS, parts: parts,
     wallToUtc: wallToUtc, nextFor: nextFor, nextSession: nextSession, calendarUrl: calendarUrl };
 }));

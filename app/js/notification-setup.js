@@ -8,7 +8,7 @@
     root.innerHTML = '<strong>Get match and message notifications</strong>' +
       '<p data-notify-help></p><div class="notification-setup-actions">' +
       '<button type="button" data-notify-enable>Turn on notifications</button>' +
-      '<button type="button" data-notify-test hidden>Send a test notification</button></div>' +
+      '<button type="button" data-notify-test hidden>Test my registered devices</button></div>' +
       '<label data-notify-live-row hidden><input type="checkbox" data-notify-live> Also notify me when someone is looking for a round</label>' +
       '<details><summary>Set up on your phone</summary><p>Open <b>itsdebatable.com/notifications</b> on your phone and sign in to the same account.</p>' +
       '<p><b>iPhone or iPad:</b> open the browser menu, choose Share, then Add to Home Screen. Keep Open as Web App on if shown. Open the new icon and turn on notifications here.</p>' +
@@ -29,7 +29,7 @@
       enable.hidden = state === 'on';
       enable.disabled = pending || /^(loading|working|unsupported|denied)$/.test(state);
       enable.textContent = pending || state === 'working' ? 'Setting up…' : state === 'guest' ? 'Sign in to enable' : state === 'install' ? 'Show phone setup' : state === 'denied' ? 'Blocked in device settings' : 'Turn on notifications';
-      test.hidden = state !== 'on' || !window.Notification;
+      test.hidden = state !== 'on';
       root.querySelector('[data-notify-live-row]').hidden = state !== 'on';
       live.checked = !!(window.daGetLiveAlerts && window.daGetLiveAlerts());
       live.disabled = pending;
@@ -62,11 +62,16 @@
       });
     });
     test.addEventListener('click', function(){
-      if (!window.daShowDeviceNotification) return;
+      if (!window.daTestPushNotifications) return;
       test.disabled = true;
-      window.daShowDeviceNotification('Debatable notifications are ready', {
-        body: 'This is your test notification.', tag: 'da-device-test', url: '/notifications', test: true
-      }).then(function(ok){ status.textContent = ok ? 'Test sent. Check your notification center. Device focus and silent settings can hide banners or sound.' : 'Could not show the test. Check notification permissions in your device settings.'; })
+      status.textContent = 'Sending a test to your registered devices…';
+      window.daTestPushNotifications().then(function(result){
+        var count = result.sent || 0;
+        status.textContent = count
+          ? 'The push service accepted the test for ' + count + (count === 1 ? ' device.' : ' devices.') + ' Check your notification center on each. Focus and silent settings can hide banners or sound.'
+          : 'No device accepted the test. Turn notifications off and on in device settings, then register this device again.';
+        if (result.needsSetup) status.textContent += ' Some devices need to reopen Debatable and enable notifications again.';
+      }).catch(function(error){ status.textContent = error.message || 'Could not send the test. Try again.'; })
         .finally(function(){ test.disabled = false; });
     });
     root.querySelector('[data-notify-sound]').addEventListener('click', function(){

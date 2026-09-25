@@ -62,7 +62,7 @@
   // rather than one fixed hour. Someone in Sydney who adds the card in
   // front of them should get the 9 PM session in their calendar, not a
   // US hour they were never going to make.
-  function gcalUrl(st) { return schedule.calendarUrl(st); }
+  function gcalUrl(st) { return schedule.calendarPageUrl(st); }
 
   function ga(name, meta) {
     try { if (window.track) window.track(name, meta || {}); } catch (e) {}

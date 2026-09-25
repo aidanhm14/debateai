@@ -352,6 +352,19 @@
       return saved;
     });
   }
+  // Test the actual server-to-device path, including native apps and closed tabs.
+  window.daTestPushNotifications = function(){
+    var user = daCurrentUser();
+    if (!user || user.isAnonymous) return Promise.reject(new Error('Sign in to test notifications.'));
+    return user.getIdToken().then(function(token){
+      return fetch('/api/push-test', {method:'POST', headers:{Authorization:'Bearer ' + token}});
+    }).then(function(response){
+      return response.json().then(function(result){
+        if (!response.ok) throw new Error(result.error || 'Could not send the test. Try again.');
+        return result;
+      });
+    });
+  };
   window.daEnableMessageAlerts = daEnableMessageAlerts;
   window.daGetMessageAlertsState = daGetMessageAlertsState;
   window.daMessageAlertsHelp = daMessageAlertsHelp;

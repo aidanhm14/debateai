@@ -8,8 +8,8 @@ missed triggers and definitive failures. No historical email campaign is started
 when Gmail is activated. Phone-only accounts cannot receive an email.
 
 Sender and reply address: **aidandavidhollinger@gmail.com**. First names come
-from account/profile names, with `Hey,` as the fallback. The email contains four
-daily 9 pm sessions in New York, London, India and Sydney local time, the existing
+from account/profile names, with `Hey,` as the fallback. The email contains three
+daily 9 pm sessions in New York, London and India local time, the existing
 Debatable feedback form, and an invitation to bring a friend. No tracking pixel,
 AI-invented personal details, attachments or newsletter layout.
 
@@ -78,7 +78,7 @@ codes without credentials or message bodies.
 
 Tests: `node scripts/test-welcome-email.mjs` includes concurrent sends, ambiguous
 network outcomes, failed receipt persistence, retry delays, rate caps, opt-outs,
-verified-email eligibility, MIME headers, and all four meeting times.
+verified-email eligibility, MIME headers, and all three meeting times and the calendar chooser.
 
 ## Explicit historical follow-up
 
@@ -103,3 +103,11 @@ manifest after the requested run so it cannot be reused.
 - [Google: personal Gmail sending limits](https://support.google.com/mail/answer/22839)
 
 Real Gmail sending does not guarantee avoiding spam or landing in Primary.
+
+## 2026-09-25 calendar update
+
+The founder requested three suggested Clash Hours with Google and iCalendar
+options. Welcome mail now matches the shared schedule: 9pm India, London and
+New York, with `/clash-hours` as the calendar chooser. This supersedes the earlier
+four-city welcome copy. Apple subscriptions and .ics downloads use stable event
+UIDs and explicit time-zone rules; Google links open the next occurrence.

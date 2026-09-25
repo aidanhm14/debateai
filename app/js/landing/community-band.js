@@ -40,7 +40,7 @@
     var whatEl = document.getElementById('cbWedWhat');
     if (whatEl) whatEl.textContent = 'Next live session · ' + next.session.name;
     var calEl = document.getElementById('cbWedCal');
-    if (calEl) calEl.href = window.DBClashSchedule.calendarUrl(next);
+    if (calEl) calEl.href = window.DBClashSchedule.calendarPageUrl(next);
     if (localEl){
       var local = new Date(start).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
       var wd = new Date(start).toLocaleDateString(undefined, { weekday: 'short' });

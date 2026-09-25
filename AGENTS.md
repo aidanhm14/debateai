@@ -805,7 +805,8 @@ scripts/test-welcome-email.mjs   runs in the pre-commit hook
   an unrequested catch-up campaign when switching providers.
 - The private welcome may identify and sign off as Aidan under his explicit
   September 21 request. This does not change public-site founder anonymity.
-  Include the four daily 9 pm local sessions (New York, London, India, Sydney),
+  Include the three daily 9 pm local sessions (New York, London, India),
+  plus the Google/Apple calendar chooser at `/clash-hours` (September 25 request),
   feedback form, and invite-a-friend ask. These are coordinated meeting times,
   not measured traffic claims. Gmail gets plain text with no images or tracking.
   Keep the visible unsubscribe and one-click headers. Inbox placement is never

@@ -83,6 +83,11 @@ export async function deleteSubscription(uid, endpoint) {
   await subsCol(uid).doc(subDocId(endpoint)).delete().catch(() => {});
 }
 
+export function isVapidRejection(error) {
+  return error?.statusCode === 401 || error?.statusCode === 403
+    || (error?.statusCode === 400 && /VapidPkHashMismatch|BadJwtToken/.test(String(error.body || '')));
+}
+
 // Fan a single notification out to many users (a "go live" broadcast).
 // Reuses sendToUser per recipient with a small concurrency cap so a pool
 // of opted-in debaters can all be pinged without a burst of parallel
@@ -146,10 +151,10 @@ async function sendWebPush(uid, payload) {
         // client re-subscribes on its next visit (notifications.js compares
         // keys), so the row is left for it to replace, but it is counted
         // and logged: a silent 403 is how this stayed broken for months.
-        else if (code === 401 || code === 403) rejected++;
+        else if (isVapidRejection(e)) rejected++;
       }
     }));
-    if (rejected) console.warn('[webpush] ' + rejected + ' of ' + snap.size + ' sends rejected the VAPID signature (401/403) for uid ' + uid + '; those devices need to re-subscribe');
+    if (rejected) console.warn('[webpush] ' + rejected + ' of ' + snap.size + ' sends rejected the VAPID signature for uid ' + uid + '; those devices need to re-subscribe');
     return { sent, subs: snap.size, rejected };
   } catch (e) {
     return { sent: 0, error: true };
