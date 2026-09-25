@@ -938,33 +938,81 @@ footer a{color:var(--dim)}
     <div class="rail-head">
       <h2><a class="gallery-title-link" href="/watch/debatable">From the Debatable community</a></h2>
       <div class="rail-actions">
+      <button class="vote-open" type="button" id="voteOpen" aria-expanded="false" aria-controls="votePanel"><span class="vote-open-dot" aria-hidden="true"></span>Vote on rounds</button>
       <a class="gallery-open" href="/watch/debatable" aria-label="See the full Debatable debates gallery">View all <span aria-hidden="true">&rarr;</span></a>
 
       </div>
     </div>
+    <!-- The viewer vote. The red button above opens this; it holds the
+         four steps and a working PREVIEW of the panel a spectator gets on
+         /live-round (Your take): private before/after stance, taps
+         during, the room's shift shown after the ballot. The preview
+         stores nothing and says so. No points, no betting; that was
+         retired. -->
+    <section class="vote-panel" id="votePanel" hidden aria-labelledby="votePanelTitle">
+      <div class="vote-panel-head">
+        <div>
+          <p class="vote-kicker">The viewer vote</p>
+          <h3 id="votePanelTitle">Watch a live round. Vote before, during, and after.</h3>
+          <p class="vote-lede">The AI judge decides who won the argument. You decide whether it changed your mind. Every live round has this panel under the video.</p>
+        </div>
+        <button class="vote-close" type="button" id="voteClose" aria-label="Close the voting guide">&times;</button>
+      </div>
+      <div class="vote-panel-body">
+        <ol class="vote-steps">
+          <li><b>Before the round</b>Pick For, Against, or Neither, and say how sure you are. Your call is private until the decision, so nobody follows the crowd.</li>
+          <li><b>During the round</b>Tap That moved me whenever a point lands. Add a word on why if you want. The judge never sees it.</li>
+          <li><b>After the decision</b>Say where you actually landed and how sure you are now.</li>
+          <li><b>The reveal</b>Once the ballot is in, everyone sees how the room moved next to the judge's decision. The two disagree often. That is the game.</li>
+        </ol>
+        <div class="vote-preview" id="votePreview" aria-label="Preview of the voting panel">
+          <div class="vp-tag">Preview. Nothing here is saved.</div>
+          <div class="vp-card">
+            <div class="vp-eyebrow" id="vpEyebrow">Your call &middot; before the round</div>
+            <div class="vp-title" id="vpTitle">Where do you stand on the motion?</div>
+            <div class="vp-motion">Billionaires should not exist.</div>
+            <div class="vp-phase" data-vp-phase="before">
+              <div class="vp-sides" id="vpSides">
+                <button type="button" data-vp-side="pro">For</button>
+                <button type="button" data-vp-side="con">Against</button>
+                <button type="button" data-vp-side="undecided">Neither</button>
+              </div>
+              <label class="vp-conf">How sure? <b id="vpConfOut">50</b><input id="vpConf" type="range" min="0" max="100" step="5" value="50"></label>
+              <button type="button" class="vp-primary" id="vpLock">Lock it in</button>
+              <p class="vp-note">Private until the decision. Nobody sees the room's split.</p>
+            </div>
+            <div class="vp-phase" data-vp-phase="during" hidden>
+              <button type="button" class="vp-tap" id="vpTap">That moved me</button>
+              <p class="vp-note">Your flags: <b id="vpCount">0</b>. Tap it every time a point lands.</p>
+              <button type="button" class="vp-primary" id="vpEnd">Skip to the decision</button>
+            </div>
+            <div class="vp-phase" data-vp-phase="after" hidden>
+              <div class="vp-sides" id="vpSidesAfter">
+                <button type="button" data-vp-side="pro">For</button>
+                <button type="button" data-vp-side="con">Against</button>
+                <button type="button" data-vp-side="undecided">Neither</button>
+              </div>
+              <label class="vp-conf">How sure now? <b id="vpConfOutAfter">50</b><input id="vpConfAfter" type="range" min="0" max="100" step="5" value="50"></label>
+              <button type="button" class="vp-primary" id="vpSubmit">Submit</button>
+            </div>
+            <div class="vp-phase" data-vp-phase="done" hidden>
+              <p class="vp-done" id="vpDone"></p>
+              <button type="button" class="vp-ghost" id="vpAgain">Run it again</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="vote-panel-foot">
+        <a class="vote-cta" href="/live">Find a live round to vote on <span aria-hidden="true">&rarr;</span></a>
+        <span class="vote-foot-note">The panel opens under the video as soon as you join a round as a viewer.</span>
+      </div>
+    </section>
     <div class="feed-chips" id="feedChips" aria-label="Filter the feed">
       <button class="fchip on" type="button" data-filter="all" aria-pressed="true">All</button>
       <button class="fchip" type="button" data-filter="round" aria-pressed="false">Rounds</button>
       <button class="fchip" type="button" data-filter="clip" aria-pressed="false">Clips</button>
     </div>
     <div class="rail-list" id="replaysGrid" aria-label="Debatable debate replays" aria-busy="true"><p class="feed-empty">Loading published rounds…</p></div>
-    <!-- The viewer vote, explained where people first meet a round. Copy
-         mirrors the spectator panel on /live-round (Your take): private
-         before/after stance, taps during, the room's shift shown after the
-         ballot. No points, no betting; that was retired. -->
-    <div class="vote-how" id="voteHow" aria-labelledby="voteHowTitle">
-      <div class="vote-how-head">
-        <h3 id="voteHowTitle">How the viewer vote works</h3>
-        <p>Watching a live round is a game. The AI judge decides who won; you show who actually changed minds.</p>
-      </div>
-      <ol>
-        <li><b>Before the round</b>Pick For, Against, or Neither, and say how sure you are. Your call stays private, so nobody follows the crowd.</li>
-        <li><b>During the round</b>Tap That moved me whenever a point lands. Add a word on why if you want; the judge never sees it.</li>
-        <li><b>After the decision</b>Say where you actually landed and how sure you are now.</li>
-        <li><b>Then the reveal</b>Once the ballot is in, everyone sees how the room moved next to the judge's decision. They disagree often, and that is the fun part.</li>
-      </ol>
-      <p class="vote-how-cta"><a href="/live">Open a live round</a> and find Your take under the video.</p>
-    </div>
     <p class="sec-sub" id="replaysSub" style="margin:14px 0 0;font-size:13.5px">A round is published only when everyone in it agrees. Tournament preliminary footage stays private by default. <a href="/live" style="color:var(--red);font-weight:700;text-decoration:none">See what is live</a></p>
   </section>
 
@@ -2416,6 +2464,74 @@ footer a{color:var(--dim)}
         clips.forEach(function(c){ grid.appendChild(clipCard(c, false)); });
       }).catch(function(){});
   }
+
+  // ── The viewer vote: button, panel, and a saved-nothing preview ────
+  (function(){
+    var open = $('voteOpen'), panel = $('votePanel'), close = $('voteClose');
+    if (!open || !panel) return;
+    function setOpen(on, via){
+      panel.hidden = !on;
+      open.setAttribute('aria-expanded', String(on));
+      open.classList.toggle('is-open', on);
+      if (on){
+        try { panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch(e){}
+        try { gtag('event', 'watch_vote_open', { via: via || 'button' }); } catch(e){}
+      }
+    }
+    open.addEventListener('click', function(){ setOpen(panel.hidden, 'button'); });
+    if (close) close.addEventListener('click', function(){ setOpen(false); open.focus(); });
+    try {
+      if (/[?&]vote=1(?:&|$)/.test(location.search) || location.hash === '#vote') setOpen(true, 'link');
+    } catch(e){}
+
+    // The preview walks the same four beats as the live panel and stores
+    // nothing. Side buttons, the slider, the tap counter and the closing
+    // line all run locally so a first-time viewer can feel the loop.
+    var pick = '', pickAfter = '', taps = 0;
+    function show(name){
+      [].forEach.call(panel.querySelectorAll('[data-vp-phase]'), function(p){ p.hidden = p.getAttribute('data-vp-phase') !== name; });
+      var eb = $('vpEyebrow'), ti = $('vpTitle');
+      eb.textContent = name === 'before' ? 'Your call \u00b7 before the round'
+        : name === 'during' ? 'Your call \u00b7 during the round'
+        : name === 'after' ? 'Your call \u00b7 after the decision' : 'Your call \u00b7 on the record';
+      ti.textContent = name === 'before' ? 'Where do you stand on the motion?'
+        : name === 'during' ? 'Flag the moments that land.'
+        : name === 'after' ? 'Where did you actually land?' : 'Thanks. That is the data.';
+    }
+    function wireSides(hostId, isBefore){
+      [].forEach.call($(hostId).querySelectorAll('[data-vp-side]'), function(b){
+        b.addEventListener('click', function(){
+          var v = b.getAttribute('data-vp-side');
+          if (isBefore) pick = v; else pickAfter = v;
+          [].forEach.call($(hostId).querySelectorAll('[data-vp-side]'), function(x){ x.classList.toggle('on', x === b); });
+        });
+      });
+    }
+    wireSides('vpSides', true); wireSides('vpSidesAfter', false);
+    $('vpConf').addEventListener('input', function(){ $('vpConfOut').textContent = this.value; });
+    $('vpConfAfter').addEventListener('input', function(){ $('vpConfOutAfter').textContent = this.value; });
+    $('vpLock').addEventListener('click', function(){
+      if (!pick){ $('vpSides').classList.add('shake'); setTimeout(function(){ $('vpSides').classList.remove('shake'); }, 400); return; }
+      show('during');
+    });
+    $('vpTap').addEventListener('click', function(){ taps++; $('vpCount').textContent = String(taps); });
+    $('vpEnd').addEventListener('click', function(){ show('after'); });
+    $('vpSubmit').addEventListener('click', function(){
+      var label = { pro: 'For', con: 'Against', undecided: 'Neither' };
+      var moved = pickAfter && pickAfter !== pick;
+      $('vpDone').textContent = 'You went in ' + (label[pick] || 'undecided') + ' at ' + $('vpConf').value +
+        ' and came out ' + (label[pickAfter || pick]) + ' at ' + $('vpConfAfter').value + '. ' +
+        (moved ? 'That is a mind changed, and it counts toward how the room moved.' : 'You held your ground, and that counts too.') +
+        ' In a real round this shows next to the judge\u2019s decision once the ballot is in.';
+      show('done');
+      try { gtag('event', 'watch_vote_preview_done', { moved: !!moved, taps: taps }); } catch(e){}
+    });
+    $('vpAgain').addEventListener('click', function(){
+      pick = ''; pickAfter = ''; taps = 0; $('vpCount').textContent = '0';
+      [].forEach.call(panel.querySelectorAll('[data-vp-side]'), function(x){ x.classList.remove('on'); });
+      show('before');
+    });
+  })();
 
   // ── The feed ─────────────────────────────────────────────────────
   // Rounds and clips in one grid, newest first, with chips over the top.
