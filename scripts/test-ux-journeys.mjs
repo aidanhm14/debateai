@@ -128,8 +128,8 @@ const watch = read('app/watch.html');
 const watchCss = read('app/css/watch-library.css');
 const watchBrowse = read('app/js/watch-library.js');
 check(
-  (watch.match(/class="yt-card"/g) || []).length >= 9
-    && (watch.match(/data-duration="[0-9]+" data-channel=/g) || []).length >= 9
+  (watch.match(/class="yt-card"/g) || []).length >= 27
+    && (watch.match(/data-duration="[0-9]+" data-channel=/g) || []).length >= 27
     && !watch.includes('data-pan-shelf')
     && watchCss.includes('@media(prefers-reduced-motion:reduce)'),
   'Watch exposes a larger attributed example library without moving the browsing grid',

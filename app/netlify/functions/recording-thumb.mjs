@@ -53,6 +53,7 @@ import { getDb } from './lib/firestore.mjs';
 import { errorResponse } from './lib/response.mjs';
 import { callerIp, checkLayers } from './lib/rate-limit.mjs';
 import { savedRoundThumbnail } from './lib/round-stills.mjs';
+import { faceThumbnailSvg } from './lib/replay-thumbnail.mjs';
 
 export const config = { path: '/api/recording-thumb' };
 
@@ -142,8 +143,10 @@ export default async (req) => {
       if (!d.thumbnailUrl) await db.collection('recordings').doc(id).set({
         thumbnailUrl: SITE + '/api/recording-thumb?id=' + encodeURIComponent(id),
       }, { merge: true });
-      return new Response(Buffer.from(still, 'base64'), {
-        headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-store' },
+      const publicJpeg = Buffer.from(still, 'base64');
+      const faces = params.get('framing') === 'faces';
+      return new Response(faces ? faceThumbnailSvg(publicJpeg) : publicJpeg, {
+        headers: { 'Content-Type': faces ? 'image/svg+xml' : 'image/jpeg', 'Cache-Control': 'no-store' },
       });
     }
   }
