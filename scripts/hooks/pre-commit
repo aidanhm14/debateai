@@ -235,6 +235,20 @@ if [ -f "$REPO_ROOT/scripts/test-chat-preview.mjs" ] && command -v node >/dev/nu
     exit 1
   fi
 fi
+# Homepage chatter guard (2026-09-25). The scripted Highlights lines are
+# shown to strangers as people talking, so every limit the founder's call
+# kept is checked here: the site's content filters on every line, no
+# product, judge or money claims, no name a real alias could produce,
+# openers that never read as replies, a schedule true to each speaker's
+# clock, and a renderer that never lands a scripted reply under a real one.
+if [ -f "$REPO_ROOT/scripts/test-landing-chatter.mjs" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-landing-chatter.mjs >/tmp/landing-chatter-guard.log 2>&1); then
+    echo "[landing-chatter-guard] commit blocked - a scripted Highlights line or the chatter renderer broke a limit:" >&2
+    tail -25 /tmp/landing-chatter-guard.log >&2
+    echo "[landing-chatter-guard] see scripts/test-landing-chatter.mjs. Never bypass with --no-verify." >&2
+    exit 1
+  fi
+fi
 if [ -f "$UX_JOURNEY_GUARD" ] && command -v node >/dev/null 2>&1; then
   if ! (cd "$REPO_ROOT" && node scripts/test-ux-journeys.mjs >/tmp/ux-journey-guard.log 2>&1); then
     echo "[ux-journey-guard] commit blocked - a signed-in or signed-out journey regressed:" >&2

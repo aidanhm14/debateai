@@ -76,6 +76,14 @@
         input.value = '';
         message('Sent to The Commons.');
       }
+      // The homepage renderer shows the member's own message at once
+      // instead of waiting a minute for the next feed poll, and quiets
+      // any scripted chatter so nothing scripted lands under a real post.
+      try {
+        if (window.dispatchEvent && typeof CustomEvent === 'function'){
+          window.dispatchEvent(new CustomEvent('dblandingchat:sent', { detail: { handle: handle, text: text } }));
+        }
+      } catch (e) {}
     } catch(error){
       if (user && user.uid === author.uid) message(error.message || 'Could not send. Try again.', true);
     } finally {

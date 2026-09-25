@@ -830,6 +830,36 @@
   })();
 </script>
 
+<!-- Highlights chatter A/B (2026-09-25, founder: "add more random fake
+     chats under fake names ... so when ppl see it there is a feeling of
+     liveliness"). The 'on' arm mixes scripted conversations from
+     /js/landing-chatter.js into the Highlights panel beside the real rows;
+     'off' is the real-only panel as it was. 80/20 so most visitors get the
+     room he asked for while the holdout answers whether it moves clicks.
+     Sticky per browser; ?chatter=on|off forces QA. The impression is
+     deferred to the panel being on screen, so the sub-1360px layouts that
+     never show the panel never count. -->
+<script>
+  (function(){
+    var v='',forced=false;
+    try{
+      var qp=(location.search||'').toLowerCase();
+      if(/[?&]chatter=on(?:&|$)/.test(qp)){v='on';forced=true;}
+      else if(/[?&]chatter=off(?:&|$)/.test(qp)){v='off';forced=true;}
+    }catch(e){}
+    if(!v){
+      try{
+        v=localStorage.getItem('da-chatter-ab')||'';
+        if(v!=='on'&&v!=='off'){v=Math.random()<0.8?'on':'off';localStorage.setItem('da-chatter-ab',v);}
+      }catch(e){v='on';}
+    }
+    document.documentElement.setAttribute('data-chatter',v);
+    window.__abAssignments=window.__abAssignments||{};
+    window.__abAssignments.landing_chatter_v1=forced?{variant:v,forced:true,deferImpression:true}:{variant:v,deferImpression:true};
+    if(!forced){try{gtag('set','user_properties',{chatter_arm:v});}catch(e){}}
+  })();
+</script>
+
 <!-- The warm graphite constellation is the permanent light-mode landing
      background. data-lightweb is set on <html> before first paint so the
      canvas never falls back to the old flat cream surface. Dark and crimson
@@ -1697,10 +1727,13 @@ window.watchLive = (function () {
          Commons, the named /community channels, and Discord when its
          env is set. Every row carries its room chip, and the renderer
          guarantees each active room a seat rather than letting the
-         loudest room fill the feed. REAL MESSAGES ONLY (2026-08-31,
-         founder: "get rid of the bots on the open group chat"): the
-         2026-08-29 scripted-persona layer stays retired, and a quiet
-         site leaves the panel blank (2026-09-07). Old rows from
+         loudest room fill the feed. REAL MESSAGES ONLY from 2026-08-31
+         (founder: "get rid of the bots on the open group chat") until
+         2026-09-25, when he asked for scripted chatter back: the 'on'
+         arm of landing_chatter_v1 mixes browser-only scripted lines
+         from /js/landing-chatter.js under the real rows, and the 'off'
+         arm keeps the real-only panel, where a quiet site leaves it
+         blank (2026-09-07). Old rows from
          quiet rooms render with their real ages, which is
          the "past times" density he asked for, not padding. Hidden
          under 1360px, where there is no third column to hold it. -->
@@ -1731,13 +1764,13 @@ window.watchLive = (function () {
         </ol>
       </div>
     </div>
-    <aside class="fs-chats" data-landing-piece="chat" id="fsChats" aria-label="Community chat highlights">
+    <aside class="fs-chats" data-landing-piece="chat" id="fsChats" aria-label="Community chat highlights" data-ab-impression="landing_chatter_v1">
       <div class="fs-chats-top">
         <span class="fs-chats-dot" aria-hidden="true"></span>
         <span class="fs-chats-title">Highlights</span>
       </div>
       <div class="fs-chats-list" id="fsChatsList" aria-live="off"></div>
-      <a class="fs-chats-cta" id="fsChatsJoin" href="/community" data-community-join data-cta="first-screen-chats-join">Join the conversation</a>
+      <a class="fs-chats-cta" id="fsChatsJoin" href="/community" data-community-join data-cta="first-screen-chats-join" data-ab-test="landing_chatter_v1" data-ab-target="join">Join the conversation</a>
       <form class="fs-chat-compose" id="fsChatCompose" hidden>
         <label for="fsChatInput">Join the conversation</label>
         <div class="fs-chat-row">
@@ -1763,6 +1796,28 @@ window.watchLive = (function () {
         var c = JSON.parse(sessionStorage.getItem('da-fs-chats-v2') || 'null');
         if (c && c.messages && c.messages.length && (Date.now() - (c.at || 0)) < 15 * 60 * 1000) window.__fsChatsCache = c.messages;
       } catch (e) {}
+    })();
+    </script>
+    <script>
+    /* Scripted chatter loader (landing_chatter_v1 'on' arm, 2026-09-25).
+       Fetched only when the three-column layout is on screen, async, so a
+       phone never downloads the bank. The renderer near the end of the
+       file waits briefly for it, and runs on real rows alone if it never
+       arrives. */
+    (function(){
+      if (document.documentElement.getAttribute('data-chatter') !== 'on') return;
+      var mq = window.matchMedia && window.matchMedia('(min-width:1360px)');
+      if (!mq) return;
+      function load(){
+        if (window.__fsChatterLoading) return;
+        window.__fsChatterLoading = true;
+        var s = document.createElement('script');
+        s.src = '/js/landing-chatter.js?v=20260925';
+        s.async = true;
+        document.head.appendChild(s);
+      }
+      if (mq.matches) load();
+      else if (mq.addEventListener) mq.addEventListener('change', function(e){ if (e.matches) load(); });
     })();
     </script>
   </div>
@@ -3702,10 +3757,16 @@ window.watchLive = (function () {
      uids), rendered in CONVERSATION ORDER, oldest at the top and
      newest at the bottom.
 
-     REAL ONLY (2026-08-31, founder: "get rid of the bots on the open
-     group chat"). The 2026-08-29 ambient scripted-persona layer is
-     RETIRED on his newer explicit instruction; do not restore it.
-     With no real messages the panel stays blank for signed-out visitors.
+     REAL ONLY from 2026-08-31 (founder: "get rid of the bots on the
+     open group chat") until 2026-09-25, when he asked for scripted
+     chatter back ("add more random fake chats under fake names") after
+     being shown this rule. That now runs for the 'on' arm of
+     landing_chatter_v1 through the chatter block below; the 'off' arm
+     and any page view where /js/landing-chatter.js fails to load are
+     exactly the real-only renderer described here. The scripted lines
+     never reach /api/live-chats, The Commons, or any stored record.
+     With no real messages the real-only panel stays blank for
+     signed-out visitors.
      Signed-in people keep the composer so they can start the chat.
      Existing highlights paint in full, then continue typing at the bottom.
      All text lands via textContent, never innerHTML. The panel is
@@ -3730,6 +3791,11 @@ window.watchLive = (function () {
     list.addEventListener('scroll', function(){
       following = list.scrollHeight - list.clientHeight - list.scrollTop < 40;
     });
+    // Scripted chatter (landing_chatter_v1 'on' arm, 2026-09-25). Null
+    // means the panel runs on real rows alone, exactly as it always has;
+    // the chatter block below the poll explains the rest.
+    var chatter = null;
+    var chatterWaited = false;
     var reduced = window.matchMedia ? window.matchMedia('(prefers-reduced-motion:reduce)') : null;
     panel.addEventListener('mouseenter', function(){ hovering = true; });
     panel.addEventListener('mouseleave', function(){ hovering = false; });
@@ -3781,6 +3847,7 @@ window.watchLive = (function () {
       if (following) list.scrollTop = list.scrollHeight;
     }
     if (reduced && reduced.addEventListener) reduced.addEventListener('change', function(e){
+      if (chatter) return;
       if (e.matches) showStatic();
       else if (items.length) schedule(1600);
     });
@@ -3821,6 +3888,7 @@ window.watchLive = (function () {
     }
 
     function renderAll(){
+      if (chatter){ renderChatterReal(); return; }
       var msgs = realRows.filter(function(m){ return m && m.text; });
       if (!msgs.length){
         panel.classList.remove('is-live');
@@ -3902,6 +3970,258 @@ window.watchLive = (function () {
       else if (timer === null) typeNext();
     }
 
+    /* ── Scripted chatter (2026-09-25) ──────────────────────────────
+       Founder: "add more random fake chats under fake names but make
+       them really human ... so when ppl see it there is a feeling of
+       liveliness". Runs only for the 'on' arm of landing_chatter_v1.
+       The lines come from /js/landing-chatter.js, a pure schedule keyed
+       to the wall clock, and they exist only in this browser: nothing
+       here posts, stores, or sends one. See soul.md, 2026-09-25.
+
+       Real rows keep their place and their words. In this mode they sit
+       in `group` in true order and are never re-typed at the bottom,
+       because a real message recycled under a scripted one reads as
+       that person answering someone who does not exist. Scripted rows
+       live in `tail` below them and arrive on the schedule. A real
+       message that lands while the page is open joins the tail, cuts
+       the scripted conversation short, and quiets the room for a
+       moment, so no scripted line ever lands directly under a real
+       person's words. A member's own post (landing-chat.js) shows at
+       once and quiets the room for longer. */
+    var tail = null;
+    var tailItems = [];
+    var arrivals = [];
+    var typing = null;
+    var arrivalTimer = null;
+    var clockAt = 0;
+    var mountAt = 0;
+    var quietUntil = 0;
+    var droppedEps = {};
+    var acceptedEps = {};
+    var echoes = {};
+    var TAIL_MAX = 28;
+    function echoKey(handle, text){ return String(handle || '').toLowerCase() + '\n' + String(text || '').trim(); }
+    function chatterRow(m, scripted){
+      var a = document.createElement('a');
+      a.className = 'fs-chats-msg';
+      if (m.room === 'discord'){
+        a.href = 'https://discord.gg/WMHZW9BKvJ';
+        a.target = '_blank';
+        a.rel = 'noopener';
+      } else {
+        a.href = m.room === 'tournament' ? '/community#tournament' : '/community';
+      }
+      a.setAttribute('data-cta', 'first-screen-chats-msg');
+      a.setAttribute('data-ab-test', 'landing_chatter_v1');
+      a.setAttribute('data-ab-target', scripted ? 'row_scripted' : 'row');
+      a.setAttribute('aria-label', [m.label, m.handle, m.text].filter(Boolean).join(': '));
+      var meta = document.createElement('span');
+      meta.className = 'fs-chats-meta';
+      var room = document.createElement('span');
+      room.className = 'fs-chats-room';
+      room.textContent = String(m.label || '') + ' ';
+      meta.appendChild(room);
+      var handle = document.createElement('span');
+      handle.className = 'fs-chats-handle';
+      handle.textContent = String(m.handle || '');
+      meta.appendChild(handle);
+      var text = document.createElement('span');
+      text.className = 'fs-chats-text';
+      a.appendChild(meta); a.appendChild(text);
+      return { node:a, text:text, chars:Array.from(String(m.text || '')), offset:0, handle:String(m.handle || '') };
+    }
+    function follow(){ if (following) list.scrollTop = list.scrollHeight; }
+    function chatterBlocked(){
+      return document.hidden || (mq && !mq.matches) || hovering || panel.contains(document.activeElement) || panel.classList.contains('is-paused');
+    }
+    function placeScripted(line, full){
+      var item = chatterRow({ room:'commons', label:'The Commons', handle:line.handle, text:line.text }, true);
+      item.scripted = true;
+      item.ep = line.ep;
+      acceptedEps[line.ep] = true;
+      if (full) item.text.textContent = item.chars.join('');
+      tail.appendChild(item.node);
+      tailItems.push(item);
+      return item;
+    }
+    function trimTail(){
+      var scripted = tailItems.filter(function(item){ return item.scripted && item !== typing; });
+      while (scripted.length > TAIL_MAX){
+        var old = scripted.shift();
+        old.node.remove();
+        tailItems.splice(tailItems.indexOf(old), 1);
+      }
+    }
+    // A real message just landed: every scripted conversation on screen
+    // stops here and none may start for `ms`.
+    function quietChatter(ms){
+      quietUntil = Math.max(quietUntil, Date.now() + ms);
+      dropConversations();
+    }
+    function dropConversations(){
+      tailItems.forEach(function(item){ if (item.scripted) droppedEps[item.ep] = true; });
+      arrivals.forEach(function(a){ if (a.line) droppedEps[a.line.ep] = true; });
+      arrivals = arrivals.filter(function(a){ return !a.line; });
+    }
+    function typeArrival(){
+      arrivalTimer = null;
+      if (!typing){
+        if (!arrivals.length) return;
+        if (chatterBlocked()){ arrivalTimer = setTimeout(typeArrival, 250); return; }
+        var next = arrivals.shift();
+        if (next.item){
+          typing = next.item;
+          tail.appendChild(typing.node);
+          if (tailItems.indexOf(typing) === -1) tailItems.push(typing);
+        } else {
+          typing = placeScripted(next.line, false);
+        }
+        if (reduced && reduced.matches){
+          typing.text.textContent = typing.chars.join('');
+          typing = null;
+          trimTail();
+          follow();
+          arrivalTimer = setTimeout(typeArrival, 300);
+          return;
+        }
+        typing.offset = 0;
+        typing.text.textContent = '';
+        typing.node.classList.add('is-typing');
+      }
+      if (chatterBlocked()){ arrivalTimer = setTimeout(typeArrival, 250); return; }
+      typing.offset = Math.min(typing.chars.length, typing.offset + Math.max(1, Math.ceil(typing.chars.length / 100)));
+      typing.text.textContent = typing.chars.slice(0, typing.offset).join('');
+      follow();
+      if (typing.offset >= typing.chars.length){
+        typing.node.classList.remove('is-typing');
+        typing = null;
+        trimTail();
+        arrivalTimer = setTimeout(typeArrival, 500);
+      } else arrivalTimer = setTimeout(typeArrival, 28);
+    }
+    function kickArrivals(){
+      if (arrivals.length && !typing && arrivalTimer === null) typeArrival();
+    }
+    function chatterClock(){
+      if (!chatter || document.hidden || (mq && !mq.matches)) return;
+      var now = Date.now();
+      var from = Math.max(clockAt, now - 5 * 60000);
+      clockAt = now;
+      var due;
+      try { due = chatter.between(from, now); } catch (e) { return; }
+      due = due.filter(function(line){
+        if (droppedEps[line.ep]) return false;
+        if (line.i === 0){
+          if (line.at < quietUntil){ droppedEps[line.ep] = true; return false; }
+          acceptedEps[line.ep] = true;
+          return true;
+        }
+        return !!acceptedEps[line.ep];
+      });
+      if (!due.length) return;
+      // Back from another tab with several lines due: they are already
+      // said, so they land whole, and only the newest types in.
+      if (due.length > 2 && !typing && !arrivals.length){
+        var last = due.pop();
+        due.forEach(function(line){ placeScripted(line, true); });
+        trimTail();
+        follow();
+        due = [last];
+      }
+      due.forEach(function(line){ arrivals.push({ line: line }); });
+      kickArrivals();
+    }
+    function mountChatter(){
+      var c = window.DBLandingChatter;
+      var now = Date.now();
+      c.setAvoid((window.__fsChatsCache || []).map(function(m){ return m && m.handle; }));
+      var lines = c.backlog(now, { minLines: 9 });
+      chatter = c;
+      mountAt = now;
+      clockAt = now;
+      group = document.createElement('div');
+      group.className = 'fs-chats-group';
+      list.appendChild(group);
+      tail = document.createElement('div');
+      tail.className = 'fs-chats-group';
+      list.appendChild(tail);
+      lines.forEach(function(line){ placeScripted(line, true); });
+      panel.classList.add('is-live');
+      following = true;
+      follow();
+      setInterval(chatterClock, 1000);
+      window.addEventListener('dblandingchat:sent', function(e){
+        var d = (e && e.detail) || {};
+        if (!d.text) return;
+        var row = chatterRow({ room:'commons', label:'The Commons', handle:d.handle, text:d.text }, false);
+        row.text.textContent = row.chars.join('');
+        row.inTail = true;
+        echoes[echoKey(d.handle, d.text)] = row;
+        tail.appendChild(row.node);
+        tailItems.push(row);
+        quietChatter(150000);
+        following = true;
+        follow();
+      });
+    }
+    function renderChatterReal(){
+      var msgs = realRows.filter(function(m){ return m && m.text; });
+      if (chatter.setAvoid(msgs.map(function(m){ return m.handle; }))) dropConversations();
+      // A scripted name that now matches a real person in the feed leaves
+      // the screen, so the two can never be mistaken for each other.
+      tailItems = tailItems.filter(function(item){
+        if (!item.scripted || !chatter.avoids(item.handle)) return true;
+        item.node.remove();
+        if (typing === item) typing = null;
+        return false;
+      });
+      arrivals = arrivals.filter(function(a){ return !a.line || !chatter.avoids(a.line.handle); });
+      msgs = msgs.length ? pickMix(msgs) : [];
+      msgs.sort(function(a, b){ return (a.at || 0) - (b.at || 0); });
+      var nextKey = JSON.stringify(msgs.map(function(m){ return [m.room, m.label, m.handle, m.text, m.at]; }));
+      if (nextKey === renderedKey) return;
+      renderedKey = nextKey;
+      var previous = items;
+      var fresh = [];
+      items = [];
+      msgs.forEach(function(m){
+        var key = JSON.stringify([m.room, m.label, m.handle, m.text, m.at]);
+        for (var i = 0; i < previous.length; i++){
+          if (previous[i].key === key){ items.push(previous[i]); return; }
+        }
+        var ek = echoKey(m.handle, m.text);
+        if (echoes[ek]){
+          var echo = echoes[ek];
+          delete echoes[ek];
+          echo.key = key;
+          items.push(echo);
+          return;
+        }
+        var item = chatterRow(m, false);
+        item.key = key;
+        items.push(item);
+        // Newer than this page load: it arrives at the bottom, typed.
+        // Older: it takes its place in the history above, whole.
+        if ((m.at || 0) > mountAt){ item.inTail = true; fresh.push(item); }
+        else item.text.textContent = item.chars.join('');
+      });
+      previous.forEach(function(item){
+        if (items.indexOf(item) !== -1) return;
+        item.node.remove();
+        var at = tailItems.indexOf(item);
+        if (at !== -1) tailItems.splice(at, 1);
+        if (typing === item) typing = null;
+      });
+      arrivals = arrivals.filter(function(a){ return !a.item || items.indexOf(a.item) !== -1; });
+      items.forEach(function(item){ if (!item.inTail) group.appendChild(item.node); });
+      if (fresh.length){
+        quietChatter(25000);
+        fresh.forEach(function(item){ arrivals.push({ item: item }); });
+        kickArrivals();
+      }
+      follow();
+    }
+
     // A failed refresh preserves real messages already on screen;
     // a failed first load stays blank.
     function poll(){
@@ -3922,7 +4242,20 @@ window.watchLive = (function () {
 
     function start(){
       if (started) return;
+      // The 'on' arm loads /js/landing-chatter.js beside this renderer.
+      // Give it a moment so the first paint already has the room in it;
+      // if it never arrives, the panel runs on real rows alone.
+      if (window.__fsChatterLoading && !window.DBLandingChatter && !chatterWaited){
+        chatterWaited = true;
+        window.__fsChatterReady = start;
+        setTimeout(start, 2500);
+        return;
+      }
       started = true;
+      if (window.__fsChatterLoading && window.DBLandingChatter){
+        try { mountChatter(); }
+        catch (e) { chatter = null; group = null; tail = null; tailItems = []; list.innerHTML = ''; }
+      }
       // Return visit: the last payload paints synchronously, before the
       // network answers, and the fetch below refreshes in place.
       if (window.__fsChatsCache && window.__fsChatsCache.length){
