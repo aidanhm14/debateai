@@ -43,6 +43,47 @@ try{
  assert.equal(request.opts.headers.Authorization,'Bearer fixture-id-token');assert.equal(request.opts.cache,'no-store');
  globalThis.fetch=async()=>({ok:false,status:403});await assert.rejects(journey.readDocument({path:'live_rounds/fixture',firestore:{app:{options:{projectId:'fixture'}}}},{getIdToken:async()=> 'fixture'}),e=>e.code==='http_403');
 }finally{globalThis.fetch=realFetch;}
+// Matched rooms read immediately for either seat. A delayed listener must not
+// impose an extra 600ms/3s wait before admission can even begin.
+function kickoffFixture(uid='a'){
+ const server=deferred(), reads=[], adopted=[], seeded=[];
+ const context={Promise,gtag(){},state:{phase:'setup',room:'fixture',user:{uid},proUid:'a',conUid:'b'},prefill:{source:'spar'},
+  getRoundDocRef:()=>({id:'fixture'}),DBLiveJourney:{readDocument:(ref,user)=>{reads.push([ref.id,user.uid]);return server.promise;}},
+  onRoundSnapshot:(saved,room)=>{adopted.push({saved,room});if(saved.status==='round'||saved.status==='ballot')context.state.phase=saved.status;},
+  startRound:chooseInRoom=>{seeded.push(chooseInRoom);context.state.phase='round';}};
+ context.isSpectator=()=>!context.state.user||![context.state.proUid,context.state.conUid].includes(context.state.user.uid);
+ vm.createContext(context);vm.runInContext('var matchedKickoffPending = null;'+fn(live,'kickoffMatchedRound'),context);
+ return {context,server,reads,adopted,seeded,run:()=>context.kickoffMatchedRound()};
+}
+for(const uid of ['a','b']){
+ const f=kickoffFixture(uid), pending=f.run();
+ assert.equal(f.run(),pending,'repeated auth callbacks share one kickoff');
+ await settle();assert.deepEqual(f.reads,[['fixture',uid]],'both seats begin the server read without a timer');
+ assert.equal(f.seeded.length,0,'the read must finish before init');
+ f.server.resolve({exists:false});await pending;assert.deepEqual(f.seeded,[true]);
+ assert.equal(f.context.matchedKickoffPending,null);
+}
+for(const saved of [{status:'round',speechIdx:3,motion:'Saved motion',speeches:[{text:'Saved speech'}]},
+ {status:'ballot'},{status:'done'},{status:'ended'},{status:'forfeit'},
+ {speechIdx:2},{speeches:[{text:'Saved speech'}]},{currentTimer:{state:'running'}}]){
+ const f=kickoffFixture('b'),pending=f.run();await settle();f.server.resolve({exists:true,data:()=>saved});await pending;
+ assert.equal(f.seeded.length,0,'existing progress is never initialized again');
+ assert.equal(f.adopted[0].saved,saved,'rejoins adopt saved state immediately');
+}
+for(const change of [f=>{f.context.state.user={uid:'someone-else'};},f=>{f.context.state.room='other-room';},
+ f=>{f.context.state.phase='round';},f=>{f.context.state.user=null;}]){
+ const f=kickoffFixture(),pending=f.run();await settle();change(f);
+ f.server.resolve({exists:true,data:()=>({status:'round',motion:'stale'})});await pending;
+ assert.equal(f.adopted.length,0,'a late read cannot replace a newer room, account or snapshot');assert.equal(f.seeded.length,0);
+}
+const failedKickoff=kickoffFixture(),failedRead=failedKickoff.run();await settle();
+failedKickoff.server.reject(new Error('offline'));await failedRead;
+assert.equal(failedKickoff.seeded.length,0,'failed reads never seed blind');assert.equal(failedKickoff.context.matchedKickoffPending,null);
+for(const change of [f=>{f.context.getRoundDocRef=()=>null;},f=>{f.context.state.user={uid:'spectator'};},
+ f=>{f.context.prefill.source='invite';},f=>{f.context.state.conUid='';}]){
+ const f=kickoffFixture();change(f);await f.run();assert.equal(f.reads.length,0);assert.equal(f.seeded.length,0);
+}
+assert.match(live,/subscribeRound\(\);[\s\S]*?kickoffMatchedRound\(\);/,'auth kickoff remains connected to round synchronization');
 // Real direct sign-in function: one popup across entrances, reuse returned credential,
 // and release the controls even when the redirect fallback itself fails.
 const buttons = new Map();const node=()=>({disabled:false,textContent:'',setAttribute(){}});
@@ -90,4 +131,4 @@ for(const [name,html] of [['spar',spar],['live-round',live]])for(const match of 
  if(/\bsrc\s*=|application\/ld\+json|application\/json/.test(match[1]))continue;
  new vm.Script(match[2],{filename:name+'.html'});
 }
-console.log('First live journey: auth races, consent timeout, HTTP recovery, stale/pending writes, media retry, completion definitions and full inline parsing passed.');
+console.log('First live journey: auth races, immediate guarded room entry, consent timeout, HTTP recovery, stale/pending writes, media retry, completion definitions and full inline parsing passed.');

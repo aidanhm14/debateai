@@ -4,6 +4,7 @@ import vm from 'node:vm';
 
 const read = file => readPageSource(new URL('../' + file, import.meta.url), 'utf8');
 const live = read('app/live-round.html');
+const liveLayout = read('app/css/live-room-layout.css');
 const practice = read('app/practice.html');
 const flow = read('app/netlify/functions/flow.mjs');
 const exporter = read('app/js/round-export.js');
@@ -84,7 +85,7 @@ assert(!live.slice(live.indexOf('  function floorJudgeComment'),live.indexOf('  
 assert(live.includes("remark.kind !== 'round-summary'"));
 assert(live.indexOf('generateRoundNotes(entry, state.speechIdx - 1);') < live.indexOf('      finishRound();',live.indexOf('  function endSpeech(')));
 assert(practice.includes("purpose: 'notes'"));
-assert(live.includes('id="openRoundNotes"') && live.includes('body.spectator-mode .spec-menu{display:flex'));
+assert(live.includes('id="openRoundNotes"') && liveLayout.includes('body.spectator-mode .spec-menu{display:flex'));
 assert(exporter.includes("scope:SCOPE,include_granted_scopes:false"));
 assert(!exporter.includes('localStorage') && !exporter.includes('sessionStorage'));
 console.log('Round notes and Google Docs export: all assertions passed');

@@ -5018,8 +5018,7 @@ function App() {
   // terminal error signals, not progress milestones.
   var funnelFiredRef = useRef({});
   var latencyMarkRef = useRef({ sessionStart: 0, sessionMint: 0, firstAiAudio: 0 });
-  var pendingTurnsRef = useRef([]);
-  var flushTurnsTimerRef = useRef(null);
+  var transcriptCaptureRef = useRef(null);
   // WS1 Phase 2: Network resilience (30s drop recovery)
   var isDisconnectedRef = useRef(false);
   var disconnectTimeRef = useRef(0);
@@ -5045,40 +5044,48 @@ function App() {
     } catch (e) {}
   }
 
-  // Flush pending turns to /api/log-generation every 5s or on demand
-  var flushPendingTurns = useCallback(async () => {
-    if (flushTurnsTimerRef.current) {
-      clearTimeout(flushTurnsTimerRef.current);
-      flushTurnsTimerRef.current = null;
-    }
-    if (pendingTurnsRef.current.length === 0) return;
+  // Durable capture shares the consent gate and acknowledged chunk writer
+  // used by the other voice surfaces. Only final turns enter this queue;
+  // streamed deltas are display updates, not separate spoken turns.
+  function captureFinalVoiceTurn(turn) {
+    var capture = transcriptCaptureRef.current;
+    if (!capture || !turn || !turn.id || !(turn.text || '').trim() || capture.seen[turn.id]) return;
+    capture.seen[turn.id] = true;
+    var copy = Object.assign({}, turn);
+    if (capture.session) capture.session.push(copy);else
+    if (!capture.resolved) capture.pending.push(copy);
+  }
 
-    var turnsToWrite = pendingTurnsRef.current.splice(0);
-    if (lastVoiceRoundIdRef.current && turnsToWrite.length > 0) {
-      try {
-        await fetch('/api/log-generation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            generationId: lastVoiceRoundIdRef.current,
-            kind: 'voice_round_incremental',
-            turns: turnsToWrite,
-            timestamp: Date.now()
-          })
-        });
-      } catch (e) {
-        console.warn('[voice-debate] incremental turn flush failed:', e.message);
-        // Re-queue turns on failure so they're not lost
-        pendingTurnsRef.current.unshift(...turnsToWrite);
-      }
+  function beginVoiceCapture(snapshot) {
+    var existing = transcriptCaptureRef.current;
+    if (snapshot && existing && !existing.finished) return;
+    if (existing && !existing.finished) {
+      existing.finished = 'abandoned';
+      if (existing.session) existing.session.finish({ status: 'abandoned', roundId: existing.roundId });
     }
-  }, []);
+    var capture = { session: null, resolved: false, finished: false, pending: [], seen: {},
+      roundId: snapshot && snapshot.captureRoundId || 'voice-' + (window.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)) };
+    transcriptCaptureRef.current = capture;
+    if (!window.VoiceTranscript) {capture.resolved = true;return;}
+    VoiceTranscript.start({ surface: 'voice-debate', motion: motion || '', mode: mode || '',
+      format: mode || '', side: side || '', persona: personaKey || '', roundId: capture.roundId
+    }).then(function (session) {
+      capture.session = session;
+      capture.resolved = true;
+      if (session) capture.pending.forEach(function (turn) {session.push(turn);});
+      capture.pending = [];
+      if (session && capture.finished) session.finish({ status: capture.finished, roundId: capture.roundId });
+    }).catch(function () {capture.resolved = true;capture.pending = [];});
+    if (snapshot) (snapshot.turns || []).filter(function (turn) {return turn.who !== 'system';}).forEach(captureFinalVoiceTurn);
+  }
 
-  // Schedule the next flush after a turn is added
-  var scheduleNextFlush = useCallback(() => {
-    if (flushTurnsTimerRef.current) return;
-    flushTurnsTimerRef.current = setTimeout(flushPendingTurns, 5000);
-  }, [flushPendingTurns]);
+  function finishVoiceCapture(status) {
+    captureFinalVoiceTurn(currentAiTurnRef.current);
+    var capture = transcriptCaptureRef.current;
+    if (!capture) return;
+    capture.finished = status || 'complete';
+    if (capture.session) capture.session.finish({ status: capture.finished, roundId: capture.roundId });
+  }
 
   // WS1 Phase 2: Queue turns that arrive while disconnected
   var queueTurnIfDisconnected = useCallback((turn) => {
@@ -5447,6 +5454,7 @@ function App() {
     }));
     return {
       version: 1,
+      captureRoundId: transcriptCaptureRef.current && transcriptCaptureRef.current.roundId || '',
       savedAt: Date.now(),
       motion: String(motion || '').slice(0, 600),
       background: String(background || generatedBackground || '').slice(0, 1200),
@@ -5533,10 +5541,7 @@ function App() {
       }
       return [...prev, turn];
     });
-    // Queue turn for incremental flush (WS1: transcript resilience)
-    pendingTurnsRef.current.push(turn);
-    scheduleNextFlush();
-  }, [scheduleNextFlush, queueTurnIfDisconnected]);
+  }, [queueTurnIfDisconnected]);
   // Per-turn documentation metadata, stamped at turn creation so the
   // saved transcript can show WHEN (session-relative) and in WHICH
   // speech each exchange happened. `t` is ms since the round clock
@@ -5557,15 +5562,10 @@ function App() {
   /* ── Cleanup ──────────────────────────────────── */
 
   var cleanup = useCallback(() => {
-    // WS1: flush any remaining turns before cleanup
-    if (flushTurnsTimerRef.current) {
-      clearTimeout(flushTurnsTimerRef.current);
-      flushTurnsTimerRef.current = null;
-    }
-    // Synchronously queue the final flush (non-blocking, no await)
-    if (pendingTurnsRef.current.length > 0 && lastVoiceRoundIdRef.current) {
-      flushPendingTurns().catch((e) => console.warn('[cleanup] final flush failed:', e));
-    }
+    // Cleanup can be a recoverable transport interruption. Keep the
+    // capture open and flush acknowledged chunks without calling it done.
+    captureFinalVoiceTurn(currentAiTurnRef.current);
+    if (transcriptCaptureRef.current && transcriptCaptureRef.current.session) transcriptCaptureRef.current.session.flush();
 
     // WS1 Phase 2: Clear network resilience state
     isDisconnectedRef.current = false;
@@ -5827,6 +5827,7 @@ function App() {
           var cur = currentAiTurnRef.current;
           if (cur) {
             upsertTurn({ ...cur, interrupted: true });
+            captureFinalVoiceTurn({ ...cur, interrupted: true });
             currentAiTurnRef.current = null;
             setInterruptCount((n) => n + 1);
             setInterruptFlash((n) => n + 1);
@@ -5878,10 +5879,14 @@ function App() {
           try {if (window.DBLocale) window.DBLocale.observe(evt.transcript || '', { ui: false });} catch (_) {}
           var _id = currentUserTurnRef.current?.id;
           if (_id) {
-            upsertTurn({ id: _id, who: 'you', text: evt.transcript || '' });
+            var completedUserTurn = Object.assign({}, currentUserTurnRef.current, { id: _id, who: 'you', text: evt.transcript || '' });
+            upsertTurn(completedUserTurn);
+            captureFinalVoiceTurn(completedUserTurn);
             currentUserTurnRef.current = null;
           } else {
-            upsertTurn({ id: 'you-' + Date.now(), who: 'you', text: evt.transcript || '', ...turnStamp() });
+            var completedUserTurn = { id: 'you-' + Date.now(), who: 'you', text: evt.transcript || '', ...turnStamp() };
+            upsertTurn(completedUserTurn);
+            captureFinalVoiceTurn(completedUserTurn);
           }
           // WS2 Phase 4: a completed user speech scores immediately, then
           // the reaction rail advances to tag the next speech.
@@ -5977,12 +5982,14 @@ function App() {
           if (_cur2) {
             _cur2.text = evt.transcript || _cur2.text;
             upsertTurn(_cur2);
+            captureFinalVoiceTurn(_cur2);
           }
           break;
         }
 
       case 'response.done':{
           aiRespondingRef.current = false;
+          captureFinalVoiceTurn(currentAiTurnRef.current);
           if (lastSpeechTickRef.current.who === 'ai' && lastSpeechTickRef.current.ai) {
             setAiSpeakingMs((ms) => ms + (Date.now() - lastSpeechTickRef.current.ai));
           }
@@ -6116,6 +6123,7 @@ function App() {
     if (thinkingStopRef.current) {try {thinkingStopRef.current();} catch (_) {}thinkingStopRef.current = null;}
     setAiThinking(false);
     statusRef.current = 'ended';
+    finishVoiceCapture('complete');
     clearVoiceRoundRecovery();
     setRecoverableRound(null);
     resumeSnapshotRef.current = null;
@@ -6182,6 +6190,10 @@ function App() {
               turnCount: t.length,
               userTurnCount: realUserTurns,
               source: namedUser ? 'voice_signed_in' : 'anonymous_voice_round',
+              transcriptId: transcriptCaptureRef.current && transcriptCaptureRef.current.session ? transcriptCaptureRef.current.session.id() : '',
+              roundId: transcriptCaptureRef.current && transcriptCaptureRef.current.roundId || '',
+              captureVersion: 2,
+              transcriptScope: 'human_and_ai',
               fullTranscript: transcript.slice(0, 39000)
             },
             // Research-corpus opt-in (off by default). This is a request,
@@ -6335,7 +6347,7 @@ function App() {
     // round. Non-blocking: the modal overlays the connecting screen and
     // the answer is read again at flush time in stop(). Unanswered or
     // declined both mean the transcript is never written to the server.
-    try {if (window.TranscriptConsent) window.TranscriptConsent.ensure();} catch (e) {}
+    beginVoiceCapture(resumingSnapshot);
     // Bound the whole handshake. Aborts at 30s (or via the Cancel button);
     // the outer catch rolls back to idle so the spinner can't hang forever.
     var connectAbort = new AbortController();
@@ -7672,7 +7684,9 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
       // way raced concurrent AI-delta writes (the snapshot could clobber
       // an in-flight AI turn) and, with no id on the turn, rendered the
       // typed line with key=undefined.
-      upsertTurn({ id: 'you-typed-' + Date.now(), who: 'you', text: t, ts: Date.now(), typed: true, ...turnStamp() });
+      var typedTurn = { id: 'you-typed-' + Date.now(), who: 'you', text: t, ts: Date.now(), typed: true, ...turnStamp() };
+      upsertTurn(typedTurn);
+      captureFinalVoiceTurn(typedTurn);
     } catch (e) {
       console.warn('[text-interject] send failed:', e);
     }
@@ -8060,12 +8074,13 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
           var roundDocId = null;
           try {
             var _ru = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
-            if (_ru && typeof firebase.firestore === 'function') {
+            if (_ru && typeof firebase.firestore === 'function' && window.TranscriptConsent && TranscriptConsent.granted()) {
               var roundRef = firebase.firestore().collection('voice_rounds').doc();
               roundDocId = roundRef.id;
               payload.id = roundDocId;
               roundRef.set({
                 uid: _ru.uid,
+                published: false,
                 motion: payload.motion,
                 mode: payload.mode,
                 modeLabel: payload.modeLabel,
@@ -10200,6 +10215,7 @@ root.render(el(App));</script>
 <script defer src="/js/onboarding.js"></script>
 <script defer src="/js/corpus-nudge.js"></script>
 <script defer src="/js/transcript-consent.js"></script>
+<script defer src="/js/voice-transcript.js"></script>
 
 <!-- Floating Feedback pill. Surface parity with landing.html and
      pricing.html. Links straight to the Google Form rather than

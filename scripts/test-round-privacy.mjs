@@ -24,6 +24,14 @@ for(const privacy of [true,false,undefined])for(const speechIdx of [0,2]){
 ctx.prefill.isPrivate=true;saved=null;writes=[];
 await ctx.publishRoundInit();assert.equal(writes[0].isPrivate,true,'explicit private invite remains private');
 ctx.prefill.isPrivate=false;
+// If both matched arrivals read an empty room, the second init transaction
+// still sees the first one's saved state and cannot reset its choices.
+for(const progress of [{status:'round',speechIdx:0},{status:'ballot'},
+ {currentTimer:{state:'running'}},{speechIdx:3},{speeches:[{text:'Already spoken'}]}]){
+ saved={proUid:'a',conUid:'b',motion:'Saved topic',judgePicks:{pro:'chair',con:'chair'},...progress};writes=[];
+ await ctx.publishRoundInit();
+ assert.equal(writes.length,0,'a simultaneous or stale init cannot overwrite saved round state');
+}
 assert.ok(!page.includes('id="privacyMenu"'),'no visibility menu');
 assert.ok(!page.includes('nudgedUnlisted'),'no repeated unlisted nag');
 assert.ok(page.includes('Promise.resolve(publishRoundInit()).then(mountDaily)'),'privacy saves before video credentials');

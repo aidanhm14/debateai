@@ -293,6 +293,35 @@ service cloud.firestore {
             || resource.data.get('currentTimer', {}).get('state', '') == 'running'
             || (!topicStrikesOpen() && request.resource.data.get('motion', '').size() >= 5));
       }
+      function validSpeechTiming(round) {
+        let plan = round.get('speechTiming', {});
+        let secs = plan.get('seconds', []);
+        return !('speechTiming' in round) || (plan.keys().hasOnly(['version', 'seconds'])
+          && plan.get('version', 0) == 1 && secs is list && secs.size() == 6
+          && secs[0] is int && secs[2] is int && secs[4] is int
+          && secs[0] >= 60 && secs[0] <= 600 && secs[0] % 30 == 0
+          && secs[2] >= 60 && secs[2] <= 600 && secs[2] % 30 == 0
+          && secs[4] >= 60 && secs[4] <= 600 && secs[4] % 30 == 0
+          && secs[0] == secs[1] && secs[2] == secs[3] && secs[4] == secs[5]);
+      }
+      function speechTimingHeld() {
+        let changed = request.resource.data.diff(resource.data).affectedKeys();
+        let clock = resource.data.get('currentTimer', {});
+        return (!changed.hasAny(['speechTimingLocked']) || (resource.data.get('speechTimingLocked', false) == false
+            && request.resource.data.get('speechTimingLocked', false) == true
+            && request.resource.data.get('format', '') == 'quick'
+            && validSpeechTiming(request.resource.data) && 'speechTiming' in request.resource.data))
+          && (!changed.hasAny(['speechTiming', 'speechTimingLocked']) || (validSpeechTiming(request.resource.data)
+          && resource.data.get('speechTimingLocked', false) == false
+          && resource.data.get('format', 'open') in ['open', 'quick']
+          && resource.data.get('speechIdx', 0) == 0 && resource.data.get('speeches', []).size() == 0
+          && !(resource.data.get('status', '') in ['ballot', 'ended', 'completed', 'done', 'forfeit'])
+          && !('ballot' in resource.data) && resource.data.get('ballotPending', false) != true
+          && resource.data.get('teamLockedAt', 0) == 0 && resource.data.get('teamSize', 1) != 2
+          && resource.data.get('proUid2', '') == '' && resource.data.get('conUid2', '') == ''
+          && resource.data.get('tournamentId', '') == '' && !('tournamentRound' in resource.data) && !('tournament' in resource.data)
+          && clock.get('state', 'ready') == 'ready' && clock.get('startMs', 0) == 0 && clock.get('accumulatedMs', 0) == 0));
+      }
       // Missing gets let a participant create a fresh room transactionally.
       allow get: if !exists(/databases/$(database)/documents/live_rounds/$(roomId))
                  || canReadRound(resource.data);
@@ -301,6 +330,7 @@ service cloud.firestore {
                     && request.resource.data.isPrivate is bool
                     && isSeated(request.resource.data)
                     && stringUnder('motion', 4096)
+                    && validSpeechTiming(request.resource.data)
                     && !request.resource.data.keys().hasAny(['topicStrikes', 'topicStrikesRevision'])
                     && !request.resource.data.keys().hasAny(['teamSize','teamHostUid','teamLockedAt','teamSeatsOpenedAt','teamEnding','teamFinished','teamFinishedAt','proUid2','conUid2','proName2','conName2']);
 
@@ -397,6 +427,7 @@ service cloud.firestore {
                     && leaderboardConsentChangeIsOwnUid()
                     && motionAcceptsChangeIsOwnUid()
                     && topicChoiceHeld()
+                    && speechTimingHeld()
                     && seatsHeldOrTraded()
                     && teamSeatsHeld()
                     && teamCaptureAllowed()
@@ -969,27 +1000,29 @@ service cloud.firestore {
     }
 
     // ── voice_rounds ─────────────────────────────────────────────────
-    // Saved, revisitable voice-round records (ballot + full transcript +
-    // stats). Written client-side by voice-debate.html on RFD generation.
-    // Public read so a shared ballot link (/voice-rfd?id=) resolves for
-    // anyone with the unguessable doc id — same privacy model as
-    // certificates. Create is owner-only and the doc must carry the
-    // writer's uid; rounds are immutable once written (no update/delete).
+    // Saved voice decisions and their transcripts are private by default.
+    // The owner's explicit Share action publishes a record; knowing an
+    // unguessable id is not permission to read an unshared transcript.
     match /voice_rounds/{roundId} {
-      allow read:   if true;
+      allow read: if (isSignedIn() && resource.data.uid == request.auth.uid)
+                  || resource.data.get('published', false) == true;
       allow create: if isSignedIn()
                     && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.get('published', false) == false
                     && stringUnder('motion', 1024)
                     && stringUnder('rfd', 20000);
-      allow update, delete: if false;
+      // Publishing cannot alter the transcript, owner, decision or scores.
+      allow update: if isSignedIn() && resource.data.uid == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['published', 'publishedAt'])
+                    && request.resource.data.published is bool
+                    && request.resource.data.publishedAt == request.time;
+      allow delete: if false;
 
-      // ── turns (WS1 incremental transcript resilience) ────────────────
-      // Partial turn data written incrementally by /api/log-generation to
-      // survive mid-round network drops. Server-side only (admin SDK);
-      // client-side writes denied. Doc ID = turn.id (auto-generated by client).
+      // Legacy incremental turns inherit the parent record's visibility.
       match /turns/{turnId} {
-        allow read:   if true;  // admin reads for validation/debugging
-        allow create, update, delete: if false;  // server-side only
+        allow read: if (isSignedIn() && get(/databases/$(database)/documents/voice_rounds/$(roundId)).data.uid == request.auth.uid)
+                    || get(/databases/$(database)/documents/voice_rounds/$(roundId)).data.get('published', false) == true;
+        allow create, update, delete: if false;
       }
 
       // ── polls (WS2 Phase 2: mid-debate polling) ─────────────────────
@@ -1156,8 +1189,8 @@ service cloud.firestore {
     // without deleting the module that writes to it.
     //
     // Distinct from voice_rounds above, which is a finished-ballot
-    // artifact: written once inside generateRFD, publicly readable
-    // because a ballot can be shared, and immutable after creation. A
+    // artifact: written once inside generateRFD, private until the owner
+    // publishes it, and otherwise immutable after creation. A
     // round abandoned before the ballot never produces one.
     //
     // These are private. A transcript is a record of a person speaking,

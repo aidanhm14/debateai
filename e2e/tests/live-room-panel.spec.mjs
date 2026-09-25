@@ -25,8 +25,8 @@ for (const width of [360, 768, 1360]) {
       await page.locator('#audClose').click();
     }
     await page.locator('#roundDetails>summary').click();
-    await expect(page.locator('#roundPlan')).toContainText('16 minutes');
-    await expect(page.locator('#roundPlan li')).toHaveCount(4);
+    await expect(page.locator('#roundPlan')).toContainText('18 minutes');
+    await expect(page.locator('#roundPlan li')).toHaveCount(6);
     await page.locator('#rmbToolsLabel').click();
     await expect(page.locator('#rmbTools button:visible')).toHaveCount(3);
     await expect(page.locator('#rmbDifferBtn')).toBeVisible();
@@ -73,5 +73,23 @@ test('conversation transcript uses one disclosure and keeps the combined flow', 
   await expect(page.locator('#conversationFlow')).toBeVisible();
   await expect(page.locator('#speechText')).toBeHidden();
   await expect(page.locator('#roomTranscript details')).toHaveCount(0);
+  expect(fixture.errors).toEqual([]);
+});
+
+test('visible timed option offers six shared speeches and editable duration pairs', async ({ page }) => {
+  await page.setViewportSize({width:390,height:844});
+  const fixture=await roomDesign(page);
+  await page.goto('https://debatable.test/live-round?design=ready&format=open');
+  await expect(page.locator('#startConvoBtn')).toBeVisible();
+  await expect(page.locator('#roundTimingOptions>summary')).toBeVisible();
+  await expect(page.locator('#roundTimingSummary')).toHaveText('6 speeches · 18 minutes');
+  await page.locator('#roundTimingOptions>summary').click();
+  await expect(page.locator('#roundTimingSequence')).toHaveText('4 · 4 · 3 · 3 · 2 · 2 minutes');
+  await page.getByLabel('Opening time for each side').selectOption('300');
+  await expect(page.locator('#roundTimingStatus')).toHaveText('Timing saved for both people.');
+  await expect(page.locator('#roundTimingSummary')).toHaveText('6 speeches · 20 minutes');
+  await expect(page.locator('#roundTimingSequence')).toHaveText('5 · 5 · 3 · 3 · 2 · 2 minutes');
+  await expect(page.locator('#startFormalBtn')).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   expect(fixture.errors).toEqual([]);
 });

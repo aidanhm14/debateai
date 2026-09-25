@@ -7,6 +7,7 @@ main script, with `data-page-source` so source guards also inspect them.
 | Module | Responsibility |
 | --- | --- |
 | `timers.js` | Speech clock display, start/pause/stop and remote clock state |
+| `speech-timing.js` | Versioned casual speech schedules, legacy compatibility and transactional pre-start timing saves |
 | `media.js` | Capture, camera modes, published tracks, media tiles and audio |
 | `connection.js` | Daily call lifecycle, retries, network health and receive quality |
 | `presence.js` | Seat/spectator heartbeats, departure/rejoin and quiet-room display |
@@ -37,3 +38,11 @@ Remote audio removal is shared by participant refresh and call teardown
 through `media.removeAudio`. It detaches both microphone and judge tracks
 from their elements and drops the registry entries; Daily retains track
 ownership. Unused page adapters were removed after checking lexical callers.
+
+Casual 1v1 timed rounds now save `speechTiming` (version 1, six durations)
+separately from the existing `quick` format key. The default is 4/4/3/3/2/2
+minutes. First timed Start transactionally sets `speechTimingLocked` before
+the clock runs; duration edits and lock removal are denied after that.
+Already-started rounds without this field, tournament rounds and team rounds
+retain the legacy plan. `test-speech-timing.mjs` covers the migration and
+shared settings; the room-panel browser suite covers visible timing controls.

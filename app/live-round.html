@@ -16,8 +16,13 @@
   if(token){url.searchParams.delete('invite');if(fragment.has('invite'))url.hash='';history.replaceState(history.state,'',url.pathname+url.search+url.hash);}
 })();
 </script>
+<script src="/js/live-room-entry.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preload" href="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js" as="script">
+<link rel="preload" href="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js" as="script">
+<link rel="preload" href="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js" as="script">
+<link rel="preload" href="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js" as="script">
 <link rel="preload" href="/vendor/daily-iframe-0.92.2.js" as="script">
 <script src="/js/native-bridge.js"></script>
 <script src="/js/public-identity.js"></script>
@@ -45,12 +50,7 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
      the room with our API key; client embeds the returned URL. Falls
      back gracefully if Daily isn't configured (env vars missing). -->
 
-<!-- Firebase compat SDK, auth + Firestore. Same project as the rest
-     of the app so a sign-in here also unlocks /practice etc. -->
-<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
+<!-- Firebase SDKs execute after the room markup, before its controller. -->
 <script defer src="/js/app-check.js"></script>
 <script defer src="/js/avatar.js"></script>
 <script defer src="/js/avatar-account.js"></script>
@@ -3585,6 +3585,13 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
 .conversation-finish .btn{white-space:normal}
 @media(max-width:600px){.round-plan ol{grid-template-columns:repeat(2,minmax(0,1fr))}.round-plan li{padding:4px 8px}.round-own-side{font-size:.78rem}.round-plan{margin-top:9px}.speech-header #startConvoBtn .md-sub{display:block!important;font-size:.65rem;line-height:1.2;margin-top:2px}}
 </style>
+
+<!-- Final room styles load before the first paint, including slow joins. -->
+<link rel="stylesheet" href="/css/notification-setup.css">
+<link rel="stylesheet" href="/css/live-room-layout.css">
+<link rel="stylesheet" href="/css/round-mobile.css?v=20260910a">
+<link rel="stylesheet" href="/css/live-room-clarity.css">
+<link rel="stylesheet" href="/css/live-room-entry.css">
 </head>
 <body class="lr-setup">
 
@@ -3723,6 +3730,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         </div>
       </details>
     </section>
+    <div id="roomEntryStatus" class="room-entry-status" role="status" hidden><span id="roomEntryMessage">Connecting to your round.</span> <a href="" aria-label="Reload to reconnect to this round">Reconnect</a></div>
     <section class="team-seats" id="teamSeats" aria-label="Team seats" hidden></section>
 
     <!-- Shown only while the video is popped out into a floating window. -->
@@ -3989,8 +3997,17 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
              the round is running the transport is the one button below. -->
         <div class="row mode-doors" id="modeDoors" data-anim-scope hidden>
           <button class="btn btn-play" id="startConvoBtn" type="button" aria-describedby="roundReadiness">▶ Conversational debate</button>
-          <details class="round-mode-options"><summary>Optional: timed speeches</summary><button class="btn" id="startFormalBtn" type="button">Start timed speeches</button></details>
         </div>
+        <details class="round-mode-options" id="roundTimingOptions" hidden>
+          <summary><span><strong>Timed speeches</strong><small id="roundTimingSummary">6 speeches · 18 minutes</small></span><span class="timing-edit-label">Set timing</span></summary>
+          <div class="round-timing-body">
+            <p>Take turns. For speaks first, then Against. Both sides get the same time.</p>
+            <div class="round-timing-fields" id="roundTimingFields"></div>
+            <p id="roundTimingSequence" class="round-timing-sequence">4 · 4 · 3 · 3 · 2 · 2 minutes</p>
+            <p id="roundTimingStatus" role="status">Changes apply to both people before the round starts.</p>
+            <button class="btn" id="startFormalBtn" type="button">Start timed speeches</button>
+          </div>
+        </details>
         <div class="row speech-actions">
           <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start my speech</button>
           <button class="btn btn-end" id="endSpeechBtn" type="button">End speech →</button>
@@ -4107,7 +4124,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
             <div class="reb-summary">
               <span class="reb-note"><span class="reb-title"><span id="rebModeName">General round</span>
                 <span class="reb-flag" id="rebJudgeFlag">Questions + interruptions scored</span></span>
-                <small id="rebModeSub">4 speeches, then the decision.</small></span>
+                <small id="rebModeSub">6 speeches, then the decision.</small></span>
               <button type="button" class="reb-edit reb-opts" id="rebOptionsBtn" aria-expanded="false" aria-controls="rebTools">Options ▾</button>
             </div>
             <div class="reb-tools" id="rebTools" hidden>
@@ -4433,6 +4450,13 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
 })();
 </script>
 
+<script>if(window.DBRoomEntry)window.DBRoomEntry.prepare();</script>
+<!-- Paint the room before waiting for identity SDKs. Preloads fetch these in parallel. -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
+<script src="/js/live-room/speech-timing.js" data-page-source></script>
 <script src="/js/live-room/timers.js" data-page-source></script>
 <script src="/js/live-room/media.js" data-page-source></script>
 <script src="/js/live-room/connection.js" data-page-source></script>
@@ -4448,6 +4472,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     get cloudRec(){ return cloudRec; },
     get conversationIsFinishing(){ return conversationIsFinishing; },
     get roundStartBlock(){ return roundStartBlock; },
+    get ensureSpeechTiming(){ return ensureSpeechTiming; },
     get fmtTime(){ return fmtTime; },
     get foldAidesForSpeech(){ return foldAidesForSpeech; },
     get getElapsed(){ return getElapsed; },
@@ -4626,12 +4651,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     // links, queue docs, and mid-flight rounds keep resolving). Open
     // clash: interruptions are legit and the AI captures them in the
     // transcript + ballot; competition styles live behind Options.
-    quick: { name:'Timed speeches', sides:['pro','con'], sideLabels:{pro:'For',con:'Against'}, speeches:[
-      { code:'P1', name:'Opening (For)', side:'pro', time:300 },
-      { code:'C1', name:'Opening and response (Against)', side:'con', time:300 },
-      { code:'P2', name:'Closing (For)', side:'pro', time:180 },
-      { code:'C2', name:'Closing (Against)', side:'con', time:180 },
-    ]},
+    quick: { name:'Timed speeches', sides:['pro','con'], sideLabels:{pro:'For',con:'Against'}, speeches:DBRoundTiming.speeches(DBRoundTiming.defaults()) },
     // 'blitz' is the tournament sprint: FIVE MINUTES of speech, total.
     // Built for a drop-in day where the whole point is volume — a
     // 20-person field gets seven rounds in an hour on this, against
@@ -5003,7 +5023,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       "- No time rules apply. Ignore length entirely; a shorter, tighter case beats a longer one that never engaged.",
     ],
     quick: [
-      "- Casual one-on-one: one opening and one closing a side. Plain English only. Do not apply a tournament format or tournament jargon.",
+      "- Casual one-on-one: follow the opening, response and closing speeches present in this round. Plain English only. Do not apply a tournament format or tournament jargon.",
       "- SCORE EACH PERSON OUT OF 100: argument strength (0-50), responses to the other person's case (0-35), and structure and clarity (0-15). The higher total wins. State the three components and the totals in the decision.",
       "- The split is deliberate: a side with the weaker case CAN win on responses plus structure. When that is what happened, open the RFD by saying so.",
       "- The second constructive carries two jobs (answer the first case, then build its own). Judge both. A second constructive that only rebuts, or only builds, is incomplete.",
@@ -5846,11 +5866,11 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       return;
     }
     var speeches=f.open?FORMATS.quick.speeches:f.speeches;
-    plan.innerHTML='<p><strong>'+(choosing?'Timed option: ':'')+speeches.length+' speeches'+(state.formatKey==='quick'||f.open?' · 16 minutes':'')+'</strong>'+(choosing?'':' · Then the decision')+'</p><ol>'+speeches.map(function(sp,i){
+    plan.innerHTML='<p><strong>'+(choosing?'Timed option: ':'')+speeches.length+' speeches'+' · '+(speeches.reduce(function(total,sp){return total+sp.time;},0)/60)+' minutes'+'</strong>'+(choosing?'':' · Then the decision')+'</p><ol>'+speeches.map(function(sp,i){
       var active=!choosing&&!f.open&&i===state.speechIdx;
       var label=sp.side==='pro'?'For':'Against';
       var person=speakerNameFor(f.open?FORMATS.quick:f,i);
-      return '<li'+(active?' aria-current="step"':'')+'><b>'+(i+1)+'. '+label+(side===sp.side&&!isSpectator()?' (you)':'')+'</b><span class="plan-person">'+escHtml(person)+'</span><span>'+escHtml(fmtTime(sp.time))+' · '+(i<2?'Opening':'Closing')+'</span></li>';
+      return '<li'+(active?' aria-current="step"':'')+'><b>'+(i+1)+'. '+label+(side===sp.side&&!isSpectator()?' (you)':'')+'</b><span class="plan-person">'+escHtml(person)+'</span><span>'+escHtml(fmtTime(sp.time))+' · '+escHtml(String(sp.name || (i<2?'Opening':i>=speeches.length-2?'Closing':'Response')).replace(/ \(.*$/, ''))+'</span></li>';
     }).join('')+'</ol>';
   }
 
@@ -5907,6 +5927,13 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // already enforces turn ownership; this makes the rule visible before
   // a user reaches for a disabled control.
   function updateRoundGuide(){
+    if (state.phase !== 'setup'){
+      // Legacy decisions can arrive without status:'ballot', bypassing
+      // the normal setup-to-round transition. Hide setup before releasing
+      // the loading shell so it cannot reappear beside a saved decision.
+      var setup = $('setupView'); if (setup) setup.classList.add('hidden');
+      if (window.DBRoomEntry) window.DBRoomEntry.finish();
+    }
     var guide = $('roundGuide');
     if (!guide) return;
     var f = FORMATS[state.formatKey] || FORMATS.quick;
@@ -6412,7 +6439,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       if (modeName && modeSub){
         if (state.formatKey === 'quick'){
           modeName.textContent = 'Timed speeches';
-          modeSub.textContent = '4 speeches, then the decision.';
+          modeSub.textContent = f.speeches.length + ' speeches, then the decision.';
         } else if (f.open){
           modeName.textContent = 'Just argue';
           modeSub.textContent = 'No speeches. Both people agree to finish before the decision.';
@@ -7211,6 +7238,92 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     else if (state.timerState === 'running') pauseSpeechTimer();
   }
 
+  // The schedule is stored separately from the casual format key. Old rounds
+  // without it keep their four speeches once any speech has started.
+  function syncSpeechTiming(d){
+    var seconds = DBRoundTiming.forRound(d);
+    if (tournamentControlsLocked() && !(d && DBRoundTiming.normalize(d.speechTiming))) seconds = [300,300,180,180];
+    var previous = FORMATS.quick.speeches.map(function(sp){return sp.time;}).join(',');
+    FORMATS.quick.speeches = DBRoundTiming.speeches(seconds);
+    state.speechTiming = DBRoundTiming.normalize(d && d.speechTiming);
+    state.timingCommitted = !!state.speechTiming || (d && d.format === 'quick' && DBRoundTiming.started(d));
+    state.timingLocked = !!(d && (d.speechTimingLocked || DBRoundTiming.started(d)));
+    var changed = previous !== seconds.join(',');
+    if (changed && state.formatKey === 'quick' && state.speechIdx === 0 && state.timerState === 'ready'){
+      state.timerTotalSec = seconds[0];
+      drawTimer();
+    }
+    paintSpeechTiming();
+    return changed;
+  }
+  function canEditSpeechTiming(){
+    return state.phase === 'round' && (state.formatKey === 'open' || state.formatKey === 'quick')
+      && state.speechIdx === 0 && state.timerState === 'ready' && !state.timerElapsed
+      && !(state.log && state.log.length) && !isSpectator() && !!mySide()
+      && !tournamentControlsLocked() && !state.timingLocked && !DBRoundTiming.started(state.lastRoundDoc);
+  }
+  function paintSpeechTiming(){
+    var panel = $('roundTimingOptions'); if (!panel) return;
+    panel.hidden = !canEditSpeechTiming();
+    if (panel.hidden) return;
+    var seconds = state.isDuo ? [300,300,180,180] : state.speechTiming ? state.speechTiming.seconds : DBRoundTiming.defaults();
+    var fields = $('roundTimingFields');
+    fields.hidden = !!state.isDuo;
+    if (!fields.children.length){
+      fields.innerHTML = ['Opening','Response','Closing'].map(function(label,i){
+        var options = '';
+        for (var n=1;n<=10;n+=.5) options += '<option value="'+(n*60)+'">'+n+' min</option>';
+        return '<label>'+label+'<small>Each side</small><select data-timing-pair="'+i+'" aria-label="'+label+' time for each side">'+options+'</select></label>';
+      }).join('');
+      fields.addEventListener('change',function(){ saveSpeechTiming(false).catch(function(e){ toast(e.message); }); });
+    }
+    fields.querySelectorAll('select').forEach(function(select,i){
+      if (!state.timingSaving) select.value = String(seconds[i*2]);
+      select.disabled = !!state.timingSaving || !!state.isDuo;
+    });
+    $('roundTimingSummary').textContent = seconds.length+' speeches · '+(seconds.reduce(function(a,b){return a+b;},0)/60)+' minutes';
+    $('roundTimingSequence').textContent = seconds.map(function(n){return n/60;}).join(' · ')+' minutes';
+    var formal = $('startFormalBtn');
+    formal.hidden = !openMode();
+    formal.disabled = !!state.timingSaving;
+  }
+  function saveSpeechTiming(chooseTimed, lock){
+    if (state.timingSaving) return Promise.reject(new Error('Wait for the timing to finish saving.'));
+    if (!canEditSpeechTiming()) return Promise.reject(new Error('The round has started. Its timing is locked.'));
+    var fields = $('roundTimingFields'), seconds = [];
+    fields.querySelectorAll('select').forEach(function(select){ var value=Number(select.value); seconds.push(value,value); });
+    if (!seconds.length) seconds = DBRoundTiming.defaults();
+    var value = {version:1, seconds:seconds};
+    var ref = getRoundDocRef();
+    if (!ref && !qs.has('design')) return Promise.reject(new Error('The room is still connecting. Try again.'));
+    state.timingSaving = true;
+    $('roundTimingStatus').textContent = 'Saving timing…';
+    paintSpeechTiming(); paintRoundReadiness();
+    // Design scenes never write to a real room.
+    var request = qs.has('design') ? Promise.resolve(value)
+      : DBRoundTiming.save(firebase.firestore(), ref, state.user && state.user.uid, value, chooseTimed, lock);
+    return request.then(function(saved){
+      state.timingSaving = false;
+      state.speechTiming = saved; state.timingCommitted = true;
+      if (lock) state.timingLocked = true;
+      FORMATS.quick.speeches = DBRoundTiming.speeches(saved.seconds);
+      if (state.formatKey === 'quick'){
+        state.timerTotalSec = saved.seconds[0]; drawTimer();
+      }
+      $('roundTimingStatus').textContent = 'Timing saved for both people.';
+      paintSpeechTiming(); paintRoundPlan(); paintRoundReadiness();
+      return saved;
+    }, function(error){
+      state.timingSaving = false;
+      $('roundTimingStatus').textContent = error.message || 'Could not save timing. Try again.';
+      paintSpeechTiming(); paintRoundReadiness();
+      throw error;
+    });
+  }
+  function ensureSpeechTiming(){
+    if (state.formatKey !== 'quick' || state.speechIdx !== 0 || state.timingLocked || state.isDuo || tournamentControlsLocked()) return null;
+    return saveSpeechTiming(false, true);
+  }
   // ── The two doors ─────────────────────────────────────────────────
   // Explicit conversation rooms retain their mode choices. Timed rounds
   // use the single Start my speech control. Either choice PUBLISHES the format so both screens agree
@@ -7229,6 +7342,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   function paintModeDoors(){
     var row = $('modeDoors');
     if (!row) return;
+    paintSpeechTiming();
     var show = modeDoorsVisible();
     row.hidden = !show;
     document.body.classList.toggle('mode-doors-open', show);
@@ -7248,8 +7362,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       var firstName = (sp && sideBench(f, sp.side) === 'gov')
         ? (state.proName || 'For') : (state.conName || 'Against');
       formal.innerHTML = firstIsMine
-        ? '\u25b6 Start timed speeches<span class="md-sub">4 speeches. You speak first.</span>'
-        : '\u25b6 Choose timed speeches<span class="md-sub">4 speeches. ' + escHtml(firstName) + ' speaks first.</span>';
+        ? '\u25b6 Start timed speeches<span class="md-sub">' + (state.isDuo ? 4 : 6) + ' speeches. You speak first.</span>'
+        : '\u25b6 Choose timed speeches<span class="md-sub">' + (state.isDuo ? 4 : 6) + ' speeches. ' + escHtml(firstName) + ' speaks first.</span>';
     }
   }
   // The round type, to the round doc, so the other screen follows. Narrow
@@ -7267,8 +7381,13 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     }).catch(function(){});
   }
   // Set the mode for both screens, then start if this seat is allowed to.
-  function startInMode(key){
+  function startInMode(key, timingSaved){
     if (!FORMATS[key] || isSpectator()) return;
+    if (key === 'quick' && state.isDuo) FORMATS.quick.speeches = DBRoundTiming.speeches([300,300,180,180]);
+    if (key === 'quick' && !timingSaved && !state.isDuo){
+      saveSpeechTiming(true).then(function(){ startInMode(key, true); }).catch(function(e){ toast(e.message); });
+      return;
+    }
     var blocked = roundStartBlock();
     if (blocked){ paintRoundReadiness(); toast(blocked); return; }
     if (tournamentControlsLocked()){ toast('The tournament fixes the round type.'); return; }
@@ -7531,6 +7650,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     // discard opening arguments to make a later upload fit. Bound UTF-8
     // bytes, including segment metadata, with room for the merged speech.
     var segs = openSeg.segs.slice();
+    try { capPushSegments(segs); } catch(e){}
     var bytes = new TextEncoder().encode(JSON.stringify(segs)).length;
     if (bytes > (state.isDuo ? 72000 : 144000)){
       var limitError = new Error('This conversation has reached the transcript storage limit. Keep this tab open and copy your transcript. The round cannot be judged with missing words.');
@@ -9183,6 +9303,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // call card stays visible with a copy-page-link fallback so the
   // round can still proceed (just without embedded video).
   function setCallStatus(text, kind){
+    if (kind === 'closed' && window.DBRoomEntry) window.DBRoomEntry.status(text);
     var st = $('callStatus'), txt = $('callStatusText');
     if (!st) return;
     st.classList.remove('open','closed');
@@ -11075,6 +11196,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   }
   function roundStartBlock(){
     if (!state.room || state.isDuo || isSpectator() || state.speechIdx !== 0 || state.timerState !== 'ready') return '';
+    if (state.timingSaving) return 'Saving the speech timing.';
     if (!String(state.motion || '').trim()) return 'Choose a topic before starting.';
     if (state.topicStrikes && !['done','cancelled'].includes(state.topicStrikes.phase)) return 'Finish choosing the topic and sides first.';
     var connection = roundConnectionState();
@@ -13717,7 +13839,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // words the other one said. Partnered and four-team rounds are left
   // out for the same reason, which is what privacy.html section 6
   // already tells people.
-  var cap = { session: null, starting: false, done: false };
+  var cap = { session: null, starting: false, done: false, pending: [], seen: {}, summary: null };
 
   function capEligible(){
     if (isSpectator()) return false;
@@ -13746,54 +13868,74 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         motion: state.motion || '',
         mode: 'live',
         format: state.formatKey || '',
-        side: mySide() || ''
+        side: mySide() || '',
+        roundId: state.room || ''
       }).then(function(sess){
         cap.starting = false;
         cap.session = sess || null;
+        if (sess) cap.pending.forEach(function(turn){ sess.push(turn); });
+        cap.pending = [];
+        if (sess && cap.summary) sess.finish(cap.summary);
+        if (sess && !cap.done && openMode()) capPushSegments(openSeg.segs);
         renderCapNote();
       }).catch(function(){ cap.starting = false; renderCapNote(); });
     } catch(e){ cap.starting = false; }
   }
 
-  // Called for every speech this client finalises. A speech on the other
-  // bench arrives through the round snapshot, not through endSpeech, so
-  // the side check is belt and braces rather than the only guard.
+  function capQueueTurn(turn){
+    if (cap.done || !capEligible()) return;
+    if (!window.TranscriptConsent || TranscriptConsent.state() === 'denied') return;
+    var key = turn.id;
+    if (cap.seen[key]) return;
+    capEnsure();
+    if (!cap.session && !cap.starting) return;
+    cap.seen[key] = true;
+    if (cap.session) cap.session.push(turn);
+    else if (cap.starting) cap.pending.push(turn);
+  }
+
+  // Archive only this authenticated seat's committed microphone segments.
+  // The mixed room transcript and the opponent's stream never enter here.
+  function capPushSegments(segs){
+    if (!openMode() || !capEligible()) return;
+    if (!(window.TranscriptConsent && TranscriptConsent.granted())) return;
+    var uid = state.user.uid;
+    (segs || []).forEach(function(segment){
+      if (!segment || !segment.text || (segment.speakerUid && segment.speakerUid !== uid)) return;
+      var id = segment.id || String(segment.at || 0) + ':' + segment.text;
+      capQueueTurn({ id: 'segment:' + id, who: 'you', text: segment.text,
+        t: typeof segment.at === 'number' && state.roundStartedAt ? Math.max(0, segment.at - state.roundStartedAt) : null,
+        phase: 'TALK' });
+    });
+  }
+
   function capPushSpeech(entry){
     try {
-      if (!entry || entry.skipped) return;
-      if (!capEligible()) return;
+      if (!entry || entry.skipped || !capEligible()) return;
+      // Conversation segments are already archived during the round.
+      if (openMode() || entry.open) { capPushSegments(openSeg.segs); return; }
       if (entry.side !== capMySideKey()) return;
       var text = (entry.text || '').trim();
       if (!text || text === '(no transcript)' || text === '(skipped)') return;
-      capEnsure();
-      var push = function(){
-        if (!cap.session) return;
-        cap.session.push({
-          who: 'you',
-          text: text,
-          t: typeof entry.atMs === 'number' ? entry.atMs : null,
-          phase: entry.code || ''
-        });
-      };
-      // start() is async and the first speech ends before it resolves,
-      // so the first turn waits a beat rather than being dropped.
-      if (cap.session) push();
-      else setTimeout(push, 1200);
+      capQueueTurn({ id: 'speech:' + entry.code + ':' + (entry.atMs || 0), who: 'you', text: text,
+        t: typeof entry.atMs === 'number' ? entry.atMs : null, phase: entry.code || '' });
     } catch(e){}
   }
 
   function capFinish(b){
     try {
-      if (!cap.session || cap.done) return;
+      if (cap.done || (!cap.session && !cap.starting)) return;
+      capPushSegments(openSeg.segs);
       cap.done = true;
       var side = mySide();
       var pts = b ? (side === 'pro' ? b.proPoints : b.conPoints) : null;
-      cap.session.finish({
+      cap.summary = {
         status: 'complete',
         score: typeof pts === 'number' ? pts : undefined,
         won: (b && b.winner) ? b.winner === side : undefined,
         roundId: state.room || ''
-      });
+      };
+      if (cap.session) cap.session.finish(cap.summary);
     } catch(e){}
   }
 
@@ -13877,6 +14019,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       output: (rfd || '(no ballot)').slice(0, 39000),
       context: {
         source: 'live_round',
+        transcriptId: cap.session ? cap.session.id() : '',
         roundId: state.room || '',
         captureVersion: 2,
         transcriptScope: 'own_side',
@@ -16916,6 +17059,49 @@ window.DBLiveDraft.attach({
     return state.roundDocRef;
   }
 
+  var matchedKickoffPending = null;
+  function kickoffMatchedRound(){
+    if (state.phase !== 'setup' || !state.user || isSpectator()
+        || (prefill.source || '').indexOf('spar') !== 0 || !state.proUid || !state.conUid) return;
+    var user = state.user, roomId = state.room;
+    var key = roomId + '|' + user.uid;
+    if (matchedKickoffPending && matchedKickoffPending.key === key) return matchedKickoffPending.promise;
+    var ref = getRoundDocRef();
+    if (!ref) return; // No readable room means no permission to initialize one.
+    var pending = { key: key, promise: null };
+    matchedKickoffPending = pending;
+    function current(){
+      return state.phase === 'setup' && state.room === roomId
+        && state.user && state.user.uid === user.uid && !isSpectator();
+    }
+    // Both seats read immediately. A fixed 600ms/3s head start for one
+    // seat delayed every arrival; publishRoundInit's transaction already
+    // prevents two fresh arrivals from overwriting an initialized round.
+    // Use the authenticated server read rather than the SDK Listen
+    // transport, which can itself be the reason the room is still loading.
+    pending.promise = Promise.resolve().then(function(){
+      return DBLiveJourney.readDocument(ref, user);
+    }).then(function(snap){
+      if (!current()) return;
+      var d = snap && snap.exists ? (snap.data() || {}) : null;
+      if (d) onRoundSnapshot(d, roomId);
+      if (!current()) return;
+      // A reload must adopt the saved round before considering init.
+      // Never reopen a completed round or reset a running speech, even
+      // if a partial/legacy document did not advance the local view.
+      if (d && ((d.speechIdx | 0) > 0 || (d.speeches && d.speeches.length)
+          || (d.currentTimer && d.currentTimer.state !== 'ready')
+          || /^(round|ballot|done|ended|forfeit)$/.test(d.status || ''))){
+        try { gtag('event', 'live_kickoff_seed_blocked', { speech: d.speechIdx | 0 }); } catch(e){}
+        return;
+      }
+      startRound(true);
+    }).catch(function(){ /* Unreadable: do not seed blind. The subscription can recover. */ }).then(function(){
+      if (matchedKickoffPending === pending) matchedKickoffPending = null;
+    });
+    return pending.promise;
+  }
+
   function subscribeRound(){
     if (state.roundUnsub) return;
     var ref = getRoundDocRef();
@@ -17145,6 +17331,7 @@ window.DBLiveDraft.attach({
       document.body.classList.add('spectator-mode');
       var sv0 = $('setupView'); if (sv0) sv0.classList.add('hidden');
       renderAdmissionGate();
+      if (window.DBRoomEntry) window.DBRoomEntry.finish();
       watchAdmission();
       return;
     }
@@ -17172,6 +17359,7 @@ window.DBLiveDraft.attach({
     if (state.seatHbInterval){ clearInterval(state.seatHbInterval); state.seatHbInterval = null; }
     startSpectatorBeat();
     updateRoomStage();
+    if (window.DBRoomEntry) window.DBRoomEntry.finish();
     mountDaily();
   }
 
@@ -20066,7 +20254,7 @@ window.DBLiveDraft.attach({
     if (state.isDuo && d.teamEnding && !d.teamFinishedAt && !isSpectator()){
       flushTeamConversation().catch(function(e){toast(e.message);});
     }
-    var changedSetup = false;
+    var changedSetup = syncSpeechTiming(d);
     if (priorDuo !== state.isDuo || priorPartners !== (state.proUid2||'')+'|'+(state.conUid2||'')){
       changedSetup = true; updateRoomStage();
     }
@@ -21003,6 +21191,7 @@ window.DBLiveDraft.attach({
   // ── Guest auth. Anonymous Firebase auth supplies the UID required
   // for synced round writes. Google remains an optional account link.
   function showAuthGate(){
+    if (window.DBRoomEntry) window.DBRoomEntry.status('Sign in to join this round.');
     var gate = $('authGate');
     var spectator = isSpectator();
     var title = $('authGateTitle');
@@ -21248,48 +21437,9 @@ window.DBLiveDraft.attach({
         // already started, the snapshot will land in <500ms and our
         // setup view will auto-advance into the round in progress.
         subscribeRound();
-        // Enter every matched room, including links carrying an explicitly
-        // chosen topic. Topic choice belongs inside the call, not at its door.
-        if ((prefill.source || '').indexOf('spar') === 0 && state.proUid && state.conUid && !isSpectator()){
-          var iAmFirst = state.user.uid === state.proUid; // proUid = lex-first by spar convention
-          var kickoff = function(){
-            if (state.phase !== 'setup') return;
-            // 2026-08-31, from a live round: a MID-ROUND reload arrives
-            // exactly like a fresh spar client (motion= empty in the
-            // URL, phase 'setup'), and when the snapshot lost the race
-            // against this timer the seed fired into a round at speech
-            // 4, republished init, and swapped the resolution both
-            // people had been arguing ("it changed it from student debt
-            // to this random shit" — the deterministic pick for that
-            // room). So the local guard is not enough: read the DOC
-            // before seeding, and never seed over a round that exists.
-            // A failed read seeds nothing; the snapshot decides.
-            var ref = getRoundDocRef();
-            var seed = function(){
-              if (state.phase !== 'setup') return;
-              startRound(true);
-            };
-            if (!ref){ seed(); return; }
-            ref.get().then(function(snap){
-              var d = snap && snap.exists ? (snap.data() || {}) : null;
-              if (d) onRoundSnapshot(d, state.room);
-              if (state.phase !== 'setup') return;
-              if (d && ((d.speechIdx | 0) > 0
-                        || (d.speeches && d.speeches.length)
-                        || d.status === 'round' || d.status === 'done')){
-                try { gtag('event', 'live_kickoff_seed_blocked', { speech: d.speechIdx | 0 }); } catch(e){}
-                return; // the snapshot listener carries us into the live round
-              }
-              seed();
-            }).catch(function(){ /* unreadable: do not seed blind */ });
-          };
-          // Lex-first kicks off promptly. The peer is a safety net: if
-          // the first client dropped between matching and loading (closed
-          // tab, dead connection), the round would otherwise never start
-          // and both sides sit on the setup screen forever. After 3s with
-          // no round, the peer starts it instead.
-          setTimeout(kickoff, iAmFirst ? 600 : 3000);
-        }
+        // Enter matched rooms as soon as the saved state has been read.
+        // Topic choice belongs inside the call, not at its door.
+        kickoffMatchedRound();
       } else {
         renderUserChip();
         // The ?stage broadcast overlay is the one arrival that should
@@ -21466,732 +21616,10 @@ window.DBLiveDraft.attach({
 })();
 </script>
 <script defer src="/js/notifications.js"></script>
-<link rel="stylesheet" href="/css/notification-setup.css">
+
 <script defer src="/js/notification-setup.js"></script>
-<style>
-.rc-dm{margin-left:8px;min-height:36px;padding:7px 12px;border-radius:9px;border:1px solid var(--accent,#ef4444);background:rgba(239,68,68,.1);color:var(--accent,#ef4444);font:inherit;font-size:.72rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:background .15s,transform .12s}
-.rc-dm:hover{background:rgba(239,68,68,.2);transform:translateY(-1px)}
-.rc-safety{min-height:36px;padding:6px 8px;border:0;background:transparent;color:var(--text-dim,rgba(255,255,255,.58));font:inherit;font-size:.72rem;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-.rc-safety:hover{color:var(--text,#fff)}
-.rmb-brief{margin-top:10px;padding:11px 13px;background:var(--bg-card,rgba(255,255,255,.03));border:1px solid var(--border,rgba(255,255,255,.12));border-radius:10px;font-size:.88rem;line-height:1.55;color:var(--text-dim,rgba(255,255,255,.72))}
-/* The This House gloss. Quieter than the brief (no card fill, a rule
-   down the left) because it is a footnote on the sentence above it,
-   not a second piece of content competing with the resolution. */
-.rmb-house{margin-top:8px;padding:0;font-size:.84rem;line-height:1.55;color:var(--text-dim,rgba(255,255,255,.7))}
-.rmb-house[hidden]{display:none}
-.rmb-house b{color:var(--text,#fff);font-weight:800}
-.rmb-house .rh-wrap{position:relative;display:inline-block}
-.rmb-house .rh-lab{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;font-weight:600;letter-spacing:0;
-  text-transform:none;margin:0;color:var(--text-dim,rgba(255,255,255,.6));cursor:help;outline:none}
-.rmb-house .rh-lab::before{content:'?';display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;
-  border-radius:50%;border:1px solid currentColor;font-size:.6rem;font-weight:800;line-height:1}
-.rmb-house .rh-lab:hover,.rmb-house .rh-lab:focus-visible{color:var(--text,#fff)}
-.rmb-house .rh-body{position:absolute;left:0;top:calc(100% + 8px);z-index:40;width:min(360px,80vw);
-  padding:10px 12px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.14));
-  background:var(--bg,#0b0b0d);color:var(--text-dim,rgba(255,255,255,.7));font-size:.8rem;line-height:1.5;
-  box-shadow:0 12px 32px rgba(0,0,0,.45);opacity:0;visibility:hidden;transform:translateY(-4px);
-  transition:opacity .12s,transform .12s,visibility .12s;pointer-events:none}
-.rmb-house .rh-wrap:hover .rh-body,.rmb-house .rh-wrap:focus-within .rh-body{opacity:1;visibility:visible;transform:none}
-.rmb-house .rh-lab{text-decoration:underline;text-decoration-color:var(--border,rgba(128,128,128,.4));text-underline-offset:3px;cursor:pointer}
-.rmb-house--header{margin-top:6px}
-/* One copy of the link: the header mount wins whenever it has content. */
-.sh-motion:has(#shHouse:not([hidden])) ~ * #rmbHouse,
-body:has(#shHouse:not([hidden])) #rmbHouse{display:none}
-body.round-running #shHouse{display:none !important}
-/* The bar clips its overflow for the glow strip; lift the clip only while
-   the hover box is open so it can extend past the bar's bottom edge. */
-.round-motion-bar:has(.rh-wrap:hover),.round-motion-bar:has(.rh-wrap:focus-within){overflow:visible}
-#setupHouse{margin-bottom:12px}
-.dm-modal{position:fixed;inset:0;z-index:9500;display:none;align-items:center;justify-content:center;padding:18px}
-.dm-modal.is-open{display:flex}
-.dm-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.62);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
-.dm-card{position:relative;z-index:1;width:100%;max-width:440px;background:var(--bg-card,#16161b);color:var(--text,#fff);border:1px solid var(--border-strong,rgba(255,255,255,.16));border-radius:16px;padding:22px 20px 18px;box-shadow:0 30px 80px rgba(0,0,0,.55)}
-.dm-x{position:absolute;top:9px;right:11px;background:none;border:0;color:var(--text-dim,rgba(255,255,255,.55));font-size:1.5rem;line-height:1;cursor:pointer;padding:4px 9px;border-radius:8px}
-.dm-x:hover{color:var(--text);background:rgba(127,127,127,.14)}
-.dm-eyebrow{font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent,#ef4444);margin-bottom:5px}
-.dm-title{font-family:'Archivo','Fraunces',Georgia,serif;font-size:1.2rem;font-weight:700;margin:0 0 5px}
-.dm-hint{font-size:.78rem;line-height:1.5;color:var(--text-dim,rgba(255,255,255,.66));margin:0 0 12px}
-.dm-text{width:100%;box-sizing:border-box;min-height:84px;resize:vertical;padding:11px 13px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.14));background:rgba(255,255,255,.03);color:var(--text,#fff);font:inherit;font-size:.9rem;line-height:1.5}
-.dm-text:focus{outline:none;border-color:var(--accent,#ef4444)}
-.dm-row{display:flex;align-items:center;gap:12px;margin-top:12px}
-.dm-send{padding:9px 20px;border-radius:999px;border:1px solid var(--accent,#ef4444);background:var(--accent,#ef4444);color:#fff;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer;transition:background .15s}
-.dm-send:hover{background:#dc2626}
-.dm-send:disabled{opacity:.6;cursor:default}
-.dm-status{font-size:.76rem;color:var(--text-dim,rgba(255,255,255,.72))}
-.safety-select{width:100%;min-height:46px;margin:3px 0 10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.14));background:var(--bg,#101014);color:var(--text,#fff);font:inherit;font-size:.86rem}
-.safety-check{display:flex;align-items:flex-start;gap:9px;margin-top:11px;color:var(--text-dim,rgba(255,255,255,.72));font-size:.78rem;line-height:1.4}
-.safety-check input{width:18px;height:18px;margin:0;accent-color:var(--accent,#ef4444)}
-</style>
-<style>
-/* ══════════════════════════════════════════════════════════════════
-   Setup layout (2026-09-03).
-   The video can be collapsed, which turns the round panel into a full
-   desktop canvas. The setup used to stretch every field and divider to
-   that canvas width. Keep one readable form measure, show the two sides
-   as a matchup, and group the two timing decisions together. Container
-   queries key off the panel because the draggable split can make it
-   narrow inside a wide browser window.
-   ══════════════════════════════════════════════════════════════════ */
-#setupView{
-  width:100%;max-width:1120px;align-self:center;
-}
-.setup-speaker-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
-.setup-speaker-grid .field{margin-bottom:0}
-.setup-speaker label{display:flex;align-items:center;gap:7px}
-.setup-speaker label::before{
-  content:'';width:8px;height:8px;border-radius:50%;flex:none;
-  background:currentColor;box-shadow:0 0 0 3px rgba(127,127,127,.08);
-}
-.setup-speaker--pro label{color:var(--green)}
-.setup-speaker--con label{color:var(--accent)}
-.setup-speaker input{min-height:54px;border-left-width:3px}
-.setup-speaker--pro input{border-left-color:rgba(34,197,94,.72)}
-.setup-speaker--con input{border-left-color:rgba(239,68,68,.72)}
-.setup-speaker--pro input:focus{
-  border-color:rgba(34,197,94,.72);box-shadow:0 0 0 3px rgba(34,197,94,.10);
-}
-.setup-speaker--con input:focus{
-  border-color:rgba(239,68,68,.72);box-shadow:0 0 0 3px rgba(239,68,68,.10);
-}
-.setup-timing-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
-.setup-timing-card{
-  min-width:0;padding:14px 15px;border:1px solid var(--border);
-  border-radius:14px;background:var(--ui-surface);
-}
-.setup-timing-card .field{margin-bottom:0}
-.setup-timing-card select{min-height:46px}
-.setup-start-inner{width:100%;max-width:600px;margin:0 auto}
-.setup-format-copy{
-  flex-basis:100%;max-width:760px;font-size:.78rem;line-height:1.5;
-  color:var(--text-dim);
-}
-.setup-format-copy strong{color:var(--text)}
-.setup-judge-grid.is-fixed{grid-template-columns:minmax(0,1fr)}
-.setup-judge-fixed{
-  --jx:var(--accent);
-  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;
-  gap:7px 14px;padding:13px 14px;cursor:default;
-  border-color:var(--border-strong);background:var(--ui-surface);
-}
-.setup-judge-fixed.is-agreed{
-  border-color:var(--border-strong);background:var(--ui-surface);
-}
-.setup-judge-fixed:hover{transform:none;border-color:var(--border-strong)}
-.setup-judge-fixed .jd-card-name{margin:0}
-.setup-judge-fixed .jd-card-tag{grid-column:1/-1;margin:0}
-.setup-judge-fixed .jd-how{grid-column:2;grid-row:1}
-@container round-panel (min-width:560px){
-  .setup-speaker-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .setup-timing-grid{grid-template-columns:minmax(0,1.35fr) minmax(240px,.65fr)}
-  .setup-judge-fixed{grid-template-columns:max-content minmax(0,1fr) auto}
-  .setup-judge-fixed .jd-card-name{grid-column:1;grid-row:1}
-  .setup-judge-fixed .jd-card-tag{grid-column:2;grid-row:1}
-  .setup-judge-fixed .jd-how{grid-column:3;grid-row:1}
-}
-@media(min-width:1001px){
-  body.lr-vid-off #setupView{
-    margin:22px auto 40px;border:1px solid var(--border);border-radius:20px;
-    overflow:hidden;background:var(--bg-card);box-shadow:var(--shadow-lg);
-  }
-}
-@media(max-width:560px){
-  #setupView .panel-section{padding:20px 16px}
-  .setup-timing-card{padding:13px}
-}
 
-/* ══════════════════════════════════════════════════════════════════
-   Active-round simplification (2026-08-24).
-   The round panel had grown to answer a dozen questions at once. It now
-   answers four, in this order and nothing above them: what are we
-   debating, who is speaking, how long is left, what do I do now. The
-   transcript follows immediately; audience responses, the AI aides, the roster,
-   the speech order and the judge draft all still exist, folded behind
-   three disclosures below it. Nothing was deleted.
-   This block is last in the document on purpose: it re-weights rules
-   that are spread across 2000 lines above rather than rewriting them,
-   so the round / sync / judging / recording code above stays untouched.
-   ══════════════════════════════════════════════════════════════════ */
 
-/* ── 1. Resolution header. The motion and a second synchronized clock are
-      the two dominant facts. The full speech header keeps its own clock so
-      the time remains visible even when one of the two areas scrolls away. */
-#roundView > .round-motion-bar{
-  /* The rest of the console keeps its comfortable 1100px reading measure.
-     The resolution is the exception: it is the proposition the whole room
-     is built around, so it uses the full panel instead of stopping halfway
-     across a wide screen. */
-  width:100%;max-width:none;margin-left:0;margin-right:0;
-}
-.round-motion-bar{
-  position:relative;isolation:isolate;overflow:clip;
-  padding:clamp(20px,2.6cqi,38px) clamp(22px,3.4cqi,52px) clamp(22px,2.9cqi,42px);gap:12px;
-  background:
-    radial-gradient(circle at 8% 0%,var(--accent-glow),transparent 34%),
-    var(--ui-surface);
-  border-left:0;border-top:1px solid var(--border-strong);border-bottom:1px solid var(--border-strong);
-  box-shadow:0 14px 36px rgba(0,0,0,.16);
-  align-items:flex-start;
-}
-.round-motion-bar::before{
-  content:'';position:absolute;z-index:-1;left:clamp(22px,3.4cqi,52px);top:0;
-  width:clamp(64px,8cqi,118px);height:4px;border-radius:0 0 999px 999px;
-  background:var(--accent,#ef4444);box-shadow:0 0 24px var(--accent-glow);
-}
-.round-motion-bar .rmb-eyebrow{
-  font-size:.64rem;letter-spacing:.18em;margin-bottom:10px;
-  flex-wrap:wrap;gap:7px;
-}
-.round-motion-bar .rmb-motion{
-  font-family:var(--resolution-font);
-  font-size:clamp(2.35rem,5.2cqi,4.35rem);
-  font-weight:650;line-height:1.01;letter-spacing:.005em;
-  max-width:none;text-wrap:balance;
-}
-/* The spectator layout declares a smaller headline in an earlier block.
-   Keep the compact grid, but not its old ordinary-UI type treatment. */
-body.spectator-mode .round-motion-bar .rmb-motion{
-  font-family:var(--resolution-font);
-  font-size:clamp(2.35rem,5.2cqi,4.35rem);
-  font-weight:650;line-height:1.01;letter-spacing:.005em;
-}
-.rmb-propose .rmbp-motion,.sov-motion,.lrd-res #lrdRes,.motion-display{
-  font-family:var(--resolution-font);
-}
-.rmb-propose .rmbp-motion{font-weight:600;letter-spacing:.005em}
-.sov-motion{font-weight:600;letter-spacing:.01em}
-.lrd-res #lrdRes{font-weight:600;letter-spacing:.01em}
-.rmb-lock-note{
-  font-size:.62rem;font-weight:650;letter-spacing:.01em;text-transform:none;
-  color:var(--text-dim);opacity:.8;
-}
-.rmb-lock-note[hidden]{display:none}
-.rmb-change{min-height:30px}
-.round-motion-bar .rmb-house,.round-motion-bar .rmb-brief{font-size:.8rem}
-
-/* Recording changes what leaves the room, so even the idle action keeps
-   a visible border and red status dot. Pending and live states still take
-   over through the stronger state selectors above. */
-.rmb-rec-btn{
-  background:rgba(185,28,28,.06);border-color:rgba(239,68,68,.32);
-  color:var(--text);text-transform:none;letter-spacing:.01em;font-size:.72rem;font-weight:750;
-  min-height:38px;padding:8px 11px;
-}
-.rmb-rec-btn:hover{background:rgba(185,28,28,.12);border-color:rgba(239,68,68,.55)}
-.rmb-rec:not(.recording):not(.pending) .rmb-rec-dot{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.12)}
-.rmb-tools{padding-top:10px;gap:6px}
-.lr-pip-btn{min-height:34px}
-/* Same secondary weight as Request recording: present, not competing with the
-   resolution. Hidden where the video column does not exist as a column. */
-.rmb-vidtoggle{
-  background:transparent;border-color:transparent;color:var(--text-dim);
-  font-size:.72rem;font-weight:700;min-height:36px;padding:7px 10px;
-}
-.rmb-vidtoggle:hover{background:var(--ui-soft);border-color:var(--border)}
-body.lr-mini .rmb-vidtoggle,body.lr-pip .rmb-vidtoggle{display:none}
-
-/* ── 2. Which side argues what: one line, not two panels. The full
-      wording is kept verbatim in Round details (#sidesDetail), because
-      it is the thing that stops someone arguing the wrong side on a
-      "This House regrets" motion. */
-.sides-guide{
-  display:flex;flex-wrap:wrap;align-items:center;gap:4px 20px;
-  margin-top:9px;padding:0;background:none;border:0;
-}
-.sides-guide[hidden]{display:none}
-.sg-item{
-  display:inline-flex;align-items:baseline;gap:7px;
-  font-size:.78rem;line-height:1.45;color:var(--text-dim);
-}
-.sg-item .sg-side{font-size:.66rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
-.sg-item .sg-what{font-size:.78rem;color:var(--text-dim)}
-.sg-item .sg-you-chip{
-  font-style:normal;font-size:.58rem;font-weight:800;letter-spacing:.08em;
-  text-transform:uppercase;border-radius:999px;padding:2px 7px;
-  color:#fff;background:var(--accent,#ef4444);
-}
-.sides-detail{
-  display:grid;grid-template-columns:1fr 1fr;gap:1px;
-  background:var(--border);border:1px solid var(--border);
-  border-radius:10px;overflow:hidden;
-}
-.sides-detail[hidden]{display:none}
-/* Switch sides now rides an inline strip item rather than a block cell,
-   so the auto margin that pushed it to the far edge of a cell would only
-   add a gap here. */
-.sg-item .sg-swap{margin-left:2px;align-self:center}
-/* --green is tuned for a dark surface; at 11px bold on the light theme
-   it measured 3.3:1, so the side labels take a darker cut there. */
-[data-theme="light"] .sg-side.for{color:#15803d}
-[data-theme="light"] .sg-side.against{color:#b91c1c}
-.rmb-rec-btn:disabled{opacity:.82}
-.sides-detail .sg-cell{padding:11px 13px}
-.sides-detail .sg-what{font-size:.82rem}
-@media(max-width:760px){.sides-detail{grid-template-columns:1fr}}
-
-/* ── 3. One speech panel: which speech, who is speaking, how long is
-      left, and the control that changes it, in that reading order. The
-      action row moved here from inside the transcript block, so the
-      button and the clock it drives are no longer separated by a
-      textarea. */
-.speech-header{
-  grid-template-columns:minmax(0,1fr) auto;gap:11px 24px;
-  padding:14px 24px 16px;align-items:center;
-  background:var(--bg);border-top:0;
-}
-.sh-line{
-  grid-column:1/-1;display:flex;align-items:center;gap:9px;flex-wrap:wrap;
-}
-/* Both of these are sentences, not labels. Uppercasing them put four
-   shouting strings in the busiest line of the panel; sentence case reads
-   at a glance and leaves the caps to the things that are actually
-   markers (RESOLUTION, NOW SPEAKING, the side pills, the clock state). */
-.speech-header .speech-progress{
-  margin-bottom:0;font-size:.72rem;letter-spacing:.01em;text-transform:none;
-}
-.speech-header .speech-name{
-  font-size:.72rem;font-weight:800;letter-spacing:.01em;text-transform:none;
-  color:var(--text);
-}
-.sh-sep{color:var(--text-dim);opacity:.6;font-size:.7rem}
-.speech-header .speech-code{font-size:.64rem;padding:4px 8px}
-.speech-header .speaker-name{font-size:clamp(1.15rem,1.75vw,1.5rem)}
-.speech-header .now-speaking-label{font-size:.62rem;letter-spacing:.11em}
-.speech-clock{min-width:150px;padding-left:20px}
-.timer-num{font-size:clamp(2.5rem,4.2vw,3.5rem)}
-.timer-target{font-size:.82rem}
-
-/* Ready / Speaking / Paused / Waiting. One word and one dot, in the one
-   place a speaker is already looking. */
-.speech-clock-label{
-  display:inline-flex;align-items:center;gap:6px;
-  margin-bottom:6px;font-size:.63rem;letter-spacing:.12em;
-}
-.speech-clock-label::before{
-  content:'';width:7px;height:7px;border-radius:50%;background:currentColor;flex:none;
-}
-.speech-clock-label.is-ready,.speech-clock-label.is-waiting{color:var(--text-dim)}
-.speech-clock-label.is-speaking{color:var(--accent)}
-.speech-clock-label.is-paused{color:var(--amber)}
-.speech-clock-label.is-speaking::before{animation:pulse 1.5s ease-in-out infinite}
-@media(prefers-reduced-motion:reduce){.speech-clock-label.is-speaking::before{animation:none}}
-
-/* The resolution, beside the clock (2026-09-02). Column one of the
-   header now reads resolution, then who is speaking; the clock keeps
-   column two. Declared HERE, late, on purpose: `body.round-running
-   .rmb-motion` and the `.round-motion-bar .rmb-motion` rules earlier in
-   this sheet were written for the band, and a header copy sized by them
-   renders as a billboard over the timer. */
-.sh-main{
-  grid-column:1;min-width:0;
-  display:flex;flex-direction:column;justify-content:center;gap:10px;
-}
-.sh-motion{min-width:0}
-.sh-motion .rmb-eyebrow{
-  display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;
-  font-size:.6rem;font-weight:850;letter-spacing:.16em;text-transform:uppercase;
-  color:var(--accent,#ef4444);
-}
-.sh-motion .rmb-motion{
-  font-family:var(--resolution-font);
-  font-size:clamp(1.35rem,2.7vw,2.1rem);
-  font-weight:650;line-height:1.1;letter-spacing:.005em;
-  color:var(--text);text-wrap:balance;
-}
-.sh-motion .rmb-motion[contenteditable="true"]{
-  outline:1px dashed var(--accent,#ef4444);outline-offset:3px;
-  border-radius:6px;cursor:text;
-}
-/* Once a clock is running the "Now speaking" line folds away (it is on
-   both video tiles and in the speech name), so the sentence takes the
-   room it gives up. */
-body.round-running .sh-motion .rmb-motion{font-size:clamp(1.5rem,3vw,2.4rem)}
-/* A watcher is reading captions, not preparing against the motion. */
-body.spectator-mode .sh-motion .rmb-motion{font-size:clamp(1.05rem,1.7vw,1.35rem)}
-/* The video split can leave this panel phone-narrow inside a desktop
-   window, which is what the container is for. */
-@container round-panel (max-width:520px){
-  .sh-main{gap:8px}
-  .sh-motion .rmb-motion,
-  body.round-running .sh-motion .rmb-motion{
-    font-size:clamp(1.2rem,5.6cqi,1.62rem);
-    overflow-wrap:anywhere;text-wrap:pretty;
-  }
-}
-/* The clock holds 150px and wants a 24px gutter, so under ~440px of panel
-   the resolution is left arguing inside 160px: measured at a 390px phone
-   it wrapped to four lines and ran into the Now speaking line under it,
-   and at 320px the two eyebrow buttons stacked one per row. Below that
-   width the motion takes the whole line and the clock goes under it,
-   which is what the rest of the header already does at that size. */
-@container round-panel (max-width:440px){
-  .speech-header{grid-template-columns:minmax(0,1fr)}
-  .sh-main,.speech-clock{grid-column:1}
-  .speech-clock{
-    min-width:0;align-items:flex-start;padding:12px 0 0;
-    border-left:0;border-top:1px solid var(--border);
-  }
-  .sh-motion .rmb-motion,
-  body.round-running .sh-motion .rmb-motion{font-size:clamp(1.3rem,7cqi,1.75rem)}
-  .sh-motion .rmb-eyebrow{gap:6px}
-  .sh-motion .rmb-change{padding:3px 7px;font-size:.6rem}
-}
-
-/* The band below is no longer the resolution, so it stops dressing like
-   one. The hero padding, the red tab bleeding off the top edge and the
-   lifted shadow all belonged to the headline that moved up; what is left
-   is a quiet strip of round terms (context, sides, room tools). */
-.round-motion-bar{
-  padding:clamp(13px,1.7cqi,20px) clamp(18px,3cqi,40px) clamp(14px,1.9cqi,22px);
-  box-shadow:none;background:var(--ui-surface);
-}
-.round-motion-bar::before{display:none}
-.rmb-motion-row{margin-top:0}
-
-.speech-header .speech-actions{grid-column:1/-1;margin-top:2px}
-.speech-header .ready-hint{grid-column:1/-1;margin-top:0}
-.speech-header .round-quiet{grid-column:1/-1}
-.guest-hold{border-color:rgba(220,38,38,.45);background:rgba(220,38,38,.08)}
-.guest-hold strong{font-weight:800}
-.speech-header .spectator-meta{margin-top:6px}
-
-/* Ready has one decision. The full speech controls only appear after the
-   clock starts, so End and Skip cannot compete with the action that gets
-   a first-time visitor into the round. */
-.speech-header[data-action-state="start"] .speech-actions{display:grid;grid-template-columns:1fr}
-/* The two doors replace the single Start at the speech-1 ready beat, so
-   they inherit its geometry: full width, same height, same weight. Equal
-   billing on purpose, since neither is the "advanced" one. */
-.speech-header .mode-doors{grid-column:1/-1;margin-top:2px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.speech-header .mode-doors[hidden]{display:none}
-.speech-header .mode-doors .btn{
-  width:100%;min-height:62px;border-radius:14px;
-  font-size:.94rem;letter-spacing:.01em;text-transform:none;
-  box-shadow:0 10px 26px rgba(185,28,28,.24);
-}
-/* Paint the wave behind the text. Only transforms move, and the room's
-   animation governor pauses both layers when this control is offscreen. */
-.speech-header .mode-doors .btn.is-current:not(:disabled){
-  position:relative;isolation:isolate;overflow:hidden;background:#b91c1c;
-}
-.speech-header .mode-doors .btn.is-current:not(:disabled)::before,
-.speech-header .mode-doors .btn.is-current:not(:disabled)::after{
-  content:"";position:absolute;z-index:-1;pointer-events:none;
-  animation:lrStartRedFlow 8s ease-in-out infinite;
-}
-.speech-header .mode-doors .btn.is-current:not(:disabled)::before{
-  inset:-50% -30%;
-  background:linear-gradient(115deg,#a9181d 15%,#bd1c23 52%,#cf2932 82%);
-}
-.speech-header .mode-doors .btn.is-current:not(:disabled)::after{
-  left:-30%;top:-170%;width:150%;height:220%;border-radius:50%;
-  background:linear-gradient(170deg,rgba(255,255,255,0) 58%,rgba(255,255,255,.06) 86%,rgba(255,255,255,.12));
-  animation-name:lrStartRedSheen;
-}
-@keyframes lrStartRedFlow{
-  0%,100%{transform:translate3d(-8%,-2%,0) rotate(-3deg)}
-  50%{transform:translate3d(8%,2%,0) rotate(3deg)}
-}
-@keyframes lrStartRedSheen{
-  0%,100%{transform:translate3d(-8%,0,0) rotate(-7deg)}
-  50%{transform:translate3d(16%,16%,0) rotate(6deg)}
-}
-@media(prefers-reduced-motion:reduce){
-  .speech-header .mode-doors .btn.is-current:not(:disabled)::before,
-  .speech-header .mode-doors .btn.is-current:not(:disabled)::after{animation:none}
-}
-/* The mode the room is currently in reads as the default, without
-   demoting the other one to a link. */
-/* NOT var(--ui-surface): on the light theme it resolves to a near-black
-   while this panel is paper, so the secondary door measured 1.14 against
-   its own text. Same trap as #audFab and #kickoffGo. --text and --bg are
-   the two tokens this page actually defines in every theme. */
-.speech-header .mode-doors .btn:not(.is-current){
-  background:transparent;border:1px solid var(--border,rgba(128,128,128,.4));
-  color:var(--text);box-shadow:none;
-}
-.speech-header .mode-doors .btn:not(.is-current):hover{
-  border-color:var(--accent,#ef4444);
-}
-.speech-header .mode-doors .md-sub{display:block;margin-top:3px;font-size:.68rem;font-weight:600;opacity:.72;text-transform:none;letter-spacing:0}
-.speech-header .mode-doors .btn.is-current .md-sub{opacity:1}
-body.mode-doors-open .speech-header[data-action-state="start"] #playPauseBtn{display:none}
-@media (max-width:560px){.speech-header .mode-doors{grid-template-columns:1fr}}
-.speech-header[data-action-state="start"] #playPauseBtn{
-  width:100%;min-height:62px;border-radius:14px;
-  font-size:1rem;letter-spacing:.01em;text-transform:none;
-  box-shadow:0 10px 26px rgba(185,28,28,.24);
-}
-.speech-header[data-action-state="start"] #endSpeechBtn,
-.speech-header[data-action-state="start"] #skipSpeechBtn,
-.speech-header[data-action-state="start"] #forfeitNextBtn,
-.speech-header[data-action-state="active"] #skipSpeechBtn{display:none!important}
-.speech-header[data-action-state="start"] .ready-hint{
-  text-align:center;font-size:.76rem;line-height:1.35;color:var(--text-dim);
-}
-
-/* ── 4. Secondary sections. Closed by default, each summary carrying the
-      one fact that decides whether it is worth opening. */
-.round-details{margin:0 24px 14px;background:transparent}
-.round-details[hidden]{display:none}
-.round-details > summary{
-  display:flex;align-items:center;gap:10px;min-height:42px;
-  font-size:.74rem;font-weight:750;letter-spacing:.02em;text-transform:none;
-}
-.round-details > summary::after{
-  content:'\203a';margin-left:4px;font-size:1.05rem;line-height:1;
-  color:var(--text-dim);transform:rotate(90deg);transition:transform .16s ease;
-}
-.round-details[open] > summary::after{transform:rotate(-90deg)}
-@media(prefers-reduced-motion:reduce){.round-details > summary::after{transition:none}}
-/* Measured, not eyeballed: an opacity here took the summary status to
-   4.08:1 on the light theme. The token alone clears AA in all three. */
-/* The state chip above the clock now says Paused, so the suffix the
-   number used to carry said it twice on one line. */
-.timer-num.paused::after{content:none}
-.round-details .rd-status{
-  margin-left:auto;font-size:.68rem;font-weight:650;letter-spacing:0;
-  color:var(--text-dim);text-align:right;
-}
-.round-details .round-edit-bar{margin:0}
-.round-details .rd-note{margin:0;font-size:.74rem;line-height:1.5;color:var(--text-dim);opacity:.85}
-/* Inside a disclosure the aides are already framed, so drop their own
-   card chrome and let one border do the work. */
-.round-details .round-notes,.round-details .fact-checks{margin:0;border-radius:10px}
-.round-details #specDock,.round-details .spec-dock{
-  grid-template-columns:1fr;padding:0;background:none;border:0;gap:12px;
-}
-
-/* ── 5. One comfortable measure on a wide monitor. Without this the
-      round stretched to whatever the video column left behind, which on
-      a 27in display put the clock and the transcript a foot apart. */
-#roundView > *{width:100%;max-width:1100px;margin-left:auto;margin-right:auto}
-
-/* ── 6. Collapse the video column. Display only: the Daily pane is never
-      re-parented, because moving it reloads the iframe and drops the
-      call. Skipped in mini / pop-out, which own the pane already. */
-body.lr-vid-off:not(.lr-mini):not(.lr-pip) .jitsi-pane,
-body.lr-vid-off:not(.lr-mini):not(.lr-pip) .split-resizer{display:none}
-body.lr-vid-off:not(.lr-mini):not(.lr-pip) .split{grid-template-columns:minmax(0,1fr)}
-
-/* ── 7. The change-resolution dialog. Centred card on desktop, bottom
-      sheet on a phone. */
-.lr-sheet .lr-sheet-card{max-width:520px;max-height:calc(var(--topic-viewport,100dvh) - 36px);overflow:auto;overscroll-behavior:contain}
-#motionModal{width:100%;height:100%;max-width:none;max-height:none;margin:0;border:0;background:transparent;box-sizing:border-box}
-#motionModal::backdrop{background:rgba(0,0,0,.62)}
-#motionModal .dm-text{font-size:16px}
-#motionModal[hidden]{display:none!important}
-.lr-sheet-row{flex-wrap:wrap;gap:10px;margin-top:14px}
-.lr-btn-secondary{
-  padding:9px 16px;border-radius:999px;font:inherit;font-size:.82rem;font-weight:700;
-  min-height:40px;cursor:pointer;
-  border:1px solid var(--border-strong,rgba(255,255,255,.22));
-  background:transparent;color:var(--text,#fff);
-}
-.lr-btn-secondary:hover{background:rgba(127,127,127,.14)}
-.lr-btn-quiet{
-  padding:9px 12px;border:0;background:none;min-height:40px;cursor:pointer;
-  font:inherit;font-size:.82rem;font-weight:650;color:var(--text-dim,rgba(255,255,255,.68));
-}
-.lr-btn-quiet:hover{color:var(--text,#fff)}
-.lr-sheet-row .dm-send{margin-left:auto}
-/* The dialog owns the screen while it is open; the round behind it
-   should not scroll out from under it. */
-body.lr-modal-open .panel{overflow:hidden}
-#motionModalStatus{margin-top:9px;min-height:1em}
-.lr-sheet :focus-visible,.round-details :focus-visible,.speech-header :focus-visible,
-.round-motion-bar :focus-visible{outline:2px solid var(--accent,#ef4444);outline-offset:2px}
-
-/* ── 8. Phones: one column, one action bar pinned where a thumb is. */
-@media(max-width:1000px){
-  /* The video was taking 56vh before the round said anything. Half that
-     puts the resolution, the speaker, the clock and the control in the
-     first screen; Hide video takes the rest. */
-  .jitsi-pane{height:34vh;min-height:200px}
-}
-@media(max-width:760px){
-  .round-motion-bar{padding:18px 16px 20px}
-  .round-motion-bar::before{left:16px;width:64px}
-  .speech-header{padding:13px 16px 15px;gap:12px}
-  .speech-clock{padding:12px 0 0}
-  .round-details{margin:0 16px 12px}
-  .transcript-area{padding:16px 16px 18px}
-  .sides-guide{gap:3px 14px}
-  /* The speech name wraps to its own line here, and a separator at the
-     end of the line above is a dangling dot. */
-  .sh-sep{display:none}
-  /* 44px targets on every control the round view puts under a thumb. */
-  .rmb-change,.rmb-rec-btn,.lr-pip-btn,.round-details > summary,
-  .lr-btn-secondary,.lr-btn-quiet,.lr-sheet .dm-send{min-height:44px}
-  .rmb-change{padding:6px 12px}
-  /* The speech control follows the thumb instead of the scroll. Applied
-     only while a speech exists to control, and never to spectators, who
-     have no control to pin (the !important display:none upstream still
-     wins for them). */
-  body.lr-round-live .speech-header .speech-actions{
-    position:fixed;left:0;right:0;bottom:0;z-index:118;
-    margin:0;padding:9px 14px calc(9px + env(safe-area-inset-bottom,0px));
-    background:var(--bg);border-top:1px solid var(--border);
-    box-shadow:0 -12px 30px rgba(0,0,0,.34);
-  }
-  /* Three buttons on a 390px bar: measured, they wrapped to two lines
-     each at the desktop sizing, which doubled the bar height and ate the
-     space it was reserving. */
-  body.lr-round-live .speech-header .speech-actions{flex-wrap:nowrap;gap:7px}
-  body.lr-round-live .speech-header .speech-actions .btn{
-    flex:1 1 0;min-height:46px;justify-content:center;text-align:center;
-    padding:10px 6px;font-size:.76rem;letter-spacing:.01em;
-    text-transform:none;white-space:nowrap;
-  }
-  body.lr-round-live .speech-header .speech-actions #playPauseBtn{flex:1.5 1 0}
-  body.lr-round-live .speech-header .speech-actions #skipSpeechBtn{flex:0 0 auto;padding:10px 14px}
-  body.lr-round-live .speech-header .speech-actions #forfeitNextBtn{flex:0 0 auto;min-height:46px}
-  body.lr-round-live .panel{padding-bottom:76px}
-  body.lr-round-live.spectator-mode .panel{padding-bottom:0}
-}
-/* ── Phones, redesigned 2026-09-03 (the founder, off a live-round
-   screenshot with the prep block, the TALK chip row and the context band
-   circled): "get rid of those things ... need to just make it the
-   resolution for mobile. just the start convo mode or start formal
-   speeches - then encourage prep time at that point". And for the
-   audience: "just ... screen, chat, resolution boldly, and then options to
-   learn more via transcript / round notes summary". Everything hidden here keeps its id and its renderer; the
-   phone simply does not paint it until it is wanted. Desktop untouched. */
-@media(max-width:760px){
-  /* Debater, before speech 1: the resolution and the two doors. */
-  body.mode-doors-open:not(.spectator-mode) #roundGuide,
-  body.mode-doors-open:not(.spectator-mode) .sh-line,
-  body.mode-doors-open:not(.spectator-mode) .speech-primary,
-  body.mode-doors-open:not(.spectator-mode) .speech-clock,
-  body.mode-doors-open:not(.spectator-mode) .timer-progress,
-  body.mode-doors-open:not(.spectator-mode) #readyHint,
-  body.mode-doors-open:not(.spectator-mode) #roundMotionBar,
-  body.mode-doors-open:not(.spectator-mode) #roundDetails,
-  body.mode-doors-open:not(.spectator-mode) #moreOptions,
-  body.mode-doors-open:not(.spectator-mode) .transcript-area,
-  body.mode-doors-open:not(.spectator-mode) .prep-banner.is-idle{display:none}
-  body.mode-doors-open:not(.spectator-mode) .speech-header{display:flex;flex-direction:column;gap:14px;padding:18px 16px 20px}
-  body.mode-doors-open:not(.spectator-mode) .sh-main{display:block}
-  body.mode-doors-open:not(.spectator-mode) .rmb-motion{font-size:1.7rem;line-height:1.14;font-weight:800;letter-spacing:-.01em}
-  body.mode-doors-open:not(.spectator-mode) .rmb-tools{margin-top:10px}
-  body.mode-doors-open:not(.spectator-mode) .mode-doors{grid-template-columns:1fr;gap:10px;margin-top:4px}
-  body.mode-doors-open:not(.spectator-mode) .mode-doors .btn{min-height:64px;font-size:1rem}
-  /* The prep clock, once running, is one small line rather than a block. */
-  body:not(.spectator-mode) .prep-banner{margin:0;padding:7px 12px;font-size:.74rem;border-radius:0;border-left:0;border-right:0}
-  /* Spectator: screen, chat, resolution, then the three ways in. */
-  body.spectator-mode #roundGuide,
-  body.spectator-mode .sh-line,
-  body.spectator-mode .spectator-meta,
-  body.spectator-mode .timer-progress,
-  body.spectator-mode #readyHint,
-  body.spectator-mode #roundMotionBar,
-  body.spectator-mode #roundDetails,
-  body.spectator-mode #judgeAdjudicates,
-  body.spectator-mode #rmbTools,
-  body.spectator-mode #audFab,
-  body.spectator-mode:not(.spec-show-transcript) .transcript-area,
-  body.spectator-mode:not(.spec-show-notes) #moreOptions,
-  body.spectator-mode:not(.spec-show-audience) #audienceTools{display:none}
-  body.spectator-mode .panel{padding-right:0}
-  body.spectator-mode .speech-header{display:flex;flex-direction:column;gap:10px;padding:14px 16px 12px}
-  body.spectator-mode .sh-main{display:block}
-  body.spectator-mode .rmb-motion{font-size:1.7rem;line-height:1.14;font-weight:800;letter-spacing:-.01em}
-  .spec-chat-bar{display:flex;align-items:center;justify-content:center;gap:9px;width:auto;margin:12px 16px 0;
-    min-height:50px;border-radius:14px;border:1px solid #b91c1c;background:#b91c1c;color:#fff;
-    font-family:inherit;font-weight:800;font-size:.95rem;letter-spacing:.01em;cursor:pointer}
-  .spec-chat-bar span{font-size:1.2rem;line-height:1}
-  .spec-menu{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 16px 14px}
-  .spec-menu .sm-btn{min-height:44px;border-radius:12px;border:1px solid var(--border,rgba(128,128,128,.4));
-    background:transparent;color:var(--text);font-family:inherit;font-weight:700;font-size:.78rem;cursor:pointer;padding:6px 8px}
-  .spec-menu .sm-btn[aria-pressed="true"]{border-color:var(--accent,#ef4444);color:var(--accent,#ef4444)}
-}
-@media(min-width:761px){
-  .spec-chat-bar{display:none}
-  body.spectator-mode .spec-menu{display:flex;gap:8px;padding:0 22px 14px}
-  body.spectator-mode .spec-menu .sm-btn{min-height:42px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);font-family:inherit;font-weight:700;font-size:.78rem;cursor:pointer}
-  body.spectator-mode:not(.spec-show-notes) #moreOptions{display:none}
-}
-body.mode-doors-open.rn-requested:not(.spectator-mode) #moreOptions{display:block}
-/* The prep offer that follows the formal door (see showPrepNudge). */
-body.prep-nudge-open .speech-header .mode-doors{display:none}
-.prep-nudge{grid-column:1/-1;display:flex;flex-direction:column;gap:10px;margin-top:2px;padding:14px;border-radius:14px;
-  border:1px solid var(--border,rgba(128,128,128,.4));background:transparent}
-.prep-nudge[hidden]{display:none}
-.prep-nudge .pn-text{font-size:.86rem;font-weight:700;color:var(--text)}
-.prep-nudge .pn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.prep-nudge .btn{width:100%;min-height:54px;border-radius:12px;text-transform:none;font-size:.9rem;justify-content:center}
-.prep-nudge .pn-prep{background:transparent;border:1px solid var(--border,rgba(128,128,128,.4));color:var(--text);box-shadow:none}
-.prep-nudge .pn-prep:hover{border-color:var(--accent,#ef4444)}
-@media(max-width:560px){.prep-nudge .pn-row{grid-template-columns:1fr}}
-/* Two seats on a phone (the founder's sketch, 2026-09-03): side by side,
-   and the speaker's tile grows while the other shrinks, sliding back and
-   forth as the turn changes. is-speaking comes from Daily's active-speaker
-   event, so it follows the voice, not the clock. Spectators used to get a
-   full-bleed main tile with the other seat as a corner picture; that is
-   undone here so both are on screen at once. */
-@media(max-width:900px){
-  /* body.spectator-mode is on the selectors so these outrank the
-     spectator stage rules (a full-bleed main tile with a corner picture),
-     which carry the body class too. */
-  .cv-stage[data-n="2"]:not(.has-screen),
-  body.spectator-mode .cv-stage[data-n="2"]:not(.has-screen){display:flex;flex-direction:row;align-items:stretch;gap:6px;padding:6px;position:static}
-  .cv-stage[data-n="2"]:not(.has-screen) > .cv-tile,
-  body.spectator-mode .cv-stage[data-n="2"]:not(.has-screen) > .cv-tile{flex:1 1 0 !important;min-width:0;aspect-ratio:auto !important;transition:flex-grow .6s cubic-bezier(.2,.7,.2,1),border-color .2s,box-shadow .2s}
-  .cv-stage[data-n="2"]:not(.has-screen) > .cv-tile.is-speaking,
-  body.spectator-mode .cv-stage[data-n="2"]:not(.has-screen) > .cv-tile.is-speaking{flex-grow:1.9 !important}
-  body.spectator-mode .cv-stage:not(.has-screen){position:static}
-  body.spectator-mode .cv-stage[data-n="2"]:not(.has-screen) > .cv-tile,
-  body.spectator-mode .cv-stage[data-n="2"]:not(.has-screen) > .cv-tile:nth-child(2){
-    position:static !important;inset:auto !important;right:auto !important;bottom:auto !important;
-    width:auto !important;height:auto !important;max-width:none !important;transform:none !important;z-index:auto !important;
-  }
-}
-@media(prefers-reduced-motion:reduce){.cv-stage[data-n="2"] > .cv-tile{transition:none}}
-/* Short landscape keeps video and console side by side. At that point a
-   1000px viewport produces a roughly 450px console, so viewport-based
-   type sizing made the resolution look like a billboard and squeezed it
-   beside the timer. Stack and size against the console itself. */
-@container round-panel (max-width:520px){
-  .rmb-motion-row{grid-template-columns:minmax(0,1fr);gap:12px}
-  .round-motion-bar .rmb-motion{
-    max-width:none;font-size:clamp(1.95rem,8.2cqi,2.55rem);
-    line-height:1.04;overflow-wrap:anywhere;text-wrap:pretty;
-  }
-  .rmb-motion-actions{min-width:0;justify-content:flex-start}
-  .rmb-timer{min-width:108px;align-items:flex-start}
-  .rmb-timer-num{font-size:1.65rem}
-}
-@container round-panel (max-width:360px){
-  .round-motion-bar .rmb-motion{font-size:clamp(1.75rem,8.5cqi,2.05rem)}
-  .rmb-motion-actions{align-items:stretch;flex-direction:column}
-  .rmb-timer{width:100%}
-}
-/* Landscape phones put the video and the console side by side and give
-   the console its own scroller (see the landscape block above). A bar
-   pinned to the window would sit across the video column, and it is not
-   needed: the action row is already near the top of the panel there. */
-@media (orientation:landscape) and (max-height:600px) and (min-width:640px){
-  body.lr-round-live .speech-header .speech-actions{
-    position:static;padding:0;background:none;border-top:0;box-shadow:none;
-  }
-  body.lr-round-live .panel{padding-bottom:0}
-  .round-details{margin:0 14px 10px}
-}
-@media(max-width:600px){
-  .lr-sheet{align-items:flex-end;padding:0}
-  .lr-sheet .lr-sheet-card{
-    max-width:none;border-radius:18px 18px 0 0;
-    padding:20px 18px calc(18px + env(safe-area-inset-bottom,0px));
-  }
-  .lr-sheet-row{flex-direction:column;align-items:stretch}
-  .lr-sheet-row .dm-send,.lr-sheet-row .lr-btn-secondary,.lr-sheet-row .lr-btn-quiet{
-    margin-left:0;width:100%;min-height:48px;
-  }
-  /* Primary action first under the thumb, then the secondary, then out. */
-  .lr-sheet-row .dm-send{order:1}
-  .lr-sheet-row .lr-btn-secondary{order:2}
-  .lr-sheet-row .lr-btn-quiet{order:3}
-}
-</style>
 
 <!-- Change resolution. One focused surface for the thing that used to be
      an inline contenteditable nobody could find: type it, or roll one,
@@ -22744,85 +22172,8 @@ body.prep-nudge-open .speech-header .mode-doors{display:none}
      else, so they carry it themselves. -->
 <script defer src="/js/auth-modal.js"></script>
 <script src="/js/room-topic.js"></script>
-<link rel="stylesheet" href="/css/round-mobile.css?v=20260910a">
 
-<style id="round-clarity">
-#panel:has(#ballotView:not(.hidden))>#roundGuide{display:none}
-.judge-overview{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:0 12px;scroll-margin-top:calc(12px + var(--safe-top,env(safe-area-inset-top,0px)));margin:8px 22px 0;padding:4px 12px;border:1px solid rgba(217,201,138,.4);border-radius:14px;background:rgba(217,201,138,.06);transition:opacity .3s ease}
-.judge-overview[hidden],.setup-judge-block[hidden]{display:none}
-.judge-overview.is-dismissed{opacity:0;pointer-events:none}
-.judge-overview #roomStage{display:flex;padding:0;container-type:normal}
-.judge-overview .rail-judge{width:100%;justify-content:flex-start;padding:0;border:0;background:none;box-shadow:none}
-.judge-overview .rail-judge .rj-meta{display:flex;gap:0;line-height:1.2}
-.judge-overview .rail-judge{min-height:0}
-.judge-overview .rail-judge .rj-status{display:none}
-.judge-overview .rj-label{font-size:1.35rem;letter-spacing:0;text-transform:none}
-.judge-overview .rj-purpose{font-size:.82rem;line-height:1.35;color:var(--text);text-wrap:pretty}
-[data-theme="light"] .judge-overview .rj-label{color:#76520a}
-.judge-overview #judgeAdjudicates{margin:0;border:0;background:none}
-.judge-overview #judgeAdjudicates[open]{grid-column:1/-1}
-.judge-overview #judgeAdjudicates>summary{min-height:44px;justify-content:flex-end;padding:4px 0;font-size:.74rem}
-.judge-overview .judge-how-body{padding:0 14px 12px}
-@media(max-width:500px){
-  .judge-overview .rj-label{font-size:1.12rem}
-  .judge-overview .rj-purpose{font-size:.7rem}
-  .judge-overview #judgeAdjudicates>summary{max-width:100px;text-align:right;line-height:1.3}
-}
-.round-roster .roster-card{display:grid;grid-template-columns:8px 34px minmax(0,1fr) auto;align-content:center;gap:10px}
-.round-roster .roster-card .rc-meta{grid-column:3}
-.round-roster .roster-card .rc-side{grid-column:4;justify-self:end}
-.round-roster .roster-card .rc-name{white-space:normal;overflow-wrap:anywhere}
-.round-roster .rc-actions{grid-column:2/-1;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.round-roster .rc-actions:not(:has(button:not([hidden]))){display:none}
-.round-roster .rc-actions .rc-dm{margin:0}
-@media(max-width:1100px){.round-roster{flex-direction:column}}
-#ballotNotesHost .rn-export{display:none}
-#ballotLoading{padding:24px 18px;min-height:0;text-align:center}
-#ballotLoading .spinner{width:32px;height:32px;margin:0 auto 12px}
-#ballotLoading .ballot-wait-cue{font-size:.76rem;margin-top:12px}
-#rnList .rn-point{padding:8px 12px 8px 26px}
-#rnList .rn-point:before{top:8px;left:10px}
-#rnList .rn-note,#rnList .rn-expand>summary{font-size:.86rem;line-height:1.4;font-weight:400;letter-spacing:0}
-#rnList .rn-expand>summary{padding:0;min-height:44px;align-items:center;gap:8px}
-#rnList .rn-expand[open]>.rn-note{padding-top:6px;color:var(--text-dim)}
-#rnList .rn-speech>summary{min-height:44px;flex-wrap:wrap;letter-spacing:0}
-#rnList .rn-who{overflow-wrap:anywhere;min-width:0}
-@media(max-width:760px),(orientation:landscape) and (max-height:600px){
-  nav.bar{padding-top:calc(8px + var(--safe-top,env(safe-area-inset-top,0px)));padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));gap:6px;overflow:visible}
-  nav.bar .bar-discord,nav.bar #roundBarUser,nav.bar #watchCountPill,nav.bar #phaseLabel,nav.bar .bar-context{display:none!important}
-  nav.bar .bar-meta{gap:6px;min-width:0}
-  nav.bar .bar-back,nav.bar .privacy-toggle{min-height:44px;padding:6px 8px}
-  nav.bar .bar-back-short{white-space:nowrap}
-  nav.bar .bar-back{display:none}
-  nav.bar .bar-logo{flex-shrink:0}
-  nav.bar .privacy-status{white-space:nowrap}
-  #jitsiPane>.call-guidance{position:static;inset:auto;flex:0 0 auto;padding:4px 8px;background:#0a0a0c;gap:0}
-  #jitsiPane>.call-guidance:empty{display:none}
-  #jitsiPane>.call-guidance .cam-modes{width:100%;display:flex;box-shadow:none}
-  #jitsiPane>.call-guidance .cam-modes button{flex:1;min-width:0;min-height:44px;padding:8px 5px;font-size:12px;letter-spacing:0;white-space:nowrap}
-  #jitsiPane>.call-guidance .cam-hint,#jitsiPane>.call-guidance .lr-open-card{display:none}
-  #jitsiPane .cv-tray{padding:6px 8px;gap:6px}
-  #jitsiPane .cv-tray .cv-btn{min-height:44px;padding:8px 12px;font-size:13px;letter-spacing:0}
-  .split #panel{padding-right:0}
-  .judge-overview{margin:6px 14px 0;gap:0 8px;padding:3px 10px}
-  .judge-overview #roomStage{padding:0}
-  .judge-overview .rail-judge{gap:12px}
-  .judge-overview .rail-judge .rj-avatar{width:34px;height:34px}
-  .rec-topbar{padding:10px 14px 0}
-  .rec-topbar .rmb-rec{gap:8px;flex-wrap:wrap}
-  .rec-topbar .rmb-rec .rmb-rec-btn{min-height:44px;padding:8px 12px;font-size:13px;letter-spacing:0;white-space:nowrap}
-  .rec-topbar .rmb-rec-elapsed{font-size:12px;line-height:1.3;font-weight:500}
-  #ballotNotesHost .round-notes{padding:14px}
-  #ballotLoading{padding:20px 14px}
-  #rnList{gap:10px}
-  .rn-head .rn-off{min-width:44px;min-height:44px}
-  #audFab{width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;padding:0!important;border-radius:50%!important;writing-mode:horizontal-tb!important;right:10px!important;top:auto!important;bottom:calc(14px + var(--safe-bottom,env(safe-area-inset-bottom,0px)))!important;transform:none!important;gap:0!important;justify-content:center}
-  #audFab b{display:none}
-  #audFab>span{font-size:21px!important;line-height:1}
-  body.lr-round-live #audFab{bottom:calc(82px + var(--safe-bottom,env(safe-area-inset-bottom,0px)))!important}
-  body.lr-camera-focus .judge-overview{display:none}
-}
 
-</style>
+
 </body>
 </html>

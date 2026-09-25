@@ -653,21 +653,28 @@ body{
     var id;
     try { id = new URL(window.location.href).searchParams.get('id'); } catch(e){ id = null; }
     // Instant path: sessionStorage payload that matches (or no id asked).
-    if (sync && (!id || sync.id === id || !sync.id)) { cb(sync); return; }
+    if (sync && (!id || sync.id === id)) { cb(sync); return; }
     if (id && typeof firebase !== 'undefined' && firebase.firestore){
       try {
-        firebase.firestore().collection('voice_rounds').doc(id).get().then(function(snap){
-          if (snap.exists){
-            var d = snap.data() || {};
-            d.id = id;
-            d.generationId = null; // no rating on revisit/share
-            cb(d);
-          } else { cb(sync); }
-        }).catch(function(e){ console.warn('[rfd] round fetch failed', e); cb(sync); });
+        var fetchSaved = function () {
+          firebase.firestore().collection('voice_rounds').doc(id).get().then(function(snap){
+            if (snap.exists){
+              var d = snap.data() || {};
+              d.id = id;
+              d.generationId = null;
+              cb(d);
+            } else { cb(null); }
+          }).catch(function(e){ console.warn('[rfd] round fetch failed', e); cb(null); });
+        };
+        // Auth restoration must finish before an owner-only history read.
+        // Published links still resolve for signed-out visitors.
+        if (firebase.auth && !firebase.auth().currentUser) {
+          var off = firebase.auth().onAuthStateChanged(function () { if (off) off(); fetchSaved(); });
+        } else fetchSaved();
         return;
       } catch(e){ console.warn('[rfd] round fetch threw', e); }
     }
-    cb(sync);
+    cb(id ? null : sync);
   }
 
   function getAnonSessionId(){
@@ -800,6 +807,18 @@ body{
 
   function render(payload){
     if (!payload || !payload.rfd){
+      if (new URL(window.location.href).searchParams.get('id')) {
+        root.innerHTML = '<div class="empty"><h2>This decision is private or unavailable</h2>'
+          + '<p>Sign in to the account that saved it. Shared decisions are available after their owner publishes them.</p>'
+          + '<button class="cta-btn primary" id="privateRoundSignIn" type="button">Sign in</button></div>';
+        document.getElementById('privateRoundSignIn').addEventListener('click', function () {
+          if (typeof window.openAuthModal === 'function') window.openAuthModal();
+          var off = firebase.auth().onAuthStateChanged(function (user) {
+            if (user && !user.isAnonymous) { if (off) off(); location.reload(); }
+          });
+        });
+        return;
+      }
       root.innerHTML =
         '<div class="empty">'
           + '<h2>No decision to show yet</h2>'
@@ -982,7 +1001,7 @@ body{
         + '<a href="' + runBackHref + '" class="cta-btn primary"' + tagClick('rematch') + '>Rematch</a>'
         + '<a href="' + newMotionHref + '" class="cta-btn ghost"' + tagClick('new') + '>New topic</a>'
         + '<a href="' + weakestHref + '" class="cta-btn ghost"' + tagClick('drill') + ' title="' + escHtml(weakestLabel + ': ' + weakestText) + '">Drill your weakest area</a>'
-        + '<button class="cta-btn ghost" id="shareBallot" type="button">Share decision</button>'
+        + '<button class="cta-btn ghost" id="shareBallot" type="button">Share decision and transcript</button>'
       + '</div>';
 
     // Cert award banner — only when voice-debate.html attached a
@@ -1322,9 +1341,13 @@ body{
       try {
         var url;
         if (payload.id) {
-          // Saved round → short, stable link. The doc is public-read by
-          // id, so this resolves for anyone and always reflects the
-          // canonical saved ballot + transcript.
+          // A saved record stays private until this explicit action.
+          if (payload.published !== true) {
+            await firebase.firestore().collection('voice_rounds').doc(payload.id).update({
+              published: true, publishedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            payload.published = true;
+          }
           url = window.location.origin + '/voice-rfd?id=' + encodeURIComponent(payload.id);
         } else {
           // Anon / unsaved round → self-contained URL-safe base64 payload
@@ -1347,7 +1370,7 @@ body{
           await navigator.clipboard.writeText(url);
           shareBtn.textContent = 'Link copied';
         }
-        setTimeout(function(){ shareBtn.textContent = 'Share decision'; }, 1800);
+        setTimeout(function(){ shareBtn.textContent = 'Share decision and transcript'; }, 1800);
         try { gtag('event', 'voice_rfd_share', { kind: payload.id ? 'id' : 'payload' }); } catch(e){}
       } catch(e){ shareBtn.textContent = 'Couldn\'t share'; }
     });

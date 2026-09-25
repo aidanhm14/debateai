@@ -186,6 +186,15 @@
       if (jd && jd.scrollIntoView) jd.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
+    // Persist the complete plan before Speech 1 so a peer or reload sees
+    // the same six durations. A failed save leaves the clock at ready.
+    if (context.ensureSpeechTiming){
+      var timingSave = context.ensureSpeechTiming();
+      if (timingSave){
+        timingSave.then(startSpeechTimer).catch(function(e){ toast(e.message || 'Could not save speech timing. Try again.'); });
+        return;
+      }
+    }
     hidePrepBanner();   // prep is over once a speech actually starts
     var wasReady = context.state.timerState === 'ready';
     context.state.timerStart = Date.now();
