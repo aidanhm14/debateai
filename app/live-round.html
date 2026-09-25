@@ -1167,8 +1167,16 @@ body.lr-resizing #jitsiPane,body.lr-resizing #panel{pointer-events:none}
      identically here, so nothing else moves. */
   .split{display:block}
   .split-resizer{display:none}
-  body{height:auto;overflow:auto}
-  html,body{height:auto;overflow:auto}
+  /* 2026-09-25 (the founder, off a phone screenshot with the video gone
+     and only the details on screen): the pane below is position:sticky,
+     and sticky binds to the nearest SCROLL CONTAINER. With overflow:auto
+     on BOTH html and body, html's value takes the viewport and body keeps
+     its own, so body became a scroll container that never scrolls and the
+     pane never stuck. Measured at 375x812: the pane sat at -538px after a
+     600px scroll. body must stay overflow:visible here so the viewport is
+     the scroller the pane pins to. */
+  html{height:auto;overflow:auto}
+  body{height:auto;overflow:visible}
   .jitsi-pane{height:34vh;max-height:320px;min-height:200px;padding:0}
   .daily-frame{height:100%}
 }
@@ -2315,6 +2323,23 @@ body.lr-mini .lr-start-dock,body.lr-pip .lr-start-dock{display:none}
 body.spectator-mode .lr-start-reminder,
 body.lr-mini .lr-start-reminder,body.lr-pip .lr-start-reminder{display:none!important}
 @media (prefers-reduced-motion:reduce){ .lr-start-reminder{animation:none} }
+/* Phones (2026-09-25, the founder: "remind ppl when they start talking to
+   press start speech - this needs to be fixed on mobile"). The Start
+   control lives in the fixed bottom dock on a phone, so the reminder sits
+   directly above that dock, where the thumb already is, instead of at the
+   top of the screen over the pinned video. Transform-only entrance: this
+   page ships animations paused and an opacity keyframe with fill-mode
+   both freezes a card invisible (the 2026-08-26 draft-board finding). */
+@media (max-width:760px){
+  body.lr-round-live:not(.spectator-mode) .lr-start-reminder{
+    top:auto;bottom:calc(var(--round-dock-height,230px) + 10px);
+    left:10px;right:10px;width:auto;max-width:none;transform:none;
+    z-index:319;padding:12px 12px;gap:10px;
+    animation:lrNoteUp .22s ease;
+  }
+  body.lr-round-live:not(.spectator-mode) .lr-start-reminder .lr-reminder-go{min-height:44px;padding:10px 14px}
+}
+@keyframes lrNoteUp{from{transform:translateY(8px)}to{transform:none}}
 
 /* Quiet-room strip (2026-08-23). Amber, not red: an empty room is a
    state of the world, not an error and not a moderation event, and red
@@ -19439,25 +19464,95 @@ window.DBLiveDraft.attach({
   // and stops the moment it is not.
   function startCueLevels(on){
     var call = room && room.call;
-    if (!call || typeof call.startLocalAudioLevelObserver !== 'function'){ return; }
+    if (!call){ if (!on) cueFallbackStop(); return; }
     // Only once the call is actually joined: the observer rejects before
     // there is a local track, and a rejected promise here would surface
     // as an unhandled rejection in every round on a browser with no mic.
     if (on && !room.joined) return;
     if (on && startCue.lvlCall !== call){
       startCue.lvlCall = call;
-      try {
-        var pr = call.startLocalAudioLevelObserver(CUE_LVL_MS);
-        if (pr && pr.catch) pr.catch(function(){ startCue.lvlCall = null; });
-      } catch(e){ startCue.lvlCall = null; return; }
-      try { call.on('local-audio-level', onStartCueLevel); } catch(e){}
+      startCue.dailySeen = false;
+      if (typeof call.startLocalAudioLevelObserver === 'function'){
+        try {
+          var pr = call.startLocalAudioLevelObserver(CUE_LVL_MS);
+          // A rejected observer used to reset lvlCall and retry every
+          // second forever while the person kept talking into a stopped
+          // clock. It hands over to the fallback meter now.
+          if (pr && pr.catch) pr.catch(function(){ if (startCue.lvlCall === call) cueFallbackStart(); });
+        } catch(e){}
+        try { call.on('local-audio-level', onDailyCueLevel); } catch(e){}
+      }
+      // 2026-09-25: no event inside 3s means Daily's observer is not
+      // delivering on this device (a build without it, or a Web Audio
+      // context iOS keeps suspended), so the borrowed mic track is metered
+      // directly. See cueFallbackStart.
+      if (startCue.fbArm) clearTimeout(startCue.fbArm);
+      startCue.fbArm = setTimeout(function(){
+        startCue.fbArm = 0;
+        if (startCue.lvlCall === call && !startCue.dailySeen) cueFallbackStart();
+      }, 3000);
     } else if (!on && startCue.lvlCall){
       var prev = startCue.lvlCall;
       startCue.lvlCall = null;
       startCue.loudMs = 0;
-      try { prev.off('local-audio-level', onStartCueLevel); } catch(e){}
+      if (startCue.fbArm){ clearTimeout(startCue.fbArm); startCue.fbArm = 0; }
+      cueFallbackStop();
+      try { prev.off('local-audio-level', onDailyCueLevel); } catch(e){}
       try { prev.stopLocalAudioLevelObserver(); } catch(e){}
     }
+  }
+  function onDailyCueLevel(ev){
+    if (!startCue.dailySeen){ startCue.dailySeen = true; cueFallbackStop(); }
+    onStartCueLevel(ev);
+  }
+  // ── Fallback level source (2026-09-25, the founder: the talking reminder
+  //    "needs to be fixed on mobile"). Daily's local level observer is the
+  //    primary meter and stays so. When it delivers nothing, the SAME
+  //    borrowed mic track the segment recorder meters (srvBorrowTrack, so
+  //    no second capture and no permission prompt) is read on the same
+  //    200ms cadence and fed into the SAME accumulator above, mapped to
+  //    three bands so the accumulate / hold / decay rule is unchanged:
+  //    SPEECH_RMS is that meter's measured voice floor. The stream WRAPS
+  //    the track and is never stopped, which would cut the room's audio.
+  //    iOS resumes a Web Audio context only from a gesture, so resume is
+  //    tried now and again on the next touch. ──
+  var cueFb = { ac:null, an:null, buf:null, timer:0, resume:null };
+  var CUE_FB_EVENTS = ['touchend', 'pointerdown', 'keydown'];
+  function cueFallbackStart(track){
+    if (cueFb.timer) return;
+    var t = track || (typeof srvBorrowTrack === 'function' ? srvBorrowTrack() : null);
+    if (!t) return;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try {
+      cueFb.ac = new AC();
+      cueFb.an = cueFb.ac.createAnalyser();
+      cueFb.an.fftSize = 1024;
+      cueFb.buf = new Float32Array(cueFb.an.fftSize);
+      cueFb.ac.createMediaStreamSource(new MediaStream([t])).connect(cueFb.an);
+      var resume = function(){ try { if (cueFb.ac && cueFb.ac.state !== 'running') cueFb.ac.resume(); } catch(e){} };
+      resume();
+      cueFb.resume = resume;
+      CUE_FB_EVENTS.forEach(function(ev){ document.addEventListener(ev, resume, { passive:true }); });
+      cueFb.timer = setInterval(function(){
+        if (!cueFb.an) return;
+        try { cueFb.an.getFloatTimeDomainData(cueFb.buf); } catch(e){ return; }
+        var sum = 0;
+        for (var i = 0; i < cueFb.buf.length; i++) sum += cueFb.buf[i] * cueFb.buf[i];
+        var rms = Math.sqrt(sum / cueFb.buf.length);
+        var lvl = rms >= SPEECH_RMS * 1.4 ? CUE_LOUD : (rms < SPEECH_RMS * 0.6 ? 0 : CUE_LOUD * 0.7);
+        onStartCueLevel({ audioLevel: lvl, fallback: true });
+      }, CUE_LVL_MS);
+    } catch(e){ cueFallbackStop(); }
+  }
+  function cueFallbackStop(){
+    if (cueFb.timer){ clearInterval(cueFb.timer); cueFb.timer = 0; }
+    if (cueFb.resume){
+      var r = cueFb.resume; cueFb.resume = null;
+      CUE_FB_EVENTS.forEach(function(ev){ document.removeEventListener(ev, r); });
+    }
+    try { if (cueFb.ac && cueFb.ac.close) cueFb.ac.close(); } catch(e){}
+    cueFb.ac = null; cueFb.an = null; cueFb.buf = null;
   }
   function onStartCueLevel(ev){
     if (!startCue.lvlCall) return;
@@ -19529,6 +19624,9 @@ window.DBLiveDraft.attach({
     });
     document.body.appendChild(el);
     startCue.reminder = el;
+    // A phone in a hand notices a buzz before it notices a card above the
+    // dock. iOS Safari has no vibrate and this is a no-op there.
+    if (kind !== 'turn'){ try { if (navigator.vibrate) navigator.vibrate(80); } catch(e){} }
     startCue.reminderTimer = setTimeout(hideStartCueReminder, kind === 'turn' ? 9000 : 45000);
     try { gtag('event', 'live_start_cue_reminder', { format: state.formatKey, speech: idx, kind: kind || 'hot' }); } catch(e){}
   }
@@ -19863,6 +19961,11 @@ window.DBLiveDraft.attach({
     if (['setup','ready','readyset','speaking','waiting','spectator','ballot','deciding','silent','finish','closing'].indexOf(scene) < 0) scene = 'speaking';
     window.__lrDesign = scene;
     document.documentElement.setAttribute('data-lr-design', scene);
+    // QA hook for the start-cue module (design scenes only): the reminder
+    // and the fallback meter are timed beats that have to be watched, and
+    // the page's functions live in this closure.
+    window.__lrCue = { awaiting: startCueAwaiting, show: showStartCueReminder, hide: hideStartCueReminder,
+                       fbStart: cueFallbackStart, fbStop: cueFallbackStop, cue: startCue, fb: cueFb };
 
     var noop = function(){};
     var quiet = function(fn){ try { fn(); } catch(e){} };
