@@ -55,7 +55,9 @@
     var preview = mode === 'all' && !filtering;
     var exLimit = preview && !expanded ? 9 : Infinity;
     var exCount = filterCards('#examplesGrid .yt-card', mode === 'all' || mode === 'youtube', exLimit);
-    var rpCount = filterCards('#replaysGrid .card', mode === 'all' || mode === 'debatable', preview ? 2 : Infinity);
+    // The hub previews eight community rounds (a 4x2 wall) and hands the
+    // rest to /watch/debatable through View all.
+    var rpCount = filterCards('#replaysGrid .card', mode === 'all' || mode === 'debatable', preview ? 8 : Infinity);
     examples.hidden = (mode !== 'all' && mode !== 'youtube') || exCount === 0;
     replays.hidden = (mode !== 'all' && mode !== 'debatable') || (filtering && rpCount === 0);
     document.getElementById('watchReset').hidden = !filtering || mode === 'live';
