@@ -1,5 +1,18 @@
 // Honor provider bounces/complaints and audience unsubscribes before a bulk send.
-export async function campaignSuppressions(fetcher = fetch) {
+export function reviewedSuppressions(record, now = Date.now()) {
+  if (!record?.complete || !Number.isFinite(record.reviewedAt) || record.reviewedAt > now
+      || now - record.reviewedAt > 60 * 60 * 1000
+      || !Array.isArray(record.suppressed) || !Array.isArray(record.unsubscribed)
+      || record.suppressed.length !== record.suppressionCount
+      || record.unsubscribed.length !== record.unsubscribedCount) return null;
+  return new Set([...record.suppressed, ...record.unsubscribed].map(email => String(email).trim().toLowerCase()));
+}
+export async function campaignSuppressions(db, campaign, fetcher = fetch) {
+  // Sending-only keys cannot read the provider's lists. A complete dashboard
+  // review may be stored server-side for this campaign and used for one hour.
+  // There is no client write route or request-body override for this record.
+  const review = reviewedSuppressions((await db.doc('campaign_suppressions/' + campaign).get()).data());
+  if (review) return review;
   const blocked = new Set();
   for (const path of ['suppressions','contacts']) {
     let after = '', pages = 0;

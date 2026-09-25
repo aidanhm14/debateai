@@ -20,7 +20,7 @@ export default async request => {
   const profileSnap = await db.collection('user_profiles').get();
   const profiles = new Map(profileSnap.docs.map(d => [d.id,d.data()]));
   const selection = cohort(users,profiles);
-  const suppressed = await campaignSuppressions();
+  const suppressed = await campaignSuppressions(db,CAMPAIGN);
   const skipped = {...selection.skipped, providerSuppressed:selection.recipients.filter(p=>suppressed.has(p.email)).length};
   const eligible = selection.recipients.filter(p=>!suppressed.has(p.email));
   const ref = db.doc(`email_campaigns/${CAMPAIGN}`);

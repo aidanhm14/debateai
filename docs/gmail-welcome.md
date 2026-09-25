@@ -114,10 +114,17 @@ UIDs and explicit time-zone rules; Google links open the next occurrence.
 
 Today's separate member invitation is `clash-calendar-2026-09-25`, through
 `/api/admin/clash-calendar`. Preview is read-only. `PREPARE` freezes the verified,
-deduplicated cohort and message hash. `SEND` rechecks account preferences plus
+deduplicated cohort and message hash. `SEND` rechecks account preferences and excludes
 Resend suppressions/audience opt-outs, uses individual envelopes and a durable
 identical batch/idempotency key, and stops at midnight London time. Never expand
 that frozen manifest or reuse this campaign for a later invitation. Receipts live
 under `email_campaigns/clash-calendar-2026-09-25`. This does not consume the Gmail
 welcome allowance. Resend's secret is available only inside Netlify; an API env
 read returns a masked value and must not be treated as the usable key.
+
+The production Resend key can send but cannot read suppression/contact lists
+(401). For this campaign, a complete dashboard review is stored in the
+server-only `campaign_suppressions/{campaign}` document and expires after one
+hour. The handler refuses incomplete/stale records unless a live provider read
+succeeds. Recheck the dashboard before renewing a review. No API key permissions
+were widened, and no secret was copied out of Netlify.

@@ -39,3 +39,10 @@ assert.equal(first.headers['Idempotency-Key'],calls[1].headers['Idempotency-Key'
 assert.equal(first.body,calls[1].body);
 assert.equal(records.get('email_campaigns/'+CAMPAIGN).active,null);
 console.log('PASS calendar campaign: frozen cohort, consent, disabled accounts, dedup, individual envelopes, preview, admin gate, resumable batches and identical retries');
+const {reviewedSuppressions}=await import('../app/netlify/functions/lib/campaign-suppressions.mjs');
+const review={complete:true,reviewedAt:10000,suppressed:['blocked@example.org'],unsubscribed:['out@example.org'],suppressionCount:1,unsubscribedCount:1};
+assert.equal(reviewedSuppressions(review,10001).size,2);
+assert.equal(reviewedSuppressions({...review,complete:false},10001),null);
+assert.equal(reviewedSuppressions({...review,suppressionCount:2},10001),null);
+assert.equal(reviewedSuppressions(review,10000+3600001),null);
+console.log('Provider exclusions: complete, campaign-scoped server review with expiry required');
