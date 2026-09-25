@@ -486,7 +486,7 @@
   // — no code-level changes needed at each call site. We queue events
   // fired before the user resolves so we don't drop early page events.
   //
-  // Special-case: sign_in_* events are diverted to the no-auth
+  // Special-case: sign_in_error events are copied to the no-auth
   // /api/log-signin-error endpoint. Sign-in errors happen precisely
   // when the user has NO Firebase token, so the regular post() path
   // (which requires currentUser) was silently dropping the very
@@ -532,10 +532,9 @@
       }
     }
 
-    // Sign-in family bypasses the auth-gated path. We still post to
-    // app_event when the user IS authed, since the per-user activity
-    // dashboard wants the timeline too.
-    if (name.indexOf('sign_in_') === 0) {
+    // Only failures belong in the error sink. Starts and completions
+    // remain ordinary app_event entries for the sign-in funnel.
+    if (name === 'sign_in_error') {
       postSigninError(name, params);
     }
 

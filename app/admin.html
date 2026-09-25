@@ -451,8 +451,8 @@
   <details class="glossary" style="margin:0 0 22px;border:1px solid var(--line);border-radius:14px;background:var(--card);box-shadow:0 1px 2px rgba(16,21,28,.04);padding:0 18px">
     <summary style="padding:14px 0;font-weight:600;font-size:13px;color:var(--fg);cursor:pointer">What the metrics mean</summary>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px 24px;padding:4px 0 18px;font-size:12.5px;line-height:1.5">
-      <div><b>DAU / WAU / MAU</b><br><span style="color:var(--muted)">Daily / weekly / monthly active users.</span></div>
-      <div><b>Stickiness</b><br><span style="color:var(--muted)">DAU divided by MAU. The share of monthly users who show up on a given day. Roughly 20% or higher is strong.</span></div>
+      <div><b>DAU / WAU / MAU</b><br><span style="color:var(--muted)">Distinct activity IDs in rolling 24-hour / 7-day / 28-day windows. Signed-out IDs represent sessions. Counts are unavailable when the event scan does not cover a whole window.</span></div>
+      <div><b>Stickiness</b><br><span style="color:var(--muted)">DAU divided by MAU, shown only when both windows have complete event coverage. Signed-out sessions cannot establish person-level retention.</span></div>
       <div><b>Cohort / retention</b><br><span style="color:var(--muted)">Users grouped by the week they signed up, and the share who came back in later weeks. W1 is the first week after signup.</span></div>
       <div><b>KPI</b><br><span style="color:var(--muted)">Key performance indicator. The headline number cards at the top.</span></div>
       <div><b>RFD</b><br><span style="color:var(--muted)">Reason for decision. The judge's written ballot at the end of a round.</span></div>
@@ -545,7 +545,7 @@
   </style>
   <div class="section" id="exp-section" data-pane="growth">
     <h2>Experiments · A/B <span class="badge" id="exp-meta">—</span></h2>
-    <div class="ts" style="margin:-4px 0 14px">Page experiments show unique-session impressions, clicks, and click-through rate. A directional lead appears after every arm reaches 20 impressions. Poll experiments remain answer-volume comparisons.</div>
+    <div class="ts" style="margin:-4px 0 14px">Page experiments show unique-session impressions, clicks, and click-through rate. Rates are descriptive. No winner is declared without a planned statistical analysis; sampled windows may miss impressions or clicks. Poll experiments remain answer-volume comparisons.</div>
     <div id="experiments-body" class="exp-body"><div class="ts">Loading…</div></div>
   </div>
 
@@ -774,7 +774,7 @@
         <span class="meta" id="rx-meta">Loading…</span>
       </div>
       <div style="color:var(--muted);font-size:12px;margin-bottom:12px;line-height:1.55">
-        Silent tab-closes mid-round (the beacon) next to answered reasons (the one-tap card). The notes are users' own words; read them before guessing.
+        Silent tab-closes alongside card responses and reasons recorded by exit buttons. Card response rates use matching prompt IDs; historical unpaired events are listed separately.
       </div>
       <div id="rx-body" class="ts" style="padding:2px">Loading…</div>
     </div>
@@ -2232,8 +2232,7 @@ function renderExperiments(d){
     const maxRate = E.variants.reduce(function(m,v){ return Math.max(m, v.conversionRate); }, 1);
     html += '<div class="exp-poll">';
     html += '<div class="exp-poll-head"><b>' + esc(E.test) + '</b>' +
-      '<span class="exp-status' + (E.ready ? ' exp-status--ready' : '') + '">' +
-      (E.ready ? 'Early lead: ' + esc(E.leader) : 'Collecting data') + '</span></div>';
+      '<span class="exp-status">' + esc(E.assessment || 'Observed CTR only; no winner established') + '</span></div>';
     E.variants.forEach(function(V){
       const w = Math.round(V.conversionRate / maxRate * 100);
       html += '<div class="exp-var">';
@@ -2344,7 +2343,7 @@ function renderRealtime(rt){
 
   // Hour spark — 60 1-min buckets
   drawSpark($('chart-hour-spark'), rt.spark, '#15803d', { fill: true });
-  $('hour-spark-meta').textContent = rt.spark.reduce((a,b)=>a+b,0) + ' events in the last hour · ' + (cachedCohorts ? 'DAU ' + cachedCohorts.dau + ' · MAU ' + cachedCohorts.mau : '');
+  $('hour-spark-meta').textContent = rt.spark.reduce((a,b)=>a+b,0) + ' events in the last hour · ' + (cachedCohorts ? 'DAU ' + fmt(cachedCohorts.dau) + ' · MAU ' + fmt(cachedCohorts.mau) : '');
 }
 
 // ── Cohorts ───────────────────────────────────────────────────────
@@ -2385,23 +2384,26 @@ function renderCohorts(c){
       const cell = r.cells[i];
       if (!cell){ html += `<div></div>`; continue; }
       const label = cell.pct == null ? '—' : cell.pct + '%';
-      html += `<div class="cohort-cell" style="${cohortShade(cell.pct)}" title="${esc(cell.weekStartISO)} · ${cell.active} active / ${r.size}">${esc(label)}</div>`;
+      html += `<div class="cohort-cell" style="${cohortShade(cell.pct)}" title="${esc(cell.weekStartISO)} · ${cell.complete === false ? 'Incomplete event coverage' : cell.active + ' active / ' + r.size}">${esc(label)}</div>`;
     }
     html += `</div>`;
   });
 
-  $('cohort-body').innerHTML = `<div class="cohort">${html}</div>`;
+  const coverageNote = c.sampled ? 'Incomplete event history. Covered since ' + fmtTs(Date.parse(c.coverageSinceISO)) + '. Uncovered retention cells and activity windows are unavailable.' : 'Complete event coverage for the requested window.';
+  $('cohort-body').innerHTML = '<div class="ts" style="margin-bottom:10px">Named Auth signup cohorts, internal accounts excluded. ' + esc(coverageNote) + '</div>' + `<div class="cohort">${html}</div>`;
 
   // Engagement engine card
   drawSpark($('chart-dau'), (c.dauSpark || []).map(d => d.dau), '#0f766e', { fill: true, area: true });
-  const ratio = c.stickinessPct;
-  $('dau-mau-meta').textContent = ratio != null ? (ratio + '% stickiness · daily ÷ monthly actives') : 'stickiness · daily ÷ monthly actives';
+  const ratio = c.dau != null && c.mau != null ? c.stickinessPct : null;
+  $('dau-mau-meta').textContent = ratio != null ? (ratio + '% stickiness · rolling 24h ÷ 28d') : 'Stickiness unavailable: complete 24h and 28d coverage required';
   $('engagement-metrics').innerHTML = `
     <div class="m"><strong>${fmt(c.dau)}</strong>DAU</div>
     <div class="m"><strong>${fmt(c.wau)}</strong>WAU</div>
     <div class="m"><strong>${fmt(c.mau)}</strong>MAU</div>
     <div class="m"><strong>${ratio != null ? ratio + '%' : '—'}</strong>stickiness</div>
   `;
+  drawUsersChart();
+  if (cachedRealtime) $('hour-spark-meta').textContent = cachedRealtime.spark.reduce((a,b)=>a+b,0) + ' events in the last hour · DAU ' + fmt(c.dau) + ' · MAU ' + fmt(c.mau);
 }
 
 // ── Heatmap + format/brain mix + devices/browsers/pages ───────────
@@ -2745,6 +2747,10 @@ function setGlobalDays(days){
   // the format/brain mix, devices, browsers and top-pages panels.
   loadHeatmap().catch(()=>{});
   loadPower().catch(()=>{});
+  fetchJson('/api/admin/northstar?days=' + days).then(function(d){
+    if (globalDays !== days) return;
+    cachedNorthstar = d; renderNorthstar(d); renderAttention();
+  }).catch(()=>{});
   // The funnel and founder-video panels live in Growth, which may not
   // have been opened yet. Drop its loaded flag so it re-pulls on the new
   // window whenever it IS opened, and re-pull now only if it is showing.
@@ -2803,7 +2809,7 @@ function renderNorthstar(d){
     var day = new Date(Date.now() - i * 864e5).toISOString().slice(0, 10);
     spark.push((acc.namedByDay || {})[day] || 0);
   }
-  var named7 = spark.slice(-7).reduce(function(a, b){ return a + b; }, 0);
+  var named7 = acc.recentSignups;
 
   var byKind = rounds.byKind || {};
   var kindLine = 'voice ' + (byKind.voice_round || 0) + ' · live ' + (byKind.live_round || 0) + ' · typed ' + (byKind.practice_round || 0);
@@ -2817,7 +2823,7 @@ function renderNorthstar(d){
   }
 
   var kpis = [
-    { lbl: 'Named accounts', val: acc.named, delta: '+' + named7 + ' last 7d', deltaCls: named7 > 0 ? 'up' : '', spark: spark, color: '#22c55e' },
+    { lbl: 'Named accounts', val: acc.named, delta: named7 != null ? '+' + named7 + ' last 7d' : 'Signup count unavailable', deltaCls: named7 > 0 ? 'up' : '', spark: spark, color: '#22c55e' },
     { lbl: 'Activation · ever', val: acc.activationPct != null ? acc.activationPct + '%' : '–',
       delta: (acc.activatedEver || 0) + ' of ' + (acc.named || 0) + ' finished a round',
       deltaCls: (acc.activationPct || 0) < 20 ? 'warn' : '' },
@@ -3002,7 +3008,7 @@ async function loadRoundExits(){
     var d = await fetchJson('/api/admin/round-exits?days=' + Math.max(globalDays, 14));
     cachedExits = d;
     var meta = $('rx-meta');
-    if (meta) meta.textContent = d.windowDays + 'd · ' + (d.abandoned.total || 0) + ' silent · ' + (d.reasons.total || 0) + ' answered';
+    if (meta) meta.textContent = d.windowDays + 'd · ' + (d.abandoned.total || 0) + ' silent · ' + (d.reasons.total || 0) + ' recorded reasons';
     var body = $('rx-body');
     if (!body) return;
     var ab = d.abandoned || {}, rs = d.reasons || {};
@@ -3015,8 +3021,11 @@ async function loadRoundExits(){
       '<div class="rx-box"><h4>Silent closes · ' + (ab.total || 0) + (ab.truncated ? '+' : '') + '</h4>' + rows(ab.byStage) +
         '<div style="margin-top:8px;font-size:12px;color:var(--muted)">' +
         'Mid-AI-generation: <b>' + (ab.aiLoadingCount || 0) + '</b> · stuck-watchdog had fired: <b>' + (ab.stuckShownCount || 0) + '</b> · opponent never arrived: <b>' + (ab.oppNeverSeen || 0) + '</b></div></div>' +
-      '<div class="rx-box"><h4>Answered reasons · ' + (rs.total || 0) + '</h4>' + rows(rs.byReason) +
-        (d.answerRate != null ? '<div style="margin-top:8px;font-size:12px;color:var(--muted)">Card answer rate: <b>' + d.answerRate + '%</b> (' + rs.shown + ' shown, ' + rs.skipped + ' skipped)</div>' : '') +
+      '<div class="rx-box"><h4>Recorded reasons · ' + (rs.total || 0) + '</h4>' + rows(rs.byReason) +
+        '<div style="margin-top:8px;font-size:12px;color:var(--muted)">' +
+        'Matched card answer rate: <b>' + (d.answerRate != null ? d.answerRate + '%' : 'Unavailable') + '</b> (' + ((d.cards || {}).answered || 0) + ' answered / ' + ((d.cards || {}).shown || 0) + ' shown). ' +
+        'Button/other reasons: ' + ((d.cards || {}).known || 0) + '. Legacy unpaired cards: ' + ((d.cards || {}).legacyAnswered || 0) + ' answers, ' + ((d.cards || {}).legacyShown || 0) + ' shown, ' + ((d.cards || {}).legacySkipped || 0) + ' skipped. ' +
+        'Unmatched responses: ' + ((d.cards || {}).unmatched || 0) + '; conflicting receipts: ' + ((d.cards || {}).conflicting || 0) + (rs.truncated ? '; scan truncated' : '') + '.</div>' +
       '</div></div>';
     if (d.notes && d.notes.length){
       html += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700;margin:12px 0 2px">In their own words</div>';
@@ -3036,14 +3045,15 @@ async function loadSigninErrors(){
   try {
     var d = await fetchJson('/api/admin-signin-errors?days=' + Math.max(globalDays, 7));
     var meta = $('se-meta');
-    if (meta) meta.textContent = (d.totalErrors || 0) + ' in ' + d.windowDays + 'd';
+    if (meta) meta.textContent = (d.totalErrors || 0) + (d.truncated ? '+ recorded failures (partial scan)' : ' recorded failures') + ' in ' + d.windowDays + 'd';
     var body = $('se-body');
     if (!body) return;
-    if (!d.totalErrors){ body.innerHTML = '<div style="color:var(--muted)">No sign-in errors recorded in this window.</div>'; return; }
+    if (!d.totalErrors){ body.innerHTML = '<div style="color:var(--muted)">' + (d.truncated ? 'No failures in the scanned records; the window is incomplete.' : 'No sign-in failures recorded in this window.') + ' Excluded ' + (d.excludedNonErrors || 0) + ' non-error sign-in events.</div>'; return; }
     function chips(list){
       return (list || []).map(function(r){ return '<span class="mn-badge warn">' + esc(r.key) + ' <b>' + r.count + '</b></span>'; }).join('');
     }
     body.innerHTML =
+      '<div class="ts">Actual sign_in_error events and legacy auth errors only. Excluded ' + (d.excludedNonErrors || 0) + ' non-error events.' + (d.truncated ? ' Counts are a lower bound because the scan is capped.' : '') + '</div>' +
       '<div style="margin-bottom:8px">' + chips(d.byCode) + '</div>' +
       '<div style="font-size:12px;color:var(--muted)">Surfaces: ' + (d.bySurface || []).map(function(r){ return esc(r.key) + ' (' + r.count + ')'; }).join(' · ') + '</div>' +
       ((d.byInApp || []).length ? '<div style="font-size:12px;color:var(--muted);margin-top:4px">In-app browser split: ' + d.byInApp.map(function(r){ return esc(r.key) + ' (' + r.count + ')'; }).join(' · ') + '</div>' : '');
@@ -3164,9 +3174,10 @@ function renderAttention(){
       h: 'Rooms are still opening onto one person',
       b: 'Only ' + health.rounds.bothSeatedPct + '% of rounds since the ready-check had both debaters actually arrive. Names on a round doc are written at match time and are not evidence anyone was there.' });
   }
-  if (a.totalUsers != null && a.recentSignups === 0){
+  var accounts = (cachedNorthstar || {}).accounts || {};
+  if (accounts.source === 'firebase-auth' && accounts.recentSignups === 0){
     items.push({ sev:'warn', pane:'growth', go:'Growth',
-      h:'No signups in the last 7 days', b:'Total is holding at ' + fmt(a.totalUsers) + '. Acquisition, not retention, is the read here.' });
+      h:'No named signups in the last 7 days', b:'Firebase Auth records ' + fmt(accounts.named) + ' named accounts and no new account creations in the rolling seven-day window.' });
   }
   if (a.totalFeedback === 0){
     items.push({ sev:'warn', pane:'people', go:'People',
@@ -4985,7 +4996,7 @@ function drawUsersChart(){
   const series = cachedAnalytics.daily || [];
   const values = series.map(p => p.newUsers || 0);
   const total = values.reduce((a,b)=>a+b,0);
-  $('users-meta').textContent = total + ' new in 30d';
+  $('users-meta').textContent = total + ' named signups in 30 calendar days (UTC)';
   drawLine($('chart-users'), values, series.map(p => p.date), '#15803d', { fill: true, area: true });
 
   // User metrics strip (DAU/WAU/MAU from cohorts if present)

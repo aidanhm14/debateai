@@ -1,3 +1,4 @@
+import { experimentAssessment } from './lib/admin-metrics.mjs';
 // /api/admin/experiments → live A/B test results for Mission Control.
 //
 // Reads two bounded sources:
@@ -36,7 +37,7 @@ export default async (request) => {
 
   const url = new URL(request.url);
   const days = Math.max(1, Math.min(MAX_DAYS, parseInt(url.searchParams.get('days') || String(DEFAULT_DAYS), 10)));
-  const cacheKey = 'experiments:v2:' + days;
+  const cacheKey = 'experiments:v3:' + days;
 
   const cached = wantsFresh(request) ? null : await getCachedShared(cacheKey);
   if (cached) return jsonResponse(cached, 200, request);
@@ -109,7 +110,7 @@ export default async (request) => {
       const variant = String(d.variant || '');
       const kind = String(d.kind || '');
       if (!test || !variant || (kind !== 'impression' && kind !== 'conversion')) return;
-      const session = String(d.uid || 'unknown') + ':' + String(d.sessionId || doc.id);
+      const session = d.sessionId ? 'session:' + d.sessionId : 'record:' + doc.id;
       const ts = d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : 0;
       const T = tests[test] || (tests[test] = { test, variants: {} });
       const V = T.variants[variant] || (T.variants[variant] = {
@@ -149,14 +150,11 @@ export default async (request) => {
           lastTs: V.lastTs,
         };
       }).sort((a, b) => b.impressions - a.impressions);
-      const ready = variants.length > 1 && variants.every((V) => V.impressions >= 20);
-      const ranked = variants.slice().sort((a, b) => b.conversionRate - a.conversionRate);
       return {
         test: T.test,
         impressions: variants.reduce((sum, V) => sum + V.impressions, 0),
         uniqueConversions: variants.reduce((sum, V) => sum + V.uniqueConversions, 0),
-        ready,
-        leader: ready && ranked.length ? ranked[0].variant : '',
+        ...experimentAssessment(variants, experimentSnap.size >= MAX_EXPERIMENT_DOCS),
         variants,
       };
     }).sort((a, b) => b.impressions - a.impressions);

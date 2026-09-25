@@ -80,6 +80,8 @@
       // One card at a time; a second ask while one is open just resolves.
       if (document.getElementById('rx-card')) { resolve('duplicate'); return; }
 
+      var cardId = window.crypto && window.crypto.randomUUID
+        ? window.crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
       var done = false;
       function finish(outcome, reason, note) {
         if (done) return; done = true;
@@ -92,11 +94,11 @@
             stage: opts.stage || '',
             round_id: (opts.roundId || '').slice(0, 60),
             elapsed_s: typeof opts.elapsed === 'number' ? Math.round(opts.elapsed) : undefined,
-            via: 'card',
+            via: 'card', card_id: cardId,
           });
         } else {
           send('round_exit_reason', {
-            reason: 'skipped', surface: opts.surface || '', stage: opts.stage || '', via: 'card',
+            reason: 'skipped', surface: opts.surface || '', stage: opts.stage || '', via: 'card', card_id: cardId,
           });
         }
         try { card.remove(); style.remove(); } catch (e) {}
@@ -159,7 +161,7 @@
 
       document.body.appendChild(card);
       send('round_exit_reason', {
-        reason: 'shown', surface: opts.surface || '', stage: opts.stage || '', via: 'card',
+        reason: 'shown', surface: opts.surface || '', stage: opts.stage || '', via: 'card', card_id: cardId,
       });
 
       // A prompt nobody answers must never trap a navigation that is

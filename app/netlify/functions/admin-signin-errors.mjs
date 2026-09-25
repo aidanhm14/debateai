@@ -1,3 +1,4 @@
+import { isSigninFailure } from './lib/admin-metrics.mjs';
 // Admin aggregator for the signin_errors collection.
 //
 // /api/admin-signin-errors?days=7  →  JSON breakdown of sign-in failures
@@ -66,7 +67,8 @@ export default async (request) => {
       .limit(MAX_DOCS)
       .get();
 
-    const docs = snap.docs.map(d => d.data() || {});
+    const scanned = snap.docs.map(d => d.data() || {});
+    const docs = scanned.filter(isSigninFailure);
 
     // Bucketers — keep them small so the response is human-scannable.
     const byCode = new Map();
@@ -142,7 +144,9 @@ export default async (request) => {
     return jsonResponse({
       windowDays: days,
       totalErrors: docs.length,
-      truncated: docs.length >= MAX_DOCS,
+      truncated: snap.size >= MAX_DOCS,
+      recordsScanned: snap.size,
+      excludedNonErrors: scanned.length - docs.length,
       byCode: toTop(byCode),
       bySurface: toTop(bySurface),
       byMethod: toTop(byMethod),

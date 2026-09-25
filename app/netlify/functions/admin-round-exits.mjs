@@ -1,3 +1,4 @@
+import { exitCardMetrics } from './lib/admin-metrics.mjs';
 // /api/admin/round-exits?days=14  →  WHY rounds die, in the users' own words.
 //
 // admin-round-funnel says WHERE a round died (created → seated → spoke →
@@ -47,7 +48,7 @@ export default async (request) => {
 
   const url = new URL(request.url);
   const days = Math.min(MAX_DAYS, Math.max(1, Number(url.searchParams.get('days')) || DEFAULT_DAYS));
-  const cacheKey = `round-exits:v1:${days}`;
+  const cacheKey = `round-exits:v2:${days}`;
   const cached = wantsFresh(request) ? null : await getCachedShared(cacheKey);
   if (cached) return jsonResponse(cached, 200, request);
 
@@ -117,12 +118,14 @@ export default async (request) => {
     notes.sort((a, b) => b.ts - a.ts);
     recent.sort((a, b) => b.ts - a.ts);
 
+    const cards = exitCardMetrics(reasonSnap.docs.map(doc => doc.data()), reasons.truncated);
     const result = {
       windowDays: days,
       generatedAt: new Date().toISOString(),
       abandoned,
       reasons,
-      answerRate: reasons.shown ? Math.round((reasons.total / reasons.shown) * 1000) / 10 : null,
+      cards,
+      answerRate: cards.answerRate,
       notes: notes.slice(0, NOTES_CAP),
       recent: recent.slice(0, RECENT_CAP),
     };

@@ -10,15 +10,11 @@
 //   - Stickiness = DAU/MAU (industry-standard engagement proxy)
 //   - 14-day DAU sparkline
 //
-// Two scans:
-//   1. user_profiles where createdAt >= cohortStart → buckets new users
-//      by week.
-//   2. events where createdAt >= cohortStart → maps uid → set of weeks
-//      they were active.
-//
-// Both queries are bounded; MAX_DOCS clamps the events scan so the
-// function never runs away on a busy day.
+// Signup membership comes from Firebase Auth. The event scan remains bounded;
+// a truncated window cannot establish distinct active users or retention.
 
+import { loadAccountLedger } from './lib/admin-accounts.mjs';
+import { DAY, activityCoverage, activeMetrics } from './lib/admin-metrics.mjs';
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, getStaleShared, TTL_HEAVY, wantsFresh } from './lib/admin-cache.mjs';
@@ -26,12 +22,8 @@ import { getExcludedUids } from './lib/founder-exclude.mjs';
 
 const DEFAULT_WEEKS = 8;
 const MAX_WEEKS = 16;
-// 2026-06-27: 10K → 4K. Cohorts was the single biggest quota drain on
-// /admin — up to 20K user_profiles + 10K events = ~30K reads (60% of the
-// Spark daily budget) in ONE call, which is what blew the quota for the
-// other panels. Retention uniqueness is per-uid-per-week, so a 4K event
-// sample over the window still ranks the cohorts correctly; the profiles
-// cap below is cut to match.
+// Keep the read budget bounded. Coverage, not sample size, determines which
+// windows can be reported. Missing history is unavailable, never zero.
 const MAX_EVENT_DOCS = 4_000;
 
 // Sunday 00:00 in UTC at the start of the week containing `ms`.
@@ -58,7 +50,7 @@ export default async (request) => {
   const url = new URL(request.url);
   const weeks = Math.max(2, Math.min(MAX_WEEKS, parseInt(url.searchParams.get('weeks') || String(DEFAULT_WEEKS), 10)));
 
-  const cacheKey = 'cohorts:v2:' + weeks;
+  const cacheKey = 'cohorts:v3:' + weeks;
   const cached = wantsFresh(request) ? null : await getCachedShared(cacheKey);
   if (cached) return jsonResponse(cached, 200, request);
 
@@ -66,32 +58,21 @@ export default async (request) => {
     const excludeUids = await getExcludedUids(db);
     const now = Date.now();
     const cohortStartMs = weekStartUTC(now) - (weeks - 1) * 7 * 24 * 60 * 60 * 1000;
-    const cohortStart = new Date(cohortStartMs);
+    const scanStartMs = Math.min(cohortStartMs, now - 28 * DAY);
 
     // ── 1. Signup cohorts ────────────────────────────────────────
-    // Pull user_profiles by createdAt. Bucket by Sunday week start.
+    // Bucket named Auth accounts by Sunday signup week, excluding internal accounts.
     const cohortMap = new Map(); // weekStartMs → Set<uid>
     for (let i = 0; i < weeks; i++) {
       const ws = cohortStartMs + i * 7 * 24 * 60 * 60 * 1000;
       cohortMap.set(ws, new Set());
     }
 
-    const profilesSnap = await db.collection('user_profiles')
-      .where('createdAt', '>=', cohortStart)
-      .limit(6_000)  // 2026-06-27: 20K → 6K to cap the per-call read cost (see MAX_EVENT_DOCS note)
-      .get()
-      .catch(err => {
-        console.warn('cohort profiles query failed:', err.message);
-        return { docs: [] };
-      });
-
-    profilesSnap.docs.forEach(d => {
-      if (excludeUids.has(d.id)) return;
-      const data = d.data();
-      const t = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : null;
-      if (!t) return;
-      const ws = weekStartUTC(t);
-      if (cohortMap.has(ws)) cohortMap.get(ws).add(d.id);
+    const ledger = await loadAccountLedger(wantsFresh(request));
+    ledger.accounts.forEach(u => {
+      if (excludeUids.has(u.uid) || !u.createdAt || u.createdAt > now) return;
+      const ws = weekStartUTC(u.createdAt);
+      if (cohortMap.has(ws)) cohortMap.get(ws).add(u.uid);
     });
 
     // ── 2. Activity scan ─────────────────────────────────────────
@@ -100,25 +81,21 @@ export default async (request) => {
     const userWeeks = new Map(); // uid → Set<weekStartMs>
     const userDays = new Map(); // uid → Set<dayKey>  (for DAU/WAU/MAU)
 
-    let eventsScanned = 0;
-    let sampled = false;
     const eventsSnap = await db.collection('events')
-      .where('createdAt', '>=', cohortStart)
+      .where('createdAt', '>=', new Date(scanStartMs))
       .orderBy('createdAt', 'desc')
-      .limit(MAX_EVENT_DOCS)
-      .get()
-      .catch(err => {
-        console.warn('cohort events query failed:', err.message);
-        return { docs: [] };
-      });
-    eventsScanned = eventsSnap.docs.length;
-    if (eventsScanned >= MAX_EVENT_DOCS) sampled = true;
+      .limit(MAX_EVENT_DOCS + 1)
+      .get();
+    const sampled = eventsSnap.size > MAX_EVENT_DOCS;
+    const scanned = eventsSnap.docs.slice(0, MAX_EVENT_DOCS).map(d => d.data());
+    const coverage = activityCoverage(scanned, { sinceMs: scanStartMs, now, truncated: sampled });
+    const activity = scanned.filter(d => !excludeUids.has(d.uid));
+    const eventsScanned = scanned.length;
 
-    eventsSnap.docs.forEach(d => {
-      const data = d.data();
+    activity.forEach(data => {
       const uid = data.uid;
       const t = data.createdAt && data.createdAt.toMillis ? data.createdAt.toMillis() : null;
-      if (!uid || !t) return;
+      if (!uid || !t || t > now) return;
       if (excludeUids.has(uid)) return;
       const ws = weekStartUTC(t);
       if (!userWeeks.has(uid)) userWeeks.set(uid, new Set());
@@ -148,8 +125,9 @@ export default async (request) => {
         cells.push({
           offset,
           weekStartISO: new Date(targetWs).toISOString().slice(0, 10),
-          active,
-          pct: size > 0 ? +(active / size * 100).toFixed(1) : null,
+          complete: coverage.completeFrom(targetWs),
+          active: coverage.completeFrom(targetWs) ? active : null,
+          pct: coverage.completeFrom(targetWs) && size > 0 ? +(active / size * 100).toFixed(1) : null,
         });
       }
       cohortRows.push({
@@ -162,21 +140,10 @@ export default async (request) => {
 
     // ── 4. DAU / WAU / MAU + 14d sparkline ───────────────────────
     const todayDk = dayKeyUTC(now);
-    const dauSet = new Set();
-    const wauSet = new Set();
-    const mauSet = new Set();
-    const DAY = 86_400_000;
-    userDays.forEach((daySet, uid) => {
-      daySet.forEach(dk => {
-        const age = todayDk - dk;
-        if (age < DAY) dauSet.add(uid);
-        if (age < 7 * DAY) wauSet.add(uid);
-        if (age < 28 * DAY) mauSet.add(uid);
-      });
-    });
+    const engagement = activeMetrics(activity, { now, coverage });
 
     const dauSpark = [];
-    for (let i = 13; i >= 0; i--) {
+    for (let i = 13; coverage.completeFrom(todayDk - 13 * DAY) && i >= 0; i--) {
       const dk = todayDk - i * DAY;
       const dayUsers = new Set();
       userDays.forEach((daySet, uid) => {
@@ -188,15 +155,13 @@ export default async (request) => {
       });
     }
 
-    const stickiness = mauSet.size > 0 ? +(dauSet.size / mauSet.size * 100).toFixed(1) : null;
-
     const result = {
       cohortRows,
       weeks,
-      dau: dauSet.size,
-      wau: wauSet.size,
-      mau: mauSet.size,
-      stickinessPct: stickiness,
+      ...engagement,
+      coverageSinceISO: coverage.coveredSince == null ? null : new Date(coverage.coveredSince).toISOString(),
+      signupSource: 'firebase-auth',
+      generatedAt: new Date(now).toISOString(),
       dauSpark,
       eventsScanned,
       sampled,

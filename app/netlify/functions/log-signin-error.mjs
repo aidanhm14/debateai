@@ -65,9 +65,12 @@ export default async (request) => {
   catch { return errorResponse('Invalid JSON', 400, request); }
 
   const event = sanitizeString(body.event, 40) || 'sign_in_error';
-  // Only accept the sign_in_* family on this endpoint — keeps it from
-  // being abused as a generic anonymous-write firehose.
-  if (!event.startsWith('sign_in_')) {
+  // Old cached clients also send starts/completions here. Ignore those
+  // without storing them; their ordinary analytics events remain intact.
+  if (event.startsWith('sign_in_') && event !== 'sign_in_error') {
+    return jsonResponse({ ok: true, ignored: true }, 200, request);
+  }
+  if (event !== 'sign_in_error') {
     return errorResponse('Event not allowed on this endpoint', 400, request);
   }
 

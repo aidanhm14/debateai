@@ -28,7 +28,8 @@
 // every open.
 
 import { getDb } from './lib/firestore.mjs';
-import { listAllAuthUsers } from './lib/auth-admin.mjs';
+import { loadAccountLedger } from './lib/admin-accounts.mjs';
+import { countSignups } from './lib/admin-metrics.mjs';
 import { requireAdmin } from './lib/admin-auth.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { getCachedShared, setCachedShared, TTL_HEAVY, wantsFresh } from './lib/admin-cache.mjs';
@@ -76,7 +77,7 @@ export default async (request) => {
 
   const url = new URL(request.url);
   const days = Math.min(MAX_DAYS, Math.max(1, Number(url.searchParams.get('days')) || DEFAULT_DAYS));
-  const cacheKey = `northstar:v1:${days}`;
+  const cacheKey = `northstar:v2:${days}`;
   const cached = wantsFresh(request) ? null : await getCachedShared(cacheKey);
   if (cached) return jsonResponse(cached, 200, request);
 
@@ -86,25 +87,15 @@ export default async (request) => {
 
   try {
     // ── Accounts: Auth is authoritative ────────────────────────────────
-    let named = 0, anonymous = 0;
-    const namedUids = new Set();
-    const namedByDay = {}; // last 14 days, YYYY-MM-DD → count
-    const dayFloor = now - 14 * 24 * 60 * 60 * 1000;
-    try {
-      const users = await listAllAuthUsers();
-      for (const u of users) {
-        const providers = (u.providerData || []).map(p => p.providerId).filter(p => p !== 'anonymous');
-        if (!providers.length) { anonymous += 1; continue; }
-        named += 1;
-        namedUids.add(u.uid);
-        const created = u.metadata && u.metadata.creationTime ? Date.parse(u.metadata.creationTime) : 0;
-        if (created >= dayFloor) {
-          const day = new Date(created).toISOString().slice(0, 10);
-          namedByDay[day] = (namedByDay[day] || 0) + 1;
-        }
+    const ledger = await loadAccountLedger(wantsFresh(request));
+    const named = ledger.accounts.length, anonymous = ledger.anonymous;
+    const namedUids = new Set(ledger.accounts.map(u => u.uid));
+    const namedByDay = {};
+    for (const u of ledger.accounts) {
+      if (u.createdAt >= now - 14 * 86_400_000 && u.createdAt <= now) {
+        const day = new Date(u.createdAt).toISOString().slice(0, 10);
+        namedByDay[day] = (namedByDay[day] || 0) + 1;
       }
-    } catch (err) {
-      console.warn('northstar listAllAuthUsers failed:', err.message);
     }
 
     // ── Rounds finished, by kind, plus ever-activated named uids ───────
@@ -219,6 +210,9 @@ export default async (request) => {
         named,
         anonymous,
         namedByDay,
+        recentSignups: countSignups(ledger.accounts, now - 7 * 86_400_000, now),
+        source: 'firebase-auth',
+        generatedAt: ledger.generatedAt,
         activatedEver: activatedNamed,
         activationPct: named ? Math.round((activatedNamed / named) * 1000) / 10 : null,
         // A failed log write undercounts, so activation is a floor.

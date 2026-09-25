@@ -38,6 +38,13 @@ SW_ROOT="$REPO_ROOT/sw.js"
 STAGED="$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)"
 [ -z "$STAGED" ] && exit 0
 
+if command -v node >/dev/null 2>&1 && printf '%s\n' "$STAGED" | grep -qE '(admin|track\.js|round-exit|signin-error)'; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-admin-metric-integrity.mjs); then
+    echo "[admin-metrics] commit blocked: dashboard metric integrity failed" >&2
+    exit 1
+  fi
+fi
+
 # Notes/export, reviewed brain transfer and private judging are one user-facing
 # round workflow. Check the stored outputs and server ledger, not just markup.
 if command -v node >/dev/null 2>&1; then

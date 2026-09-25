@@ -1,3 +1,5 @@
+import { loadAccountLedger } from './lib/admin-accounts.mjs';
+import { countSignups } from './lib/admin-metrics.mjs';
 import { verifyIdToken, extractBearerToken, isAdminEmail } from './lib/auth.mjs';
 import { getDb } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
@@ -6,7 +8,7 @@ import { getCachedShared, setCachedShared, getStaleShared, TTL_HEAVY, wantsFresh
 // Hardcoded admin UID — the app owner's Firebase UID
 const ADMIN_UID = process.env.ADMIN_UID || 'REPLACE_WITH_YOUR_FIREBASE_UID';
 
-const CACHE_KEY = 'analytics';
+const CACHE_KEY = 'analytics:v2';
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return corsResponse(request);
@@ -54,7 +56,7 @@ export default async (request) => {
     const compute = async () => {
     // Run all collection counts in parallel
     const [
-      usersSnap,
+      accountLedger,
       casesSnap,
       sharedCasesSnap,
       forumPostsSnap,
@@ -64,7 +66,7 @@ export default async (request) => {
       eventsSnap,
       feedbackSnap,
     ] = await Promise.all([
-      db.collection('user_profiles').count().get(),
+      loadAccountLedger(wantsFresh(request)),
       db.collection('user_cases').count().get(),
       db.collection('shared_cases').count().get(),
       db.collection('forum_posts').count().get(),
@@ -75,7 +77,7 @@ export default async (request) => {
       db.collection('feedback').count().get().catch(() => ({ data: () => ({ count: 0 }) })),
     ]);
 
-    const totalUsers = usersSnap.data().count;
+    const totalUsers = accountLedger.accounts.length;
     const totalCases = casesSnap.data().count;
     const totalSharedCases = sharedCasesSnap.data().count;
     const totalForumPosts = forumPostsSnap.data().count;
@@ -92,16 +94,7 @@ export default async (request) => {
 
     // Recent signups (last 7 days)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    let recentSignups = 0;
-    try {
-      const recentSnap = await db.collection('user_profiles')
-        .where('createdAt', '>=', sevenDaysAgo)
-        .count()
-        .get();
-      recentSignups = recentSnap.data().count;
-    } catch (err) {
-      console.warn('Could not count recent signups:', err.message);
-    }
+    const recentSignups = countSignups(accountLedger.accounts, sevenDaysAgo, Date.now());
 
     // === TIME-SERIES DATA ===
     // Three granularities so charts look good at any zoom level:
@@ -125,7 +118,7 @@ export default async (request) => {
       const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - d + 1);
       const label = dayStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       dailyPromises.push(
-        Promise.all([countQ('events', dayStart, dayEnd), countQ('user_profiles', dayStart, dayEnd)])
+        Promise.all([countQ('events', dayStart, dayEnd), countSignups(accountLedger.accounts, dayStart, dayEnd)])
           .then(([events, newUsers]) => ({ date: label, dateISO: dayStart.toISOString().slice(0, 10), events, newUsers }))
       );
     }
@@ -138,7 +131,7 @@ export default async (request) => {
       const weekEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - w * 7);
       const label = 'W' + (26 - w) + ' ' + weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       weeklyPromises.push(
-        Promise.all([countQ('events', weekStart, weekEnd), countQ('user_profiles', weekStart, weekEnd), countQ('teams', weekStart, weekEnd)])
+        Promise.all([countQ('events', weekStart, weekEnd), countSignups(accountLedger.accounts, weekStart, weekEnd), countQ('teams', weekStart, weekEnd)])
           .then(([events, newUsers, newTeams]) => ({ week: label, weekStart: weekStart.toISOString().slice(0, 10), events, newUsers, newTeams }))
       );
     }
@@ -151,7 +144,7 @@ export default async (request) => {
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - m + 1, 1);
       const label = monthStart.toLocaleString('en-US', { month: 'short', year: 'numeric' });
       monthlyPromises.push(
-        Promise.all([countQ('events', monthStart, monthEnd), countQ('user_profiles', monthStart, monthEnd), countQ('teams', monthStart, monthEnd)])
+        Promise.all([countQ('events', monthStart, monthEnd), countSignups(accountLedger.accounts, monthStart, monthEnd), countQ('teams', monthStart, monthEnd)])
           .then(([events, newUsers, newTeams]) => ({ month: label, monthStart: monthStart.toISOString().slice(0, 10), events, newUsers, newTeams }))
       );
     }
@@ -244,6 +237,8 @@ export default async (request) => {
       totalEvents,
       totalFeedback,
       recentSignups,
+      signupSource: 'firebase-auth',
+      accountsGeneratedAt: accountLedger.generatedAt,
 
       // Time-series (newest first)
       daily: daily.reverse(),
