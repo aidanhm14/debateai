@@ -35,6 +35,10 @@
 // pro/con). The panel reasons in a/b, the same abstraction the
 // judgments collection already uses, so the tally never has to know
 // which surface it came from.
+// A 14-22 sentence RFD routinely exceeds the old 1600/2000 character
+// limits. Keep its deciding comparisons and closing advice intact.
+export const MAX_RFD_CHARS = 12_000;
+
 export function normalizeVote(juror, ballot, aKey, bKey) {
   if (!ballot) return null;
   const w = ballot.winner;
@@ -75,7 +79,7 @@ export function normalizeVote(juror, ballot, aKey, bKey) {
     // the tally so the panel can report whether the jurors agreed on the
     // REASON and not just on the name at the top of the ballot.
     decidingIssue: String(ballot.decidingIssue || '').slice(0, 160),
-    rfd: String(ballot.rfd || '').slice(0, 2000),
+    rfd: String(ballot.rfd || '').slice(0, MAX_RFD_CHARS),
   };
 }
 

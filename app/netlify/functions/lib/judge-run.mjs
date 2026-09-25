@@ -19,7 +19,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { callJuror, callPanel, jurorAvailable } from './judge-jurors.mjs';
-import { normalizeVote, tallyPanel } from './judge-panel.mjs';
+import { normalizeVote, tallyPanel, MAX_RFD_CHARS } from './judge-panel.mjs';
 
 // DEGRADED MODE, disclosed rather than silent. If a provider key is unset
 // or a juror fails, the panel runs short. When too few jurors are
@@ -128,8 +128,10 @@ export function makeBallotParser(aKey, bKey, scoreScale = 30) {
     };
     const aPoints = clamp(j[aPts]);
     const bPoints = clamp(j[bPts]);
-    let winner = j.winner === aKey || j.winner === bKey ? j.winner : null;
-    if (!winner) winner = aPoints >= bPoints ? aKey : bKey;
+    // Scores describe performance; they cannot supply a vote the juror
+    // did not cast. The dispatch layer records this as a missing vote.
+    if (j.winner !== aKey && j.winner !== bKey) throw new Error('missing or invalid ballot winner');
+    const winner = j.winner;
     const dimensions = parseDims(j.dimensions, aKey, bKey);
     return {
       winner,
@@ -140,7 +142,7 @@ export function makeBallotParser(aKey, bKey, scoreScale = 30) {
       // contributes nothing to the issue-agreement figure, which beats
       // discarding a vote over a missing string.
       decidingIssue: String(j.decidingIssue || '').slice(0, 160),
-      rfd: String(j.rfd || '').slice(0, 1600),
+      rfd: String(j.rfd || '').slice(0, MAX_RFD_CHARS),
       ...(dimensions ? { dimensions } : {}),
     };
   };

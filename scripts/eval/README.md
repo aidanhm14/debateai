@@ -1,5 +1,58 @@
 # Adjudication eval
 
+## Casual conversation behavior
+
+`run-conversation-behavior-eval.mjs` exercises the production live ballot
+prompt, parser and current season's panel on 14 synthetic cases (12 initial
+probes and two held-out controls added after the first experiment). It targets
+question flooding, response coverage, opportunity to answer, agreed versus
+contested definitions, circular support and unsupported fallacy accusations.
+The fixtures contain provisional behavior expectations, not human-reviewed
+winner labels. No expected answer or judging note enters a judge prompt.
+
+```bash
+node scripts/test-conversation-behavior-eval.mjs
+node scripts/eval/run-conversation-behavior-eval.mjs --dry-run --formats=quick,open
+# Requires the current pinned providers' keys in the environment:
+node scripts/eval/run-conversation-behavior-eval.mjs --live --formats=quick,open
+node scripts/eval/run-conversation-behavior-eval.mjs --live \
+  --only=question-volume-base,question-volume-flood --repeat=3
+# Evaluate an explicitly experimental addition to the production prompt:
+node scripts/eval/run-conversation-behavior-eval.mjs --live \
+  --only=closing-question-pileup --candidate=/path/question-rules.txt
+```
+
+The default is a dry run. `--live` makes paid provider calls but never writes
+rounds, audits, ratings or billing ledgers. The runner uses the asynchronous
+judge timeout and disables an extra runtime fallback request. It requires
+every pinned provider key up front and records provider failures separately.
+It tests judging prompts and panel processing, not room admission, minimum
+evidence gates or audio transcription.
+
+Reports go to ignored `scripts/eval/out/` by default; `--out=/path/report.json`
+chooses a new file and never overwrites a prior report. Reports checkpoint
+after each case and retain exact prompts, case inputs, model/effort pins,
+every raw juror response, the production-parsed ballots and panel result.
+`--candidate` appends the supplied text only for this experiment, records it
+verbatim as experimental, and does not modify production prompts or rubrics.
+Raw output matters: the old parser shortened normal RFDs and inferred an
+omitted winner from points. The report flags invalid source winners and
+shortened reasoning so those defects remain visible when comparing versions.
+
+Each panel and juror has an unreviewed checklist. Mark each expectation
+`pass`, `fail` or `unclear`, citing transcript turn IDs and ballot text, and
+record the reviewer. Keep judgment quality separate from transport success;
+`behaviorAccuracy` intentionally remains null. Compare paired cases within
+the same format and model, review score changes alongside the explanations,
+and repeat apparent failures before changing criteria. These cases are
+regression probes, not a broad accuracy benchmark or an independent gold set.
+
+The clarification-only fixture tests whether a forced-winner schema invents
+a substantive decision. It is not permission to change result or settlement
+policy. Published criterion changes still require a new rubric and season.
+
+## Tournament reference rounds
+
 Replays real out-rounds through the AI judge and scores them against the
 configured expected call. BP rounds are scored as 1-2-3-4 team orderings. WSDC
 and other two-sided rounds are scored as side winners. The gold file can also

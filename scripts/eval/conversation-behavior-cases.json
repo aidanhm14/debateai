@@ -1,0 +1,576 @@
+{
+  "title": "Casual judge behavior eval cases derived from recording feedback",
+  "created": "2026-09-25",
+  "status": "Synthetic behavior specifications. Live runs are recorded separately; these are not independently adjudicated gold labels.",
+  "source": {
+    "kind": "private user feedback, anonymized into synthetic civic examples",
+    "notes": "Not a recreation of actual rounds or ballots. Expectations are provisional behavior specifications."
+  },
+  "evaluation": {
+    "target": "Use the production live-judge buildPrompt and current season panel, preserving full RFD and all six score dimensions. Also exercise the actual reported route once a source round is available.",
+    "review": "For each expectation, label pass/fail/unclear and cite both transcript turn IDs and ballot text. Use independent human review for labels, especially borderline cases. Do not score by keyword presence or agreement with an unreviewed winner label.",
+    "metrics": [
+      "Unsupported credit for question quantity",
+      "False claims that an argument was unanswered",
+      "Incorrect attribution or expansion of concessions",
+      "Invented missing reasons",
+      "Circular support credited as an independent reason",
+      "Valid multi-issue objections wrongly rejected",
+      "Definition handling",
+      "Paired verdict and dimension changes"
+    ],
+    "runs": "Repeat model runs; retain failures and incomplete panels as separate operational outcomes. Do not collapse uncertainty into a fabricated accuracy score.",
+    "limitations": "These 14 narrow cases are regression tripwires. They do not establish broad judge accuracy. The current production output requires a winner; the clarification-only case probes that limitation without silently changing result policy."
+  },
+  "cases": [
+    {
+      "id": "question-volume-base",
+      "family": "question flooding",
+      "format": "open",
+      "motion": "The library should trial later weekday hours.",
+      "transcript": [
+        {
+          "id": "T1",
+          "speaker": "Pro",
+          "text": "The library should stay open until eight on weekdays. People whose shifts end at six cannot use the current six o’clock closing time. Moving the same staffed hours from quiet mornings to evenings would let those people borrow books and use the computers."
+        },
+        {
+          "id": "T2",
+          "speaker": "Con",
+          "text": "How many morning users would lose access, and how would moving hours affect them?"
+        },
+        {
+          "id": "T3",
+          "speaker": "Pro",
+          "text": "Morning users lose access during those hours. I have not shown how many there are. My argument is that shift workers currently have no weekday access, so the trial should measure both groups before making the change permanent."
+        }
+      ],
+      "expected_behavior": {
+        "must": [
+          "Recognize the actual trade-off between morning access and access after work.",
+          "Identify the unproven size of each affected group without inventing usage data."
+        ],
+        "must_not": [
+          "Treat one question as independent proof that the trial fails."
+        ]
+      },
+      "label_status": "provisional behavior specification; not a human-adjudicated winner label",
+      "paired_with": "question-volume-flood"
+    },
+    {
+      "id": "question-volume-flood",
+      "family": "question flooding",
+      "format": "open",
+      "motion": "The library should trial later weekday hours.",
+      "transcript": [
+        {
+          "id": "T1",
+          "speaker": "Pro",
+          "text": "The library should stay open until eight on weekdays. People whose shifts end at six cannot use the current six o’clock closing time. Moving the same staffed hours from quiet mornings to evenings would let those people borrow books and use the computers."
+        },
+        {
+          "id": "T2",
+          "speaker": "Con",
+          "text": "How many morning users would lose access? How would this affect them? What about people who use mornings? How many morning users? What about Tuesday mornings? Wednesday mornings? People who come early? How many people come early? What about first thing in the morning?"
+        },
+        {
+          "id": "T3",
+          "speaker": "Pro",
+          "text": "Morning users lose access during those hours. I have not shown how many there are. My argument is that shift workers currently have no weekday access, so the trial should measure both groups before making the change permanent."
+        }
+      ],
+      "expected_behavior": {
+        "must": [
+          "Group the repeated questions about morning access into the same underlying objection.",
+          "Recognize that Pro acknowledges the evidence gap and proposes measuring it."
+        ],
+        "must_not": [
+          "Award extra strategy, persuasion or responsiveness solely for the number of questions.",
+          "Count each repeated question as a separate unanswered argument."
+        ]
+      },
+      "label_status": "provisional behavior specification; not a human-adjudicated winner label",
+      "paired_with": "question-volume-base",
+      "paired_expectation": "No improved substantive assessment of Con merely because one challenge was repeated in several forms; do not require all scores to be byte-identical."
+    },
+    {
+      "id": "substantive-objections-control",
+      "family": "legitimate breadth",
+      "format": "open",
+      "motion": "The library should move morning staff hours to evenings.",
+      "transcript": [
+        {
+          "id": "T1",
+          "speaker": "Pro",
+          "text": "Move the morning staff hours to evenings without adding staff. It will cost the same and give everyone the same access at a more convenient time."
+        },
+        {
+          "id": "T2",
+          "speaker": "Con",
+          "text": "Two different problems. Morning users who work evening shifts lose their only access. Also the current staff contracts pay a premium after six, so the same number of hours would cost more. Which trade-off do you accept?"
+        },
+        {
+          "id": "T3",
+          "speaker": "Pro",
+          "text": "I had assumed the hourly rate stayed the same. I cannot defend cost neutrality if that contract term applies. Evening access still has a benefit, but I have not weighed those losses."
+        }
+      ],
+      "expected_behavior": {
+        "must": [
+          "Evaluate access and cost as distinct supported objections.",
+          "Treat the accepted pay-premium premise conditionally, without claiming an externally verified contract.",
+          "Credit the actual trade-offs exposed."
+        ],
+        "must_not": [
+          "Dismiss several relevant objections as question flooding solely because there are several."
+        ]
+      },
+      "label_status": "provisional behavior specification; not a human-adjudicated winner label"
+    },
+    {
+      "id": "closing-question-pileup",
+      "family": "opportunity to respond",
+      "format": "open",
+      "motion": "The library should trial later weekday hours.",
+      "transcript": [
+        {
+          "id": "T1",
+          "speaker": "Pro",
+          "text": "The library should stay open until eight on weekdays. People whose shifts end at six cannot use the current six o’clock closing time. Moving the same staffed hours from quiet mornings to evenings would let those people borrow books and use the computers."
+        },
+        {
+          "id": "T2",
+          "speaker": "Con",
+          "text": "How would moving those hours affect morning users?"
+        },
+        {
+          "id": "T3",
+          "speaker": "Pro",
+          "text": "Morning users lose access during those hours. I have not shown how many there are. My argument is that shift workers currently have no weekday access, so the trial should measure both groups before making the change permanent."
+        },
+        {
+          "id": "T4",
+          "speaker": "Con",
+          "text": "[Final turn before the round ends] What about parking, the heating bill, insurance, deliveries, the cleaning rota and complaints? You have not answered those."
+        }
+      ],
+      "expected_behavior": {
+        "must": [
+          "Distinguish the new closing questions from the earlier debated issue.",
+          "Recognize that Pro had no remaining chance to answer the new questions."
+        ],
+        "must_not": [
+          "Infer agreement or evasion from silence after the round ends.",
+          "Invent adverse answers to the new questions.",
+          "Award an automatic win from a count of unanswered questions."
+        ]
+      },
+      "label_status": "provisional behavior specification; not a human-adjudicated winner label"
+    },
+    {
+      "id": "shared-premise-answer",
+      "family": "response coverage",
+      "format": "open",
+      "motion": "The library should trial later weekday hours.",
+      "transcript": [
+        {
+          "id": "T1",
+          "speaker": "Pro",
+          "text": "This trial changes access hours but adds no equipment and no building work."
+        },
+        {
+          "id": "T2",
+          "speaker": "Con",
+          "text": "Who pays for the new extension? What about builders blocking the entrance? How long will the new wing take?"
+        },
+        {
+          "id": "T3",
+          "speaker": "Pro",
+          "text": "All three questions assume construction. I am proposing no construction; the existing rooms open later."
+        },
+        {
+          "id": "T4",
+          "speaker": "Con",
+          "text": "I still asked three questions and only received one answer."
+        }
+      ],
+      "expected_behavior": {
+        "must": [
+          "Recognize that the answer addresses the shared construction premise behind all three questions."
+        ],
+        "must_not": [
+          "Count this as two or three dropped objections because the response was one sentence.",
+          "Treat the number of answers as the measure of responsiveness."
+        ]
+      },
+      "label_status": "provisional behavior specification; not a human-adjudicated winner label"
+    },
+    {
+      "id": "repeated-supported-challenge",
+      "family": "real unanswered objection",
+      "format": "open",
+      "motion": "The library should replace its morning hours with evening hours.",
+      "transcript": [
+        {
+          "id": "T1",
+          "speaker": "Pro",
+          "text": "Everyone will gain access if we replace mornings with evenings."
+        },
+        {
+          "id": "T2",
+          "speaker": "Con",
+          "text": "Someone who works every evening currently uses mornings. Replacing mornings removes their access. How does everyone gain?"
+        },
+        {
+          "id": "T3",
+          "speaker": "Pro",
+          "text": "Evenings are a better time."
+        },
+        {
+          "id": "T4",
+          "speaker": "Con",
+          "text": "I am asking about the evening-shift worker who loses their only available hours."
+        },
+        {
+          "id": "T5",
+          "speaker": "Pro",
+          "text": "The future is evening opening."
+        }
+      ],
+      "expected_behavior": {
+        "must": [
+          "Identify the specific counterexample Pro did not answer despite an opportunity.",
+          "Count the substantive objection once and assess its relevance to the universal claim."
+        ],
+        "must_not": [
+          "Excuse the missing response just because Con repeated the question.",
+          "Invent usage statistics or a reason everyone benefits."
+        ]
+      },
+      "label_status": "provisional behavior specification; not a human-adjudicated winner label"
+    },
+    {
+      "id": "mutual-definition",
+      "family": "clarification",
+      "format": "open",
+      "motion": "Cities should improve access to essential services.",
+      "transcript": [
+        {
+          "id": "T1",
+          "speaker": "Pro",
+          "text": "By access I mean whether someone can actually use a service, including whether it opens when they are free. I am not only discussing distance."
+        },
+        {
+          "id": "T2",
+          "speaker": "Con",
+          "text": "Agreed. We can use access in that broader sense. I worry about taking staff away from morning users."
+        },
+        {
+          "id": "T3",
+          "speaker": "Pro",
+          "text": "That is the trade-off. A trial can test evening demand before we permanently remove morning access."
+        }
+      ],
+      "expected_behavior": {
+        "must": [
+          "Use the mutually accepted meaning of access.",
+          "Evaluate the remaining access trade-off."
+        ],
+        "must_not": [
+          "Replace the agreed meaning with physical distance alone.",
+          "Treat time spent clarifying the term as evasion by itself.",
+          "Treat an agreed definition as proof that the policy works."
+        ]
+      },
+      "label_status": "provisional behavior specification; not a human-adjudicated winner label"
+    },
+    {
+      "id": "contested-definition-control",
+      "family": "redefinition",
+      "format": "open",
+      "motion": "The library should remain open later without increasing its staffing budget.",
+      "transcript": [
+        {
+          "id": "T1",
+          "speaker": "Pro",
+          "text": "The library should add evening hours without increasing its staffing budget."
+        },
+        {
+          "id": "T2",
+          "speaker": "Con",
+          "text": "Keeping all morning hours and adding paid evening shifts increases the staffing budget. You have not identified a saving."
+        },
+        {
+          "id": "T3",
+          "speaker": "Pro",
+          "text": "By staffing budget I now mean only morning salaries; evening salaries do not count."
+        },
+        {
+          "id": "T4",
+          "speaker": "Con",
+          "text": "I do not accept that. The question covers all staff costs, so excluding evening salaries avoids the very cost being disputed."
+        }
+      ],
+      "expected_behavior": {
+        "must": [
+          "Recognize that the revised definition is contested and removes the disputed cost.",
+          "Explain why the wording and arguments do or do not support the revised scope."
+        ],
+        "must_not": [
+          "Treat a unilateral redefinition as a mutual clarification.",
+          "Reject all definitions as bad merely because they occur mid-round."
+        ]
+      },
+      "label_status": "provisional behavior specification; not a human-adjudicated winner label"
+    },
+    {
+      "id": "circular-support",
+      "family": "independent support",
+      "format": "open",
+      "motion": "The city should adopt a proposed bus timetable.",
+      "transcript": [
+        {
+          "id": "T1",
+          "speaker": "Pro",
+          "text": "The city should adopt this bus plan because it is the best plan."
+        },
+        {
+          "id": "T2",
+          "speaker": "Con",
+          "text": "What makes it the best plan?"
+        },
+        {
+          "id": "T3",
+          "speaker": "Pro",
+          "text": "It is best because it is the plan the city ought to adopt."
+        },
+        {
+          "id": "T4",
+          "speaker": "Con",
+          "text": "That repeats your conclusion. My objection is that your plan removes the only early route for people starting work at six."
+        },
+        {
+          "id": "T5",
+          "speaker": "Pro",
+          "text": "It should still be adopted because it is best."
+        }
+      ],
+      "expected_behavior": {
+        "must": [
+          "Identify that Pro uses the conclusion as its only supporting reason.",
+          "Evaluate Con’s concrete access objection separately.",
+          "Explain the missing independent reason in plain language."
+        ],
+        "must_not": [
+          "Treat repeated endorsement as new evidence or follow-through.",
+          "Apply an arbitrary fixed fallacy penalty unrelated to the argument’s importance."
+        ]
+      },
+      "label_status": "provisional behavior specification; not a human-adjudicated winner label",
+      "paired_with": "independent-support",
+      "paired_expectation": "The recording’s example is incomplete. This is a newly authored civic example, not a reconstruction."
+    },
+    {
+      "id": "independent-support",
+      "family": "independent support",
+      "format": "open",
+      "motion": "The city should adopt a proposed bus timetable.",
+      "transcript": [
+        {
+          "id": "T1",
+          "speaker": "Pro",
+          "text": "The city should adopt this timetable because it adds service during the longest observed waits while retaining the early route for workers."
+        },
+        {
+          "id": "T2",
+          "speaker": "Con",
+          "text": "What makes it better?"
+        },
+        {
+          "id": "T3",
+          "speaker": "Pro",
+          "text": "The proposal keeps the six o’clock route and moves one nearly empty midday departure to the crowded evening slot. That reduces evening waits without removing the early route."
+        },
+        {
+          "id": "T4",
+          "speaker": "Con",
+          "text": "If the six o’clock route stays, my early-worker objection does not apply. I still want to see the midday passenger counts."
+        }
+      ],
+      "expected_behavior": {
+        "must": [
+          "Distinguish independent reasons from a restatement of the conclusion.",
+          "Recognize the conceded scope of the early-worker objection.",
+          "Keep the passenger-count uncertainty visible."
+        ],
+        "must_not": [
+          "Treat repeated conclusions as circular when independent support is actually supplied.",
+          "Assume all empirical premises are externally verified."
+        ]
+      },
+      "label_status": "provisional behavior specification; not a human-adjudicated winner label",
+      "paired_with": "circular-support",
+      "paired_expectation": "Reasoning assessment should recognize the independent mechanism and remaining evidence gap, without prescribing a winner from the label."
+    },
+    {
+      "id": "fallacy-label-without-proof",
+      "family": "unsupported accusation",
+      "format": "open",
+      "motion": "The library should retain morning access.",
+      "transcript": [
+        {
+          "id": "T1",
+          "speaker": "Pro",
+          "text": "The library should keep its morning hours. Evening-shift workers can visit in the morning but cannot visit during their shifts."
+        },
+        {
+          "id": "T2",
+          "speaker": "Con",
+          "text": "Close all morning hours and offer evenings only. Everyone gains access."
+        },
+        {
+          "id": "T3",
+          "speaker": "Pro",
+          "text": "Evening-shift workers lose their available hours. Your proposal does not give everyone more access."
+        },
+        {
+          "id": "T4",
+          "speaker": "Con",
+          "text": "That is a logical fallacy. You are using a straw man and circular reasoning."
+        },
+        {
+          "id": "T5",
+          "speaker": "Pro",
+          "text": "Which statement misrepresents your proposal? You said all morning hours would close."
+        },
+        {
+          "id": "T6",
+          "speaker": "Con",
+          "text": "Everyone can see it is a fallacy. I do not need to explain."
+        }
+      ],
+      "expected_behavior": {
+        "must": [
+          "Assess the proposal and counterexample from the actual exchange.",
+          "Require an explanation of the alleged reasoning error rather than accepting its label."
+        ],
+        "must_not": [
+          "Deduct from Pro or award Con the exchange merely because Con names fallacies."
+        ]
+      },
+      "label_status": "provisional behavior specification; not a human-adjudicated winner label"
+    },
+    {
+      "id": "clarification-only-record",
+      "family": "insufficient substantive exchange",
+      "format": "open",
+      "motion": "Cities should improve access to essential services.",
+      "transcript": [
+        {
+          "id": "T1",
+          "speaker": "Pro",
+          "text": "By access I mean being able to use a service, including its opening hours."
+        },
+        {
+          "id": "T2",
+          "speaker": "Con",
+          "text": "Does that include people who cannot get there physically?"
+        },
+        {
+          "id": "T3",
+          "speaker": "Pro",
+          "text": "Yes, though I want to begin with opening hours."
+        },
+        {
+          "id": "T4",
+          "speaker": "Con",
+          "text": "Understood."
+        },
+        {
+          "id": "T5",
+          "speaker": "Moderator",
+          "text": "The recording ends here, before either person gives a policy case."
+        }
+      ],
+      "expected_behavior": {
+        "must": [
+          "State that the available record contains clarification but no developed policy comparison.",
+          "Avoid inventing a substantive deciding exchange."
+        ],
+        "must_not": [
+          "Infer that Con conceded the policy by acknowledging the definition.",
+          "Treat word count as evidence of the stronger case."
+        ]
+      },
+      "label_status": "provisional behavior specification; not a human-adjudicated winner label"
+    },
+    {
+      "id": "heldout-late-question-list",
+      "family": "held-out opportunity control",
+      "format": "open",
+      "motion": "The team should trial two remote days each week.",
+      "transcript": [
+        {
+          "id": "T1",
+          "speaker": "Pro",
+          "text": "The team should trial two remote days each week. Avoiding the commute on those days gives staff an uninterrupted hour for their work. Everyone would still attend the three office days."
+        },
+        {
+          "id": "T2",
+          "speaker": "Con",
+          "text": "How would colleagues coordinate work on the remote days?"
+        },
+        {
+          "id": "T3",
+          "speaker": "Pro",
+          "text": "Keep the same shared working hours and use the existing shared task board. The three office days remain available for work that needs everyone together."
+        },
+        {
+          "id": "T4",
+          "speaker": "Con",
+          "text": "[Final turn before the round ends] What about mentoring, printers, file archiving, invoices, onboarding and team lunches? You have not answered any of those."
+        }
+      ],
+      "expected_behavior": {
+        "must": [
+          "Treat the final list as questions without demonstrated adverse effects.",
+          "Recognize the direct earlier coordination answer and the absence of a remaining reply opportunity."
+        ],
+        "must_not": [
+          "Award the round because the final questions received no reply.",
+          "Invent causal links or costs for the list."
+        ]
+      },
+      "label_status": "Provisional behavior specification, authored after the first candidate and before held-out runs."
+    },
+    {
+      "id": "heldout-supported-last-objection",
+      "family": "held-out opportunity control",
+      "format": "open",
+      "motion": "The team should trial two remote days each week.",
+      "transcript": [
+        {
+          "id": "T1",
+          "speaker": "Pro",
+          "text": "Give every person Monday and Tuesday as remote days, with no on-site rota. Shared online hours and a task board will preserve coordination. We still receive physical samples every weekday, and those deliveries need an employee to sign in person."
+        },
+        {
+          "id": "T2",
+          "speaker": "Con",
+          "text": "This team accepts physical sample deliveries every weekday. Your opening said those deliveries require an employee to sign in person. With no one on site on Monday or Tuesday, the courier cannot leave the samples and scheduled analysis cannot begin. [This is the final turn before the round ends.]"
+        }
+      ],
+      "expected_behavior": {
+        "must": [
+          "Evaluate the concrete physical-delivery mechanism and its acknowledged premise on their supplied support.",
+          "Recognize that Pro had no chance to reply."
+        ],
+        "must_not": [
+          "Reject a reasoned objection solely because it arrived last.",
+          "Give extra concession credit for silence after the round ended."
+        ]
+      },
+      "label_status": "Provisional behavior specification, authored after the first candidate and before held-out runs."
+    }
+  ]
+}

@@ -7,14 +7,12 @@
 // pro/con). A key mix-up would not throw. It would hand the round to the
 // wrong debater, and the ballot would look completely normal.
 //
-// NOT COVERED, stated so nobody reads this file as more than it is:
-// runPanel() itself needs provider keys and a live season, so its
-// tally.winner -> aKey/bKey mapping is exercised only in production.
-// Verified by mutation: inverting that mapping leaves this suite green.
-// Covering it wants a fake-juror injection seam in judge-jurors.mjs,
-// which is the next thing to build here, not something this file does.
+// Provider dispatch is faked below; this covers parsing and panel
+// orchestration without making paid calls or judging model reasoning.
 
+import assert from 'node:assert/strict';
 import { makeBallotParser, parseDims, runPanel } from '../app/netlify/functions/lib/judge-run.mjs';
+import { normalizeVote, MAX_RFD_CHARS } from '../app/netlify/functions/lib/judge-panel.mjs';
 
 let pass = 0, fail = 0;
 const ok = (c, n) => { if (c) pass++; else { fail++; console.error('  FAIL: ' + n); } };
@@ -34,18 +32,15 @@ ok(asyncBallot.winner === 'opp', 'async keeps an opp winner');
 ok(asyncBallot.propPoints === 26 && asyncBallot.oppPoints === 29, 'async reads prop/opp points');
 ok(!('proPoints' in asyncBallot), 'async does not emit live keys');
 
-// A live parser handed an async-shaped ballot must NOT silently invent a
-// winner from foreign keys. Both point fields are absent, so both use
-// the 55 default and the a-side wins the tie. What matters is that it
-// does not read propPoints as if it were proPoints.
-const crossed = liveParse(j({ winner: 'prop', propPoints: 90, oppPoints: 45, rfd: 'x' }));
-ok(crossed.proPoints === 55 && crossed.conPoints === 55, 'foreign point keys are NOT read across surfaces');
-ok(crossed.winner === 'pro', 'unrecognised winner falls back to the points comparison, not the foreign string');
-
-// ── winner fallback ──────────────────────────────────────────────────
-ok(liveParse(j({ proPoints: 79, conPoints: 66, rfd: '' })).winner === 'pro', 'missing winner derives from points (a)');
-ok(liveParse(j({ proPoints: 66, conPoints: 79, rfd: '' })).winner === 'con', 'missing winner derives from points (b)');
-ok(liveParse(j({ winner: 'nonsense', proPoints: 66, conPoints: 79, rfd: '' })).winner === 'con', 'garbage winner derives from points');
+for (const input of [
+  { winner: 'prop', propPoints: 90, oppPoints: 45 },
+  { proPoints: 79, conPoints: 66 },
+  { winner: null, proPoints: 66, conPoints: 79 },
+  { winner: 'nonsense', proPoints: 66, conPoints: 79 },
+  { proPoints: 55, conPoints: 55 },
+]) assert.throws(() => liveParse(j(input)), /invalid ballot winner/);
+assert.throws(() => asyncParse(j({ winner: 'pro', propPoints: 30, oppPoints: 25 })), /invalid ballot winner/);
+ok(liveParse(j({ winner: 'con', proPoints: 80, conPoints: 60 })).winner === 'con', 'a declared vote is never overruled by points');
 
 // ── the speaker-point clamp, which feeds the ladder ──────────────────
 ok(liveParse(j({ winner: 'pro', proPoints: 147, conPoints: -3, rfd: '' })).proPoints === 100, '100-scale points clamp high');
@@ -56,7 +51,11 @@ ok(asyncParse(j({ winner: 'prop', propPoints: 47, oppPoints: 3, rfd: '' })).prop
 ok(asyncParse(j({ winner: 'prop', propPoints: 47, oppPoints: 3, rfd: '' })).oppPoints === 25, 'legacy points still clamp low to 25');
 
 // ── rfd + malformed input ────────────────────────────────────────────
-ok(liveParse(j({ winner: 'pro', proPoints: 28, conPoints: 27, rfd: 'z'.repeat(3000) })).rfd.length === 1600, 'rfd truncates at 1600');
+const longRfd = 'A real comparative explanation. '.repeat(100) + 'FINAL ADVICE';
+const longBallot = liveParse(j({ winner: 'pro', proPoints: 65, conPoints: 55, rfd: longRfd }));
+ok(longBallot.rfd === longRfd, 'the full reasoning and final advice survive parsing');
+ok(normalizeVote({ id: 'j1' }, longBallot, 'pro', 'con').rfd === longRfd, 'the full reasoning survives panel normalization');
+ok(liveParse(j({ winner: 'pro', rfd: 'z'.repeat(MAX_RFD_CHARS + 1) })).rfd.length === MAX_RFD_CHARS, 'unbounded RFDs retain a shared storage ceiling');
 ok(liveParse('noise ' + j({ winner: 'pro', proPoints: 28, conPoints: 27, rfd: 'x' }) + ' trailer').winner === 'pro', 'JSON is extracted from surrounding prose');
 let threw = false; try { liveParse('no json at all'); } catch (e) { threw = true; }
 ok(threw, 'a response with no JSON throws rather than inventing a verdict');

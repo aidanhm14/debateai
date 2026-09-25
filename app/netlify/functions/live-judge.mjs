@@ -38,6 +38,7 @@ import { buildAdjudicationBlock } from './lib/adjudication.mjs';
 import { agreedJudgeLevelBlock } from './lib/judge-levels.mjs';
 import { seasonFor } from './lib/judge-charter.mjs';
 import { runPanel } from './lib/judge-run.mjs';
+import { MAX_RFD_CHARS } from './lib/judge-panel.mjs';
 import { auditRecord, writeAudit } from './lib/judge-audit.mjs';
 import { recordJudgment, judgmentId } from './lib/judgment.mjs';
 import { settleMarket } from './lib/settle.mjs';
@@ -212,7 +213,7 @@ export function buildNoWinnerBallot(judged, round = {}, now = Date.now()) {
       model: String(result.model || '').slice(0, 120),
       winner: result.ballot.winner,
       decidingIssue: String(result.ballot.decidingIssue || '').slice(0, 160),
-      rfd: String(result.ballot.rfd || '').slice(0, 1600),
+      rfd: String(result.ballot.rfd || '').slice(0, MAX_RFD_CHARS),
     }));
 
   const panelTally = panel.tally && typeof panel.tally === 'object' ? panel.tally : {};
