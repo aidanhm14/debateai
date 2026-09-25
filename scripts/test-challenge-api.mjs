@@ -45,9 +45,6 @@ assert.deepEqual(rows.get('challenges/'+id).creator.avatarIdentity,{kind:'live',
 assert.equal((await post('host',{action:'accept',id})).status,409,'self acceptance fails');
 assert.equal((await post('guest:anonymous',{action:'accept',id})).status,401,'anonymous acceptance fails');
 assert.equal((await post('guest:phone',{action:'accept',id})).status,403,'provider blocked before reserving a video seat');
-rows.set('age_bands/guest',{band:'minor'});
-assert.equal((await post('guest',{action:'accept',id})).status,409,'age mismatch does not consume a seat');
-rows.set('age_bands/guest',{band:'adult'});
 const race=await Promise.all([post('guest',{action:'accept',id}),post('third',{action:'accept',id})]);
 assert.deepEqual(race.map(r=>r.status).sort(),[200,409]);
 assert.equal(rows.get('challenges/'+id).accepted.length,2);

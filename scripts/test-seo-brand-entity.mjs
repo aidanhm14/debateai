@@ -142,7 +142,9 @@ check('sitemap marks changed brand surfaces fresh',
   && /path: '\/debatable'[\s\S]{0,120}lastmod: '2026-09-13'/.test(sitemap));
 check('sitemap submits the canonical AI and learn entry pages',
   /path: '\/newvoice'/.test(sitemap)
-  && !/path: '\/practice'/.test(sitemap)
+  // /practice returned 2026-09-25 as the debate-practice SEO page (a
+  // static acquisition page, not the retired typed round).
+  && /path: '\/practice'/.test(sitemap)
   && !/path: '\/debate-an-ai'/.test(sitemap)
   && /path: '\/learn'[\s\S]{0,120}lastmod: '2026-08-28'/.test(sitemap));
 

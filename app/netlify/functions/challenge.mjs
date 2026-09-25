@@ -29,6 +29,11 @@ import { displayRating } from './lib/rating.mjs';
 import { checkLayers } from './lib/rate-limit.mjs';
 import { setChallengeFollow } from './lib/challenge-follow.mjs';
 import { safeIdentity } from './lib/public-avatar.mjs';
+// Live matching is ONE pool (2026-09-25, Aidan: "everyone for live
+// matches, no age limit thing"). The age-band pairing rule is off here
+// and in spar-pair.mjs, js/age-gate.js, challenge-room.mjs, team-seats.mjs
+// and private-invite.mjs; flip every copy together to restore it.
+const AGE_BAND_PAIRING = false;
 
 const FEED_KEYS = new Set(['open-public', 'live-public', 'upcoming-public', 'done-public']);
 
@@ -369,7 +374,7 @@ export default async (request) => {
 
         const takenSides = new Set(accepted.map((p) => p.side));
         const side = takenSides.has('a') ? 'b' : 'a';
-        if (d.mode === 'live') {
+        if (d.mode === 'live' && AGE_BAND_PAIRING) {
           const bands = await Promise.all([me.uid, d.creator.uid].map(uid => tx.get(db.collection('age_bands').doc(uid))));
           const band = bands.map(s => s.exists ? s.data().band : '');
           if (!['minor', 'adult'].includes(band[0])) throw new Error('Confirm your age before accepting.');

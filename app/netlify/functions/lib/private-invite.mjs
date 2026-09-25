@@ -2,6 +2,11 @@ import {randomBytes, timingSafeEqual} from 'node:crypto';
 import {checkContent} from './content-guard.mjs';
 import {publicIdentity} from './public-identity.mjs';
 import identity from '../../../js/public-identity.js';
+// Live matching is ONE pool (2026-09-25, Aidan: "everyone for live
+// matches, no age limit thing"). The age-band pairing rule is off here
+// and in spar-pair.mjs, js/age-gate.js, challenge-room.mjs, team-seats.mjs
+// and private-invite.mjs; flip every copy together to restore it.
+const AGE_BAND_PAIRING = false;
 
 function fail(message,status=409){throw Object.assign(new Error(message),{status});}
 function matches(a,b){
@@ -43,7 +48,7 @@ export async function privateInvite(db,uid,body,now=Date.now()){
       if(round.ballot || ['ballot','done','cancelled'].includes(round.status))fail('This round has ended.');
       const bands=await Promise.all([uid,round.posterUid].map(id=>tx.get(db.collection('age_bands').doc(id))));
       const ages=bands.map(s=>(s.exists?s.data():{}).band||'unknown');
-      if(ages.includes('minor') && !ages.every(a=>a==='minor'))fail('These accounts cannot join the same room.',403);
+      if(AGE_BAND_PAIRING && ages.includes('minor') && !ages.every(a=>a==='minor'))fail('These accounts cannot join the same room.',403);
       const patch={[field]:uid,[invitation.side+'Name']:name};
       tx.update(ref,patch);
       tx.update(inviteRef,{claimedBy:uid,claimedAt:now});

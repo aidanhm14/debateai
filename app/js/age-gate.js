@@ -24,6 +24,17 @@
 
   var KEY = 'da-age-band';
 
+  // 2026-09-25, Aidan: "it's everyone for live matches, no age limit
+  // thing." The one-time "How old are you?" question is retired and
+  // live pairing runs as ONE pool. The module keeps its API so every
+  // caller (spar, debate-chat, chat-challenge, notifications) still
+  // works, but nothing is asked, nothing is stored, and no band is
+  // ever invented: the callback token below is not an age. Flip this
+  // to true to restore the 2026-08-22 behaviour (server enforcement is
+  // gated on its twin, AGE_BAND_PAIRING, in spar-pair.mjs).
+  var PAIRING_BANDS = false;
+  var NO_BAND = 'everyone';
+
   window.daAgeBand = function () {
     try {
       var b = localStorage.getItem(KEY);
@@ -36,6 +47,7 @@
   // minor+minor ok; adult with adult or unattested ok; an attested
   // minor never pairs with anyone who did not attest minor.
   window.daAgeBandsOk = function (a, b) {
+    if (!PAIRING_BANDS) return true;
     a = (a === 'minor' || a === 'adult') ? a : '';
     b = (b === 'minor' || b === 'adult') ? b : '';
     if (a === 'minor' || b === 'minor') return a === b;
@@ -55,6 +67,7 @@
   // AGE_BAND_REQUIRED and this gets retried on that code.
   window.daRecordAgeBand = function (band, cb) {
     cb = cb || function () {};
+    if (!PAIRING_BANDS) { cb(NO_BAND); return; }
     var u;
     try { u = window.firebase && firebase.auth && firebase.auth().currentUser; } catch (e) {}
     if (!u || (band !== 'minor' && band !== 'adult')) { cb(''); return; }
@@ -81,6 +94,7 @@
   // synchronously without rendering anything.
   var ageOwner = null, ageRead = null;
   window.daAskAgeBand = function (cb) {
+    if (!PAIRING_BANDS) { cb(NO_BAND); return; }
     var user;
     try { user = window.firebase && firebase.auth().currentUser; } catch(e) {}
     var owner = user ? user.uid : '';

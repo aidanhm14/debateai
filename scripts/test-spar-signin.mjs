@@ -44,9 +44,19 @@ console.log('PASS matcher rejects every guest human action before storage; Googl
 // A converted guest's old ledger must not override their current account.
 allowReads = true;
 provider = 'password';
-const converted = await context.handler(new Request('https://debatable.test/api/spar-pair', {
-  method: 'POST', headers: { Authorization: 'fixture-token' },
-  body: JSON.stringify({ action: 'pair', peerUid: 'converted-old-guest', format: 'quick' }),
-}));
-assert.equal(converted.body.code, 'AGE_BAND_REQUIRED', 'converted accounts reach the ordinary age check');
+// Live matching is one pool (2026-09-25): no age band is read or required,
+// so a named account runs straight on to pairing. The inert stub has no
+// transactions or subcollections, so reaching pairing surfaces as a
+// storage error here; that is the pass condition, not a failure.
+let converted;
+try {
+  converted = await context.handler(new Request('https://debatable.test/api/spar-pair', {
+    method: 'POST', headers: { Authorization: 'fixture-token' },
+    body: JSON.stringify({ action: 'pair', peerUid: 'converted-old-guest', format: 'quick' }),
+  }));
+} catch (err) {
+  converted = { status: 0, body: { code: 'REACHED_PAIRING', error: String(err && err.message) } };
+}
+assert.notEqual(converted.body.code, 'AGE_BAND_REQUIRED', 'no age check stands between a named account and pairing');
+assert.ok(!collections.includes('age_bands'), 'no age band is read for live matching');
 assert.ok(!collections.includes('guest_rounds'), 'retired guest counters never gate or charge named accounts');

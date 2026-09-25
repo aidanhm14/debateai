@@ -1,5 +1,10 @@
 import { checkContent } from './content-guard.mjs';
 import { feedKeyFor } from './challenge.mjs';
+// Live matching is ONE pool (2026-09-25, Aidan: "everyone for live
+// matches, no age limit thing"). The age-band pairing rule is off here
+// and in spar-pair.mjs, js/age-gate.js, challenge-room.mjs, team-seats.mjs
+// and private-invite.mjs; flip every copy together to restore it.
+const AGE_BAND_PAIRING = false;
 
 // A challenge owns one room. Retries and both participants joining must
 // converge without resetting an existing round or its agreed topic.
@@ -18,12 +23,14 @@ export async function joinChallengeRoom(db, ref, uid, now = Date.now()) {
     const guard = checkContent({ text: c.claim, kind: 'motion' });
     if (!guard.ok) throw new Error(guard.reason);
 
+    if (AGE_BAND_PAIRING) {
     const bands = await Promise.all(seats.map(p => tx.get(db.collection('age_bands').doc(p.uid))));
     const mine = seats.findIndex(p => p.uid === uid);
     const band = bands.map(s => s.exists ? s.data().band : '');
     if (!['minor', 'adult'].includes(band[mine])) throw new Error('Confirm your age before joining this live debate.');
     if (!['minor', 'adult'].includes(band[1 - mine])) throw new Error('The other person needs to open this challenge and confirm their age before you can join.');
     if (band[0] !== band[1]) throw new Error('Live debates pair people within the same age group.');
+    }
 
     const room = 'Challenge-' + ref.id;
     const roundRef = db.collection('live_rounds').doc(room);

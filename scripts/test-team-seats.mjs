@@ -59,11 +59,9 @@ await f.act('a','decline',{uid:'e'});
 await reject(f.act('a','approve',{uid:'e'}));
 await f.act('c','request',{key:'pro2'});await f.act('c','withdraw');
 await reject(f.act('a','approve',{uid:'c'}));
+// One live pool (2026-09-25): a seat request needs no age band, so 'c'
+// requests and is approved below with none recorded.
 f.data.delete('age_bands/c');
-await reject(f.act('c','request',{key:'pro2'}),'AGE_BAND_REQUIRED');
-f.data.set('age_bands/c',{band:'minor'});
-await reject(f.act('c','request',{key:'pro2'}),'AGE_BAND_MISMATCH');
-f.data.set('age_bands/c',{band:'adult'});
 for(const [uid,key] of [['c','pro2'],['d','con2']]){await f.act(uid,'request',{key});await f.act('a','approve',{uid});}
 assert.equal(Teams.full(f.round()),true);
 await reject(f.act('e','start'),'NOT_SEATED');
@@ -133,7 +131,7 @@ vm.runInContext(page.slice(page.indexOf('  function bkTick(){'),page.indexOf('  
 ctx.bkTick();assert.equal(backupElapsed,1,'A seated partner can be the elected backup transcriber');
 
 assert.ok(page.includes('if (state.isDuo) return {ok:false,reason:'));
-console.log('Team seats: host approval, simultaneous requests, expiry, age groups, four-seat start, roster lock, four streams, final drain, timeout, teammate turns and unrated results passed.');
+console.log('Team seats: host approval, simultaneous requests, expiry, one live pool, four-seat start, roster lock, four streams, final drain, timeout, teammate turns and unrated results passed.');
 
 // Run the real Daily handler with only network/auth/database dependencies
 // stubbed. A viewer cannot turn a copied URL into a sending credential.

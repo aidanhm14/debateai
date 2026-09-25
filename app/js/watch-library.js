@@ -9,7 +9,7 @@
   var selectedTopic = 'all';
   var collection = 'all';
   var collections = document.getElementById('watchCollections');
-  var collectionNames = { all: 'Worth an argument', college: 'APDA & college rounds', highschool: 'High school rounds', philosophers: 'Philosophers disagree', streamers: 'Twitch debate archives' };
+  var collectionNames = { all: 'Worth an argument', college: 'APDA & college rounds', parliamentary: 'Parliamentary finals', highschool: 'High school rounds', philosophers: 'Philosophers disagree', streamers: 'Twitch debate archives' };
   if (Object.prototype.hasOwnProperty.call(collectionNames, params.get('collection'))) collection = params.get('collection');
   var expanded = false;
   var more = document.getElementById('watchMore');

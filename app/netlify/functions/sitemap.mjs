@@ -86,7 +86,9 @@ const URLS = [
   // submitting both would be two URLs for one page against one canonical.
   { path: '/watch',           changefreq: 'daily',   priority: '0.84', lastmod: '2026-09-13' },
   { path: '/champions',       changefreq: 'weekly',  priority: '0.80' },
-  // Retired typed practice redirects to /newvoice, which is listed above.
+  // /practice is the debate-practice acquisition page (rebuilt 2026-09-25;
+  // the typed round that used to live there stays retired).
+  { path: '/practice',        changefreq: 'weekly',  priority: '0.90', lastmod: '2026-09-25' },
   // Submit only the canonical destination of each acquisition page.
   { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-09-20' },
   // Politics acquisition cluster. /political-debate is the product-intent

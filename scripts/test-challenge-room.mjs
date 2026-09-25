@@ -72,12 +72,14 @@ for (const status of ['done','ballot','forfeit']) {
   ended.rows.set('live_rounds/Challenge-one',{status,ballot:status==='ballot'?{winner:'pro'}:null});
   await assert.rejects(joinChallengeRoom(ended.db,ended.ref,'host'),/ended/);
 }
+// One live pool (2026-09-25): neither a differing band nor a missing one
+// keeps a seated person out of the room.
 const bands = fixture();
 bands.rows.set('age_bands/guest',{band:'minor'});
-await assert.rejects(joinChallengeRoom(bands.db,bands.ref,'guest'),/same age group/);
-bands.rows.delete('age_bands/guest');
-await assert.rejects(joinChallengeRoom(bands.db,bands.ref,'guest'),/Confirm your age/);
-await assert.rejects(joinChallengeRoom(bands.db,bands.ref,'host'),/other person/);
+await joinChallengeRoom(bands.db,bands.ref,'guest');
+const noBand = fixture();
+noBand.rows.delete('age_bands/guest');
+await joinChallengeRoom(noBand.db,noBand.ref,'guest');
 const hidden = fixture({...initial,moderation:{state:'hidden'}});
 await assert.rejects(joinChallengeRoom(hidden.db,hidden.ref,'host'),/under review/);
 const collision = fixture();
@@ -118,4 +120,4 @@ assert.equal((await syncChallengeRoom(open.db,open.ref)).data.result,null,'priva
 complete.isPrivate = false;
 complete.ballot={winner:null,resolution:'unresolved',rfd:'The full panel tied.'};
 assert.equal((await syncChallengeRoom(open.db,open.ref)).data.result.winner,null,'no manufactured winner');
-console.log('challenge room: convergence, retries, topic/side preservation, completed rounds, participant admission, age groups and content checks passed');
+console.log('challenge room: convergence, retries, topic/side preservation, completed rounds, participant admission, one live pool and content checks passed');

@@ -317,6 +317,13 @@ function blocked(data, uid) {
 // open because undercounting costs one free round; an age read fails
 // CLOSED (refuse this attempt, client polls on) because pairing across
 // the band line is the one outcome this layer exists to prevent.
+//
+// 2026-09-25, Aidan: "it's everyone for live matches, no age limit
+// thing." Enforcement is OFF: one pool, no question at the door, no
+// record required. The machinery stays so it can be switched back on
+// (client twin: PAIRING_BANDS in js/age-gate.js). /safety describes
+// the live posture; the terms' 13+ with adult supervision is unchanged.
+const AGE_BAND_PAIRING = false;
 const AGE_BANDS = new Set(['minor', 'adult']);
 const bandCache = new Map();
 
@@ -853,6 +860,7 @@ export default async (request) => {
   // Age-band gate (see the block above the handler). Both sides need a
   // server-recorded band, and the bands must match, before a pair can
   // even be proposed. Checked from age_bands/{uid}, never the queue doc.
+  if (AGE_BAND_PAIRING) {
   let myBand, peerBand;
   try {
     [myBand, peerBand] = await Promise.all([
@@ -894,6 +902,7 @@ export default async (request) => {
       });
     } catch (e) { /* never let the optimization block the refusal */ }
     return jsonResponse({ ok: false, reason: 'age_mismatch', skipPeer: peerUid }, 200, request);
+  }
   }
 
   const pair = [myUid, peerUid].sort();

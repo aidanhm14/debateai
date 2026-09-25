@@ -1,5 +1,10 @@
 import Teams from '../../../js/room-teams.js';
 import { publicIdentity } from './public-identity.mjs';
+// Live matching is ONE pool (2026-09-25, Aidan: "everyone for live
+// matches, no age limit thing"). The age-band pairing rule is off here
+// and in spar-pair.mjs, js/age-gate.js, challenge-room.mjs, team-seats.mjs
+// and private-invite.mjs; flip every copy together to restore it.
+const AGE_BAND_PAIRING = false;
 
 export const REQUEST_MS = 3 * 60 * 1000;
 const EXTRA = ['pro2','con2'];
@@ -136,8 +141,8 @@ export async function changeTeamSeat(db, room, uid, body, now = Date.now()) {
       ...uids.map(id=>tx.get(db.collection('age_bands').doc(id))),
     ]);
     const ageBands = bands.map(s=>s.exists?s.data().band:'');
-    if (!['adult','minor'].includes(ageBands.at(-1))) fail('Confirm your age group before requesting a team seat.', 'AGE_BAND_REQUIRED');
-    if (!sameAgeGroup(ageBands)) fail('Team seats are limited to people in the same age group.', 'AGE_BAND_MISMATCH');
+    if (AGE_BAND_PAIRING && !['adult','minor'].includes(ageBands.at(-1))) fail('Confirm your age group before requesting a team seat.', 'AGE_BAND_REQUIRED');
+    if (AGE_BAND_PAIRING && !sameAgeGroup(ageBands)) fail('Team seats are limited to people in the same age group.', 'AGE_BAND_MISMATCH');
     const name = publicIdentity(target, profile.exists ? profile.data() : {}).name;
     if (action === 'request') {
       tx.set(req, {uid:target,key,name,status:'pending',requestedAt:now});

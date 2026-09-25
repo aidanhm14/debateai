@@ -71,13 +71,14 @@ await expired.call('host',{action:'open'},now+8*86400000);
 assert.notEqual(expired.inv().token,oldToken,'host can refresh an unclaimed expired link');
 await assert.rejects(expired.call('peer',{action:'join',invite:oldToken},now+8*86400000),{status:403});
 
-for(const bands of [['minor','adult'],['adult','minor'],['minor','unknown'],['minor','minor']]){
+// One live pool (2026-09-25): an invite joins whatever the bands say, and
+// with no band recorded at all.
+for(const bands of [['minor','adult'],['adult','minor'],['minor','unknown'],['minor','minor'],['unknown','unknown']]){
   const x=fixture();await x.open('con');
-  x.rows.set('age_bands/host',{band:bands[0]});x.rows.set('age_bands/peer',{band:bands[1]});
+  if(bands[0]!=='unknown')x.rows.set('age_bands/host',{band:bands[0]});
+  if(bands[1]!=='unknown')x.rows.set('age_bands/peer',{band:bands[1]});
   const join=x.call('peer',{action:'join',invite:x.inv().token});
-  if(bands.every(b=>b==='minor')){
-    assert.equal((await join).mySide,'pro');assert.equal(x.round().conUid,'host');
-  }else{await assert.rejects(join,{status:403});assert.equal(x.round().proUid,undefined);}
+  assert.equal((await join).mySide,'pro');assert.equal(x.round().conUid,'host');
 }
 const ended=fixture();await ended.open();ended.round().status='done';
 await assert.rejects(ended.call('peer',{action:'join',invite:ended.inv().token}),{status:409});
