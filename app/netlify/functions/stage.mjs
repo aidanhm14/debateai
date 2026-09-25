@@ -428,20 +428,11 @@ export default async (request) => {
       return jsonResponse({ error: 'Removed from video rooms for a safety violation.', code: 'banned' }, 403, request);
     }
 
-    // Adults only, and this is stricter than /spar on purpose. A stage
-    // round is broadcast, recorded, and restreamed off the site: that is
-    // a permanent public exposure, not a private room with one stranger
-    // in it.
-    let bandDoc = null;
-    try { bandDoc = await withDeadline(db.collection('age_bands').doc(uid).get(), 2500); } catch (e) { bandDoc = null; }
-    const band = bandDoc && bandDoc.exists ? (bandDoc.data() || {}).band : null;
-    if (!band) return jsonResponse({ error: 'Answer the age question first.', code: 'need_age' }, 403, request);
-    if (band !== 'adult') {
-      return jsonResponse({
-        error: 'Going on a public broadcast is 18+. Live rounds away from the stream are still open to you.',
-        code: 'minor',
-      }, 403, request);
-    }
+    // The stage used to be adults-only, read off the server-side age band.
+    // 2026-09-25, Aidan, three times: "open it". The age question itself
+    // was retired the same day (one live pool, see spar-pair.mjs), so no
+    // new account could have answered it anyway. The terms' 13+ with
+    // adult supervision still applies, and a ban still closes the door.
 
     const built = buildRequest({
       uid,

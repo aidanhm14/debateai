@@ -342,7 +342,7 @@
   var el = {};
   ['fsMotion','fsTitle','fsFaceA','fsFaceB','fsNameA','fsNameB','fsSideA','fsSideB',
    'fsNameAmini','fsNameBmini','fsPctA','fsPctB','fsFill','fsMark','fsLine','fsDot','fsClock',
-   'fsOddsLive','fsBallot','fsBallotK','fsWinner','fsScore','fsCard','fsBallotCard','fsWaitLabel','fsWaitCopy',
+   'fsOddsLive','fsBallot','fsBallotK','fsWinner','fsScore','fsCard','fsBallotCard','fsWaitLabel','fsWaitCopy','fsSeatCta',
    'fsViewers','fsVolume','fsChance','fsChanceNm',
    'fsArea','fsMid','fsVol','fsFlag','fsAxHi','fsAxLo','fsDelta','fsOpenFig','fsYouAvatar',
    'fsChalLine','fsChalAlt','fsChalNote']
@@ -806,10 +806,15 @@
     var isChal = r.kind === 'challenge';
     var isMatched = isChal && !!r.matched;
     var isYou = isMatched && r.openTopic && !r.title;
-    el.fsWaitLabel.textContent = isChal ? (isMatched ? 'Your round' : 'Open challenge') : 'Judge';
+    /* R01 of the 2026-09-24 walkthrough (frame at 0:08): the matched-you
+       card read as a label and a sentence beside an empty chair, with
+       the only action a screen below. It now says what the seat is and
+       carries the action itself. */
+    el.fsWaitLabel.textContent = isChal ? (isMatched ? 'Your seat is open' : 'Open challenge') : 'Judge';
     el.fsWaitCopy.textContent = isChal
-      ? (isMatched ? 'Pick a topic. Take a side.' : 'Win rounds. Earn your shot.')
+      ? (isMatched ? 'Pick the topic, take a side. We match you with the other person.' : 'Win rounds. Earn your shot.')
       : 'The judge is deciding';
+    if (el.fsSeatCta) el.fsSeatCta.hidden = !isYou;
     board.classList.toggle('is-chal', isChal);
     board.classList.toggle('is-matched', isMatched);
     board.classList.toggle('is-you', !!isYou);

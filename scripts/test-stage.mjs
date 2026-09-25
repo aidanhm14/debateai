@@ -239,19 +239,16 @@ const stageSrc = src('stage.mjs');
 // The provider set must MATCH the live-video door rather than narrow it:
 // AGENTS.md pins google/phone/apple in seven places, and a stage seat
 // that refused an email account would make the site disagree with itself.
-// The stricter half of this door is the adult age band below.
+// The door is the provider set plus the ban list; there is no age half.
 ok(/LIVE_VIDEO_PROVIDERS = new Set\(\['google\.com', 'apple\.com', 'password'\]\)/.test(stageSrc),
   'the stage door takes the same accountable providers as every other live-video door');
 ok(/if \(!LIVE_VIDEO_PROVIDERS\.has\(provider\)\)/.test(stageSrc),
   'the provider set is actually enforced on the verified token');
-// Asserted as the literal guard EXPRESSION, not as the presence of the
-// word 'adult'. The first version of this check matched the string
-// 'minor' inside the refusal copy, so replacing the whole condition with
-// `if (false)` left the assertion green while the door stood open.
-ok(/const band = [^;]*age_bands|age_bands'\)\.doc\(uid\)/.test(stageSrc),
-  'the stage door reads the server-side age band');
-ok(/if \(!band\) return/.test(stageSrc), 'an unattested account is refused the stage');
-ok(/if \(band !== 'adult'\)/.test(stageSrc), 'a minor is refused a seat on a public broadcast');
+// The stage is open to every accountable account since 2026-09-25 (Aidan:
+// "open it"); the age question that fed the old adult gate was retired the
+// same day. Pin that no age read or refusal code came back.
+ok(!/age_bands/.test(stageSrc), 'the stage door no longer reads an age band');
+ok(!/code: 'need_age'|code: 'minor'/.test(stageSrc), 'the stage door has no age refusal');
 ok(/video_bans/.test(stageSrc), 'a video ban blocks the stage');
 ok(/checkAppCheck/.test(stageSrc), 'the stage door is App Check gated');
 ok(/checkLayers/.test(stageSrc), 'the stage door is rate limited');
