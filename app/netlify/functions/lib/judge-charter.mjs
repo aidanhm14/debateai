@@ -554,6 +554,31 @@ SEASONS.push({
   note: 'Conversational flexibility is explicit: scoped concessions, actual defended positions, argued interpretations and incomplete capture. The verified panel, effort, score weights, majority and appeal policy are unchanged.',
 });
 
+// 2026-09-25: replace the question-flooding failure in the second seat.
+// Same production prompt, rubric and effort-pinned three-provider panel.
+// 132 individual comparisons across 19 synthetic cases and both casual
+// prompt routes, plus 18 calls through the complete panel. On five open
+// repeats of the reproduced final-question case, Grok rewarded the list
+// 5/5 while Sol rejected that inference 5/5. Supported final objections
+// still counted. This is narrow regression evidence, not broad accuracy.
+// See scripts/eval/model-comparison-findings-2026-09-25.md for limitations,
+// costs, latency and the existing clarification-only forced-winner issue.
+const SOL_PANEL_FROM = Date.UTC(2026, 8, 25, 14, 20);
+const previousSolSeason = SEASONS[SEASONS.length - 1];
+const solPanelTo = previousSolSeason.to;
+previousSolSeason.to = SOL_PANEL_FROM;
+SEASONS.push({
+  ...previousSolSeason,
+  id: '2026-autumn-sol', from: SOL_PANEL_FROM, to: solPanelTo,
+  panel: {
+    ...previousSolSeason.panel,
+    jurors: previousSolSeason.panel.jurors.map(j => j.id === 'j2'
+      ? { id: 'j2', provider: 'openai', model: 'gpt-6-sol', effort: 'low' }
+      : { ...j }),
+  },
+  note: 'The second seat changes from Grok 4.3 to GPT-6 Sol at low reasoning effort after focused casual-conversation tests of question flooding, reply opportunities and reasoning. Anthropic and Google retain the other seats. The rubric, score weights, majority rule and human appeal policy are unchanged. These synthetic tests are regression evidence, not a broad accuracy guarantee.',
+});
+
 export const SEASON_IDS = SEASONS.map((s) => s.id);
 
 // Which season governs a moment in time.

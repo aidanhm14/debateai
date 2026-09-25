@@ -246,6 +246,36 @@ Use `--dry-run` first to validate the request without uploading. OpenAI's
 fine-tuning access is account/model dependent; the script will preserve the
 dataset and fail cleanly if the org cannot create fine-tuning jobs.
 
+## Comparing replacement judges on casual conversations
+
+`run-judge-model-comparison.mjs` compares individual seats using the unchanged
+production `buildPrompt`, provider dispatcher and ballot parser. It does not
+change the live panel or calculate a panel verdict. Supply a JSON array of
+explicit `{id, provider, model, effort}` configurations. The saved candidate
+file is an experiment, not a recommendation or production pin.
+
+```bash
+node scripts/eval/run-judge-model-comparison.mjs \
+  --jurors=scripts/eval/candidates/model-comparison-2026-09-25.json \
+  --formats=quick,open --out=/tmp/judge-comparison-dry.json
+```
+
+Add `--live` only when provider keys are present. Use `--only=case-id,...`,
+`--repeat=1..5`, or `--cases=scripts/eval/model-comparison-holdout.json` to
+select a bounded run. Each run permits at most 180 calls, checks all keys
+before calling, preserves failures without retries, and refuses to overwrite
+an existing output. The default is a dry run with no provider calls.
+
+Reports retain the exact prompts, raw and parsed ballots, model/effort,
+response token usage, latency, and an unreviewed expectation checklist.
+Expected behavior is never included in the prompt. Review explanations with
+transcript evidence before deciding whether a model improved. A successful
+request or matching winner is not a behavioral pass. These synthetic cases
+do not measure broad accuracy or replace independent human labels.
+
+The decision protocol is in `model-comparison-protocol-2026-09-25.md`.
+Offline harness checks: `node scripts/test-judge-model-comparison.mjs`.
+
 ## Metrics
 
 - **BP top-1 accuracy** — did the AI put the same team 1st (random ≈ 25%).

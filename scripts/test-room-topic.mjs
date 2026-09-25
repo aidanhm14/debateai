@@ -155,7 +155,10 @@ for (const format of ['quick', 'casual', 'open', 'conversation']) {
 }
 assert.equal(SEASONS.at(-1).rubricVersion, 'adjudication-2026-09-flex');
 assert.deepEqual(RUBRICS['adjudication-2026-09-flex'].dimensions, RUBRICS['adjudication-2026-08c'].dimensions);
-assert.deepEqual(SEASONS.at(-1).panel, SEASONS.at(-2).panel);
+// The flexibility rollout preserved its predecessor's panel. Later model
+// seasons may deliberately change seats without changing that historical fact.
+assert.deepEqual(SEASONS.find(s => s.id === '2026-autumn-flex').panel,
+  SEASONS.find(s => s.id === '2026-autumn-council').panel);
 assert.notEqual(rubricHash('adjudication-2026-09-flex'), rubricHash('adjudication-2026-08c'));
 const page = readPageSource(new URL('../app/live-round.html', import.meta.url), 'utf8');
 assert.ok(page.includes('window.RoomTopic.dismiss()'), 'starting a speech sends the judge away rather than being refused by it');

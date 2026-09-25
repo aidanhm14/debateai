@@ -1272,6 +1272,16 @@ if [ -f "$BEHAVIOR_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Independent-seat comparisons must preserve the production prompt and parser.
+MODEL_COMPARISON_GUARD="$REPO_ROOT/scripts/test-judge-model-comparison.mjs"
+if [ -f "$MODEL_COMPARISON_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node "$MODEL_COMPARISON_GUARD" >/tmp/judge-model-comparison-guard.log 2>&1); then
+    echo "[judge-model-comparison-guard] commit blocked:" >&2
+    tail -20 /tmp/judge-model-comparison-guard.log >&2
+    exit 1
+  fi
+fi
+
 # Tournament-round guard. This decides whether a live round rates
 # AUTOMATICALLY, which publishes a competitive record with someone's name
 # on it. The failure that matters is a casual round rating because a
