@@ -407,18 +407,17 @@
   };
 
   window.DBEnableAlerts = function () {
-    try {
-      var messaging = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.FirebaseMessaging;
-      if (messaging && messaging.requestPermissions) {
-        return messaging.requestPermissions().then(function (result) {
-          document.dispatchEvent(new CustomEvent('db-native-alerts', { detail: result }));
-          return result;
-        });
-      }
-      var push = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
-      if (push && push.requestPermissions) return push.requestPermissions();
-    } catch (e) {}
-    return Promise.reject(new Error('Notifications are unavailable.'));
+    // Permission alone is not delivery. The shared flow also obtains the
+    // FCM token and saves it against the signed-in account.
+    if (window.daEnableMessageAlerts) {
+      return window.daEnableMessageAlerts().then(function (saved) {
+        return { receive: saved ? 'granted' : 'denied', registered: !!saved };
+      });
+    }
+    // The lightweight native home does not load the notification service.
+    // Continue on its dedicated setup page instead of claiming success.
+    location.href = '/notifications';
+    return Promise.resolve({ registered: false, setupRequired: true });
   };
 
   function wireNativeDeepLinks() {

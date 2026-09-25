@@ -121,8 +121,9 @@
     var button = this;
     button.disabled = true;
     window.DBEnableAlerts().then(function (result) {
-      var granted = result && (result.receive === 'granted' || result.display === 'granted');
-      if (granted) { button.textContent = 'Notifications on'; status('Notifications are enabled.'); }
+      var granted = result && result.registered === true;
+      if (result && result.setupRequired) { status('Continue in notification settings.'); return; }
+      if (granted) { button.textContent = 'Notifications on'; status('This device is registered for notifications.'); }
       else status('Notifications are off. You can change this in your phone settings.');
     }).catch(function () { status('Notifications could not be enabled. Check your phone settings.'); })
       .finally(function () { button.disabled = false; });

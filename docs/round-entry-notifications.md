@@ -25,3 +25,9 @@ provider acceptance, not a claim that a banner was displayed. The button is also
 available inside native iOS/Android apps, where `window.Notification` is absent.
 Apple's 400 VapidPkHashMismatch/BadJwtToken responses now count as stale-key
 rejections so the test can recommend registration again.
+
+The native home previously called only the OS permission API and displayed
+"Notifications on" without registering an FCM token. `DBEnableAlerts` now uses
+the shared registration flow, or opens `/notifications` when the lightweight
+home has not loaded it. The native home requires `registered:true` for success.
+This ships through the remote app surface, with no native binary change.
