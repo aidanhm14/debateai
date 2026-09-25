@@ -5012,12 +5012,14 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       '<div class="friend-challenge__actions">' +
         '<button class="btn primary" id="copyFriendInviteBtn" type="button">Copy link</button>' +
         '<button class="btn" id="shareFriendInviteBtn" type="button">Share invite</button>' +
-        '<button class="btn" id="showFriendQrBtn" type="button" aria-expanded="false">Show QR</button>' +
+        '<button class="btn" id="showFriendQrBtn" type="button" aria-expanded="true">Hide QR</button>' +
       '</div>' +
       '<details class="friend-challenge__link"><summary>View invite link</summary>' +
         '<input id="friendInviteLink" type="text" readonly aria-label="Friend challenge link" value="' + escHtml(url) + '">' +
       '</details>' +
-      '<div class="friend-challenge__qr" id="friendInviteQr" hidden>' +
+      // 2026-09-25, the founder: the QR and the friend invite should be
+      // obvious. The code renders open on every paint; Hide QR still folds it.
+      '<div class="friend-challenge__qr" id="friendInviteQr">' +
         '<div class="friend-challenge__qr-code" id="friendInviteQrCode" aria-label="QR code for the friend challenge"></div>' +
         '<div class="friend-challenge__qr-copy"><strong>Scan to take the open seat</strong>You both confirm before any camera or mic turns on.</div>' +
       '</div>' +
@@ -5106,6 +5108,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         copyFriendInvite(url, shareBtn);
       }
     });
+    if (qr && !qr.hidden) mountFriendInviteQr(0);
     if (qrBtn && qr) qrBtn.addEventListener('click', function(){
       var show = qr.hidden;
       qr.hidden = !show;
@@ -5146,6 +5149,23 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '<button type="button" class="btn wait-cancel" id="cancelBtn">Stop searching</button>' +
       '</header>' +
       '<p class="wait-intro">We will offer you a match. The room opens when you both accept.</p>' +
+      // 2026-09-25, the founder off the redesigned wait screen: "bring back
+      // the big globe thing as it was before showing how many waiting, how
+      // many tried in last 7 days". The globe is the centerpiece again, the
+      // two real counts sit under it as figures, and the status card
+      // follows. /js/global-debate-map.js mounts into #globalDebateMap
+      // after this innerHTML lands (mountGlobalMap below); real presence
+      // pins replace the ambient pool when /api/presence-live has any.
+      '<section class="wait-stage" aria-label="Who is around">' +
+        '<div class="globe-wrap"><div class="globe-frame">' +
+          '<div id="globalDebateMap" role="img" aria-label="Globe with debate rooms opening between cities"></div>' +
+        '</div></div>' +
+        '<div id="globeLiveNote" class="wait-stage__note" hidden></div>' +
+        '<div class="meta-strip" id="metaStrip" aria-live="polite">' +
+          '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> <span id="metaQueueLabel">available now</span></span>' +
+          '<span class="meta-cell meta-missed-cell" id="metaMissedCell" hidden><strong id="metaMissed">0</strong> <span id="metaMissedLabel">round attempts in the past 7 days</span></span>' +
+        '</div>' +
+      '</section>' +
       '<section class="wait-search" aria-label="Search status">' +
         '<div class="wait-search__row">' +
           '<div class="status" id="statusText" role="status"><span id="statusMain">Searching the live queue</span><span class="dim" id="statusSub" hidden>Checking who is free right now.</span></div>' +
@@ -5153,10 +5173,6 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         '</div>' +
         '<p class="keep-open">Keep this tab open. Your invitation will appear here.</p>' +
         '<p id="deskWaitingNote" role="status" hidden></p>' +
-        '<div class="meta-strip" id="metaStrip" aria-live="polite">' +
-          '<span class="meta-cell"><span class="meta-dot"></span><strong id="metaQueue">0</strong> <span id="metaQueueLabel">available now</span></span>' +
-          '<span class="meta-cell meta-missed-cell" id="metaMissedCell" hidden><strong id="metaMissed">0</strong> <span id="metaMissedLabel">round attempts in the past 7 days</span></span>' +
-        '</div>' +
         '<div class="pinged-line" id="pingedLine" hidden></div>' +
         '<div class="queue-stats" id="queueStats">' + renderWaitlist([], formatParam) + '</div>' +
       '</section>' +
@@ -5311,6 +5327,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     // bounces, bots executing the JS, and (since the sign-in gate) guests
     // who hit the wall and never search. It now fires inside joinQueue,
     // when a search actually begins, so the public count is real intent.
+    mountGlobalMap('globalDebateMap');
     wireFriendChallenge();
     wireSetupCard();
     mountWaitRail();
@@ -9423,7 +9440,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 <script defer src="/js/signup-nudge.js"></script>
 <script defer src="/js/notifications.js"></script>
 <link rel="stylesheet" href="/css/notification-setup.css">
-<link rel="stylesheet" href="/css/spar-waiting.css?v=20260925">
+<link rel="stylesheet" href="/css/spar-waiting.css?v=20260925b">
 <script defer src="/js/notification-setup.js"></script>
 <script defer src="/js/spar-onboarding.js"></script>
 </body>
