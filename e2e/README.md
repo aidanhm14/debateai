@@ -104,12 +104,21 @@ webm under `demo/out/raw/` (gitignored):
 ```bash
 cd e2e && npm ci
 node demo/cards.mjs                 # title, end card, captions (Helvetica Neue) as PNGs
-node demo/record.mjs desktop        # every segment at 1920x1080
-node demo/record.mjs phone          # every segment at 1080x1920
+node demo/record.mjs desktop        # every segment at 1440x810 CSS pixels
+node demo/record.mjs phone          # every segment at 432x768 CSS pixels
 node demo/record.mjs phone landing  # one segment
 node demo/probe.mjs master-desktop  # tile the in/out frame of every cut
 node demo/assemble.mjs              # cut + caption + concat every output in timeline.json
 ```
+
+Record at the CSS viewport size (1440×810 desktop, 432×768 phone).
+Playwright does not upscale screencasts with `deviceScaleFactor`; a larger
+`recordVideo.size` pads the right and bottom with gray. The assembler crops
+the legacy padded raw files to the viewport, then scales to 1920×1080 or
+1080×1920 before adding captions. Keep those viewport dimensions in sync
+between `demo/lib.mjs` and `demo/assemble.mjs`. Title cards already use the
+export dimensions and must not be cropped. Rebuild the video and both posters
+together when framing changes.
 
 What is real and what is staged, because the video is a public claim:
 

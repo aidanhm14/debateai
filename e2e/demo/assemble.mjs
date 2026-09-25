@@ -16,7 +16,10 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, 'out');
 const FFMPEG = process.env.FFMPEG || '/Applications/Plaud.app/Contents/Resources/ffmpeg';
-const FRAMES = { desktop: { w: 1920, h: 1080 }, phone: { w: 1080, h: 1920 } };
+const FRAMES = {
+  desktop: { w: 1920, h: 1080, captureW: 1440, captureH: 810 },
+  phone: { w: 1080, h: 1920, captureW: 432, captureH: 768 },
+};
 
 function ff(args, label) {
   const r = spawnSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-y', ...args], { encoding: 'utf8' });
@@ -49,7 +52,10 @@ function renderClip(clip, frame, i, dir) {
   const args = ['-ss', inT.toFixed(3), '-t', dur.toFixed(3), '-i', src];
   const caps = (clip.caps || []).filter((c) => fs.existsSync(path.join(OUT, 'cards', `${c.id}-${frame}.png`)));
   for (const c of caps) args.push('-loop', '1', '-framerate', '30', '-t', dur.toFixed(3), '-i', path.join(OUT, 'cards', `${c.id}-${frame}.png`));
-  const parts = [`[0:v]setpts=PTS-STARTPTS,scale=${f.w}:${f.h}:flags=lanczos,format=yuv420p[v0]`];
+  // Older captures contain a CSS-sized viewport at the top left of a larger
+  // gray canvas. Crop that padding BEFORE scaling and adding the captions.
+  // This is also a no-op for the recorder's new viewport-sized captures.
+  const parts = [`[0:v]setpts=PTS-STARTPTS,crop=${f.captureW}:${f.captureH}:0:0,scale=${f.w}:${f.h}:flags=lanczos,setsar=1,format=yuv420p[v0]`];
   let last = 'v0';
   caps.forEach((c, k) => {
     const at = c.at || 0, len = c.dur || 3.5, fd = 0.22;

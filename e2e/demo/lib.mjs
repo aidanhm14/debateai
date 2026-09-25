@@ -16,9 +16,8 @@ export const OUT_DIR = process.env.DEMO_OUT || path.join(HERE, 'out');
 export const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 DebatableDemo/1';
 const CURSOR = fs.readFileSync(path.join(HERE, 'cursor.js'), 'utf8');
 
-// Two framings. Desktop renders at 1440 CSS px (a normal laptop layout) and
-// is captured at 1920x1080; phone renders at 432 CSS px, a real phone width,
-// and is captured at 1080x1920 for vertical posting.
+// Screencasts use CSS pixels, regardless of deviceScaleFactor. Capture at
+// the viewport size; the assembler scales to the final export dimensions.
 export const FRAMES = {
   desktop: { viewport: { width: 1440, height: 810 }, deviceScaleFactor: 4 / 3, size: { width: 1920, height: 1080 }, isMobile: false, hasTouch: false },
   phone:   { viewport: { width: 432, height: 768 }, deviceScaleFactor: 2.5, size: { width: 1080, height: 1920 }, isMobile: true, hasTouch: true },
@@ -45,7 +44,7 @@ export async function openContext(browser, frame, name, extra = {}) {
     colorScheme: extra.colorScheme || 'light',
     locale: 'en-US',
     timezoneId: 'America/New_York',
-    recordVideo: { dir, size: f.size },
+    recordVideo: { dir, size: f.viewport },
     ...(extra.context || {}),
   });
   await context.addInitScript(`window.__demoTouch = ${f.hasTouch ? 'true' : 'false'};`);
