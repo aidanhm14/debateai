@@ -101,7 +101,8 @@ for(const width of [390,834,1180])test(`queue and account settings components at
   const room=sourceBetween(spar,"    var room = document.createElement('aside');",'    host.appendChild(room);')+'host.appendChild(room);';
   doc='<!doctype html><html data-theme="light"><head>'+componentHead(spar)+'</head><body><main class="wrap"><div id="shell" class="shell"></div></main></body></html>';
   await page.goto('https://debatable.test/spar');
-  await page.addScriptTag({content:'var shell=document.getElementById("shell"),state={},formatParam="casual";function alertsCtaHtml(){return "";}function friendChallengeHtml(){return "";}function renderWaitlist(){return "";}function removeWaitRail(){}function positionFriendChallenge(){}function updatePingedLine(){}'+shell+rail+host+'renderSearching();mountWaitRail();var host=roomHost();'+room});
+  await page.addScriptTag({content:'var shell=document.getElementById("shell"),state={},formatParam="casual";function alertsCtaHtml(){return "";}function friendChallengeHtml(){return "";}function renderWaitlist(){return "";}function removeWaitRail(){}function syncPresenceBackground(){}function positionFriendChallenge(){}function updatePingedLine(){}'+shell+rail+host+'renderSearching();mountWaitRail();var host=roomHost();'+room});
+  expect(f.errors).toEqual([]);
   const bounds=await page.locator('#sparRoom').boundingBox();expect(bounds.width).toBeGreaterThan(280);expect(bounds.x+bounds.width).toBeLessThanOrEqual(width);
   if(width>=900)expect(bounds.y).toBeLessThan(150);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
