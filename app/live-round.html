@@ -1511,6 +1511,9 @@ body.lr-pip .lr-pip-notice{display:block}
   background:var(--bg);border-bottom:1px solid var(--border);
 }
 .spec-dock > div{min-width:0}
+#ballotAudienceHost .spec-dock{grid-template-columns:1fr}
+#svPanel button:disabled{opacity:.65;cursor:wait}
+#svPanel [data-sv-status]:empty{display:none}
 @media(max-width:720px){.spec-dock{grid-template-columns:1fr}}
 
 /* Spectators need a broadcast console, not the debaters' control stack.
@@ -4304,6 +4307,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
 
     <!-- ── BALLOT ── -->
     <div id="ballotView" class="hidden">
+      <div id="ballotAudienceHost" hidden></div>
       <div id="ballotLoading" class="ballot-loading">
         <div class="spinner"></div>
         <div id="ballotLoadingTitle" style="font-size:.92rem;font-weight:700;color:var(--text)">The judge is deciding…</div>
@@ -6745,6 +6749,10 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       var overview = $('ballotView');
       if (panel) panel.scrollTop = 0;
       if (overview && window.matchMedia('(max-width:1000px)').matches){
+        var vote = $('ballotAudienceHost'), video = $('jitsiPane');
+        var pinnedVideo = video && /^(sticky|fixed)$/.test(getComputedStyle(video).position);
+        overview.style.scrollMarginTop = vote && !vote.hidden && pinnedVideo
+          ? (video.getBoundingClientRect().height + 12) + 'px' : '';
         overview.scrollIntoView({ block: 'start', behavior: 'instant' });
         overview.setAttribute('tabindex', '-1');
         overview.focus({ preventScroll: true });
@@ -13149,14 +13157,14 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
      speech's atMs, so a tap resolves to what was being said), restate
      after the ballot. Server derives the signed shift.
 
-     Every write is fire-and-forget; the UI advances optimistically so a
-     dropped request never blocks a spectator watching a round. */
+     Opening and closing answers advance only after a confirmed save.
+     Failed saves retain the answer and reuse the same request on retry. */
   var svAPI = '/api/log-opinion-delta';
   var svPanel = null;
   var svRow = null;          // { id, movedAt[], phase }
   var svCreatePromise = null;
   var svCreatePayload = null;
-  var svCreateRetried = false;
+  var svOpeningBusy = false, svClosingBusy = false, svClosingPayload = null;
   var svFlushTimer = null;
   var svPick = 'undecided';
   var svPickAfter = 'undecided';
@@ -13219,37 +13227,57 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   });
 
   function svPost(payload){
-    payload.anonId = svAnonId();
+    payload = Object.assign({}, payload, { anonId: svAnonId() });
     var headers = { 'Content-Type': 'application/json' };
+    var controller = new AbortController(), timeout;
     var p = (state.user && state.user.getIdToken)
-      ? state.user.getIdToken().catch(function(){ return null; })
+      ? state.user.getIdToken()
       : Promise.resolve(null);
-    return p.then(function(tok){
+    var request = p.then(function(tok){
+      if (controller.signal.aborted) throw new Error('Save timed out.');
       if (tok) headers.Authorization = 'Bearer ' + tok;
-      return fetch(svAPI, { method:'POST', headers:headers, body:JSON.stringify(payload), keepalive:true });
-    }).then(function(r){ return r && r.ok ? r.json() : null; })
-      .catch(function(){ return null; });
+      return fetch(svAPI, { method:'POST', headers:headers, body:JSON.stringify(payload), keepalive:true, signal:controller.signal });
+    }).then(function(r){
+      if (!r.ok) throw new Error('Save failed.');
+      return r.json();
+    }).then(function(res){
+      if (!res || res.ok !== true) throw new Error('Save was not confirmed.');
+      return res;
+    });
+    return Promise.race([request, new Promise(function(resolve, reject){
+      timeout = setTimeout(function(){ controller.abort(); reject(new Error('Save timed out.')); }, 15000);
+    })]).finally(function(){ clearTimeout(timeout); });
   }
 
   // Taps and the closing stance both need the id the create returns, and
   // either can fire before that request resolves. They queue behind it
   // instead of testing svRow.id and silently dropping themselves.
   function svSendCreate(){
+    if (svCreatePromise) return svCreatePromise;
+    if (!svCreatePayload) return Promise.reject(new Error('Choose an opening answer first.'));
+    // A lost response must not create a second vote when the person retries.
+    if (!svCreatePayload.requestId) svCreatePayload.requestId = crypto.randomUUID();
     svCreatePromise = svPost(svCreatePayload).then(function(res){
-      if (res && res.id && svRow){ svRow.id = res.id; }
-      return (svRow && svRow.id) || null;
-    });
+      if (!res.id || !svRow) throw new Error('Missing saved response.');
+      svRow.id = res.id;
+      return res.id;
+    }).finally(function(){ svCreatePromise = null; });
     return svCreatePromise;
   }
   function svWithRow(fn){
-    if (svRow && svRow.id) return fn(svRow.id);
-    if (!svCreatePromise) return;
-    svCreatePromise.then(function(id){
-      if (id) return fn(id);
-      if (svCreateRetried || !svCreatePayload) return;
-      svCreateRetried = true;
-      return svSendCreate().then(function(retryId){ if (retryId) fn(retryId); });
-    });
+    return (svRow && svRow.id ? Promise.resolve(svRow.id) : svSendCreate()).then(fn);
+  }
+
+  function svSaveStatus(phase, message, busy, retry){
+    var host = svPanel && svPanel.querySelector('[data-sv-phase="' + phase + '"]');
+    if (!host) return;
+    host.setAttribute('aria-busy', busy ? 'true' : 'false');
+    var status = host.querySelector('[data-sv-status]');
+    if (status) status.textContent = message;
+    var btn = host.querySelector(phase === 'before' ? '#svLockIn' : '#svRestate');
+    if (btn){ btn.disabled = busy; btn.textContent = busy ? 'Saving…' : retry ? 'Retry saving' : phase === 'before' ? 'Lock it in' : 'Save my final answer'; }
+    // Keep the submitted answer fixed through an uncertain response and retry.
+    [].forEach.call(host.querySelectorAll('[data-svside], input'), function(el){ el.disabled = true; });
   }
 
   // Existing play-token stakes can finish settling after betting retirement.
@@ -13310,7 +13338,6 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         // moments, they are just never asked to pick a side until the
         // ballot is in.
         svRow = { id:null, movedAt:[], phase:'during' };
-        svCreateRetried = false;
         svCreatePayload = {
           action: 'create',
           roundId: state.room,
@@ -13319,7 +13346,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
           sideBefore: 'undecided',
           confBefore: 50
         };
-        svSendCreate();
+        svSendCreate().catch(function(){ /* The closing save retries this same row. */ });
         svShowPhase('during');
         var eb = svPanel && svPanel.querySelector('#svEyebrow');
         var ti = svPanel && svPanel.querySelector('#svTitle');
@@ -13339,12 +13366,14 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     el.innerHTML =
       '<div id="svEyebrow" style="font-size:.58rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#ef4444;margin-bottom:8px">Your call &middot; before the round</div>' +
       '<div id="svTitle" style="font-weight:700;font-size:.9rem;line-height:1.3;margin-bottom:10px">Where do you stand on the motion?</div>' +
+      '<p class="sv-how">Your answer measures how the arguments changed your mind. The AI judge decides the round winner.</p>' +
       '<div data-sv-phase="before">' +
         '<div class="sv-how">How it works: pick a side now, tap when a point moves you, then say where you landed after the decision. Once the ballot is in, everyone sees how the room moved.</div>' +
         '<div id="svSides" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px"></div>' +
-        '<label style="display:block;font-size:.7rem;color:var(--text-dim);margin-bottom:4px">How sure? <span id="svConfOut" style="color:var(--text);font-weight:700">50</span></label>' +
+        '<label for="svConf" style="display:block;font-size:.7rem;color:var(--text-dim);margin-bottom:4px">How sure? <span id="svConfOut" style="color:var(--text);font-weight:700">50</span></label>' +
         '<input id="svConf" type="range" min="0" max="100" value="50" step="5" style="width:100%;margin-bottom:10px;accent-color:#b91c1c">' +
         '<button id="svLockIn" style="width:100%;background:#b91c1c;color:#fff;border:none;border-radius:999px;padding:9px;font:inherit;font-weight:700;cursor:pointer">Lock it in</button>' +
+        '<p data-sv-status role="status" aria-live="polite"></p>' +
         '<div style="font-size:.66rem;color:var(--text-dim);margin-top:7px;line-height:1.4">Private until the decision. Nobody sees the room\'s split, so nobody follows the crowd.</div>' +
       '</div>' +
       '<div data-sv-phase="during" style="display:none">' +
@@ -13359,12 +13388,13 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       '</div>' +
       '<div data-sv-phase="after" style="display:none">' +
         '<div id="svSidesAfter" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px"></div>' +
-        '<label style="display:block;font-size:.7rem;color:var(--text-dim);margin-bottom:4px">How sure now? <span id="svConfOutAfter" style="color:var(--text);font-weight:700">50</span></label>' +
+        '<label for="svConfAfter" style="display:block;font-size:.7rem;color:var(--text-dim);margin-bottom:4px">How sure now? <span id="svConfOutAfter" style="color:var(--text);font-weight:700">50</span></label>' +
         '<input id="svConfAfter" type="range" min="0" max="100" value="50" step="5" style="width:100%;margin-bottom:10px;accent-color:#b91c1c">' +
-        '<button id="svRestate" style="width:100%;background:#b91c1c;color:#fff;border:none;border-radius:999px;padding:9px;font:inherit;font-weight:700;cursor:pointer">Submit</button>' +
+        '<button id="svRestate" style="width:100%;background:#b91c1c;color:#fff;border:none;border-radius:999px;padding:9px;font:inherit;font-weight:700;cursor:pointer">Save my final answer</button>' +
+        '<p data-sv-status role="status" aria-live="polite"></p>' +
       '</div>' +
       '<div data-sv-phase="done" style="display:none">' +
-        '<div id="svDone" style="font-size:.76rem;color:var(--text-dim);line-height:1.5"></div>' +
+        '<div id="svDone" role="status" aria-live="polite" style="font-size:.76rem;color:var(--text-dim);line-height:1.5"></div>' +
       '</div>';
     svDock().appendChild(el);
     svPanel = el;
@@ -13399,7 +13429,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var opts = [['pro', state.proName || 'For'], ['con', state.conName || 'Against'], ['undecided', 'Neither']];
     host.innerHTML = opts.map(function(o){
       var on = o[0] === cur;
-      return '<button data-svside="' + o[0] + '" style="background:' + (on ? 'rgba(239,68,68,.18)' : 'var(--ui-surface)') +
+      return '<button aria-pressed="' + (on ? 'true' : 'false') + '" data-svside="' + o[0] + '" style="background:' + (on ? 'rgba(239,68,68,.18)' : 'var(--ui-surface)') +
         ';border:1px solid ' + (on ? '#ef4444' : 'var(--border,rgba(127,127,127,.22))') +
         ';border-radius:10px;padding:8px 4px;color:var(--text);font:inherit;font-size:.72rem;font-weight:700;cursor:pointer;overflow:hidden;text-overflow:ellipsis">' +
         escHtml(o[1]) + '</button>';
@@ -13426,17 +13456,16 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     if (ti) ti.textContent = name === 'before' ? 'Where do you stand on the motion?'
       : name === 'during' ? 'Flag the moments that land.'
       : name === 'after' ? 'Where did you actually land?'
-      : 'Thanks. That is the data.';
+      : 'Your answer is saved.';
   }
 
   function svLockIn(){
-    if (svRow) return;
+    if (svOpeningBusy || (svRow && svRow.id)) return;
     var confEl = svPanel && svPanel.querySelector('#svConf');
     var conf = confEl ? parseInt(confEl.value, 10) : 50;
     if (isNaN(conf)) conf = 50;
-    svRow = { id:null, movedAt:[], phase:'during' };
-    svCreateRetried = false;
-    svCreatePayload = {
+    if (!svRow) svRow = { id:null, movedAt:[], phase:'before' };
+    if (!svCreatePayload) svCreatePayload = {
       action: 'create',
       roundId: state.room,
       motion: (state.motion || '').slice(0, 2000),
@@ -13444,9 +13473,14 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       sideBefore: svPick,
       confBefore: conf
     };
-    svSendCreate();
-    svShowPhase('during');
-    try { gtag('event', 'swing_vote_lock_in', { format: state.formatKey, side: svPick }); } catch(e){}
+    svOpeningBusy = true;
+    svSaveStatus('before', 'Saving your opening answer…', true);
+    svSendCreate().then(function(){
+      if (svRow.phase === 'before'){ svRow.phase = 'during'; svShowPhase('during'); }
+      try { gtag('event', 'swing_vote_lock_in', { format: state.formatKey, side: svPick }); } catch(e){}
+    }).catch(function(){
+      svSaveStatus('before', 'We could not confirm the save. Your answer is kept here. Retry saving.', false, true);
+    }).finally(function(){ svOpeningBusy = false; });
   }
 
   function svTap(){
@@ -13493,42 +13527,52 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       var moves = svRow.movedAt.slice();
       var payload = { action:'update', movedAt:moves };
       if (svRow.whys && svRow.whys.length) payload.whys = svRow.whys.slice();
-      svWithRow(function(id){ payload.id = id; svPost(payload); });
+      svWithRow(function(id){ payload.id = id; return svPost(payload); }).catch(function(){ /* Retained locally and included in the closing save. */ });
     }, 1200);
   }
 
   function svRestate(){
-    if (!svRow) return;
+    if (!svRow || svClosingBusy || svRow.phase === 'done') return;
     var confEl = svPanel && svPanel.querySelector('#svConfAfter');
     var conf = confEl ? parseInt(confEl.value, 10) : 50;
     if (isNaN(conf)) conf = 50;
-    var after = svPickAfter;
+    if (!svClosingPayload) svClosingPayload = {
+      action:'update', sideAfter:svPickAfter, confAfter:conf, watchMs:svWatchMs(),
+      movedAt:svRow.movedAt.slice(), whys:(svRow.whys || []).slice()
+    };
+    var after = svClosingPayload.sideAfter;
     var held = svArm() === 'holdout';
     // watchMs is what lets the server tell a spectator apart from a
     // tab. It decides whether this stance counts at all, so it rides
     // the closing write rather than being inferred later.
+    svClosingBusy = true;
+    svSaveStatus('after', 'Saving your final answer…', true);
+    if (svFlushTimer) clearTimeout(svFlushTimer);
     svWithRow(function(id){
-      svPost({ action:'update', id:id, sideAfter:after, confAfter:conf, watchMs: svWatchMs() });
-    });
-    var moved = svRow.movedAt.length;
-    svShowPhase('done');
-    var d = svPanel && svPanel.querySelector('#svDone');
-    if (d){
-      if (held){
-        d.innerHTML = '<b>Recorded.</b> You were kept out of the opening question on purpose, ' +
-          'so this answer is unanchored. It is the control the rest of the room gets measured against. ' +
-          moved + ' moment' + (moved === 1 ? '' : 's') + ' flagged.';
-      } else {
-        var changed = after !== svCreatePayload.sideBefore;
-        d.innerHTML = (changed ? '<b>You moved.</b> ' : '<b>You held.</b> ') +
-          'Started ' + escHtml(svLabel(svCreatePayload.sideBefore)) + ', ended ' + escHtml(svLabel(after)) + '. ' +
-          moved + ' moment' + (moved === 1 ? '' : 's') + ' flagged.';
+      return svPost(Object.assign({}, svClosingPayload, { id:id }));
+    }).then(function(){
+      var moved = svRow.movedAt.length;
+      svRow.phase = 'done';
+      svShowPhase('done');
+      var d = svPanel && svPanel.querySelector('#svDone');
+      if (d){
+        if (held){
+          d.innerHTML = '<b>Saved.</b> You finished with ' + escHtml(svLabel(after)) + '. ' +
+            moved + ' moment' + (moved === 1 ? '' : 's') + ' flagged.';
+        } else {
+          var changed = after !== svCreatePayload.sideBefore;
+          d.innerHTML = (changed ? '<b>You moved.</b> ' : '<b>You held.</b> ') +
+            'Started ' + escHtml(svLabel(svCreatePayload.sideBefore)) + ', ended ' + escHtml(svLabel(after)) + '. ' +
+            moved + ' moment' + (moved === 1 ? '' : 's') + ' flagged.';
+        }
       }
-    }
-    try { gtag('event', 'swing_vote_restate', { format: state.formatKey, flipped: after !== svCreatePayload.sideBefore }); } catch(e){}
-    // Their own answer is in, so the room's aggregate can no longer
-    // influence it. Re-read shortly after so their vote is included.
-    try { roomShift.done = false; roomShift.tries = 0; setTimeout(loadRoomShift, 3000); } catch(e){}
+      try { gtag('event', 'swing_vote_restate', { format: state.formatKey, flipped: after !== svCreatePayload.sideBefore }); } catch(e){}
+      // Their own answer is in, so the room's aggregate can no longer
+      // influence it. Re-read shortly after so their vote is included.
+      try { roomShift.done = false; roomShift.tries = 0; clearTimeout(roomShift.timer); setTimeout(loadRoomShift, 3000); } catch(e){}
+    }).catch(function(){
+      svSaveStatus('after', 'We could not confirm the save. Your answer is kept here. Retry saving.', false, true);
+    }).finally(function(){ svClosingBusy = false; });
   }
 
   function svLabel(side){
@@ -13543,7 +13587,15 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     try {
       if (!svPanel) return;
       if (!svRow){ svPanel.style.display = 'none'; return; }
-      if (svRow.phase === 'closed') return;
+      var host = document.getElementById('ballotAudienceHost');
+      var audience = document.getElementById('audienceTools');
+      if (host && audience){
+        host.appendChild(audience);
+        host.hidden = false;
+        audience.hidden = false;
+        audience.open = true;
+      }
+      if (svRow.phase === 'closed' || svRow.phase === 'done') return;
       svRow.phase = 'closed';
       svRenderSides('svSidesAfter');
       svShowPhase('after');
@@ -13729,6 +13781,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   }
   function renderUnresolvedBallot(){
     mountRoundFeedback();
+    svOnBallot();
     return verdictController.renderUnresolvedBallot.apply(this, arguments);
   }
   function scheduleBallotRecovery(roundData, delayOverride){
@@ -14754,6 +14807,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   function loadRoomShift(){
     var slot = document.getElementById('roomShift');
     if (!slot || roomShift.done || !state.room) return;
+    if (isSpectator() && svRow && svRow.phase !== 'done') return;
     roomShift.tries += 1;
     fetch('/api/persuasion-index?roundId=' + encodeURIComponent(state.room))
       .then(function(r){ return r.ok ? r.json() : null; })
@@ -15269,7 +15323,10 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   // ballot DOM. Re-entries from Firestore snapshots fall straight
   // through with state.ballotRevealMode preserved so a re-render
   // doesn't yank the user back to the interstitial.
-  function renderBallot(){ return verdictController.renderBallot.apply(this, arguments); }
+  function renderBallot(){
+    svOnBallot();
+    return verdictController.renderBallot.apply(this, arguments);
+  }
 
 
   // Render the actual ballot DOM. Mode controls whether the sections

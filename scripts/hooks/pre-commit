@@ -355,6 +355,15 @@ if [ -f "$LOG_VOTE_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Live audience answers and their aggregate must survive retries together.
+if [ -f "$REPO_ROOT/scripts/test-opinion-delta.mjs" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node scripts/test-opinion-delta.mjs >/tmp/opinion-delta-guard.log 2>&1); then
+    echo "[opinion-delta-guard] commit blocked - audience save regression:" >&2
+    tail -20 /tmp/opinion-delta-guard.log >&2
+    exit 1
+  fi
+fi
+
 # Tournament day has one irreversible action and one critical route. Keep the
 # entrant-only 06:00 Pacific mail, its duplicate-send stamp, and the signed-in
 # homepage /open button aligned through the event deploy.

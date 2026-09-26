@@ -93,6 +93,13 @@ happens to contain. Prefer ids the page already owns (`#signInBtn`,
 `#first-screen`, `#root`) over text, and collect `pageerror` so an uncaught
 exception fails the test even when the pixels look right.
 
+`audience-vote.spec.mjs` walks the shipped spectator panel into results on
+desktop and phone, including delayed, failed, malformed and timed-out saves,
+retries, duplicate clicks, holdout viewers and unresolved results. HTTP is
+intercepted. `scripts/test-opinion-delta.mjs` executes the server handler with
+in-memory transactions to check atomic counting, ownership and retry safety;
+these checks do not submit fabricated votes to production.
+
 ## Demo videos (`demo/`)
 
 The product walkthrough on the landing lightbox and `/how-it-works`
