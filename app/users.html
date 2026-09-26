@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en" data-lightweb="web">
 <head>
+<script src="/js/public-outlook.js"></script>
+<script src="/js/outlook-editor.js"></script>
+<link rel="stylesheet" href="/css/outlook.css">
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Profile · Debatable</title>
@@ -614,6 +617,7 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
         '</div>' +
       '</div>' +
       (p && p.bio ? '<div class="pbio">' + esc(p.bio) + '</div>' : '') +
+      '<div id="publicOutlook"></div>' +
       linksHTML(p) +
       actionsHTML(p) +
       levelCardHTML(stats) +
@@ -625,7 +629,13 @@ html[data-lightweb="web"]:not([data-theme="light"]) .ui-neural-canvas{opacity:.8
       '</div>';
 
     extras.innerHTML = domainsHTML(stats) + roundsHTML();
-    if (isSelf) mountEditor();
+    if (isSelf) {
+      mountEditor();
+      var outlookHost=document.createElement('div');outlookHost.className='editor';extras.appendChild(outlookHost);
+      window.mountOutlookEditor(outlookHost,me,function(o){var target=$('publicOutlook');if(target)target.innerHTML=DBOutlook.html(o);});
+    } else {
+      fetch('/api/public-outlook?uids='+encodeURIComponent(targetUid)).then(function(r){if(!r.ok)throw new Error('outlook unavailable');return r.json();}).then(function(j){var target=$('publicOutlook');if(target)target.innerHTML=DBOutlook.html(j.outlooks[targetUid]);}).catch(function(){});
+    }
   }
 
   // ── owner editor ────────────────────────────────────────────────

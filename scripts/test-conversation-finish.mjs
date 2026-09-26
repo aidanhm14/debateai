@@ -142,6 +142,7 @@ const elements={};
 const element=id=>elements[id]||(elements[id]={hidden:false,innerHTML:'',setAttribute(){}});
 const plan={state:{phase:'round',formatKey:'quick',speechIdx:0,timerState:'ready',proName:'Sam',conName:'Jordan',proUid:'a',conUid:'b',user:{uid:'b'}},
   $:element,mySide:()=> 'con',isSpectator:()=>false,escHtml:s=>s,fmtTime:n=>`${n/60}:00`,
+  document:{readyState:'loading',addEventListener(){}},
   speakerNameFor:(f,i)=>f.speeches[i].side==='pro'?'Sam':'Jordan',
   FORMATS:{quick:{speeches:[{side:'pro',time:300},{side:'con',time:300},{side:'pro',time:180},{side:'con',time:180}]}}};
 vm.createContext(plan);

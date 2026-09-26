@@ -79,6 +79,7 @@ if(/[?&]stage=1(?:&|$)/.test(location.search))document.documentElement.className
 <!-- Friend graph + DM engine for the post-ballot "add friend" prompt
      (2026-08-31). Both defer; the round never waits on them. -->
 <script defer src="/js/friends.js"></script>
+<script defer src="/js/room-friends.js"></script>
 <script defer src="/js/dm-core.js"></script>
 <script>
   // One resolver for any name other people will read. Never the account
@@ -3595,7 +3596,8 @@ body.drafting .round-motion-bar,body.drafting .sh-motion,body.drafting #kickoffP
 #roundSwitchSides{margin:0;min-height:44px;padding:8px 14px;font-size:.78rem;letter-spacing:0;text-transform:none;color:var(--text)}
 #roundSwitchSides[hidden]{display:none}
 #roundSwitchSides:disabled{cursor:default;opacity:.65}
-#ballotOppDm[hidden]{display:none}
+#ballotOppDm[hidden],#rosterOppFriend[hidden],#ballotOppFriend[hidden]{display:none!important}
+.round-side-member{flex-wrap:wrap}.round-person-message:disabled{opacity:.6;cursor:default}
 body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
 .round-plan,.conversation-finish{grid-column:1/-1;width:100%;margin:12px 0 4px;color:var(--text);font-size:.78rem;line-height:1.45}
 .round-plan p{margin:0 0 7px;color:var(--text-dim)}
@@ -4036,7 +4038,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         </div>
         </div>
         <div class="ready-hint" id="readyHint">Starts the timer and mic.</div>
-        <div class="room-resources"><div class="round-flow-entry"><button type="button" class="round-flow-trigger" data-round-flow><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><path d="M19 4h3v16h-3M4 8h1m7 0h1M4 12h1m7 0h1"/></svg>View round map</button></div><button type="button" class="rn-export" id="openRoundNotes" aria-controls="roundNotes" aria-live="polite">Round notes</button><button type="button" id="roomChatBtn" aria-label="Open round chat" aria-controls="audPanel">Chat</button><button type="button" id="rosterOppDm" aria-controls="dmModal" hidden>Message opponent</button><button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:var(--text-dim);border-color:var(--border,rgba(128,128,128,.28));background:transparent;font-weight:600">Next →</button></div>
+        <div class="room-resources"><div class="round-flow-entry"><button type="button" class="round-flow-trigger" data-round-flow><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><path d="M19 4h3v16h-3M4 8h1m7 0h1M4 12h1m7 0h1"/></svg>View round map</button></div><button type="button" class="rn-export" id="openRoundNotes" aria-controls="roundNotes" aria-live="polite">Round notes</button><button type="button" id="roomChatBtn" aria-label="Open round chat" aria-controls="audPanel">Chat</button><button type="button" id="rosterOppDm" aria-controls="dmModal" hidden>Message opponent</button><button type="button" class="rn-export" id="rosterOppFriend" data-friend-opponent hidden>Add friend</button><button class="btn" id="forfeitNextBtn" type="button" style="font-size:.7rem;display:none;margin-left:auto;color:var(--text-dim);border-color:var(--border,rgba(128,128,128,.28));background:transparent;font-weight:600">Next →</button></div>
         <!-- 2026-08-23: the room's own liveness, for whoever is looking at
              it. Every LISTING has told a live round from a dead one since
              the ghost-room fix (the seat heartbeat, ~100s), but nothing
@@ -4319,7 +4321,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       <div id="ballotResult" class="hidden"></div>
       <div id="ballotNotesHost"></div>
       <div id="roundFeedback" style="padding:0 22px"></div>
-      <div class="round-flow-entry" style="padding:14px 22px"><button type="button" class="round-flow-trigger" data-round-flow>View round map</button><button type="button" class="rn-export" data-round-export>Export round to Google Docs</button><button type="button" class="rn-export" id="ballotChatBtn" aria-controls="audPanel">Chat</button><button type="button" class="rn-export" id="ballotOppDm" aria-controls="dmModal" hidden>Message opponent</button></div>
+      <div class="round-flow-entry" style="padding:14px 22px"><button type="button" class="round-flow-trigger" data-round-flow>View round map</button><button type="button" class="rn-export" data-round-export>Export round to Google Docs</button><button type="button" class="rn-export" id="ballotChatBtn" aria-controls="audPanel">Chat</button><button type="button" class="rn-export" id="ballotOppDm" aria-controls="dmModal" hidden>Message opponent</button><button type="button" class="rn-export" id="ballotOppFriend" data-friend-opponent hidden>Add friend</button></div>
       <!-- 2026-09-07, per the founder: the ask for critiques lands right
            after the judged round, linked to the critique form on
            /judge-integrity with this room's id. Revealed with the ballot
@@ -5876,7 +5878,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         var people=(state.isDuo?[s,s+'2']:[s]).map(function(seat){
           var person=roundDmTarget(seat), me=state.user&&state.user.uid;
           return '<span class="round-side-member"><span>'+escHtml(person.name||'Waiting for someone')+(person.uid&&person.uid===me?' <small>(you)</small>':'')+'</span>'
-            +(canMessageAccount(person.uid)?'<button type="button" class="round-person-message" data-dm-seat="'+seat+'" aria-controls="dmModal" aria-label="'+escHtml('Message '+person.name)+'">Message</button>':'')+'</span>';
+            +(canMessageAccount(person.uid)?'<button type="button" class="round-person-message" data-dm-seat="'+seat+'" aria-controls="dmModal" aria-label="'+escHtml('Message '+person.name)+'">Message</button>':'')
+            +(roundFriendControls?roundFriendControls.html(person,seat):'')+'</span>';
         }).join('');
         return '<div class="round-side-person" data-side="'+s+'"><b>'+(s==='pro'?'FOR':'AGAINST')+'</b>'+people+'</div>';
       }).join('');
@@ -6600,6 +6603,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       if (_dmBtn) _dmBtn.hidden = !canMessageAccount(_oppUid) || spectator;
       var _ballotDm = $('ballotOppDm');
       if (_ballotDm) _ballotDm.hidden = !_dmBtn || _dmBtn.hidden;
+      paintRoomFriends();
       var _reportBtn = $('rosterOppReport');
       if (_reportBtn){ var _reportMe = state.user && state.user.uid; _reportBtn.hidden = !(_reportMe && _oppUid && _oppUid !== _reportMe && !spectator); }
       var _aiBtn = $('rosterOppAiReport');
@@ -16377,6 +16381,22 @@ window.DBLiveDraft.attach({
     return !!(state.user && uid && uid!==state.user.uid);
   }
 
+  var roundFriendControls = null;
+  function paintRoomFriends(){
+    if(!roundFriendControls)return;
+    ['rosterOppFriend','ballotOppFriend','quietOppFriend','dockOppFriend'].forEach(function(id){roundFriendControls.paint($(id),isSpectator()?null:state.oppDm);});
+  }
+  function initRoomFriends(){
+    if(!window.DBRoomFriends||!window.DBFriends)return;
+    roundFriendControls=DBRoomFriends.attach({
+      user:function(){return state.user;},db:function(){return firebaseDb;},target:roundDmTarget,
+      opponent:function(){return isSpectator()?null:state.oppDm;},name:function(){return publicNameOf(state.user);},toast:toast,
+      repaint:function(){if(roundFriendControls){paintRoomFriends();paintRoundPlan();}}
+    });
+    paintRoomFriends();paintRoundPlan();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initRoomFriends);else initRoomFriends();
+
   // ── DM your opponent. Audience members can choose either account.
   //    Writes to dm_threads in the exact
   //    shape /spar uses, so it lands in the opponent's notification bell
@@ -19171,7 +19191,10 @@ window.DBLiveDraft.attach({
     document.body.appendChild(el);
     var btns = el.querySelector('#nspBtns');
     var dmBtn = document.getElementById('rosterOppDm');
-    if (dmBtn && !dmBtn.hidden && state.user && oppUid){ btns.appendChild(nsBtn('Message them', function(){ dmBtn.click(); })); }
+    if (dmBtn && !dmBtn.hidden && state.user && oppUid){
+      btns.appendChild(nsBtn('Message them', function(){ dmBtn.click(); }));
+      if(roundFriendControls){var friend=nsBtn('Add friend',function(){roundFriendControls.act(state.oppDm);});friend.id='quietOppFriend';roundFriendControls.paint(friend,state.oppDm);btns.appendChild(friend);}
+    }
     if (fromSpar){ btns.appendChild(nsBtn('Find another', function(){
       if (window.RoundExit) RoundExit.known('opponent_no_show', { surface: 'live', stage: 'noshow', roundId: state.room, via: 'find_another' });
       window.__lrLeaveRoundThen('/spar?format=' + encodeURIComponent(state.formatKey));

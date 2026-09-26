@@ -85,9 +85,12 @@
   }
 
   function init(opts) {
+    if (!opts.force && db === opts.db && uid === opts.uid && unsub) { emit(); return true; }
     db = opts.db; uid = opts.uid;
     if (!db || !uid) return false;
     if (unsub) { try { unsub(); } catch (e) {} unsub = null; }
+    last = { friends: [], incoming: [], outgoing: [], status: 'loading' };
+    emit();
     // array-contains on uids matches the read rule's `uid in resource.data.uids`,
     // so the query is provable and allowed. No orderBy -> no composite index.
     unsub = db.collection('friendships')
@@ -100,7 +103,7 @@
         emit();
         // Same posture as dm-core: a dead listener is re-attached, not
         // reported. Denials here mean signed-out or anonymous; retry slow.
-        setTimeout(function () { if (db && uid) init({ db: db, uid: uid }); }, 20000);
+        setTimeout(function () { if (db && uid) init({ db: db, uid: uid, force: true }); }, 20000);
       });
     return true;
   }

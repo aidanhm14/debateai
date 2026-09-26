@@ -229,11 +229,11 @@ check(
 );
 const socialDepth = read('app/css/social-depth.css');
 check(
-  friendsPage.includes('<h1 class="fr-head">Your friends</h1>')
+  friendsPage.includes('<h1 class="fr-head">Your people.</h1>')
     && !friendsPage.includes('People worth arguing with.')
     && !friendsPage.includes('Keep the people you meet')
     && !socialDepth.includes('.social-friends .fr-hero::after'),
-  'friends opens with a compact utility header instead of a marketing hero',
+  'friends opens with the requested people hub and no decorative hero overlay',
 );
 check(inlineScriptsParse('app/friends.html'), 'app/friends.html inline scripts parse');
 check(inlineScriptsParse('app/notifications.html'), 'app/notifications.html inline scripts parse');

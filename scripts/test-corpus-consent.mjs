@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import DBOutlook from '../app/js/public-outlook.js';
 import { CONSENT_POLICY_VERSION, CONSENT_EVENTS, CONSENT_SURFACES } from '../app/netlify/functions/lib/consent.mjs';
 
 const source = readFileSync(new URL('../app/netlify/functions/log-consent.mjs', import.meta.url), 'utf8')
@@ -68,7 +69,7 @@ const html = readFileSync(new URL('../app/profile.html', import.meta.url), 'utf8
 const render = html.slice(html.indexOf('function renderSettings('), html.indexOf('function wireSettings('));
 for (const [profile, on, effective] of [ [{},true,false], [{contributeToCorpus:false,corpusAgeAttested:true},false,false], [{contributeToCorpus:true},true,false], [{contributeToCorpus:true,corpusAgeAttested:true},true,true] ]) {
   const storage = new Map();
-  const ctx = { localStorage: { getItem: k => storage.get(k), setItem: (k,v) => storage.set(k,v) }, escapeHtml: x => x, window: {} };
+  const ctx = { DBOutlook, localStorage: { getItem: k => storage.get(k), setItem: (k,v) => storage.set(k,v) }, escapeHtml: x => x, window: {} };
   vm.runInNewContext(render + '\nthis.render = renderSettings;', ctx);
   const output = ctx.render({}, profile);
   const checkbox = output.match(/<input id="setCorpus"[^>]*>/)[0];

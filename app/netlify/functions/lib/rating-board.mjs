@@ -13,6 +13,7 @@ import { withDeadline } from './firestore.mjs';
 import { displayRating, isRankable, tierFor, MIN_RATED_GAMES } from './rating.mjs';
 import { fetchAccountProgress } from './account-progress.mjs';
 import { publicIdentity } from './public-identity.mjs';
+import outlook from '../../../js/public-outlook.js';
 
 // Placed accounts come first, then rating. Only explicit public nicknames
 // override the shared stable alias; Auth and historical names are private.
@@ -65,7 +66,7 @@ export async function fetchRatingRows(db, { limit = 100 } = {}) {
       uid,
       xp: progress.get(uid)?.xp ?? null,
       name: publicIdentity(uid, p).name,
-      publicIdeology: ['Socialist','Capitalist','Leftist','Right-wing','Centrist','Liberal','Conservative','Libertarian'].includes(p.publicIdeology) ? p.publicIdeology : null,
+      publicIdeology: outlook.label(p.publicIdeology) || null,
       photoURL: typeof p.photoURL === 'string' ? p.photoURL.slice(0, 500) : '',
       avatarIdentity: p.avatarIdentity || null,
       rating: disp.rating,

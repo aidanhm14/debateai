@@ -25,6 +25,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script src="/js/dm-core.js"></script>
 <script src="/js/friends.js"></script>
+<script src="/js/public-outlook.js"></script>
+<script src="/js/outlook-editor.js"></script>
 
 <script defer src="/js/track.js"></script>
 <script>
@@ -107,13 +109,15 @@ body.has-beta-strip{padding-top:84px}
 .fr-gate .fr-btn{margin-top:12px}
 </style>
 <link rel="stylesheet" href="/css/social-depth.css?v=2">
+<link rel="stylesheet" href="/css/outlook.css">
+<link rel="stylesheet" href="/css/friends-hub.css">
 </head>
 <body class="social-friends">
 <div id="daTopbar"></div>
 
 <main class="fr-wrap" aria-label="Friends">
   <header class="fr-hero">
-    <h1 class="fr-head">Your friends</h1>
+    <div><p class="fr-eyebrow">YOUR CIRCLE</p><h1 class="fr-head">Your people.</h1><p class="fr-tagline">Good conversations deserve a second round.</p></div>
     <!-- Revealed only once the cards behind it exist. Signed out every
          target sits inside the hidden #frMain, and the Requests card is
          itself hidden until somebody has actually asked, so shipping the
@@ -122,10 +126,11 @@ body.has-beta-strip{padding-top:84px}
       <a href="#frListCard">Friends</a>
       <a href="#frIncomingCard" id="frJumpRequests" hidden>Requests</a>
       <a href="#frFindCard">Discover</a>
+      <a href="#frActivityCard">Activity</a>
     </nav>
   </header>
 
-  <div class="fr-flash" id="frFlash" hidden></div>
+  <div class="fr-flash" id="frFlash" role="status" hidden></div>
 
   <!-- Signed-out / anonymous gate. Friendships are named-account only:
        a friend list keyed to an anonymous uid is a list nobody can ever
@@ -148,51 +153,57 @@ body.has-beta-strip{padding-top:84px}
 
   <div id="frMain" hidden>
     <div class="fr-layout">
-    <div class="fr-primary">
-    <div class="fr-card" id="frListCard">
-      <div class="fr-section-head"><h2>Your friends</h2><span class="fr-count" id="frCount">0</span></div>
-      <div id="frList"></div>
-      <div class="fr-empty" id="frEmpty" hidden>
-        No friends yet. Finish a round and add the person across from you, or share your invite link.
+    <aside class="fr-profile-column" aria-label="Your profile">
+      <div class="fr-card fr-self-card">
+        <div class="fr-self-cover" aria-hidden="true"></div>
+        <div class="fr-self-content"><span class="fr-av" id="frSelfAvatar" aria-hidden="true">?</span>
+        <h2 id="frSelfName">Your profile</h2><p class="fr-bio" id="frSelfBio">Give people a little context about you.</p>
+        <div id="frSelfOutlook"></div>
+        <a class="fr-btn" id="frSelfLink" href="/profile">Edit profile</a></div>
       </div>
-      <div id="frOutgoing"></div>
-    </div>
-
+      <div class="fr-card fr-outlook-card"><span class="fr-eyebrow">A LITTLE BACKGROUND</span><div id="frOutlookEditor"></div></div>
+      <div data-pfp-nudge></div>
+    </aside>
+    <div class="fr-primary">
     <div class="fr-card" id="frIncomingCard" hidden>
-      <div class="fr-section-head"><h2>Requests</h2><span class="fr-count" id="frRequestCount">0</span></div>
+      <div class="fr-section-head"><h2>Friend requests</h2><span class="fr-count" id="frRequestCount">0</span></div>
       <div id="frIncoming"></div>
     </div>
-
-    <!-- Profile-pic nudge: js/pfp-nudge.js renders here for a named
-         account with no chosen picture. -->
-    <div data-pfp-nudge></div>
+    <div class="fr-card" id="frListCard">
+      <div class="fr-section-head"><h2>Friends</h2><span class="fr-count" id="frCount" aria-label="Friend count">…</span></div>
+      <div id="frList" aria-live="polite"><div class="fr-loading" role="status">Loading your people…</div></div>
+      <div class="fr-empty" id="frEmpty" hidden>
+        <strong>Your next good conversation starts with a person.</strong><p>Add someone you meet in a round, find a familiar name below, or invite a friend.</p><a class="fr-btn pri" href="/spar">Meet someone in a round</a>
+      </div>
+      <h3 class="fr-small-heading" id="frOutgoingHeading" hidden>Sent requests</h3>
+      <div id="frOutgoing"></div>
     </div>
-
-    <aside class="fr-side" aria-label="Discover and invite people">
     <!-- Find people (2026-09-01, the founder: "have a find users feature
          and it goes to profiles on leaderboard or those signed up so ppl
          can make connections"). Search runs server-side (/api/find-users)
          over public profiles and real leaderboard names; a result links
          to the person's profile and offers a friend request. -->
     <div class="fr-card" id="frFindCard">
-      <h2>Find people</h2>
-      <p class="quiet">Search by name or handle. Anyone with a public profile or a place on the leaderboard shows up here.</p>
+      <div class="fr-section-head"><h2>Meet more people</h2><span class="fr-eyebrow">DISCOVER</span></div>
+      <p class="quiet">A familiar face. A different point of view. Someone worth another round.</p>
       <div class="fr-invite">
-        <input id="frFindInput" type="search" autocomplete="off" placeholder="Search people" aria-label="Search people">
+        <input id="frFindInput" type="search" autocomplete="off" placeholder="Search by name or handle" aria-label="Search people">
       </div>
-      <div id="frFindList" class="fr-find-list" aria-live="polite"></div>
+      <div id="frFindList" class="fr-find-list" aria-live="polite"><div class="fr-loading" role="status">Finding people…</div></div>
       <div class="fr-empty" id="frFindEmpty" hidden>Nobody by that name yet. Send them your invite link below.</div>
     </div>
-
+    </div>
+    <aside class="fr-side" aria-label="Activity and invitations">
+    <div class="fr-card" id="frActivityCard"><div class="fr-section-head"><h2>In your circle</h2><span class="fr-activity-mark" aria-hidden="true"></span></div><p class="quiet">Friend requests, new connections, and people ready for a round.</p><div id="frActivity" aria-live="polite"><div class="fr-loading" role="status">Loading activity…</div></div></div>
     <div class="fr-card">
-      <h2>Invite someone you know</h2>
-      <p class="quiet">Send this link to a friend. When they sign in, you land in each other's requests.</p>
+      <span class="fr-eyebrow">BETTER WITH A FRIEND</span><h2>Bring your group chat.</h2>
+      <p class="quiet">Send your link. They can sign in and send you a friend request.</p>
       <div class="fr-invite">
-        <input id="frInviteUrl" readonly value="">
+        <input id="frInviteUrl" aria-label="Your friend invite link" readonly value="">
         <button class="fr-btn pri" id="frInviteCopy" type="button">Copy link</button>
         <button class="fr-btn" id="frInviteShare" type="button" hidden>Share</button>
       </div>
-      <p class="fr-note">A challenge sends your friend a ping and a room link. The green dot means they are in the live queue right now; a friend without the dot still gets the challenge by notification and message.</p>
+      <p class="fr-note">A green dot means someone is in the live queue. You can still send a challenge when they are away.</p>
     </div>
     </aside>
     </div>
@@ -229,6 +240,42 @@ body.has-beta-strip{padding-top:84px}
   var lastView = null;
   var people = {};           // public profile details, hydrated by uid
   var peoplePending = {};
+  var stopWatch = null, authVersion = 0;
+  var foundPeople = [];
+
+  function outlookHTML(p){ return window.DBOutlook.html(p && p.outlook); }
+  function activity(v){
+    var items = [];
+    v.incoming.forEach(function(r){items.push({r:r,text:'sent you a friend request',at:r.doc.createdAt,href:'#frIncomingCard'});});
+    v.friends.forEach(function(r){
+      if(avail[r.otherUid]) items.push({r:r,text:'is in the live queue',at:null,href:'#frListCard',live:true});
+      if(r.doc.acceptedAt) items.push({r:r,text:'is now in your circle',at:r.doc.acceptedAt,href:'#frListCard'});
+    });
+    items.sort(function(a,b){return Number(!!b.live)-Number(!!a.live) || stamp(b.at)-stamp(a.at);});
+    $('frActivity').innerHTML = items.slice(0,6).map(function(i){
+      var name=(people[i.r.otherUid]||{}).name||i.r.otherName||'Someone';
+      var date=stamp(i.at);
+      return '<a class="fr-activity-row" href="'+i.href+'"><strong>'+esc(name)+'</strong> '+i.text+'.<small>'+(i.live?'Ready for a round':date?esc(new Date(date).toLocaleDateString(undefined,{month:'short',day:'numeric'})):'')+'</small></a>';
+    }).join('') || '<p class="fr-empty">New connections and friend requests will appear here.</p>';
+  }
+  function stamp(t){return t&&t.toMillis?t.toMillis():t&&t.seconds?t.seconds*1000:0;}
+  function setupSelf(){
+    var user=me, version=authVersion;
+    $('frSelfLink').href='/users?uid='+encodeURIComponent(user.uid);
+    $('frSelfName').textContent=myName();$('frSelfAvatar').textContent=initial(myName());
+    db.collection('public_profiles').doc(user.uid).get().then(function(d){
+      if(version!==authVersion)return;
+      var p=d.exists?d.data():{};
+      var name=myName();$('frSelfName').textContent=name;$('frSelfAvatar').textContent=initial(name);
+      if(p.bio)$('frSelfBio').textContent=p.bio;
+      if(p.photo)$('frSelfAvatar').innerHTML='<span class="fr-av-fallback">'+esc(initial(name))+'</span><img src="'+esc(p.photo)+'" alt="" referrerpolicy="no-referrer" onerror="this.remove()">';
+    }).catch(function(){});
+    window.mountOutlookEditor($('frOutlookEditor'),user,function(o){if(version===authVersion)$('frSelfOutlook').innerHTML=window.DBOutlook.html(o)||'<a class="fr-outlook-prompt" href="#frOutlookEditor">+ Add your political outlook</a>';});
+  }
+  $('frJump').addEventListener('click',function(e){
+    var a=e.target.closest('a');if(!a)return;
+    $('frJump').querySelectorAll('a').forEach(function(link){link.removeAttribute('aria-current');});a.setAttribute('aria-current','location');
+  });
 
   function myName(){ return (window.daPublicName ? window.daPublicName(me) : null) || 'A debater'; }
 
@@ -307,8 +354,10 @@ body.has-beta-strip{padding-top:84px}
     return window.DBFriends.request(otherUid, otherName, myName()).then(function(){
       try { gtag('event', 'friend_request_sent', { event_category: 'friends' }); } catch (e) {}
       flash('Request sent. They will see it in Notifications.');
+      return true;
     }).catch(function(err){
       flash(window.DBDM && window.DBDM.sendReason ? window.DBDM.sendReason(err) : 'Could not send the request.', true);
+      return false;
     });
   }
 
@@ -339,7 +388,7 @@ body.has-beta-strip{padding-top:84px}
       + av
       + '<a class="fr-person" href="' + href + '"><div class="fr-id"><div class="fr-name">' + esc(shownName)
       + (p.handle ? '<span class="fr-handle">@' + esc(p.handle) + '</span>' : '') + '</div>'
-      + bio + '<div class="fr-meta">' + dot + '</div></div></a>'
+      + bio + outlookHTML(p) + '<div class="fr-meta">' + dot + '</div></div></a>'
       + '<div class="fr-acts">' + acts + '</div>'
       + '</div>';
   }
@@ -352,11 +401,16 @@ body.has-beta-strip{padding-top:84px}
       return true;
     }).slice(0, 40);
     if (!todo.length) return;
-    Promise.all(todo.map(function(uid){
+    var version=authVersion;
+    Promise.all([Promise.all(todo.map(function(uid){
       return db.collection('public_profiles').doc(uid).get().then(function(doc){
-        people[uid] = doc.exists && doc.data() ? doc.data() : {};
-      }).catch(function(){ people[uid] = {}; }).then(function(){ delete peoplePending[uid]; });
-    })).then(function(){ if (lastView) paint(lastView, true); });
+        if(version===authVersion) people[uid] = doc.exists && doc.data() ? doc.data() : {};
+      }).catch(function(){ if(version===authVersion)people[uid] = {}; }).then(function(){ if(version===authVersion)delete peoplePending[uid]; });
+    })), fetch('/api/public-outlook?uids='+encodeURIComponent(todo.join(','))).then(function(r){if(!r.ok)throw new Error('outlooks');return r.json();}).catch(function(){return {outlooks:{}};})]).then(function(results){
+      if(version!==authVersion)return;
+      todo.forEach(function(uid){if(people[uid])people[uid].outlook=results[1].outlooks[uid];});
+      if(window.DBIdentity&&DBIdentity.resolveRows)return DBIdentity.resolveRows(todo.map(function(uid){return {uid:uid};})).then(function(rows){if(version===authVersion)rows.forEach(function(r){if(people[r.uid])people[r.uid].name=r.displayName;});});
+    }).catch(function(){}).then(function(){ if (version===authVersion&&lastView) paint(lastView, true); });
   }
 
   function paint(v, hydrated){
@@ -369,6 +423,9 @@ body.has-beta-strip{padding-top:84px}
     $('frList').innerHTML = v.friends.map(function(r){ return row(r, 'friend'); }).join('');
     $('frEmpty').hidden = !!(v.friends.length || v.outgoing.length);
     $('frOutgoing').innerHTML = v.outgoing.map(function(r){ return row(r, 'outgoing'); }).join('');
+    $('frOutgoingHeading').hidden=!v.outgoing.length;
+    activity(v);
+    if(foundPeople.length)$('frFindList').innerHTML=foundPeople.map(findRow).join('');
     refreshDots(v.friends);
     if (!hydrated) hydratePeople(v.friends.concat(v.incoming, v.outgoing));
   }
@@ -388,12 +445,13 @@ body.has-beta-strip{padding-top:84px}
         if (d) d.classList.toggle('on', !!avail[r.otherUid]);
         if (l) l.textContent = avail[r.otherUid] ? 'In the live queue now' : 'Not in the queue';
       });
+      if(lastView)activity(lastView);
     }).catch(function(){ dotsBusy = false; });
   }
 
   document.addEventListener('click', function(ev){
     var b = ev.target.closest('[data-act]');
-    if (!b) return;
+    if (!b || !me) return;
     var act = b.getAttribute('data-act');
     var uid = b.getAttribute('data-uid');
     var name = b.getAttribute('data-name') || 'Debater';
@@ -452,7 +510,9 @@ body.has-beta-strip{padding-top:84px}
     }).catch(function(){});
     $('frAddYes').onclick = function(){
       $('frAddYes').disabled = true;
-      sendRequest(target, targetName).then(function(){
+      sendRequest(target, targetName).then(function(sent){
+        $('frAddYes').disabled = false;
+        if(!sent)return;
         card.hidden = true;
         history.replaceState(null, '', '/friends');
       });
@@ -467,6 +527,7 @@ body.has-beta-strip{padding-top:84px}
     $('frGate').hidden = false;
     $('frMain').hidden = true;
     $('frJump').hidden = true;
+    $('frAddCard').hidden = true;
     $('frGateBtn').onclick = function(){
       if (window.openAuthModal) window.openAuthModal('signin');
       else { var n = 0; var t = setInterval(function(){ if (window.openAuthModal){ clearInterval(t); window.openAuthModal('signin'); } else if (++n > 40) clearInterval(t); }, 150); }
@@ -486,10 +547,10 @@ body.has-beta-strip{padding-top:84px}
     var av = p.photo
       ? '<span class="fr-av" aria-hidden="true"><img src="' + esc(p.photo) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()"></span>'
       : '<span class="fr-av" aria-hidden="true">' + esc(initial(p.name)) + '</span>';
-    var meta = (p.onBoard ? 'On the leaderboard' : 'Has a profile') + ' · <a href="' + profile + '">View profile</a>';
+    var meta = (p.onBoard ? 'On the leaderboard' : 'On Debatable');
     return '<div class="fr-row">' + av
-      + '<div class="fr-id"><div class="fr-name">' + esc(p.name) + (p.handle ? ' <span class="quiet">@' + esc(p.handle) + '</span>' : '') + '</div>'
-      + '<div class="fr-meta">' + meta + '</div></div>'
+      + '<a class="fr-person" href="'+profile+'"><div class="fr-id"><div class="fr-name">' + esc(p.name) + (p.handle ? ' <span class="fr-handle">@' + esc(p.handle) + '</span>' : '') + '</div>'
+      + (p.bio?'<div class="fr-bio">'+esc(p.bio)+'</div>':'')+outlookHTML(p)+'<div class="fr-meta">' + meta + '</div></div></a>'
       + '<div class="fr-acts">' + act
       + '<button class="fr-btn" data-act="message" data-uid="' + esc(p.uid) + '" data-name="' + esc(p.name) + '">Message</button></div>'
       + '</div>';
@@ -497,42 +558,55 @@ body.has-beta-strip{padding-top:84px}
   function runFind(q){
     var seq = ++findSeq;
     var list = $('frFindList'), empty = $('frFindEmpty');
+    empty.hidden=true;list.setAttribute('aria-busy','true');
     me.getIdToken().then(function(tok){
       return fetch('/api/find-users?q=' + encodeURIComponent(q || ''), { headers: { Authorization: 'Bearer ' + tok } });
-    }).then(function(r){ return r.ok ? r.json() : { people: [] }; }).then(function(j){
+    }).then(function(r){ if(!r.ok)throw new Error('people unavailable');return r.json(); }).then(function(j){
       if (seq !== findSeq) return;
       var people = (j && j.people) || [];
+      foundPeople=people;list.removeAttribute('aria-busy');
       list.innerHTML = people.map(findRow).join('');
-      empty.hidden = !!people.length || !q;
+      empty.textContent=q?'Nobody by that name yet. Try another name or send your invite link.':'No people to show yet. Invite someone you know.';
+      empty.hidden = !!people.length;
       try { gtag('event', 'find_people', { q_len: (q || '').length, results: people.length }); } catch(e){}
-    }).catch(function(){ if (seq === findSeq){ list.innerHTML = ''; empty.hidden = true; } });
+    }).catch(function(){ if (seq === findSeq){ list.removeAttribute('aria-busy');list.innerHTML = '<p class="fr-empty">People could not load.</p><button class="fr-btn" type="button" data-find-retry>Try again</button>'; empty.hidden = true;list.querySelector('[data-find-retry]').onclick=function(){runFind(q);}; } });
   }
   function setupFind(){
     var inp = $('frFindInput');
     if (!inp) return;
-    inp.addEventListener('input', function(){
+    inp.oninput=function(){
       clearTimeout(findTimer);
       var q = inp.value.trim();
       findTimer = setTimeout(function(){ runFind(q); }, 220);
-    });
-    $('frFindList').addEventListener('click', function(e){
+    };
+    $('frFindList').onclick=function(e){
       var b = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
       if (!b) return;
+      e.stopPropagation();
       var act = b.getAttribute('data-act'), uid = b.getAttribute('data-uid'), name = b.getAttribute('data-name') || 'A debater';
       if (act === 'add'){
         b.disabled = true; b.textContent = 'Sending';
-        sendRequest(uid, name).then(function(){ b.outerHTML = '<span class="fr-tag">Request sent</span>'; })
-          .catch(function(){ b.disabled = false; b.textContent = 'Add friend'; });
+        sendRequest(uid, name).then(function(sent){ if(sent)b.outerHTML = '<span class="fr-tag">Request sent</span>';else{b.disabled=false;b.textContent='Add friend';} });
       } else if (act === 'accept'){
         window.DBFriends.accept(uid, myName()).then(function(){ b.outerHTML = '<span class="fr-tag">Friends</span>'; }).catch(function(){});
       } else if (act === 'message'){
         location.href = '/messages?dm=' + encodeURIComponent(uid) + '&name=' + encodeURIComponent(name);
       }
-    });
+    };
     runFind('');   // browse mode: recent people on the board
   }
 
   function boot(u){
+    if(me&&u&&me.uid===u.uid)return;
+    authVersion++;findSeq++;clearTimeout(findTimer);if(stopWatch)stopWatch();
+    lastView=null;people={};peoplePending={};foundPeople=[];avail={};
+    $('frIncomingCard').hidden=true;$('frJumpRequests').hidden=true;$('frEmpty').hidden=true;$('frOutgoingHeading').hidden=true;
+    $('frCount').textContent='…';$('frOutgoing').innerHTML='';$('frIncoming').innerHTML='';
+    $('frList').innerHTML='<div class="fr-loading" role="status">Loading your people…</div>';
+    $('frActivity').innerHTML='<div class="fr-loading" role="status">Loading activity…</div>';
+    $('frFindList').innerHTML='<div class="fr-loading" role="status">Finding people…</div>';
+    $('frFindInput').value='';$('frSelfOutlook').innerHTML='';$('frSelfBio').textContent='Give people a little context about you.';
+    me=null;
     if (!u || u.isAnonymous) { showGate(); return; }
     me = u;
     db = firebase.firestore();
@@ -540,12 +614,14 @@ body.has-beta-strip{padding-top:84px}
     $('frMain').hidden = false;
     $('frJump').hidden = false;
     window.DBFriends.init({ db: db, uid: me.uid });
-    window.DBFriends.watch(function(v){
+    stopWatch=window.DBFriends.watch(function(v){
       if (v.status === 'ready') paint(v);
       else if (v.status === 'error') flash('Your friends list could not load right now. It retries on its own.', true);
     });
     setupInvite();
     setupFind();
+    $('frOutlookEditor').removeAttribute('data-mounted');
+    setupSelf();
     handleAddParam();
     document.addEventListener('visibilitychange', function(){
       if (!document.hidden && lastView) refreshDots(lastView.friends);

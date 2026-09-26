@@ -1,4 +1,5 @@
 import { publicNames } from './lib/public-identity.mjs';
+import { readPublicOutlooks } from './lib/public-outlook.mjs';
 /* find-users.mjs  ·  GET /api/find-users?q=<text>
  *
  * 2026-09-01, the founder: "have a find users feature and it goes to
@@ -153,7 +154,14 @@ export default async (request) => {
     })
     .slice(0, MAX_RESULTS);
 
-  return jsonResponse({ q, people: out, total: out.length }, 200, request);
+  // Read these afresh so removing a belief does not leave a cached copy in discovery.
+  try {
+    const outlooks = await readPublicOutlooks(db, out.map(p => p.uid));
+    out.forEach(p => { p.outlook = outlooks[p.uid] || null; });
+  } catch { out.forEach(p => { p.outlook = null; }); }
+  const response = jsonResponse({ q, people: out, total: out.length }, 200, request);
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
 };
 
 export const config = { path: '/api/find-users' };
