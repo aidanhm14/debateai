@@ -50,6 +50,7 @@
         // stale DOM fields. Only an explicit duration edit replaces it.
         var chosen = chooseTimed || lock ? normalize(d.speechTiming) || {version:1,seconds:defaults.slice()} : plan;
         var update = {speechTiming:chosen};
+        if (!lock) update.preRoundReady = {};
         if (chooseTimed) update.format = 'quick';
         if (lock) update.speechTimingLocked = true;
         tx.update(ref, update);

@@ -266,6 +266,17 @@ without a spoken farewell. Reminder timing above is an opportunity only;
 skip it while anyone is speaking. `scripts/test-room-topic-client.mjs`
 covers timing and asynchronous races and is imported by test-room-topic.
 
+## Live-round preparation (2026-09-26)
+
+Casual 1v1 rooms expose Conversation and Timed speeches before starting.
+Both people choose together, may take time to prepare, and each clicks Ready.
+Ready confirms the current shared settings; it does not start the round.
+Either person starts a conversation; For starts the first timed speech.
+Keep explicit Start instructions at every speech handoff. These are two
+casual modes, not a return of competitive formats. See `soul.md` and
+`app/js/live-room/round-start.js`; run `scripts/test-round-preparation.mjs`
+and the browser preparation suite when changing the flow.
+
 ## First screen: stranger board for everyone (A/B called 2026-07-22)
 
 The 2026-07-22 `ticker` vs `current` first-screen A/B was **called by

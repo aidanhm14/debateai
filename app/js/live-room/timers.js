@@ -102,6 +102,7 @@
 
   function startSpeechTimer(){
     if (conversationIsFinishing()) return;
+    if (isSpectator() || !isMyTurn()) return;
     var blocked = context.roundStartBlock ? context.roundStartBlock() : '';
     if (blocked){ toast(blocked); return; }
     liveJourney('speech_start_requested', { timer: context.state.timerState });
@@ -186,6 +187,13 @@
       if (jd && jd.scrollIntoView) jd.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
+    // Commit readiness and the first clock together. Two simultaneous
+    // conversation starts cannot reset each other's clock.
+    var launch = context.commitRoundStart && context.commitRoundStart();
+    if (launch){
+      launch.then(function(timer){ activateSpeech(timer); }).catch(function(e){ toast(e.message || 'Could not start. Try again.'); });
+      return;
+    }
     // Persist the complete plan before Speech 1 so a peer or reload sees
     // the same six durations. A failed save leaves the clock at ready.
     if (context.ensureSpeechTiming){
@@ -195,9 +203,17 @@
         return;
       }
     }
-    hidePrepBanner();   // prep is over once a speech actually starts
-    var wasReady = context.state.timerState === 'ready';
-    context.state.timerStart = Date.now();
+    activateSpeech();
+  }
+
+  function activateSpeech(timer){
+    hidePrepBanner();
+    var wasReady = context.state.timerState === 'ready' || !!timer;
+    if (context.state.timerInterval) clearInterval(context.state.timerInterval);
+    // This client authored startMs. The transaction result still holds
+    // an unresolved server timestamp, so remote clock conversion is wrong here.
+    context.state.timerStart = timer ? timer.startMs : Date.now();
+    if (timer){ context.state.timerElapsed = 0; context.state.timerTotalSec = timer.totalSec; }
     context.state.timerState = 'running';
     liveJourney('speech_started', { mic_available: !!(context.state.micSupport && context.state.micSupport.available) });
     // While someone is actually speaking, the panel collapses to the two
@@ -226,7 +242,7 @@
     // Mirror the timer state to the off-side speaker. The remote peer
     // reads this and starts its own ticking display so they can see
     // the active speaker's clock count up.
-    publishTimerState();
+    if (!timer) publishTimerState();
     // Refresh the public preview promptly when the debate actually starts.
     try { pushRoomShot(); } catch(e){}
   }

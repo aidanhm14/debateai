@@ -14,7 +14,6 @@ for (const width of [360, 768, 1360]) {
     if (width >= 1000) {
       const button = await page.locator('#playPauseBtn').boundingBox();
       expect(button.y + button.height).toBeLessThan(900);
-      await expect(page.locator('#roundDetails>summary')).toBeInViewport();
     }
     const details = await page.locator('#roundDetails').boundingBox();
     expect(details.x + details.width).toBeLessThanOrEqual(width);
@@ -81,6 +80,8 @@ test('visible timed option offers six shared speeches and editable duration pair
   const fixture=await roomDesign(page);
   await page.goto('https://debatable.test/live-round?design=ready&format=open');
   await expect(page.locator('#startConvoBtn')).toBeVisible();
+  await expect(page.locator('#startFormalBtn')).toBeVisible();
+  await page.locator('#startFormalBtn').click();
   await expect(page.locator('#roundTimingOptions>summary')).toBeVisible();
   await expect(page.locator('#roundTimingSummary')).toHaveText('6 speeches · 18 minutes');
   await page.locator('#roundTimingOptions>summary').click();

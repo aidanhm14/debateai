@@ -5,7 +5,7 @@ const html=readFileSync(new URL('../app/live-round.html',import.meta.url),'utf8'
 const source=html.slice(html.indexOf('  function roundConnectionState(){'),html.indexOf('  function paintRoundReadiness(){'));
 let participants={};
 const context={qs:new URLSearchParams(),state:{motion:'Cities should build more parks.',room:'test',proUid:'a',conUid:'b',speechIdx:0,timerState:'ready'},
-  room:{joined:false,call:{participants:()=>participants}},mySide:()=> 'pro',isSpectator:()=>false};
+  room:{joined:false,call:{participants:()=>participants}},mySide:()=> 'pro',isSpectator:()=>false,preparationEnabled:()=>false};
 vm.createContext(context);vm.runInContext(source,context);
 assert.match(context.roundStartBlock(),/Connecting/);
 context.room.joined=true;
@@ -16,6 +16,9 @@ participants.duplicate={local:false,user_id:'a'};
 assert.match(context.roundStartBlock(),/Waiting/,'a second tab belonging to me is not my opponent');
 participants.peer={local:false,user_id:'b'};
 assert.equal(context.roundStartBlock(),'');
+participants.local.audio=false;
+assert.match(context.roundStartBlock(),/Unmute/);
+delete participants.local.audio;
 context.state.motion='';assert.match(context.roundStartBlock(),/Choose a topic/);
 context.state.motion='Cities should build more parks.';context.state.topicStrikes={phase:'strike'};assert.match(context.roundStartBlock(),/Finish choosing/);delete context.state.topicStrikes;
 participants.local.tracks.audio.persistentTrack.readyState='ended';
@@ -33,7 +36,7 @@ context.mySide=()=> 'pro';participants.peer.user_id='viewer';
 const timerContext={window:{}, context:{}, document:{}, console};
 vm.createContext(timerContext);vm.runInContext(readFileSync(new URL('../app/js/live-room/timers.js',import.meta.url),'utf8'),timerContext);
 let message='';
-const timer=timerContext.window.DBLiveTimers.create({state:context.state,conversationIsFinishing:()=>false,roundStartBlock:()=>context.roundStartBlock(),toast:s=>message=s});
+const timer=timerContext.window.DBLiveTimers.create({state:context.state,isSpectator:()=>false,isMyTurn:()=>true,conversationIsFinishing:()=>false,roundStartBlock:()=>context.roundStartBlock(),toast:s=>message=s});
 timer.startSpeechTimer();
 assert.match(message,/Waiting/);assert.equal(context.state.timerState,'ready','keyboard/direct timer calls also refuse before readiness');
 const openingSource=html.slice(html.indexOf('  function openingBeatMode(){'),html.indexOf('  function openBeatChime(){'));

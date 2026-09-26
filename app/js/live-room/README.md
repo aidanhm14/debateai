@@ -8,6 +8,7 @@ main script, with `data-page-source` so source guards also inspect them.
 | --- | --- |
 | `timers.js` | Speech clock display, start/pause/stop and remote clock state |
 | `speech-timing.js` | Versioned casual speech schedules, legacy compatibility and transactional pre-start timing saves |
+| `round-start.js` | Agreement to current shared choices, per-person readiness and atomic first-clock start |
 | `media.js` | Capture, camera modes, published tracks, media tiles and audio |
 | `connection.js` | Daily call lifecycle, retries, network health and receive quality |
 | `presence.js` | Seat/spectator heartbeats, departure/rejoin and quiet-room display |

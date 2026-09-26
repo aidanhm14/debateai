@@ -3,7 +3,7 @@ import { changeConversationFinish } from '../../app/netlify/functions/lib/conver
 import { readApp, between } from '../helpers/offline-site.mjs';
 
 const source = readApp('live-round.html');
-const markup = between(source, '        <div class="conversation-finish"', '        <!-- The primary action');
+const markup = between(source, '        <div class="conversation-finish"', '        <section class="round-preparation"');
 const paint = between(source, '  function paintConversationFinish(', '  function syncConversationFinish(');
 
 async function room(browser, { failedUpload = false } = {}) {

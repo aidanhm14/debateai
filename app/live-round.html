@@ -3618,6 +3618,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
 <link rel="stylesheet" href="/css/round-mobile.css?v=20260910a">
 <link rel="stylesheet" href="/css/live-room-clarity.css">
 <link rel="stylesheet" href="/css/live-room-entry.css">
+<link rel="stylesheet" href="/css/round-preparation.css">
 </head>
 <body class="lr-setup">
 
@@ -3996,13 +3997,6 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
              no judge cutoff. Rendered by renderExtUI(); no display on the
              class so [hidden] keeps working. -->
         <div class="ext-row" id="extRow" hidden style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.78rem;margin-top:6px"></div>
-        <!-- Both-ready beat. Sits directly above the action it arms, and
-             never disables it: this answers a question, it does not add a
-             gate. Filled by window.__lrRenderReady from the round
-             snapshot; hidden on every path that does not need it. -->
-        <div class="ready-beat" id="readyBeat" hidden></div>
-        <div class="round-readiness" id="roundReadiness" role="status" hidden></div>
-
         <div class="round-action-dock" id="roundActionDock">
         <div class="round-mobile-context" id="roundMobileContext"><strong id="roundMobileSide"></strong><span id="roundMobileTopic"></span><span id="roundMobileStatus" role="status"></span></div>
         <div class="conversation-finish" id="conversationFinish" hidden>
@@ -4013,27 +4007,28 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
             <button class="btn" id="conversationFinishRetry" type="button" hidden>Retry saving</button>
           </div>
         </div>
-        <!-- The primary action sits beside the clock it drives. Moved out
-             of the transcript block; ids and handlers are unchanged. -->
-        <!-- 2026-09-03, per the founder ("start conversation or start
-             formal speeches"): the two ways to run a round are two doors
-             at the ready beat, not a setting chosen somewhere upstream.
-             Either one sets the mode for BOTH screens and starts it.
-             Shown only at Speech 1 with the clock still at ready; once
-             the round is running the transport is the one button below. -->
-        <div class="row mode-doors" id="modeDoors" data-anim-scope hidden>
-          <button class="btn btn-play" id="startConvoBtn" type="button" aria-describedby="roundReadiness">▶ Conversational debate</button>
-        </div>
-        <details class="round-mode-options" id="roundTimingOptions" hidden>
-          <summary><span><strong>Timed speeches</strong><small id="roundTimingSummary">6 speeches · 18 minutes</small></span><span class="timing-edit-label">Set timing</span></summary>
-          <div class="round-timing-body">
-            <p>Take turns. For speaks first, then Against. Both sides get the same time.</p>
-            <div class="round-timing-fields" id="roundTimingFields"></div>
-            <p id="roundTimingSequence" class="round-timing-sequence">4 · 4 · 3 · 3 · 2 · 2 minutes</p>
-            <p id="roundTimingStatus" role="status">Changes apply to both people before the round starts.</p>
-            <button class="btn" id="startFormalBtn" type="button">Start timed speeches</button>
+        <section class="round-preparation" id="roundPreparation" aria-label="Prepare for your round" hidden>
+          <h3>1. Choose together</h3>
+          <div class="row mode-doors" id="modeDoors" role="group" aria-label="Round mode" hidden>
+            <button class="btn" id="startConvoBtn" type="button" aria-pressed="false">Conversation<span class="md-sub">Talk freely. No time limit. Finish together.</span></button>
+            <button class="btn" id="startFormalBtn" type="button" aria-pressed="false">Timed speeches<span class="md-sub">Take turns. For speaks first. A clock for each speech.</span></button>
           </div>
-        </details>
+          <details class="round-mode-options" id="roundTimingOptions" hidden>
+            <summary><span><strong>Speech lengths</strong><small id="roundTimingSummary">6 speeches · 18 minutes</small></span><span class="timing-edit-label">Adjust</span></summary>
+            <div class="round-timing-body">
+              <p>Opening, response, then closing. Both sides get the same time.</p>
+              <div class="round-timing-fields" id="roundTimingFields"></div>
+              <p id="roundTimingSequence">4 · 4 · 3 · 3 · 2 · 2 minutes</p>
+              <p id="roundTimingStatus" role="status">Changes apply to both people. Review them before clicking Ready.</p>
+            </div>
+          </details>
+          <h3>2. Take a moment to prepare</h3>
+          <p>Check your side and think of your first point and an example. Take the time you need, or click Ready now.</p>
+          <div class="preparation-ready-row"><button class="btn" id="roundReadyBtn" type="button">Ready</button><span id="roundReadyStatus" role="status"></span></div>
+          <p id="roundPreparationError" role="alert" hidden></p>
+        </section>
+        <div class="round-readiness" id="roundReadiness" role="status" hidden></div>
+        <p class="round-start-instruction" id="roundStartInstruction" hidden></p>
         <div class="row speech-actions">
           <button class="btn btn-play" id="playPauseBtn" type="button">▶ Start my speech</button>
           <button class="btn btn-end" id="endSpeechBtn" type="button">End speech →</button>
@@ -4483,6 +4478,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check-compat.js"></script>
 <script src="/js/live-room/speech-timing.js" data-page-source></script>
+<script src="/js/live-room/round-start.js" data-page-source></script>
 <script src="/js/live-room/timers.js" data-page-source></script>
 <script src="/js/live-room/media.js" data-page-source></script>
 <script src="/js/live-room/connection.js" data-page-source></script>
@@ -4499,6 +4495,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     get conversationIsFinishing(){ return conversationIsFinishing; },
     get roundStartBlock(){ return roundStartBlock; },
     get ensureSpeechTiming(){ return ensureSpeechTiming; },
+    get commitRoundStart(){ return commitRoundStart; },
     get fmtTime(){ return fmtTime; },
     get foldAidesForSpeech(){ return foldAidesForSpeech; },
     get getElapsed(){ return getElapsed; },
@@ -6243,6 +6240,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   var lastOverlayIdx = -1;
   function flashTurnOverlay(){
     if (state.phase !== 'round') return;
+    if (modeDoorsVisible()) return;
     if (openMode()) return;
     if (lastOverlayIdx === state.speechIdx) return;
     lastOverlayIdx = state.speechIdx;
@@ -7290,7 +7288,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   }
   function paintSpeechTiming(){
     var panel = $('roundTimingOptions'); if (!panel) return;
-    panel.hidden = !canEditSpeechTiming();
+    panel.hidden = !canEditSpeechTiming() || openMode();
     if (panel.hidden) return;
     var seconds = state.isDuo ? [300,300,180,180] : state.speechTiming ? state.speechTiming.seconds : DBRoundTiming.defaults();
     var fields = $('roundTimingFields');
@@ -7309,9 +7307,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     });
     $('roundTimingSummary').textContent = seconds.length+' speeches · '+(seconds.reduce(function(a,b){return a+b;},0)/60)+' minutes';
     $('roundTimingSequence').textContent = seconds.map(function(n){return n/60;}).join(' · ')+' minutes';
-    var formal = $('startFormalBtn');
-    formal.hidden = !openMode();
-    formal.disabled = !!state.timingSaving;
+
   }
   function saveSpeechTiming(chooseTimed, lock){
     if (state.timingSaving) return Promise.reject(new Error('Wait for the timing to finish saving.'));
@@ -7331,6 +7327,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     return request.then(function(saved){
       state.timingSaving = false;
       state.speechTiming = saved; state.timingCommitted = true;
+      if (qs.has('design')) state.lastRoundDoc = Object.assign({}, preparationDoc(), {speechTiming:saved, preRoundReady:{}});
       if (lock) state.timingLocked = true;
       FORMATS.quick.speeches = DBRoundTiming.speeches(saved.seconds);
       if (state.formatKey === 'quick'){
@@ -7350,107 +7347,85 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     if (state.formatKey !== 'quick' || state.speechIdx !== 0 || state.timingLocked || state.isDuo || tournamentControlsLocked()) return null;
     return saveSpeechTiming(false, true);
   }
-  // ── The two doors ─────────────────────────────────────────────────
-  // Explicit conversation rooms retain their mode choices. Timed rounds
-  // use the single Start my speech control. Either choice PUBLISHES the format so both screens agree
-  // (the peer adopts d.format in the round snapshot and re-renders),
-  // then starts it. Never shown when the tournament fixes the format,
-  // never to a spectator, and never once a speech has run.
+  function preparationDoc(){
+    if (qs.has('design')) return Object.assign({format:state.formatKey,motion:state.motion,
+      proUid:'design-pro',conUid:'design-con'},state.lastRoundDoc || {});
+    return state.lastRoundDoc || {};
+  }
+  function preparationUid(){ return qs.has('design') ? 'design-' + mySide() : state.user && state.user.uid; }
+  function preparationEnabled(){
+    return !state.isDuo && !tournamentControlsLocked() && DBRoundStart.eligible(preparationDoc());
+  }
   function modeDoorsVisible(){
-    return state.phase === 'round'
-      && openMode()
-      && state.speechIdx === 0
-      && state.timerState === 'ready'
-      && !isSpectator()
-      && !!mySide()
-      && !tournamentControlsLocked();
+    return state.phase === 'round' && ['open','quick'].includes(state.formatKey)
+      && state.speechIdx === 0 && state.timerState === 'ready' && !state.timerElapsed
+      && !(state.log && state.log.length) && !isSpectator() && !!mySide()
+      && !state.isDuo && !tournamentControlsLocked() && !DBRoundTiming.started(preparationDoc());
   }
   function paintModeDoors(){
-    var row = $('modeDoors');
-    if (!row) return;
-    paintSpeechTiming();
     var show = modeDoorsVisible();
-    row.hidden = !show;
-    document.body.classList.toggle('mode-doors-open', show);
-    if (!show){ hidePrepNudge(); return; }
-    var open = openMode();
-    var convo = $('startConvoBtn'), formal = $('startFormalBtn');
-    if (convo){
-      convo.classList.toggle('is-current', open);
-      convo.innerHTML = '\u25b6 Conversational debate<span class="md-sub">Both mics on. No time limit. Finish together.</span>';
-    }
-    if (formal){
-      formal.classList.toggle('is-current', !open);
-      // Formal speeches has a first speaker, and it may not be me. Say so
-      // rather than offering a Start that cannot start.
-      var f = FORMATS.quick, sp = f && f.speeches[0];
-      var firstIsMine = !open ? isMyTurn() : (mySide() === 'pro');
-      var firstName = (sp && sideBench(f, sp.side) === 'gov')
-        ? (state.proName || 'For') : (state.conName || 'Against');
-      formal.innerHTML = firstIsMine
-        ? '\u25b6 Start timed speeches<span class="md-sub">' + (state.isDuo ? 4 : 6) + ' speeches. You speak first.</span>'
-        : '\u25b6 Choose timed speeches<span class="md-sub">' + (state.isDuo ? 4 : 6) + ' speeches. ' + escHtml(firstName) + ' speaks first.</span>';
-    }
+    $('roundPreparation').hidden = !show;
+    $('modeDoors').hidden = !show;
+    document.body.classList.toggle('round-preparing',show);
+    if (state.phase === 'round' && !isSpectator()) $('phaseLabel').innerHTML = '<span class="dot"></span> '
+      + (show ? 'Getting ready' : openMode() ? 'Live · Conversation' : 'Live · Speech '+(state.speechIdx+1)+'/'+FORMATS[state.formatKey].speeches.length);
+    paintSpeechTiming();
+    if (!show) return;
+    ['open','quick'].forEach(function(key,i){
+      var button = $(i ? 'startFormalBtn' : 'startConvoBtn');
+      button.setAttribute('aria-pressed',String(state.formatKey === key));
+      button.disabled = !!state.preparationBusy || !!state.timingSaving;
+    });
+    var d = preparationDoc(), me = preparationUid();
+    var mine = DBRoundStart.ready(d,me), both = DBRoundStart.bothReady(d);
+    var peerUid = mySide() === 'pro' ? d.conUid : d.proUid;
+    var peer = (mySide() === 'pro' ? state.conName : state.proName) || 'Your opponent';
+    $('roundReadyBtn').textContent = mine ? 'Not ready yet' : 'Ready';
+    $('roundReadyBtn').setAttribute('aria-pressed',String(mine));
+    $('roundReadyBtn').disabled = !!state.preparationBusy || !!state.timingSaving || !preparationEnabled()
+      || (!mine && (!roundConnectionState().ready || !!DBRoundStart.pending(d)));
+    $('roundReadyStatus').textContent = both ? 'Both ready. The round has not started yet.'
+      : mine ? 'You are ready. Waiting for '+peer+'.'
+      : DBRoundStart.ready(d,peerUid) ? peer+' is ready. Click Ready when you are prepared.'
+      : 'Both people click Ready to agree to this mode and topic.';
   }
-  // The round type, to the round doc, so the other screen follows. Narrow
-  // on purpose: publishRoundMeta (which also writes the motion) lives
-  // inside the motion-editor closure and is not reachable from here, and
-  // re-writing the motion from this beat could stamp over an open
-  // change proposal.
-  function publishRoundFormat(){
-    if (isSpectator() || tournamentControlsLocked()) return;
-    var ref = getRoundDocRef();
-    if (!ref) return;
-    ref.update({
-      format: state.formatKey,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    }).catch(function(){});
+  function preparationAction(action,mode){
+    if (state.preparationBusy) return Promise.reject(new Error('Wait for your choice to finish saving.'));
+    var d = preparationDoc(), ref = getRoundDocRef();
+    if (!qs.has('design') && !ref) return Promise.reject(new Error('The room is still connecting. Try again.'));
+    var db = qs.has('design') ? {runTransaction:function(fn){return fn({
+      get:function(){return Promise.resolve({exists:true,data:function(){return preparationDoc();}});},
+      update:function(_ref,patch){state.lastRoundDoc=Object.assign({},preparationDoc(),patch);}
+    });}} : firebase.firestore();
+    state.preparationBusy = true;
+    $('roundPreparationError').hidden = true;
+    paintModeDoors(); paintRoundReadiness();
+    return DBRoundStart.act(db,ref,preparationUid(),action,DBRoundStart.signature(d),mode,
+      qs.has('design') ? null : function(){return firebase.firestore.FieldValue.serverTimestamp();})
+      .then(function(saved){
+        state.lastRoundDoc = saved;
+        var changed = state.formatKey !== saved.format;
+        state.formatKey = saved.format;
+        syncSpeechTiming(saved);
+        if (changed){ $('formatSel').value = saved.format; renderRound(); }
+        return saved;
+      }).catch(function(e){
+        $('roundPreparationError').textContent = e.message || 'Could not save. Try again.';
+        $('roundPreparationError').hidden = false;
+        throw e;
+      }).finally(function(){state.preparationBusy=false;updatePlayPauseBtn();});
   }
-  // Set the mode for both screens, then start if this seat is allowed to.
-  function startInMode(key, timingSaved){
-    if (!FORMATS[key] || isSpectator()) return;
-    if (key === 'quick' && state.isDuo) FORMATS.quick.speeches = DBRoundTiming.speeches([300,300,180,180]);
-    if (key === 'quick' && !timingSaved && !state.isDuo){
-      saveSpeechTiming(true).then(function(){ startInMode(key, true); }).catch(function(e){ toast(e.message); });
-      return;
-    }
-    var blocked = roundStartBlock();
-    if (blocked){ paintRoundReadiness(); toast(blocked); return; }
-    if (tournamentControlsLocked()){ toast('The tournament fixes the round type.'); return; }
-    if (state.formatKey !== key){
-      state.formatKey = key;
-      var fs = $('formatSel'); if (fs) fs.value = key;
-      var rfs = $('roundFormatSel'); if (rfs) rfs.value = key;
-      var plM = $('phaseLabel');
-      if (plM) plM.innerHTML = '<span class="dot"></span> ' + (key === 'open'
-        ? 'Live · Just argue'
-        : 'Live · Speech 1/' + FORMATS[key].speeches.length);
-      renderRound();
-      publishRoundFormat();
-      try { gtag('event', 'live_round_mode_pick', { mode: key }); } catch(e){}
-    }
-    if (isMyTurn()){
-      // 2026-09-03, the founder: "just the start convo mode or start formal
-      // speeches - then encourage prep time at that point". Prep is offered
-      // the moment it matters, after the formal door, instead of standing
-      // above everything as a green block. Conversation mode has no prep.
-      // 2026-09-04, the founder: the prep card is gone ("Kill both"). The
-      // formal door starts the first speech. showPrepNudge stays callable
-      // for a restore; nothing reaches it.
-      if (PREP_OFFER_ON && key !== 'open' && state.prepMin > 0 && !state.prepStartedAtMs && !state.prepSkipped){
-        showPrepNudge();
-        return;
-      }
-      startSpeechTimer();
-    } else {
-      // Formal speeches, and the first speech is not mine. The mode is
-      // published; the other seat holds the start.
-      paintModeDoors();
-      updatePlayPauseBtn();
-      var who = (FORMATS[key].speeches[0] && sideBench(FORMATS[key], FORMATS[key].speeches[0].side) === 'gov')
-        ? (state.proName || 'For') : (state.conName || 'Against');
-      toast('Timed speeches it is. ' + who + ' starts.');
-    }
+  function startInMode(key){
+    if (!modeDoorsVisible()) return;
+    preparationAction('mode',key).catch(function(e){toast(e.message);});
+  }
+  $('roundReadyBtn').addEventListener('click',function(){
+    var action = DBRoundStart.ready(preparationDoc(),preparationUid()) ? 'unready' : 'ready';
+    preparationAction(action).catch(function(e){toast(e.message);});
+  });
+  function commitRoundStart(){
+    if (!preparationEnabled() || state.speechIdx !== 0 || state.timerState !== 'ready') return null;
+    return preparationAction('start').then(function(d){return d.currentTimer;});
   }
   // The prep offer that follows the formal door. Local to this screen: the
   // clock itself still publishes through beginPrepClock, so the peer's
@@ -7907,7 +7882,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     // every other ready state (a later speech in a formal round).
     if (state.timerState === 'ready'){
       actionState('start');
-      btn.textContent = open ? '▶ Start the conversation' : (ms ? '▶ Start my speech' : '▶ Start speech');
+      btn.textContent = open ? '▶ Start conversation' : (ms ? '▶ Start my speech' : '▶ Start speech');
       btn.className = 'btn btn-play';
       if (readyHint){
         // The two doors carry their own sub-lines; this would be a third
@@ -7931,7 +7906,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       if (readyHint){ readyHint.hidden = false; readyHint.textContent = 'Paused. Resume when you are ready.'; }
     } else {
       actionState('start');
-      btn.textContent = open ? '▶ Start the conversation' : (ms ? '▶ Start my speech' : '▶ Start speech');
+      btn.textContent = open ? '▶ Start conversation' : (ms ? '▶ Start my speech' : '▶ Start speech');
       btn.className = 'btn btn-play';
     }
     // Whose turn it is and whether the clock has started are local, so the
@@ -11141,6 +11116,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var local = ps.local, audio = local && local.tracks && local.tracks.audio;
     var track = audio && (audio.persistentTrack || audio.track);
     if (!track || track.readyState !== 'live') return { ready:false, peerConnected:true, text:'Connected. Check your microphone before starting.' };
+    if (local.audio === false || track.enabled === false) return { ready:false, peerConnected:true, text:'Unmute your microphone before starting.' };
     return { ready:true, peerConnected:true, text:'Connected · Ready to start' };
   }
   // What the other chair is doing while it is not in the call. The Daily
@@ -11223,10 +11199,17 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   function roundStartBlock(){
     if (!state.room || state.isDuo || isSpectator() || state.speechIdx !== 0 || state.timerState !== 'ready') return '';
     if (state.timingSaving) return 'Saving the speech timing.';
+    if (state.preparationBusy) return 'Saving your choice.';
     if (!String(state.motion || '').trim()) return 'Choose a topic before starting.';
     if (state.topicStrikes && !['done','cancelled'].includes(state.topicStrikes.phase)) return 'Finish choosing the topic and sides first.';
     var connection = roundConnectionState();
-    return connection.ready ? '' : connection.text;
+    if (!connection.ready) return connection.text;
+    if (preparationEnabled()){
+      var d = preparationDoc();
+      if (DBRoundStart.pending(d)) return DBRoundStart.pending(d);
+      if (!DBRoundStart.bothReady(d)) return 'Both people need to click Ready before starting.';
+    }
+    return '';
   }
   function paintRoundReadiness(){
     var status = $('roundReadiness');
@@ -11239,12 +11222,15 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var initial = state.speechIdx === 0 && state.timerState === 'ready';
     var blocked = roundStartBlock();
     var label = initial && blocked ? blocked : connection.ready && !initial ? '' : connection.text;
+    if (initial && preparationEnabled() && connection.ready && blocked === 'Both people need to click Ready before starting.') label = '';
     status.hidden = !label;
     if (status.textContent !== label) status.textContent = label;
-    ['startConvoBtn','startFormalBtn'].forEach(function(id){ $(id).disabled = !!blocked; });
+    paintModeDoors();
     // The normal renderer owns turn/finish locks. Only add the connection lock.
     var play = $('playPauseBtn');
-    if (initial && !conversationIsFinishing()) play.disabled = !!blocked || (!openMode() && !isMyTurn());
+    if (!conversationIsFinishing()) play.disabled = !!(initial && blocked) || !isMyTurn();
+    if (initial && blocked){ play.textContent = 'Waiting to start'; play.className = 'btn btn-control-locked'; }
+    paintStartInstruction();
     var side = mySide();
     $('roundMobileSide').setAttribute('data-side', side || '');
     $('roundMobileSide').textContent = side ? 'You’re arguing ' + (side === 'pro' ? 'FOR' : 'AGAINST') : 'Your side is being assigned';
@@ -11254,6 +11240,21 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     if (mobileStatus.textContent !== next) mobileStatus.textContent = next;
     mobileStatus.hidden = !next;
     updateOpeningBeat();
+  }
+  function paintStartInstruction(){
+    var el = $('roundStartInstruction');
+    if (!el) return;
+    el.hidden = state.phase !== 'round' || isSpectator() || state.timerState === 'ended';
+    if (el.hidden) return;
+    var who = speakerNameFor(FORMATS[state.formatKey],state.speechIdx) || 'Your opponent';
+    if (state.timerState === 'running') el.textContent = openMode()
+      ? 'Conversation started. Both of you can speak. When you are done, ask to finish the round.'
+      : isMyTurn() ? 'Your speech is running. Click End speech when you finish to pass the turn.' : who+' is speaking. Listen and prepare your response.';
+    else if (state.timerState === 'paused') el.textContent = 'The clock is paused. Click Resume before continuing.';
+    else el.innerHTML = openMode()
+      ? '<strong>3. Press Start conversation before debating.</strong> You can chat already, but Ready does not start the transcript. Either person can start once both are ready.'
+      : isMyTurn() ? '<strong>'+ (state.speechIdx === 0 ? '3. ' : '')+'Click Start my speech before you speak.</strong> Wait for the timer to move. Then make your point. The judge needs the transcript.'
+      : '<strong>'+escHtml(who)+(state.speechIdx ? ' starts this speech.' : ' speaks first.')+'</strong> They must click Start my speech. Listen, then start your own turn when the button appears.';
   }
   var roundMicTestUntil = 0, roundMicHeard = false;
   $('roundTestMic').addEventListener('click', function(){
@@ -15772,115 +15773,8 @@ window.DBLiveDraft.attach({
       try { renderContext(d); } catch(e){}
     };
 
-    // ── Both-ready beat ──────────────────────────────────────────────
-    // 2026-09-02, measured. Since the 08-27 start-cue work, 48% of
-    // two-seat rounds get past speech 0, up from 28%. Of the 36 that
-    // still do not, 30 had FINISHED the motion draft: they struck
-    // motions, agreed one, took sides, and then nobody pressed anything.
-    // Fifteen of those had both people genuinely in the room for three
-    // minutes or more. (The other 21 had under three minutes of real
-    // overlap, which is an arrival problem this beat does not touch.)
-    // A pending recording-consent ask was tested as the cause and ruled
-    // out: it was slightly MORE common among the rounds that started.
-    //
-    // What those rooms are missing is a shared moment. The draft ends,
-    // the sides land, and the room goes quiet with one person holding a
-    // button the other cannot see. So both debaters say they are there,
-    // once, and the beat then names who opens. Same shape as the queue
-    // ready-check from 08-11, one screen later.
-    //
-    // It NEVER gates the start button. A beat that could stall is a
-    // worse version of the bug it is here to fix, so a debater whose
-    // opponent never taps can still open the round, and this is a
-    // sentence rather than a door.
-    //
-    // No Firestore rule was added, following the contextPicks precedent
-    // from 08-24: this is cooperative pre-round setup with nothing to
-    // gain by forging it. Marking your opponent ready hands you nothing
-    // you did not already have, since you still have to press start
-    // yourself. Each writer touches only its own key by dot path.
-    function markReady(){
-      var uid = myUid(); if (!uid || isSpectator()) return;
-      var ref = getRoundDocRef(); if (!ref) return;
-      var upd = {}; upd['readyChecks.' + uid] = Date.now();
-      ref.update(upd).catch(function(){});
-      try { gtag('event', 'live_ready_mark', { format: state.formatKey }); } catch(e){}
-    }
-    // 2026-09-04, the founder: "Kill both" (the I-am-ready strip and the
-    // prep card). Presence is already proven by the seat heartbeat that
-    // every listing and /api/watch-live read; the strip was a second
-    // button before the only button that matters. markReady and the
-    // readyChecks field stay so an older client's marks still land.
-    var READY_BEAT_ON = false;
-    function renderReady(d){
-      var el = document.getElementById('readyBeat');
-      if (!el) return;
-      function off(){ el.hidden = true; el.innerHTML = ''; }
-      if (!READY_BEAT_ON) return off();
-      // Only before the first speech of a live round, and only for the
-      // two people who can actually speak in it.
-      if (state.phase !== 'round' || state.speechIdx > 0) return off();
-      if (state.timerState !== 'ready') return off();
-      if (isSpectator()) return off();
-      var uid = myUid(); if (!uid) return off();
-      var seats = seatUids();
-      if (seats.length < 2 || seats.indexOf(uid) < 0) return off();
-      // Solo / hotseat rounds put the same uid on both benches, and 2v2
-      // partners are not in seatUids at all, so both fall out here. There
-      // is no second person to be ready in the first case and four people
-      // to agree in the second, which is a different beat.
-      if (seats[0] === seats[1]) return off();
-      // While the draft is still running the room has a beat already and
-      // striking is its own proof of presence; this one waits its turn.
-      var draft = d && d.draft;
-      if (draft && draft.phase && draft.phase !== 'done') return off();
-
-      var marks = (d && d.readyChecks) || {};
-      var other = seats.filter(function(u){ return u !== uid; })[0];
-      var mine = !!marks[uid];
-      var theirs = !!(other && marks[other]);
-      var them = other ? nameForUid(other) : 'your opponent';
-      var opensName = isMyTurn() ? 'You' : them;
-
-      paintReadyBeat(mine && theirs ? 'set' : mine ? 'waiting' : theirs ? 'ask-theirs' : 'ask',
-        them, isMyTurn());
-    }
-    // The four states, in one place, so the design scenes below and the
-    // live round can never drift into showing different copy.
-    function paintReadyBeat(kind, them, opensIsMe){
-      var el = document.getElementById('readyBeat');
-      if (!el) return;
-      if (!READY_BEAT_ON){ el.hidden = true; el.innerHTML = ''; return; }
-      var name = escHtml(them || 'your opponent');
-      el.hidden = false;
-      if (kind === 'set'){
-        el.className = 'ready-beat is-set';
-        el.innerHTML = '<span class="rb-dot" aria-hidden="true"></span>' +
-          '<span class="rb-text"><strong>Both ready.</strong> ' +
-          (opensIsMe ? 'You open, whenever you want.' : name + ' opens.') + '</span>';
-        return;
-      }
-      el.className = 'ready-beat';
-      if (kind === 'waiting'){
-        el.innerHTML = '<span class="rb-dot is-wait" aria-hidden="true"></span>' +
-          '<span class="rb-text">You are ready. Waiting on ' + name + '.</span>';
-        return;
-      }
-      var lead = kind === 'ask-theirs' ? '<strong>' + name + ' is ready.</strong> ' : '';
-      el.innerHTML = '<span class="rb-dot' + (kind === 'ask-theirs' ? ' is-them' : '') + '" aria-hidden="true"></span>' +
-        '<span class="rb-text">' + lead + 'Say you are here so ' + name + ' knows.</span>' +
-        '<button type="button" class="rb-go" data-ready-go>I am ready</button>';
-    }
-    window.__lrPaintReadyBeat = paintReadyBeat;
-    document.addEventListener('click', function(e){
-      var b = e.target && e.target.closest && e.target.closest('[data-ready-go]');
-      if (b) markReady();
-    });
-    window.__lrRenderReady = function(d){ try { renderReady(d); } catch(e){} };
-    // The beat also depends on local state the snapshot does not carry
-    // (whose turn it is, whether the clock has started), so repaint it on
-    // every timer transition against the last snapshot we held.
-    window.__lrRepaintReady = function(){ try { renderReady(state.lastRoundDoc || {}); } catch(e){} };
+    window.__lrRenderReady = function(){ paintModeDoors(); paintRoundReadiness(); };
+    window.__lrRepaintReady = window.__lrRenderReady;
 
     // ── Switching sides takes both debaters too ──────────────────────
     // 2026-08-24 (the founder): let people trade sides when they get in
@@ -19736,6 +19630,7 @@ window.DBLiveDraft.attach({
     if (!state.isDuo && !roundConnectionState().ready) return '';
     // A running prep clock is a deliberate not-yet (the start-cue rule).
     if (prepClockRunning()) return '';
+    if (preparationEnabled() && !DBRoundStart.bothReady(preparationDoc())) return '';
     // The motion draft owns the screen until it resolves.
     if (state.draft && state.draft.phase && state.draft.phase !== 'done') return '';
     // Judge picks that differ block the start; the draft card handles it.
@@ -20254,9 +20149,11 @@ window.DBLiveDraft.attach({
         // uid-less so the editor is not classified as a spectator of
         // their own design), so it is painted through the same function
         // the live round paints it with.
-        quiet(function(){
-          window.__lrPaintReadyBeat(scene === 'readyset' ? 'set' : 'ask-theirs', state.conName, true);
-        });
+        var d = preparationDoc(), sig = DBRoundStart.signature(d);
+        d.preRoundReady = {}; d.preRoundReady['design-'+(mySide()==='pro'?'con':'pro')] = sig;
+        if (scene === 'readyset') d.preRoundReady['design-'+mySide()] = sig;
+        state.lastRoundDoc = d;
+        quiet(updatePlayPauseBtn);
         quiet(updateOpeningBeat);
         // Paint the opening beat once, then hold it: the beat is timed
         // (15s hot, 90s late) and a repaint under an edit loses the edit.
@@ -20531,7 +20428,6 @@ window.DBLiveDraft.attach({
     // Both-ready beat. Kept on state so a timer transition (which carries
     // no snapshot) can repaint it without waiting for the next doc write.
     state.lastRoundDoc = d;
-    if (window.__lrRenderReady) { try { window.__lrRenderReady(d); } catch(e){} }
     if (typeof d.background === 'string' && state.background !== d.background){ state.background = d.background; renderBrief(); }
     if (!tournamentControlsLocked() && d.format && state.formatKey !== d.format && FORMATS[d.format]){ state.formatKey = d.format; var fs=$('formatSel'); if (fs) fs.value = d.format; changedSetup = true; }
     if (d.proName && state.proName !== d.proName){ state.proName = d.proName; var pn=$('proName'); if (pn) pn.value = d.proName; changedSetup = true; }
@@ -20669,8 +20565,23 @@ window.DBLiveDraft.attach({
       applyRemoteTimer(d.currentTimer);
     } else if (state.phase === 'round' && openMode() && d.currentTimer && !isSpectator()){
       openAdoptRemoteTimer(d.currentTimer);
+    } else if (state.phase === 'round' && isMyTurn() && state.timerState === 'ready' && d.currentTimer
+        && d.currentTimer.speechIdx === state.speechIdx && ['running','paused'].includes(d.currentTimer.state)){
+      // Reloading the active speaker must restore the saved clock, not
+      // offer a second start against a round that is already underway.
+      applyRemoteTimer(d.currentTimer);
+      if (state.timerState === 'running'){
+        document.body.classList.add('speech-live');
+        foldAidesForSpeech();
+        if (!state.micActive && state.autoMic && state.micSupport && state.micSupport.available) setMicActive(true);
+      }
     }
     if (state.phase === 'round' && openMode()) { try { openAdoptPeer(d); } catch(e){} }
+    var preparationKey = DBRoundStart.signature(d) + JSON.stringify(d.preRoundReady || {}) + DBRoundTiming.started(d);
+    if (state.phase === 'round' && preparationKey !== state.preparationKey){
+      state.preparationKey = preparationKey;
+      updatePlayPauseBtn();
+    }
 
     // Off-side live-transcript mirroring. The active speaker debounce-
     // publishes their textarea contents; we paint it into our disabled

@@ -161,12 +161,13 @@ let modesPainted=0;
 const controls={paintRoundReadiness(){},paintRoundPlan(){},paintModeDoors(){modesPainted++;},updatePlayPauseBtnCore(){return;},updateRoundFocus(){}};
 vm.createContext(controls);vm.runInContext(helper('updatePlayPauseBtn','  function updatePlayPauseBtnCore'),controls);controls.updatePlayPauseBtn();
 assert.equal(modesPainted,1,'the waiting speaker still gets the initial mode choices');
-const modes={state:{phase:'round',speechIdx:0,timerState:'ready'},openMode:()=>false,
+const modes={state:{phase:'round',formatKey:'quick',speechIdx:0,timerState:'ready'},
+  DBRoundTiming:{started:()=>false},preparationDoc:()=>({}),
   isSpectator:()=>false,mySide:()=> 'pro',tournamentControlsLocked:()=>false};
 vm.createContext(modes);vm.runInContext(helper('modeDoorsVisible','  function paintModeDoors('),modes);
-assert.equal(modes.modeDoorsVisible(),false,'timed rounds use the original current-speaker controls');
-modes.openMode=()=>true;
-assert.equal(modes.modeDoorsVisible(),true,'explicit conversation rooms retain their start choices');
+assert.equal(modes.modeDoorsVisible(),true,'timed rooms also let both people choose their mode before starting');
+modes.state.formatKey='open';
+assert.equal(modes.modeDoorsVisible(),true,'conversation rooms retain both mode choices');
 modes.state.timerState='running';
 assert.equal(modes.modeDoorsVisible(),false,'running conversations cannot switch modes');
 console.log('Conversation finish: consent, concurrent requests, expiry, disconnect, durable tails, retry, reconnect, capture timeout and turn ownership passed.');
