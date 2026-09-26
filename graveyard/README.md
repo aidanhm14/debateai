@@ -31,6 +31,8 @@ the newer layout adjusted around it.
 
 ## Index
 
+- [2026-09-26: homepage debate types](2026-09-26-homepage-debate-types.md): the four training cards removed from the landing page.
+
 - [2026-09-24: live-resolution curation](2026-09-24-live-resolution-curation.md): 14 casual-pool replacements based on checked removals and the requested editorial direction.
 
 - [2026-09-24: homepage constellation](2026-09-24-homepage-constellation.md): the animated page backdrop, retired in the homepage typography and button-shape pass.

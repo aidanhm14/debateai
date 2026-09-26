@@ -19,8 +19,8 @@ for (const width of [390, 1280]) for (const count of [0, 1, 2]) {
       : undefined });
     await page.goto('https://debatable.test/');
     const home = page.locator(width < 720 ? '#mhome' : '#first-screen');
-    await expect(home.getByRole('link', { name: 'Meet someone', exact: true })).toHaveAttribute('href', '/spar');
-    const meetBox = await home.getByRole('link', { name: 'Meet someone', exact: true }).boundingBox();
+    await expect(home.getByRole('link', { name: 'Debate someone', exact: true })).toHaveAttribute('href', '/spar');
+    const meetBox = await home.getByRole('link', { name: 'Debate someone', exact: true }).boundingBox();
     const boardBox = await page.locator('#fsBoard').boundingBox();
     // The original action stays compact: no oversized SVG can stretch it.
     expect(meetBox.height).toBeLessThan(width < 720 ? 220 : 120);

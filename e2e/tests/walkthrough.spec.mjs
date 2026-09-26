@@ -8,9 +8,6 @@ for (const width of [390,834,1180]) test(`walkthrough layouts at ${width}px`, as
   const f=await offlineSite(page,{api:u=>u.pathname==='/api/judge/charter'?{json:charterDoc(Date.now())}:undefined});
   await page.goto('https://debatable.test/');
   const toggle=page.locator('#landing-more-toggle');if(await toggle.isVisible())await toggle.click();
-  await page.locator('#debate-types').scrollIntoViewIfNeeded();
-  const colors=await page.locator('.dt-card').evaluateAll(nodes=>nodes.map(n=>getComputedStyle(n).backgroundColor));
-  expect(new Set(colors).size).toBe(4);await expect(page.locator('.dt-card img')).toHaveCount(0);
   await page.locator('#faq').scrollIntoViewIfNeeded();await expect(page.locator('.faq-stack-row[open] .faq-answer-image')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   await page.goto('https://debatable.test/judge-integrity');
