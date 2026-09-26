@@ -258,7 +258,7 @@ function topNav() {
     <a href="/debate">Dossiers</a>
   </div>
   <div class="g">
-    <a class="cta" href="/practice">Start a round <span aria-hidden="true">&rarr;</span></a>
+    <a class="cta" href="/newvoice">Start a round <span aria-hidden="true">&rarr;</span></a>
   </div>
 </nav>`;
 }
@@ -313,7 +313,7 @@ ${bodyInner}
        26 motion pages. Same internal-link rebalance as the dossier and
        guide families: that page carried the whole "debate ai" query
        family on 13 inbound links. -->
-  <span><a href="/motions">All motions</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/topics/">Format guides</a> &middot; <a href="/debate-an-ai">Debate an AI</a> &middot; <a href="/practice">Practice</a></span>
+  <span><a href="/motions">All motions</a> &middot; <a href="/learn">Learn</a> &middot; <a href="/topics/">Format guides</a> &middot; <a href="/newvoice">Debate an AI</a> &middot; <a href="/practice">Practice</a></span>
 </footer>
 </main>
 </body></html>`;
@@ -370,7 +370,6 @@ function renderMotionPage(m) {
     <p class="ps">Live voice round against an AI opponent, then a judge ballot.</p>
     <a class="btn btn-pro" href="${trainerHref(m, 'gov')}" rel="nofollow">Take ${esc(propLabel)} <span class="arr">&rarr;</span></a>
     <a class="btn btn-con" href="${trainerHref(m, 'opp')}" rel="nofollow">Take ${esc(oppLabel)} <span class="arr">&rarr;</span></a>
-    <a class="btn btn-ghost" href="/practice?motion=${encodeURIComponent(m.motion)}" rel="nofollow">Typed mode <span class="arr">&rarr;</span></a>
     <p class="fine">No card. Sign in to keep your record.</p>
   </aside>
 </section>
@@ -482,7 +481,7 @@ function renderHubPage() {
 <span class="stamp"><span class="dot"></span> Motion library</span>
 <h1 class="hub-h1">Every motion, both sides.</h1>
 <p class="hub-intro">Real motions in the phrasing tournaments actually use. Each one carries what the motion is asking, the case on both sides with claim, warrant, and impact, the clash the round turns on, and the mistakes that lose it. Then you run it against an AI opponent and get a ballot.</p>
-<p class="hub-intro">Looking for issue explainers instead of tournament motions? Those live at <a href="/debate">the dossiers</a>. Format rules and structure live under <a href="/learn">Learn</a>. Want a round on one of these right now? <a href="/debate-an-ai">Debate an AI</a> takes the other side on demand.</p>
+<p class="hub-intro">Looking for issue explainers instead of tournament motions? Those live at <a href="/debate">the dossiers</a>. Format rules and structure live under <a href="/learn">Learn</a>. Want a round on one of these right now? <a href="/newvoice">Debate an AI</a> takes the other side on demand.</p>
 ${groups}
 `;
 

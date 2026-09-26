@@ -37,7 +37,7 @@ function notFoundResponse(request) {
 </head><body>
 <h1>That round isn't here</h1>
 <p>The round at <code>/r/${safeId}</code> was either removed or never existed.</p>
-<a href="/practice">Start a new round →</a>
+<a href="/newvoice">Start a new round →</a>
 </body></html>`;
   return new Response(body, {
     status: 404,
@@ -266,12 +266,12 @@ export function renderPage(id, doc) {
   <div class="cta-card">
     <h3>Try this motion yourself.</h3>
     <p>Same motion. Pick your side. Three minutes per speech. The AI debates back. Judge tells you what landed.</p>
-    <a class="cta-button" href="/practice?motion=${motionEncoded}" rel="nofollow">Argue this motion →</a>
+    <a class="cta-button" href="/newvoice?motion=${motionEncoded}" rel="nofollow">Argue this motion →</a>
   </div>
 
   <footer>
     <span>© 2026 Debatable</span>
-    <span><a href="/">Home</a> · <a href="/practice">New round</a> · <a href="/champions">Champions</a> · <a href="/community#rounds">Browse rounds</a></span>
+    <span><a href="/">Home</a> · <a href="/newvoice">New round</a> · <a href="/champions">Champions</a> · <a href="/community#rounds">Browse rounds</a></span>
   </footer>
 </main>
 </body></html>`;
@@ -546,13 +546,13 @@ export function renderAsyncPage(id, d) {
     <p>The recorded speeches, the ballot, and the crowd vote live on the round page. Or take the motion yourself; the AI argues back.</p>
     <div class="cta-row">
       <a class="cta-button" href="${roundHref}">Listen to this round →</a>
-      <a class="cta-button cta-button--ghost" href="/practice?motion=${motionEncoded}" rel="nofollow">Argue this motion →</a>
+      <a class="cta-button cta-button--ghost" href="/newvoice?motion=${motionEncoded}" rel="nofollow">Argue this motion →</a>
     </div>
   </div>
 
   <footer>
     <span>© 2026 Debatable</span>
-    <span><a href="/">Home</a> · <a href="/rounds">Browse rounds</a> · <a href="/practice">New round</a> · <a href="/champions">Champions</a></span>
+    <span><a href="/">Home</a> · <a href="/rounds">Browse rounds</a> · <a href="/newvoice">New round</a> · <a href="/champions">Champions</a></span>
   </footer>
 </main>
 </body></html>`;

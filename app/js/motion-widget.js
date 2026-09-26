@@ -82,7 +82,7 @@
       var selected = chooseMotion();
       motion.textContent = selected.motion;
       clash.textContent = 'Core clash: ' + selected.clash;
-      debate.href = 'https://itsdebatable.com/practice?format=quick&motion=' + encodeURIComponent(selected.motion) + '&utm_source=motion_widget&utm_medium=embed';
+      debate.href = 'https://itsdebatable.com/newvoice?motion=' + encodeURIComponent(selected.motion) + '&utm_source=motion_widget&utm_medium=embed';
     }
 
     refresh.addEventListener('click', draw);

@@ -39,7 +39,7 @@ function buildHtml({ uid, firstName, motion, side, format, rfdSnippet, nextMotio
   const motionEsc = esc(motion || 'your first motion');
   const nextEsc = esc(nextMotion);
   const rfdEsc = esc((rfdSnippet || '').slice(0, 600));
-  const tryHref = SITE_URL + '/practice?motion=' + encodeURIComponent(nextMotion);
+  const tryHref = SITE_URL + '/newvoice?motion=' + encodeURIComponent(nextMotion);
 
   return `<!doctype html><html><body style="margin:0;padding:0;background:#fafaf7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a1a1f">
 <div style="max-width:560px;margin:0 auto;padding:32px 24px">

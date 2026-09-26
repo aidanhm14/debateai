@@ -101,12 +101,15 @@ ok('no command output contains an em-dash', () => {
   }
 });
 
-ok('/motion honours the format option', () => {
+ok('/motion links to the active AI round with its topic intact', () => {
   const out = COMMANDS.motion({
     id: '1234567890123456789',
     data: { name: 'motion', options: [{ name: 'format', value: 'ld' }] },
   });
-  assert.ok(out.data.content.includes('itsdebatable.com/practice'), 'no debate link');
+  const link = out.data.content.match(/https:\/\/itsdebatable\.com\/newvoice\?[^\s)>]+/);
+  assert.ok(link, 'no AI debate link');
+  const motion = new URL(link[0]).searchParams.get('motion');
+  assert.ok(motion && out.data.content.includes(motion), 'linked topic differs from the suggested motion');
 });
 
 ok('/motion survives an unknown format instead of erroring', () => {

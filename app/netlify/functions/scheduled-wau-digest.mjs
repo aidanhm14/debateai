@@ -132,7 +132,7 @@ function buildHtml({ uid, firstName, roundsThisWeek, roundsLastWeek, avgScore, t
         ${topCase.verdict ? `Judge's read: "${esc(topCase.verdict.slice(0, 120))}"` : ''}
        </p>`
     : '';
-  const nextHref = `${SITE_URL}/practice?motion=${encodeURIComponent(nextMotion)}`;
+  const nextHref = `${SITE_URL}/newvoice?motion=${encodeURIComponent(nextMotion)}`;
 
   return `<!doctype html><html><body style="margin:0;padding:0;background:#fafaf7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a1a1f">
 <div style="max-width:540px;margin:0 auto;padding:32px 24px">

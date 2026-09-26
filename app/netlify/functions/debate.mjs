@@ -41,7 +41,7 @@ function trainerHref(motion, side) {
   if (motion.subtitle) bgParts.push(motion.subtitle);
   if (motion.clash && motion.clash.question) bgParts.push(`The round turns on this: ${motion.clash.question}`);
   const bg = bgParts.length ? `&background=${encodeURIComponent(bgParts.join(' '))}` : '';
-  return `/practice?motion=${m}${s}${bg}&handoff=dossier`;
+  return `/newvoice?motion=${m}${s}${bg}&handoff=dossier`;
 }
 
 function extractFromUrl(url) {

@@ -104,7 +104,7 @@ function pick(arr, seed) {
 }
 
 function debateLink(motion) {
-  return `${SITE}/practice?motion=${encodeURIComponent(motion)}`;
+  return `${SITE}/newvoice?motion=${encodeURIComponent(motion)}`;
 }
 
 // ── Commands ──────────────────────────────────────────────────────────

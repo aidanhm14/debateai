@@ -136,7 +136,7 @@ function fmtFor(format) {
 // Calm, founder-voice, no em-dashes, no streak/gamify nudge. The hook is
 // "your format is still here and your past rounds are saved," not guilt.
 function buildHtml({ uid, firstName, label, motion, lastMotion }) {
-  const runHref = `${SITE_URL}/practice?motion=${encodeURIComponent(motion)}`;
+  const runHref = `${SITE_URL}/newvoice?motion=${encodeURIComponent(motion)}`;
   const profileHref = `${SITE_URL}/profile`;
   const greeting = firstName ? `Hey ${esc(firstName)},` : 'Hey,';
   return `<!doctype html><html><body style="margin:0;padding:0;background:#fafaf7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#1a1a1f">

@@ -9,6 +9,7 @@
 // the topic is sanitized so nothing but the topic can ride in it; and the
 // client and server sanitizers are the same function.
 import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 import { sanitizeTopic, openingInstruction, openingScript, TOPIC_MAX } from '../app/netlify/functions/lib/topic-isolation.mjs';
 
 const page = readFileSync(new URL('../app/newvoice.html', import.meta.url), 'utf8');
@@ -112,16 +113,33 @@ check('the clash prompt marks everything else as private setup',
 check('the clash prompt says the client reads the claim, not the model',
   realtime.includes('The client opens the round by reading the claim word for word'));
 check('the old opener wording is gone from the prompt', !/by reading the topic and asking/.test(realtime));
-check('three obvious choices are on the page',
-  page.includes('<b>Casual back-and-forth</b>') && page.includes('<b>Conversation</b>') && page.includes('<b>Timed round</b>'));
-// 2026-09-07: competitive formats are retired from public copy (casual
-// 1v1 only), so the third chip is a plain "Timed round" and the guard now
-// asserts the format list stays gone while the route is unchanged.
-check('timed round routes to /practice without naming formats',
-  // 2026-09-07, Aidan: 1v1 only. The chip hands off to `quick`, the typed
-  // page's default one-on-one structure; apda is hidden from every picker.
-  page.includes('href="/practice?entry=competitive&amp;format=quick&amp;handoff=newvoice"') &&
-  !/APDA, BP, Asian Parliamentary, Worlds, Karl Popper, PF, LD, Policy, and Congress/.test(page));
+check('both supported voice choices are on the page',
+  page.includes('<b>Casual back-and-forth</b>') && page.includes('<b>Conversation</b>'));
+check('retired timed and typed rounds are not offered',
+  !page.includes('data-path="competitive"') && !page.includes('<b>Timed round</b>') &&
+  !/typed (round|sparring)/i.test(page));
+const practiceGuide = readFileSync(new URL('../app/practice-debate.html', import.meta.url), 'utf8');
+const legacyDoor = practiceGuide.match(/<script>([\s\S]*?)<\/script>/)[1];
+for (const search of ['', '?utm_source=search', '?motion=Schools+should+start+later.&side=opp', '?entry=competitive&format=quick&handoff=newvoice', '?now=1']) {
+  let destination = '';
+  runInNewContext(legacyDoor, { URLSearchParams, location: { search, replace: url => { destination = url; } } });
+  const isRound = /motion=|entry=|now=/.test(search);
+  check('practice guide distinguishes round intent: ' + search, isRound ? destination.startsWith('/newvoice') : destination === '');
+  if (search.includes('motion=')) {
+    const query = new URL(destination, 'https://itsdebatable.com').searchParams;
+    check('legacy link preserves its topic and side', query.get('motion') === 'Schools should start later.' && query.get('side') === 'opp');
+  }
+}
+const queuePage = readFileSync(new URL('../app/spar.html', import.meta.url), 'utf8');
+const draftHandoff = queuePage.slice(queuePage.indexOf('  function goToPractice('), queuePage.indexOf('  function aiFaceHtml('));
+for (const side of ['pro', 'con']) {
+  const location = {};
+  runInNewContext(draftHandoff + "goToPractice('Schools should start later.', chosenSide);", {
+    URLSearchParams, location, chosenSide: side, document: { body: { classList: { remove() {} } } }
+  });
+  const target = new URL(location.href, 'https://itsdebatable.com');
+  check('queue draft hands the chosen ' + side + ' side to voice', target.pathname === '/newvoice' && target.searchParams.get('motion') === 'Schools should start later.' && target.searchParams.get('side') === (side === 'pro' ? 'for' : 'against'));
+}
 check('speed is settable before the round', page.includes('id="paceSeg"'));
 check('speed is settable during the round without resending session config',
   page.includes("$('paceBtn').addEventListener('click'") &&

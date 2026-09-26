@@ -227,8 +227,8 @@ function renderPage(date, dateStr, motion, recentRounds, dailyBoard) {
   // CTA appends ?dm=<date> so the debate-ai save flow can credit the
   // streak when the round completes. Off-today archive links don't.
   const ctaHref = isToday
-    ? `/practice?motion=${motionEncoded}&dm=${dateStr}`
-    : `/practice?motion=${motionEncoded}`;
+    ? `/newvoice?motion=${motionEncoded}&dm=${dateStr}`
+    : `/newvoice?motion=${motionEncoded}`;
 
   const ldArticle = {
     '@context': 'https://schema.org',
@@ -424,7 +424,7 @@ function renderPage(date, dateStr, motion, recentRounds, dailyBoard) {
 
   <footer>
     <span>© 2026 Debatable</span>
-    <span><a href="/">Home</a> · <a href="/practice">New round</a> · <a href="/champions">Champions</a> · <a href="/learn">Learn</a></span>
+    <span><a href="/">Home</a> · <a href="/newvoice">New round</a> · <a href="/champions">Champions</a> · <a href="/learn">Learn</a></span>
   </footer>
 </main>
 ${isToday ? `<script>

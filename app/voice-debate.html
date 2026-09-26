@@ -1472,20 +1472,7 @@ html[data-theme="light"] .rfd-handoff__sub{color:rgba(26,26,31,.64)}
   border-color:rgba(88,101,242,.48);
   color:#c7d2fe;
 }
-/* Cross-surface handoff: voice → typed. Violet to distinguish from
-   /today (blue) and Discord (indigo); reads as "alternative path"
-   without competing with the brand crimson. The outbound side is in
-   app/debate-it.html feedback retention row. */
-.retention-pill--typed{
-  background:rgba(167,139,250,.10);
-  border:1px solid rgba(167,139,250,.32);
-  color:#c4b5fd;
-}
-.retention-pill--typed:hover{
-  background:rgba(167,139,250,.18);
-  border-color:rgba(167,139,250,.48);
-  color:#ddd6fe;
-}
+
 
 /* ── Personalities (gamified character picker) ───── */
 .persona-grid{
@@ -3203,7 +3190,7 @@ html[data-theme="light"] .live-speaker{color:#1a1a1f}
       For framed the round on stable foreign investment. Against's three responses did not fully explain why the risk was larger than For's benefit. The decisive clash was disruption probability, where For gave a clear chain of reasoning and Against never compared it back. To fix: make the comparison earlier and answer the strongest objection directly.
     </blockquote>
 
-    <p style="margin:28px 0 0;font-size:.95rem"><a href="/" style="color:#ef4444;font-weight:600;text-decoration:none;border-bottom:1px solid #ef4444">← Back to Debatable</a> · <a href="/newvoice" style="color:#ef4444;font-weight:600;text-decoration:none;border-bottom:1px solid #ef4444">Typed round</a> · <a href="/pricing" style="color:#ef4444;font-weight:600;text-decoration:none;border-bottom:1px solid #ef4444">Pricing</a></p>
+    <p style="margin:28px 0 0;font-size:.95rem"><a href="/" style="color:#ef4444;font-weight:600;text-decoration:none;border-bottom:1px solid #ef4444">← Back to Debatable</a> · <a href="/newvoice" style="color:#ef4444;font-weight:600;text-decoration:none;border-bottom:1px solid #ef4444">AI voice setup</a> · <a href="/pricing" style="color:#ef4444;font-weight:600;text-decoration:none;border-bottom:1px solid #ef4444">Pricing</a></p>
   </main>
 </div>
 
@@ -5115,7 +5102,7 @@ function App() {
   var endConfirmTimerRef = useRef(null);
   var [error, setError] = useState('');
   // 'quota' = OpenAI account is at billing limit; renderer surfaces a
-  // typed-mode CTA. '' = generic error, dump as-is.
+  // live-human alternative. '' = generic error, dump as-is.
   var [errorKind, setErrorKind] = useState('');
 
   // Live state
@@ -6516,10 +6503,10 @@ function App() {
         // forwarded as body.openai (realtime-session.mjs L605-615 maps
         // OpenAI's {"error":{"message":"You exceeded your current quota..."}}
         // into 502 + body.openai). Tag .kind so the renderer surfaces
-        // the typed-mode fallback CTA.
+        // the live-human alternative.
         var upstreamMsg = body.openai || raw;
         if (/exceeded your current quota|insufficient_quota|billing/i.test(upstreamMsg || '')) {
-          var _e = new Error('Voice is at capacity right now. Typed rounds still work.');
+          var _e = new Error('Voice is at capacity right now. Please try again in a few minutes.');
           _e.kind = 'quota';
           throw _e;
         }
@@ -7086,13 +7073,13 @@ Do NOT launch your own contention or argument yet. Do NOT say "Absolutely", "Let
         var detail = await sdpRes.text().catch(() => '');
         // OpenAI account is at quota (different from our per-IP rate limit
         // which 429s on the mint endpoint). Tag the error so the renderer
-        // can surface the typed-mode fallback CTA instead of dumping raw
+        // can surface the live-human alternative instead of dumping raw
         // JSON onto the page. Common 429 body shape:
         //   {"error":{"message":"You exceeded your current quota..."}}
         var isQuota = sdpRes.status === 429 ||
         /exceeded your current quota|insufficient_quota|billing/i.test(detail);
         if (isQuota) {
-          var _e2 = new Error('Voice is at capacity right now. Typed rounds still work.');
+          var _e2 = new Error('Voice is at capacity right now. Please try again in a few minutes.');
           _e2.kind = 'quota';
           throw _e2;
         }
@@ -9131,22 +9118,13 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   error && errorKind !== 'upgrade' && errorKind !== 'sign-in' && (errorKind === 'quota' ?
   el('div', { className: 'notice error', style: { display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' } },
   el('div', { style: { fontWeight: 700 } }, error),
-  // /app#casual drops into the lightweight casual chat (one
-  // motion, AI rebuts inline, no setup wizard) — much lower
-  // friction than /debate-it's full round flow when the
-  // user is bouncing off a voice quota error and just wants
-  // to keep arguing in text.
   el('a', {
-    href: '/practice',
+    href: '/spar',
     className: 'cta',
     style: { alignSelf: 'stretch', textAlign: 'center', textDecoration: 'none', padding: '10px 18px' }
-  }, 'Switch to typed chat →')
+  }, 'Debate a person live →')
   ) :
-  // Generic (non-quota) connect failures — handshake, network, SDP,
-  // mic. This path used to be a dead end: print the error, no way
-  // out. A failed voice connect is a guaranteed 0% round, so always
-  // offer the typed-mode escape hatch + a retry. Pure funnel-recovery
-  // upside; the user who bounced off WebRTC can still complete a round.
+  // Keep retry and a clearly labelled live-human alternative available.
   el('div', { className: 'notice error', style: { display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' } },
   el('div', { style: { fontWeight: 700 } }, error),
   el('div', { style: { display: 'flex', gap: '8px', alignSelf: 'stretch', flexWrap: 'wrap' } },
@@ -9155,9 +9133,9 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
     style: { flex: '1 1 140px', textAlign: 'center', padding: '10px 18px' }
   }, errorKind === 'recovery' ? 'Resume round' : 'Try again'),
   el('a', {
-    href: '/practice', className: 'cta',
+    href: '/spar', className: 'cta',
     style: { flex: '1 1 140px', textAlign: 'center', textDecoration: 'none', padding: '10px 18px', background: 'transparent', border: '1px solid var(--border-strong, rgba(255,255,255,.2))' }
-  }, 'Switch to typed chat →')
+  }, 'Debate a person live →')
   )
   )),
 
@@ -9192,8 +9170,8 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
       node.dataset.mounted = '1';
     }
   }),
-  el('a', { href: '/newvoice', className: 'vg-fallback', style: { opacity: .55, fontSize: '.74rem', marginTop: 10 } }, 'Or try the short voice preview first →'),
-  el('a', { href: '/practice', className: 'vg-fallback', style: { opacity: .55, fontSize: '.74rem', marginTop: 6 } }, 'Or use typed practice instead →')
+  el('a', { href: '/newvoice', className: 'vg-fallback', style: { opacity: .55, fontSize: '.74rem', marginTop: 10 } }, 'Or open AI voice setup →'),
+  el('a', { href: '/spar', className: 'vg-fallback', style: { opacity: .55, fontSize: '.74rem', marginTop: 6 } }, 'Or debate a person live →')
   ) :
   voiceGate.state === 'upgrade' ? el('div', { className: 'voice-gate' },
   el('div', { className: 'vg-eyebrow' }, voiceGate.period === 'month' ? 'This month\'s voice minutes used' : 'Free voice minutes used'),
@@ -9204,8 +9182,8 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   // the thing that just stopped.
   el('p', { className: 'vg-body' },
   voiceGate.period === 'month' ?
-  'You have used this month\'s ' + (voiceGate.limit || 120) + ' minutes of live voice. They refill on the 1st, or tokens top you up now. Typed practice stays open either way.' :
-  'Your ' + (voiceGate.limit || FREE_VOICE_LIMIT) + ' free voice minutes are used. Voice is $12 a month for two hours of live rounds a month; it costs real money to run, which is why the free tier is small. Typed practice stays open either way.'
+  'You have used this month\'s ' + (voiceGate.limit || 120) + ' minutes of live voice. They refill on the 1st, or tokens top you up now.' :
+  'Your ' + (voiceGate.limit || FREE_VOICE_LIMIT) + ' free voice minutes are used. Voice is $12 a month for two hours of live rounds a month; it costs real money to run, which is why the free tier is small.'
   ),
   el('a', {
     href: '/pricing#plans', className: 'cta vg-cta',
@@ -9218,7 +9196,7 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   // all-or-nothing (2026-09-01, the founder, on promoting paying at
   // the point of use).
   el('a', { href: '/voice-tokens', className: 'vg-fallback', style: { opacity: .85 }, onClick: function (e) {directCheckout(e, 'tokens');} }, 'or pay as you go · Tokens $4.99/mo →'),
-  el('a', { href: '/practice', className: 'vg-fallback' }, 'or keep going in typed practice →')
+  el('a', { href: '/spar', className: 'vg-fallback' }, 'or debate a person live →')
   ) :
   el(React.Fragment, null,
   el('button', {
@@ -10040,24 +10018,8 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
       target: '_blank',
       rel: 'noopener noreferrer',
       className: 'retention-pill retention-pill--discord'
-    }, 'Find someone to argue with on Discord →'),
-    // Cross-surface handoff. Same motion, typed flow. Same idea as the
-    // typed-side "Voice round on this motion" pill: users learn which
-    // surface they prefer by trying both, this pill makes the second
-    // try a 1-click move. Default format=quick (2026-09-07: the typed
-    // page only offers one-on-one structures, and apda is hidden) since
-    // voice modes are drill types, not formats — the typed setup screen
-    // lets the user change format if they want something else.
-    el('a', {
-      key: 'typed',
-      href: '/debate-it?motion=' + encodeURIComponent(motion || '') + '&format=quick&handoff=voice',
-      // rel=nofollow: personal cross-surface deep-link for the user
-      // who just finished a round, not a page Googlebot should
-      // discover. Paired with robots.txt Disallow on /debate-it?.
-      rel: 'nofollow',
-      onClick: () => {try {if (typeof gtag === 'function') gtag('event', 'typed_handoff_sent', { from: 'voice-rfd', mode: mode });} catch (_) {}},
-      className: 'retention-pill retention-pill--typed'
-    }, 'See this on the typed flow →')
+    }, 'Find someone to argue with on Discord →')
+
     );
   })(),
 
@@ -10147,15 +10109,8 @@ Tone: direct, plain-language argument feedback. Specific to the actual exchange 
   'Speak directly with the AI and interrupt when you want to respond. This round uses ',
   el('strong', null, negotiatedModel || 'gpt-realtime'),
   '. Higher reasoning settings let it consult other AI models before replying.'
-  ),
-  el('p', { style: { margin: '0 0 10px' } },
-  'The other path lives at ',
-  el('a', { href: '/debate-it' }, '/debate-it'),
-  '. Type your speeches, choose the AI model, and listen to its replies. This mode uses separate turns.'
-  ),
-  el('p', { style: { margin: 0 } },
-  'Use voice for a spoken conversation. Use typed rounds when you want to write and review each response before continuing.'
   )
+
   ),
   nativeApp ?
   el('div', null,

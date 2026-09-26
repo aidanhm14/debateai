@@ -83,7 +83,7 @@ window.addEventListener('load', function(){
     // what they perceived as the "College" page without any Google prompt.
     if (auth.currentUser && !auth.currentUser.isAnonymous) {
       try { window.dosTrack && window.dosTrack('sign_in_already',{source:source||'landing_hero'}) } catch(e){}
-      window.location.href = '/practice';
+      window.location.href = '/newvoice';
       return;
     }
     var t0 = Date.now();
@@ -96,7 +96,7 @@ window.addEventListener('load', function(){
       // /landing.html with force=true (see app/netlify.toml), so /#chat
       // bounces the user back to the page they came from and the sign-in
       // looks broken even though it succeeded.
-      window.location.href = '/practice';
+      window.location.href = '/newvoice';
     }).catch(function(err){
       var code = (err && err.code) || 'unknown';
       var msg = (err && err.message) || '';
@@ -125,7 +125,7 @@ window.addEventListener('load', function(){
         flushInviteOptIn(result.user);
         // /app#chat, not /#chat: the root rewrite (force=true → landing.html)
         // would otherwise dump the user back on the page they signed in from.
-        window.location.href = '/practice';
+        window.location.href = '/newvoice';
       }
     }).catch(function(err){
       var code = (err && err.code) || 'unknown';

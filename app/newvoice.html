@@ -267,7 +267,6 @@ html[data-theme="light"] .stage-floor{background:
 .path-head h2{font:750 22px/1.15 var(--sans);letter-spacing:-.02em}
 .path-head p{margin-top:5px;color:var(--ink-dim);font:12px/1.4 var(--sans)}
 .path-panel .guide-chip{text-decoration:none}
-.path-panel .guide-chip.competitive::after{content:'NOT LIVE AUDIO';color:#fca5a5}
 .guide-head{
   display:flex;align-items:center;justify-content:space-between;gap:18px;
   padding-bottom:18px;border-bottom:1px solid var(--card-line);text-align:left;
@@ -291,7 +290,7 @@ html[data-theme="light"] .stage-floor{background:
 .loadout-meta b{display:block;font:750 14px/1.2 var(--sans);letter-spacing:.01em}
 .loadout-meta p{margin-top:3px;color:var(--ink-dim);font:12px/1.35 var(--sans)}
 .guide-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.guide-intent{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.guide-intent{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .guide-chip{
   appearance:none;position:relative;overflow:hidden;border:1px solid var(--card-line);
   background:linear-gradient(180deg,rgba(10,10,15,.78),rgba(10,10,15,.52));color:var(--ink);
@@ -1132,7 +1131,7 @@ html[data-training] .tune[hidden]{display:none}
     <!-- 1 · How -->
     <div class="wiz-step on" data-step="1">
       <h1 class="wiz-q">How do you want to debate the AI?</h1>
-      <p class="wiz-sub">Choose a spoken conversation or a typed round with timed turns. Both include a score and feedback.</p>
+      <p class="wiz-sub">Choose how the AI talks with you. Both styles use voice and include a score and feedback.</p>
       <div class="path-panel wiz-paths" aria-label="Choose how to debate the AI">
         <div class="guide-intent" id="pathGuide">
         <button class="guide-chip on" type="button" data-path="live" aria-pressed="true">
@@ -1143,10 +1142,6 @@ html[data-training] .tune[hidden]{display:none}
           <span class="guide-art"><span class="guide-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg></span><span class="guide-code">CONVERSATION</span></span>
           <span class="guide-copy"><b>Conversation</b><span>Talk it through slowly. The AI asks one question at a time.</span></span>
         </button>
-        <a class="guide-chip competitive" data-path="competitive" href="/practice?entry=competitive&amp;format=quick&amp;handoff=newvoice">
-          <span class="guide-art"><span class="guide-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><span class="guide-code">TIMED</span></span>
-          <span class="guide-copy"><b>Timed round</b><span>Type your speeches in timed turns, then read the written decision.</span></span>
-        </a>
       </div>
       </div>
       <p class="wiz-hint" id="aiPresenceDetail">It listens, replies, and may interrupt like a real person.</p>
@@ -1707,7 +1702,7 @@ try {
   if (savedSide === 'for' || savedSide === 'against') side = savedSide;
 } catch (e) {}
 const handedSide = (entryQuery.get('side') || '').toLowerCase();
-if (handedSide === 'gov' || handedSide === 'pro' || handedSide === 'for') side = 'for';
+if (handedSide === 'gov' || handedSide === 'prop' || handedSide === 'pro' || handedSide === 'for') side = 'for';
 if (handedSide === 'opp' || handedSide === 'con' || handedSide === 'against') side = 'against';
 let status = 'idle';               // idle | connecting | live | ended
 let pc = null, dc = null, micStream = null, audioEl = null;
@@ -2531,7 +2526,7 @@ async function openPeer(session, onOpen, signal){
     if (!sdpRes.ok) {
       const detail = await sdpRes.text().catch(() => '');
       if (sdpRes.status === 429 || /exceeded your current quota|insufficient_quota|billing/i.test(detail)) {
-        throw new Error('Voice is at capacity right now. Typed sparring still works at /practice.');
+        throw new Error('Voice is at capacity right now. Please try again in a few minutes.');
       }
       throw new Error('Handshake failed (' + sdpRes.status + '). Try again.');
     }
@@ -2655,10 +2650,10 @@ async function start(){
         const err = new Error('cap');
         // Apple 3.1.1: no pricing link inside the native app.
         err.html = window.__DB_NATIVE ?
-          'You\'ve used your free voice minutes for now. Typed sparring is always open at <a href="/newvoice">/practice</a>.' :
+          'You\'ve used your free voice minutes for now. You can <a href="/spar">debate a person live</a>.' :
           (body.period === 'month'
-            ? 'You\'ve used this month\'s voice minutes. They refill on the 1st, <a href="/tokens">tokens top you up now</a>, and typed sparring is always open at <a href="/newvoice">/practice</a>.'
-            : 'You\'ve used your free voice minutes. <a href="/pricing#plans">Voice is $12/mo for two hours a month</a>, and typed sparring is always open at <a href="/newvoice">/practice</a>.');
+            ? 'You\'ve used this month\'s voice minutes. They refill on the 1st, <a href="/voice-tokens">tokens top you up now</a>. You can also <a href="/spar">debate a person live</a>.'
+            : 'You\'ve used your free voice minutes. <a href="/pricing#plans">Voice is $12/mo for two hours a month</a>. You can also <a href="/spar">debate a person live</a>.');
         throw err;
       }
       // Anonymous cap: the server answers 401 SIGN_IN_REQUIRED, and this
@@ -2677,7 +2672,7 @@ async function start(){
       }
       const upstream = body.openai || raw;
       if (/exceeded your current quota|insufficient_quota|billing/i.test(upstream || '')) {
-        throw new Error('Voice is at capacity right now. Typed sparring still works at /practice.');
+        throw new Error('Voice is at capacity right now. Please try again in a few minutes.');
       }
       throw new Error('Could not start: ' + (body.openai || body.error || ('HTTP ' + mintRes.status)));
     }

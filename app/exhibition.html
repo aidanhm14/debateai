@@ -900,6 +900,8 @@ function App() {
 
 
 
+
+
       // Same brain on both sides isn't useful for the disagreement signal,
       // but allow it — user might be testing self-consistency.
     }setStage('running');abortRef.current = false;loggedRoundRef.current = false;var queue = fmt.speeches.map((s) => ({ code: s.code, side: s.side, title: s.title, dur: s.dur, // 4-team: dispatch by the team's brain. 2-side: the side that
@@ -910,9 +912,7 @@ function App() {
         var lastPaint = 0;var text = await callBrain(sp.brainKey, sys, userPrompt, function (partial) {var now = Date.now();if (now - lastPaint < 200) return;lastPaint = now;queue[i].text = partial;setSpeeches([...queue]);});queue[i].text = text;queue[i].status = 'done';transcript += (transcript ? '\n\n' : '') + '[' + sp.code + ' · ' + (fmt.sideLabels[sp.side] || sp.side) + ' · ' + BRAINS[sp.brainKey].name + ']:\n' + text;setSpeeches([...queue]);if (voiceOnRef.current) {speechQueueRef.current.push(i);playQueueTick();}} catch (e) {queue[i].status = 'error';queue[i].error = e.message || 'request failed';setSpeeches([...queue]); // Continue with the remaining speeches — one brain failing
         // shouldn't kill the whole exhibition.
       }};for (var i = 0; i < queue.length; i++) {if (await _loop(i)) break;}setCurrentIdx(-1);setStage('done'); // Best-effort save to localStorage.
-    try {var round = { id: Date.now(), motion, format, brainA, brainB, sideA,
-        teamBrains: fourTeam ? { ...teamBrains } : null,
-        speeches: queue.map((s) => ({ code: s.code, side: s.side, brainKey: s.brainKey, text: s.text, error: s.error })),
+    try {var round = { id: Date.now(), motion, format, brainA, brainB, sideA, teamBrains: fourTeam ? { ...teamBrains } : null, speeches: queue.map((s) => ({ code: s.code, side: s.side, brainKey: s.brainKey, text: s.text, error: s.error })),
         date: new Date().toISOString()
       };
       var list = JSON.parse(localStorage.getItem('debateai-exhibition-rounds') || '[]');
@@ -1071,7 +1071,7 @@ function App() {
   // argue the same motion yourself. Motion is prefilled into the round
   // simulator via ?motion=, with voice + leaderboard as alternates.
   el('div', { style: { marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' } },
-  el('a', { href: '/practice?motion=' + encodeURIComponent(motion), className: 'go-btn', style: { textDecoration: 'none', display: 'inline-block' } }, 'Now argue it yourself →'),
+  el('a', { href: '/newvoice?motion=' + encodeURIComponent(motion), className: 'go-btn', style: { textDecoration: 'none', display: 'inline-block' } }, 'Now argue it yourself →'),
   el('a', { href: '/voice-debate', style: { color: '#c084fc', fontSize: '.84rem', textDecoration: 'none', fontWeight: 700 } }, 'Or out loud, in a voice round'),
   el('a', { href: '/leaderboard', style: { color: 'rgba(255,255,255,.68)', fontSize: '.84rem', textDecoration: 'none' } }, 'See the leaderboard')
   ),
