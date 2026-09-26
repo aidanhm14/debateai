@@ -35,10 +35,21 @@
     if (n === 'NotAllowedError' || n === 'SecurityError' || n === 'PermissionDeniedError') return 'mic_blocked';
     if (n === 'NotReadableError' || n === 'AbortError' || n === 'TrackStartError') return 'mic_busy';
     if (n === 'NotFoundError' || n === 'OverconstrainedError' || n === 'DevicesNotFoundError') return 'mic_missing';
+    if (n === 'NotSupportedError') return 'mic_unsupported';
     return 'mic_failed';
   }
   function micFailCopy(kind){
     var tail = ' The round cannot start until you are in the call. Your opponent can see you are here.';
+    // An app's built-in browser (TikTok, Instagram) has no address bar and
+    // often no microphone for web pages at all, so "allow it beside the
+    // address bar" is an instruction nobody there can follow. The same
+    // account signed in from the phone's browser takes the same seat.
+    var inApp = false;
+    try { inApp = typeof window.__ditIsInAppBrowser === 'function' && window.__ditIsInAppBrowser(); } catch(e){}
+    if (inApp && (kind === 'mic_blocked' || kind === 'mic_failed' || kind === 'mic_unsupported')) {
+      return 'This app\'s browser cannot use your microphone for live rounds. Open this page in Safari or Chrome (the three dots in the top corner) and sign in with the same account to rejoin.' + tail;
+    }
+    if (kind === 'mic_unsupported') return 'This browser cannot use a microphone for live rounds. Open this page in Chrome or Safari to join.' + tail;
     if (kind === 'mic_blocked') return 'Allow microphone access for this site (the camera or lock icon beside the address bar), then rejoin. Camera access is optional.' + tail;
     if (kind === 'mic_busy') return 'Another app or tab is using your microphone. Close it, then rejoin.' + tail;
     if (kind === 'mic_missing') return 'No microphone was found. Plug one in or pick one in your browser settings, then rejoin.' + tail;

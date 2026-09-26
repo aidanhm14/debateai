@@ -68,6 +68,17 @@
     // into two parallel pipelines (two camera captures, two draw loops,
     // and a published track that isn't the one in the self-check tile).
     if (context.camConv.camP) return context.camConv.camP;
+    // Some in-app browsers expose no media API at all. The bare call below
+    // then threw synchronously, which dropped the room onto Daily's own
+    // call screen that this page cannot drive, so the round could never
+    // start. A rejected promise takes the normal microphone-failure path
+    // and its instructions instead.
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function'){
+      var unsupported = new Error('This browser does not give web pages a microphone');
+      unsupported.name = 'NotSupportedError';
+      liveJourney('media_capture_failed', { code: 'NotSupportedError', scope: 'no_media_api' });
+      return Promise.reject(unsupported);
+    }
     // Camera pixels go to the room ONLY in 'camera' (passthrough) mode;
     // in 'avatar' mode they feed the on-device face tracker and nothing
     // else. Camera failure can degrade to audio-only; microphone failure

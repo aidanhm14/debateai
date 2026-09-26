@@ -82,7 +82,10 @@ ok('native spar sign-in cannot bypass the shared terms chooser', () => {
   assert.match(spar, /function doGoogleSignIn\(\)\{\s*[\s\S]{0,500}window\.__DB_NATIVE[\s\S]{0,300}window\.openAuthModal\('signup',\s*\{\s*liveVideo:\s*true\s*\}\)/);
   const emailClick = spar.match(/document\.getElementById\('emailStartBtn'\)\.addEventListener\('click', function\(\)\{([\s\S]*?)\n    \}\);/);
   assert.ok(emailClick, 'live-video email entry must exist');
-  assert.match(emailClick[1], /window\.openAuthModal\('signin', \{ liveVideo: true \}\)/,
+  // 'signup' since 2026-09-26: the email door is for newcomers, and the
+  // shared chooser still flips a returning device to sign-in. Either mode
+  // is the same terms-enforcing chooser, which is what this guards.
+  assert.match(emailClick[1], /window\.openAuthModal\('(?:signin|signup)', \{ liveVideo: true \}\)/,
     'email must use the shared chooser that enforces terms in native and web');
   assert.doesNotMatch(emailClick[1], /signInWithEmailAndPassword|createUserWithEmailAndPassword/,
     'the gate cannot call email authentication directly');

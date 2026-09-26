@@ -4366,10 +4366,18 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (typeof window.__ditIsInAppBrowser === 'function') return !!window.__ditIsInAppBrowser();
     try {
       var ua = navigator.userAgent || '';
-      if (/FBAN|FBAV|FB_IAB|Instagram|Threads|TikTok|musical_ly|Snapchat|LinkedInApp|Line\/|MicroMessenger|Twitter/i.test(ua)) return true;
+      if (/FBAN|FBAV|FB_IAB|Instagram|Threads|TikTok|musical_ly|musically|BytedanceWebview|ByteLocale|trill_|Snapchat|LinkedInApp|Line\/|MicroMessenger|Twitter/i.test(ua)) return true;
+      if (/Android/i.test(ua) && /;\s*wv\)/i.test(ua)) return true;
       if (/iPhone|iPad|iPod/i.test(ua) && !/Safari/i.test(ua) && !/CriOS|FxiOS/i.test(ua)) return true;
     } catch(e){}
     return false;
+  }
+  function realBrowserName(){
+    var ua = navigator.userAgent || '';
+    return /Android/i.test(ua) ? 'Chrome' : /iPhone|iPad|iPod/i.test(ua) ? 'Safari' : 'your browser';
+  }
+  function openInRealBrowser(where){
+    if (typeof window.__ditOpenInBrowser === 'function') window.__ditOpenInBrowser({ where: where });
   }
 
   // Retain old guest history for account-linking copy. New searches require
@@ -4575,7 +4583,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     if (gateLiveViewTracked) return;
     gateLiveViewTracked = true;
     var queueWaiting = Math.max(0, Math.floor(Number(waiting) || 0));
-    try { gtag('event', 'spar_gate_view', { required: 1, reason: 'google_required', queue_waiting: queueWaiting }); } catch(e){}
+    try { gtag('event', 'spar_gate_view', { required: 1, reason: 'google_required', queue_waiting: queueWaiting, inapp: inAppBrowser() ? 1 : 0 }); } catch(e){}
   }
 
   function startGateLiveCount(){
@@ -4593,7 +4601,50 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
 
   // Let a new visitor answer question 3 before the account ask.
   // The rest of the desk stays optional after sign-in while searching.
+  // TikTok, Instagram and the rest open links in their own browser, where
+  // Google refuses to sign anyone in and the microphone may never arrive.
+  // Offer the phone's real browser BEFORE the three questions, so the
+  // answers are given where the round will actually run. Email stays as
+  // a stay-here door for anyone who would rather not switch apps.
+  var INAPP_STAY_KEY = 'da-inapp-stay';
+  function inAppStayChosen(){ try { return sessionStorage.getItem(INAPP_STAY_KEY) === '1'; } catch(e){ return false; } }
+  function renderInAppEscape(){
+    if (document.getElementById('sparInAppCard')) return;
+    // Same clean slate renderGate starts from: no search grid, rail or room.
+    var wrapHost = document.querySelector('.wrap');
+    if (wrapHost) wrapHost.classList.remove('spar-search-layout');
+    document.body.classList.remove('spar-waiting');
+    syncPresenceBackground();
+    var staleRail = document.getElementById('waitRail');
+    if (staleRail) staleRail.remove();
+    var staleRoom = document.getElementById('sparRoom');
+    if (staleRoom) staleRoom.hidden = true;
+    if (state.roomChat && state.roomChat.stop) state.roomChat.stop();
+    var browser = realBrowserName();
+    var app = (typeof window.__ditInAppLabel === 'function' && window.__ditInAppLabel()) || '';
+    var where = app ? app + '\'s browser' : 'This app\'s browser';
+    shell.innerHTML =
+      '<div class="gate-scene"><div class="gate" id="sparInAppCard">' +
+        '<div class="eyebrow"><span class="pip"></span>Debate live · Video</div>' +
+        '<h2>Open this in ' + browser + ' to debate live.</h2>' +
+        '<p>' + where + ' blocks Google sign-in and can block your microphone. In ' + browser + ', both work.</p>' +
+        '<button class="gate-guest" id="inAppOpenBtn" type="button">Open in ' + browser + '</button>' +
+        '<p class="gate-inapp">If nothing opens, tap the three dots in the top corner and choose to open it in your browser. <button type="button" class="gate-copy" id="inAppCopy">Copy link</button></p>' +
+        '<button class="gate-google" id="inAppStayBtn" type="button">Stay here and use email</button>' +
+      '</div></div>';
+    document.getElementById('inAppOpenBtn').addEventListener('click', function(){ openInRealBrowser('spar_entry'); });
+    var copy = document.getElementById('inAppCopy');
+    copy.addEventListener('click', function(){ copyGateLink(copy); });
+    document.getElementById('inAppStayBtn').addEventListener('click', function(){
+      try { sessionStorage.setItem(INAPP_STAY_KEY, '1'); } catch(e){}
+      try { gtag('event', 'inapp_escape_stay', { app: app || 'unknown' }); } catch(e){}
+      renderSignedOutEntry();
+    });
+    try { gtag('event', 'inapp_escape_view', { app: app || 'unknown', where: 'spar_entry' }); } catch(e){}
+  }
+
   function renderSignedOutEntry(){
+    if (inAppBrowser() && !inAppStayChosen()) { renderInAppEscape(); return; }
     if (matchProfile || qs.get('dm') || qs.get('thread') || qs.get('inbox') || qs.get('invite')) {
       renderGate();
       return;
@@ -4655,7 +4706,7 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
         // In-app browsers (TikTok, Instagram, and friends) refuse Google
         // OAuth outright. Email still works here; Copy link also lets a
         // visitor move to a browser where Google can complete.
-        (inApp ? '<p class="gate-inapp">This app\'s browser blocks Google sign-in. Use email below, or open itsdebatable.com/spar in Safari or Chrome. <button type="button" class="gate-copy" id="gateCopyLink">Copy link</button></p>' : '') +
+        (inApp ? '<p class="gate-inapp">In this app\'s browser, use email below. Google and Apple sign-in work in ' + realBrowserName() + '. <button type="button" class="gate-copy" id="gateOpenBrowser">Open in ' + realBrowserName() + '</button> <button type="button" class="gate-copy" id="gateCopyLink">Copy link</button></p>' : '') +
         // Ships hidden so a text-only client does not read an unhydrated
         // label. startGateLiveCount reveals it and reads the real queue once.
         '<div class="gate-live" id="gateLive" hidden><span class="gate-live-dot" aria-hidden="true"></span><span id="gateLiveText"></span></div>' +
@@ -4688,10 +4739,16 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
       if (typeof window.openAuthModal === 'function') { window.openAuthModal('signin', { liveVideo: true }); return; }
       location.href = '/profile';
     });
+    // 'signup', not 'signin': this door is for people with no Google or
+    // Apple account here, who are almost all new. openAuthModal already
+    // flips a device that has signed in before back to sign-in.
     document.getElementById('emailStartBtn').addEventListener('click', function(){
-      if (typeof window.openAuthModal === 'function') { window.openAuthModal('signin', { liveVideo: true }); return; }
+      try { gtag('event', 'spar_gate_email_click', { inapp: inAppBrowser() ? 1 : 0 }); } catch(e){}
+      if (typeof window.openAuthModal === 'function') { window.openAuthModal('signup', { liveVideo: true }); return; }
       location.href = '/profile?next=' + encodeURIComponent('/spar');
     });
+    var gateOpen = document.getElementById('gateOpenBrowser');
+    if (gateOpen) gateOpen.addEventListener('click', function(){ openInRealBrowser('spar_gate'); });
     var gateCopy = document.getElementById('gateCopyLink');
     if (gateCopy) gateCopy.addEventListener('click', function(){ copyGateLink(gateCopy); });
     startGateLiveCount();
@@ -4701,7 +4758,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
   // an instruction anyone can follow without the link in hand. Same
   // pattern as the shared chooser's Copy link (auth-modal.js, 2026-08-24).
   function copyGateLink(btn){
-    var url = 'https://itsdebatable.com/spar';
+    // The current address (with its utm tags and a DM or invite target),
+    // not a bare /spar: the paste should land where they were.
+    var url = (typeof window.__ditEscapeUrl === 'function') ? window.__ditEscapeUrl() : 'https://itsdebatable.com/spar';
     function done(ok){
       if (!btn) return;
       btn.textContent = ok ? 'Copied' : 'Copy failed';
@@ -4730,7 +4789,9 @@ body.ui-sheet-open .waitlist-fab{ display:none !important }
     try { gtag('event', 'spar_gate_inapp_click', {}); } catch(e){}
     var ge = document.getElementById('gateError');
     if (ge){
-      ge.innerHTML = '<div class="error">This app\'s browser blocks Google sign-in. Use email below, or open itsdebatable.com/spar in Safari or Chrome. <button type="button" class="gate-copy" id="gateCopyLink2">Copy link</button></div>';
+      ge.innerHTML = '<div class="error">Google and Apple sign-in work in ' + realBrowserName() + '. Here, use Continue with email. <button type="button" class="gate-copy" id="gateOpenBrowser2">Open in ' + realBrowserName() + '</button> <button type="button" class="gate-copy" id="gateCopyLink2">Copy link</button></div>';
+      var o = document.getElementById('gateOpenBrowser2');
+      if (o) o.addEventListener('click', function(){ openInRealBrowser('spar_gate_provider'); });
       var b = document.getElementById('gateCopyLink2');
       if (b) b.addEventListener('click', function(){ copyGateLink(b); });
     }

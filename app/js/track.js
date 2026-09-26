@@ -494,7 +494,15 @@
   // Performance Report is downstream of this gap.
   var ua = navigator.userAgent || '';
   var IS_MOBILE = /iPhone|iPad|Android/i.test(ua);
-  var IS_INAPP = /(Instagram|FBAN|FBAV|FB_IAB|Twitter|LinkedIn|TikTok|MicroMessenger|Line[/])/i.test(ua);
+  // Same tokens as isInAppBrowser() in auth-modal.js (which loads later,
+  // so it cannot be called from here). TikTok never says "TikTok": iOS
+  // sends musical_ly, Android sends trill_ / BytedanceWebview.
+  var IS_INAPP = /(Instagram|FBAN|FBAV|FB_IAB|Threads|Twitter|LinkedIn|TikTok|musical_ly|musically|BytedanceWebview|ByteLocale|trill_|Snapchat|MicroMessenger|Line[/])/i.test(ua) ||
+    (/Android/i.test(ua) && /;\s*wv\)/i.test(ua));
+  var IN_APP_NAME = !IS_INAPP ? '' :
+    /musical_ly|musically|BytedanceWebview|ByteLocale|trill_|TikTok/i.test(ua) ? 'tiktok' :
+    /Instagram/i.test(ua) ? 'instagram' : /Threads/i.test(ua) ? 'threads' : /FBAN|FBAV|FB_IAB/i.test(ua) ? 'facebook' :
+    /Snapchat/i.test(ua) ? 'snapchat' : /LinkedIn/i.test(ua) ? 'linkedin' : /Twitter/i.test(ua) ? 'x' : 'webview';
 
   function postSigninError(name, params) {
     try {
@@ -604,11 +612,17 @@
     if (startFiredThisSession) return;
     startFiredThisSession = true;
     sessionSet('_da_sstf', '1');
-    post('session_start', baseMeta({
-      user_agent: (navigator.userAgent || '').slice(0, 200),
+    var startMeta = {
+      // 400, not 200: the in-app tokens sit at the END of TikTok's user
+      // agent and 200 cut them off. The server keeps up to 500.
+      user_agent: (navigator.userAgent || '').slice(0, 400),
       screen: screen.width + 'x' + screen.height,
       lang: navigator.language,
-    }));
+    };
+    // Which app's built-in browser this visit is in, so a TikTok funnel
+    // is one equality query instead of a user-agent regex.
+    if (IN_APP_NAME) startMeta.inapp = IN_APP_NAME;
+    post('session_start', baseMeta(startMeta));
   }
 
   function fireHeartbeat() {

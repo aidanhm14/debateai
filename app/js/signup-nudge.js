@@ -552,7 +552,8 @@
     try {
       if (typeof window.__ditIsInAppBrowser === 'function') return window.__ditIsInAppBrowser();
       var ua = navigator.userAgent || '';
-      if (/FBAN|FBAV|FB_IAB|Instagram|Threads|TikTok|musical_ly|Snapchat|LinkedInApp|Line\/|MicroMessenger|Twitter/i.test(ua)) return true;
+      if (/FBAN|FBAV|FB_IAB|Instagram|Threads|TikTok|musical_ly|musically|BytedanceWebview|ByteLocale|trill_|Snapchat|LinkedInApp|Line\/|MicroMessenger|Twitter/i.test(ua)) return true;
+      if (/Android/i.test(ua) && /;\s*wv\)/i.test(ua)) return true;
       if (/iPhone|iPad|iPod/i.test(ua) && !/Safari/i.test(ua) && !/CriOS|FxiOS/i.test(ua)) return true;
       return false;
     } catch (e) { return false; }

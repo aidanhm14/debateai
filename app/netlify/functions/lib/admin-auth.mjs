@@ -84,7 +84,8 @@ export function parseUA(ua) {
 
   let surface = 'browser';
   if (/(Instagram|FBAN|FBAV|FB_IAB)/.test(s)) surface = 'in-app';
-  else if (/(Twitter|LinkedIn|TikTok|MicroMessenger|Line\/)/.test(s)) surface = 'in-app';
+  else if (/(Twitter|LinkedIn|TikTok|musical_ly|musically|BytedanceWebview|ByteLocale|trill_|MicroMessenger|Line\/)/.test(s)) surface = 'in-app';
+  else if (/Android/.test(s) && /;\s*wv\)/.test(s)) surface = 'in-app';
 
   return { browser, os, device, surface };
 }

@@ -258,12 +258,94 @@
       var ua = navigator.userAgent || '';
       // FBAN/FBAV = Facebook, Instagram ships "Instagram" in the UA,
       // Line/MicroMessenger/Snapchat/LinkedIn/Threads/TikTok all self-identify.
-      if (/FBAN|FBAV|FB_IAB|Instagram|Threads|TikTok|musical_ly|Snapchat|LinkedInApp|Line\/|MicroMessenger|Twitter/i.test(ua)) return true;
+      // TikTok's Android build never says "TikTok": the one TikTok visit
+      // on record (2026-09-12) carried only "trill_… AppName/trill
+      // ByteLocale", so it read as a normal browser and got the
+      // Google-only locked wall. musically / BytedanceWebview / ByteLocale /
+      // trill_ are the tokens TikTok's two builds actually send.
+      if (/FBAN|FBAV|FB_IAB|Instagram|Threads|TikTok|musical_ly|musically|BytedanceWebview|ByteLocale|trill_|Snapchat|LinkedInApp|Line\/|MicroMessenger|Twitter/i.test(ua)) return true;
+      // Any Android System WebView marks itself "; wv)". Google refuses
+      // OAuth in every embedded WebView, named app or not.
+      if (/Android/i.test(ua) && /;\s*wv\)/i.test(ua)) return true;
       // iOS webviews that do not self-identify: Safari's UA without "Safari".
       if (/iPhone|iPad|iPod/i.test(ua) && !/Safari/i.test(ua) && !/CriOS|FxiOS/i.test(ua)) return true;
       return false;
     } catch (e) { return false; }
   }
+
+  // Which in-app browser this is, for copy and analytics. '' when none.
+  function inAppName() {
+    if (!isInAppBrowser()) return '';
+    var ua = navigator.userAgent || '';
+    if (/musical_ly|musically|BytedanceWebview|ByteLocale|trill_|TikTok/i.test(ua)) return 'tiktok';
+    if (/Instagram/i.test(ua)) return 'instagram';
+    if (/Threads/i.test(ua)) return 'threads';
+    if (/FBAN|FBAV|FB_IAB/i.test(ua)) return 'facebook';
+    if (/Snapchat/i.test(ua)) return 'snapchat';
+    if (/LinkedInApp/i.test(ua)) return 'linkedin';
+    if (/Twitter/i.test(ua)) return 'x';
+    if (/MicroMessenger/i.test(ua)) return 'wechat';
+    if (/Line\//i.test(ua)) return 'line';
+    return 'webview';
+  }
+  function inAppLabel() {
+    return ({ tiktok: 'TikTok', instagram: 'Instagram', threads: 'Threads', facebook: 'Facebook', snapchat: 'Snapchat',
+      linkedin: 'LinkedIn', x: 'X', wechat: 'WeChat', line: 'LINE' })[inAppName()] || '';
+  }
+  // The phone's own browser, named the way the person knows it.
+  function realBrowserName() {
+    var ua = navigator.userAgent || '';
+    if (/Android/i.test(ua)) return 'Chrome';
+    if (/iPhone|iPad|iPod/i.test(ua)) return 'Safari';
+    return 'your browser';
+  }
+
+  // Hand the current page to the phone's real browser, where Google
+  // sign-in and the microphone both work. Android WebViews that pass
+  // intent:// links to the system open Chrome; iOS in-app browsers that
+  // pass unknown schemes to the system open x-safari-https:// in Safari.
+  // Some apps swallow both, so every caller also shows the manual route
+  // (the three-dot menu, or Copy link). `inapp_escape=1` rides along so
+  // the landing on the other side can be counted (see below).
+  function openInBrowser(opts) {
+    opts = opts || {};
+    var u;
+    try { u = new URL(opts.url || location.href); } catch (e) { return; }
+    u.searchParams.delete('inapp');
+    u.searchParams.set('inapp_escape', '1');
+    var https = u.toString();
+    var ua = navigator.userAgent || '';
+    var android = /Android/i.test(ua), ios = /iPhone|iPad|iPod/i.test(ua);
+    track('inapp_escape_tap', { app: inAppName() || 'unknown', target: android ? 'chrome' : ios ? 'safari' : 'browser', where: opts.where || '' });
+    var target = android
+      ? 'intent://' + u.host + u.pathname + u.search + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(https) + ';end'
+      : ios ? 'x-safari-' + https : https;
+    try { window.location.href = target; } catch (e) {}
+  }
+  function escapeUrlForCopy() {
+    try {
+      var u = new URL(location.href);
+      u.searchParams.delete('inapp');
+      u.searchParams.set('inapp_escape', '1');
+      return u.toString();
+    } catch (e) { return location.href; }
+  }
+  window.__ditInAppName = inAppName;
+  window.__ditInAppLabel = inAppLabel;
+  window.__ditOpenInBrowser = openInBrowser;
+  window.__ditEscapeUrl = escapeUrlForCopy;
+
+  // Count the people who made it out: a page opened with inapp_escape=1
+  // in a real browser. The flag comes off the address bar afterwards so a
+  // shared or bookmarked link does not count twice.
+  try {
+    if (/[?&]inapp_escape=1\b/.test(location.search) && !isInAppBrowser()) {
+      setTimeout(function () { track('inapp_escape_landed', { path: location.pathname }); }, 1500);
+      var landed = new URL(location.href);
+      landed.searchParams.delete('inapp_escape');
+      history.replaceState(history.state, '', landed.pathname + landed.search + landed.hash);
+    }
+  } catch (e) {}
 
   // Shared so every module tests "can this browser complete an OAuth
   // sign-in" against ONE definition. signup-nudge.js prompted Google One
@@ -445,10 +527,13 @@
     // button a user was looking for is worse than showing one that warns.
     var inApp = isInAppBrowser();
     var noEmail = googleOnly;
+    var inAppWhere = inAppLabel() ? inAppLabel() + '\'s browser' : 'this app\'s browser';
     var inAppNote = inApp
-      ? '<p class="da-inapp">Google sign-in does not work inside this app\'s browser. ' +
+      ? '<p class="da-inapp">Google sign-in does not work inside ' + esc(inAppWhere) + '. ' +
         (noEmail ? 'Open the site in Safari or Chrome to sign in with Google. ' : 'Use email below, or open the site in Safari or Chrome. ') +
-        '<button type="button" class="da-copy" id="daCopyLink">Copy link</button></p>'
+        '<button type="button" class="da-copy" id="daOpenBrowser">Open in ' + realBrowserName() + '</button> ' +
+        '<button type="button" class="da-copy" id="daCopyLink">Copy link</button>' +
+        '<span class="da-inapp-help"> If nothing opens, tap the three dots in the top corner and choose to open it in your browser.</span></p>'
       : '';
     var googleBtn = '<button type="button" class="da-btn da-btn--google da-btn--hero" id="daG">' + GOOGLE_SVG + 'Continue with Google</button>';
     var providerButtons = googleBtn + appleBtn + discordBtn;
@@ -515,9 +600,11 @@
     if (xBtn) xBtn.addEventListener('click', close);
     // "Open it in Safari or Chrome" is not an instruction anyone can follow
     // inside a webview with no address bar. Hand them the URL.
+    var openBtn = c.querySelector('#daOpenBrowser');
+    if (openBtn) openBtn.addEventListener('click', function(){ openInBrowser({ where: 'auth_modal' }); });
     var copyBtn = c.querySelector('#daCopyLink');
     if (copyBtn) copyBtn.addEventListener('click', function(){
-      var url = location.href;
+      var url = escapeUrlForCopy();
       var done = function(){
         copyBtn.textContent = 'Copied';
         setTimeout(function(){ try { copyBtn.textContent = 'Copy link'; } catch (e) {} }, 2200);
@@ -913,7 +1000,11 @@
     // at all. Name the two doors that can actually open instead. Naming
     // them costs nothing in enumeration terms, because it is a
     // conditional and confirms nothing about whether the account exists.
-    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') return 'That email and password do not match. If you made this account with Google, use Continue with Google above, or email yourself a sign-in link.';
+    // Inside an in-app browser Google cannot finish, so pointing there is
+    // a second dead end; the likelier story is a newcomer on the wrong tab.
+    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') return isInAppBrowser()
+      ? 'That email and password do not match. New here? Tap Create an account below, or email yourself a sign-in link.'
+      : 'That email and password do not match. If you made this account with Google, use Continue with Google above, or email yourself a sign-in link.';
     if (code === 'auth/too-many-requests') return 'Too many attempts. Wait a few minutes and try again.';
     if (code === 'auth/network-request-failed') return 'Could not reach sign-in. Check your connection and try again.';
     if (code === 'auth/web-storage-unsupported') return 'This browser could not save your sign-in. Turn off Keep me signed in and try again, or allow site storage in your browser.';
@@ -1553,7 +1644,10 @@
         if (user && !user.isAnonymous) { done(user); return; }
         track('ai_signin_required', { path: location.pathname, source: opts.source || 'ai_start' });
         openAuthModal('signup', {
-          googleOnly: !window.__DB_NATIVE,
+          // Google-only, except where Google cannot work at all: an in-app
+          // browser keeps the email door, the same exception the locked
+          // sign-in wall makes (soul.md, 2026-09-08).
+          googleOnly: !window.__DB_NATIVE && !isInAppBrowser(),
           headline: opts.headline || 'Sign in to debate the AI',
           sub: opts.sub || 'Save your rounds, scores and progress with a free account.',
           onDone: function (u) {
