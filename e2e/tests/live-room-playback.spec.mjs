@@ -3,7 +3,13 @@ import { readApp, between } from '../helpers/offline-site.mjs';
 
 const pageSource = readApp('live-round.html');
 const tileSource = between(pageSource, '  function dropTile(key){', '  /* ── The round board is published');
-const styles = [...pageSource.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+// Keep the real cascade, including the linked phone layout overrides.
+const styles = [...pageSource.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>|<link\b[^>]*rel="stylesheet"[^>]*>/g)]
+  .map(m => {
+    if (m[1] !== undefined) return m[1];
+    const href = m[0].match(/href="(\/css\/[^"?]+)(?:\?[^"]*)?"/);
+    return href ? readApp(href[1].slice(1)) : '';
+  }).join('\n');
 
 async function playbackRoom(page, viewer = true) {
   await page.setContent(`<style>${styles}</style><div class="cv-stage" style="width:760px;height:440px;flex:none"></div><div class="cv-aud"></div><div id="audio"></div>`);

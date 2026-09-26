@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { readApp } from '../helpers/offline-site.mjs';
 
+// Keep simulated heartbeats independent of host/browser scheduling delays.
+async function pauseClock(page) {
+  await page.clock.install({ time: new Date('2026-09-26T09:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-09-26T10:00:00Z'));
+}
+
 async function mediaRoom(page, viewer = false) {
   await page.setContent('<div id="note"></div><div id="quality"></div><div id="toast"></div>');
   for (const name of ['media', 'connection']) await page.addScriptTag({ content: readApp(`js/live-room/${name}.js`) });
@@ -92,6 +98,96 @@ test('spectators never capture devices and connection recovery restores playback
   expect(await page.evaluate(() => fixture.room.joined)).toBe(false);
 });
 
+test('participant CPU pressure reduces capture and received video, then recovers without changing tracks', async ({ page }) => {
+  await mediaRoom(page);
+  await pauseClock(page);
+  await page.evaluate(async () => {
+    const f = fixture;
+    f.profiles = []; f.sent = []; f.budgets = [];
+    f.video.applyConstraints = async profile => { f.profiles.push(profile); };
+    f.camConv.mode = 'camera';
+    await f.joinRoomCall();
+    f.camConv.cam.setPerformanceMode = high => f.budgets.push(high);
+    f.room.call.updateSendSettings = async settings => { f.sent.push(settings); };
+    f.room.receiveCap = 'inherit';
+    f.onCpuLoad({ cpuLoadState: 'high' });
+    f.onCpuLoad({ cpuLoadState: 'high' });
+    await f.applyCaptureProfile(f.camConv.cam, 'camera');
+  });
+  expect(await page.evaluate(() => ({
+    captures: fixture.captures.length, joins: fixture.joins.length, profiles: fixture.profiles,
+    layers: fixture.layers, budgets: fixture.budgets, sends: fixture.sent.length,
+    sameVideo: fixture.joins[0].videoSource === fixture.video,
+    sameMic: fixture.joins[0].audioSource === fixture.audio,
+  }))).toEqual({ captures: 1, joins: 1,
+    profiles: [{ width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 15, max: 15 }, facingMode: 'user' }],
+    layers: [1], budgets: [true], sends: 1, sameVideo: true, sameMic: true });
+  await expect(page.locator('#quality')).toContainText('device is busy');
+  await page.evaluate(() => fixture.onCpuLoad({ cpuLoadState: 'low' }));
+  await page.clock.runFor(14000);
+  expect(await page.evaluate(() => fixture.profiles.length)).toBe(1);
+  await page.evaluate(() => fixture.onCpuLoad({ cpuLoadState: 'high' }));
+  await page.clock.runFor(2000);
+  expect(await page.evaluate(() => fixture.profiles.length)).toBe(1);
+  await page.evaluate(() => fixture.onCpuLoad({ cpuLoadState: 'low' }));
+  await page.clock.runFor(15000);
+  expect(await page.evaluate(() => fixture.profiles.at(-1).frameRate)).toEqual({ ideal: 24, max: 24 });
+  expect(await page.evaluate(() => fixture.layers)).toEqual([1, 'inherit']);
+  expect(await page.evaluate(() => [fixture.captures.length, fixture.joins.length, !!fixture.audio.stopped, !!fixture.video.stopped])).toEqual([1, 1, false, false]);
+  await expect(page.locator('#quality')).toBeEmpty();
+});
+
+test('low network quality reaches participants and failed receive updates can retry', async ({ page }) => {
+  await mediaRoom(page);
+  await page.evaluate(async () => {
+    fixture.room.receiveCap = 'inherit';
+    let fail = true;
+    fixture.room.call.updateReceiveSettings = async settings => {
+      fixture.layers.push(settings);
+      if (fail) { fail = false; throw new Error('Temporary failure'); }
+    };
+    fixture.onNetworkQuality({ networkState: 'low' });
+    await Promise.resolve();
+    fixture.onNetworkQuality({ networkState: 'low' });
+    fixture.onNetworkQuality({ networkState: 'good' });
+  });
+  expect(await page.evaluate(() => fixture.layers)).toEqual([
+    { '*': { video: { layer: 1 } } }, { '*': { video: { layer: 1 } } }, { '*': { video: { layer: 'inherit' } } },
+  ]);
+});
+
+test('pending CPU recovery is discarded when the call ends', async ({ page }) => {
+  await mediaRoom(page, true);
+  await pauseClock(page);
+  await page.evaluate(() => {
+    fixture.onCpuLoad({ cpuLoadState: 'high' });
+    fixture.onCpuLoad({ cpuLoadState: 'low' });
+    fixture.teardownRoom();
+  });
+  await page.clock.runFor(20000);
+  expect(await page.evaluate(() => fixture.layers)).toEqual([1]);
+});
+
+test('camera profile changes are serialized across pressure recovery and avatar switches', async ({ page }) => {
+  await mediaRoom(page);
+  await page.evaluate(async () => {
+    const f = fixture;
+    await f.ensureAvatarCam('camera');
+    f.profiles = [];
+    f.video.applyConstraints = profile => {
+      f.profiles.push(profile);
+      return f.profiles.length === 1 ? new Promise(resolve => { f.releaseProfile = resolve; }) : Promise.resolve();
+    };
+    f.room.cpuHigh = true;
+    f.applyCaptureProfile(f.camConv.cam, 'camera');
+    f.room.cpuHigh = false;
+    f.pendingProfile = f.applyCaptureProfile(f.camConv.cam, 'avatar');
+  });
+  expect(await page.evaluate(() => fixture.profiles.length)).toBe(1);
+  await page.evaluate(async () => { fixture.releaseProfile(); await fixture.pendingProfile; });
+  expect(await page.evaluate(() => fixture.profiles.map(p => [p.height.ideal, p.frameRate.max]))).toEqual([[360, 15], [480, 24]]);
+});
+
 for (const action of ['participant leaves', 'call closes']) {
   test(`remote microphone and judge audio stop playing when ${action}`, async ({ page }) => {
     await mediaRoom(page);
@@ -113,7 +209,7 @@ for (const action of ['participant leaves', 'call closes']) {
 }
 
 test('presence waits for initialized rooms, cannot revive a departed seat, and resumes after bfcache restore', async ({ page }) => {
-  await page.clock.install();
+  await pauseClock(page);
   await page.setContent('<div id="roundQuiet" hidden></div>');
   await page.addScriptTag({ content: readApp('js/live-room/presence.js') });
   await page.evaluate(() => {
@@ -154,7 +250,7 @@ test('presence waits for initialized rooms, cannot revive a departed seat, and r
 
 for (const mode of ['fresh primary', 'departed primary', 'private room', 'count outage']) {
   test(`audience aggregation handles ${mode} without losing seat presence`, async ({ page }) => {
-    await page.clock.install();
+    await pauseClock(page);
     await page.setContent('<div id="roundQuiet" hidden></div>');
     await page.addScriptTag({ content: readApp('js/live-room/presence.js') });
     await page.evaluate(mode => {

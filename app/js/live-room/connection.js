@@ -79,7 +79,7 @@
     } else if (context.room.cpuHigh){
       msg = context.room.viewer
         ? 'This device is busy. Lowering playback quality.'
-        : 'This device is busy. Lowering camera quality.';
+        : 'This device is busy. Lowering video quality to keep the call smooth.';
     }
     el.className = 'cv-quality' + (msg ? ' is-visible' : '') + (bad ? ' is-bad' : '');
     el.innerHTML = msg ? '<i aria-hidden="true"></i><span></span>' : '';
@@ -93,9 +93,9 @@
     return 'inherit';
   }
 
-  function applyViewerReceiveCap(){
+  function applyReceiveCap(){
     var call = context.room.call;
-    if (!context.room.viewer || !call || typeof call.updateReceiveSettings !== 'function') return;
+    if (!call || typeof call.updateReceiveSettings !== 'function') return;
     var cap = wantedReceiveCap();
     if (context.room.receiveCap === cap) return;
     context.room.receiveCap = cap;
@@ -104,8 +104,11 @@
     var settings = { '*': { video: { layer: cap } } };
     try {
       var p = call.updateReceiveSettings(settings);
-      if (p && p.catch) p.catch(function(e){ console.warn('[Daily receive settings]', e && e.message); });
-    } catch(e){}
+      if (p && p.catch) p.catch(function(e){
+        if (context.room.call === call && context.room.receiveCap === cap) context.room.receiveCap = null;
+        console.warn('[Daily receive settings]', e && e.message);
+      });
+    } catch(e){ context.room.receiveCap = null; }
   }
 
   function rememberMediaHealth(){
@@ -133,23 +136,41 @@
 
   function onNetworkQuality(ev){
     var next = ev && ev.networkState;
+    if (next === 'low') next = 'warning';
     if (!next && ev && ev.threshold){
       next = ev.threshold === 'very-low' ? 'bad' : (ev.threshold === 'low' ? 'warning' : 'good');
     }
     if (['good','warning','bad','unknown'].indexOf(next) < 0) next = 'unknown';
     context.room.networkState = next;
     context.room.networkReasons = ev && Array.isArray(ev.networkStateReasons) ? ev.networkStateReasons.slice(0, 4) : [];
-    applyViewerReceiveCap();
+    applyReceiveCap();
     paintMediaHealth();
     rememberMediaHealth();
   }
 
-  function onCpuLoad(ev){
-    context.room.cpuHigh = !!(ev && ev.cpuLoadState === 'high');
-    if (context.room.viewer) applyViewerReceiveCap();
-    else tuneSendQuality(context.room.cpuHigh ? 'medium' : 'high');
+  var cpuRecoveryTimer = null;
+  function setCpuPressure(high){
+    var changed = context.room.cpuHigh !== high;
+    context.room.cpuHigh = high;
+    applyReceiveCap();
+    if (changed && !context.room.viewer) tuneSendQuality(high ? 'medium' : 'high');
     paintMediaHealth();
     rememberMediaHealth();
+  }
+  function onCpuLoad(ev){
+    if (!ev || ['high','low'].indexOf(ev.cpuLoadState) < 0) return;
+    if (ev.cpuLoadState === 'high'){
+      clearTimeout(cpuRecoveryTimer); cpuRecoveryTimer = null;
+      setCpuPressure(true);
+    } else if (context.room.cpuHigh && !cpuRecoveryTimer){
+      // Recovery needs a quiet window; flapping must not keep restarting
+      // camera capture and the encoder during the same conversation.
+      var call = context.room.call;
+      cpuRecoveryTimer = setTimeout(function(){
+        cpuRecoveryTimer = null;
+        if (context.room.call === call) setCpuPressure(false);
+      }, 15000);
+    }
   }
 
   function setRoomExit(title, sub){
@@ -282,6 +303,7 @@
   }
 
   function teardownRoom(){
+    clearTimeout(cpuRecoveryTimer); cpuRecoveryTimer = null;
     clearTimeout(context.room.viewerFocusTimer);
     context.room.viewerFocusTimer = null;
     context.room.viewerLead = '';
@@ -404,6 +426,6 @@
     return call;
   }
 
-  return { setRoomNote, paintMediaHealth, wantedReceiveCap, applyViewerReceiveCap, rememberMediaHealth, onNetworkQuality, onCpuLoad, setRoomExit, joinWith, joinRoomCall, teardownRoom, mountCallObject };
+  return { setRoomNote, paintMediaHealth, wantedReceiveCap, applyReceiveCap, rememberMediaHealth, onNetworkQuality, onCpuLoad, setRoomExit, joinWith, joinRoomCall, teardownRoom, mountCallObject };
   } };
 })();

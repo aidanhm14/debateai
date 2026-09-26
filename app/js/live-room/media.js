@@ -25,33 +25,52 @@
 
   function captureConstraints(mode, facing){
     var avatar = mode === 'avatar';
+    var busy = !!context.room.cpuHigh;
     return {
-      width: { ideal: avatar ? 640 : 1280 },
-      height: { ideal: avatar ? 480 : 720 },
-      frameRate: { ideal: 24, max: 30 },
+      width: { ideal: avatar || busy ? 640 : 1280 },
+      height: { ideal: avatar ? 480 : (busy ? 360 : 720) },
+      frameRate: { ideal: busy ? 15 : 24, max: busy ? 15 : 24 },
       facingMode: facing && facing !== 'user' ? { ideal: facing } : 'user'
     };
   }
 
+  var captureUpdates = new WeakMap();
   function applyCaptureProfile(c, mode){
     var track = c && c.srcStream && c.srcStream.getVideoTracks && c.srcStream.getVideoTracks()[0];
     if (!track || typeof track.applyConstraints !== 'function') return Promise.resolve();
-    return track.applyConstraints(captureConstraints(mode, context.room.facing || 'user')).catch(function(e){
+    var constraints = captureConstraints(mode, context.room.facing || 'user');
+    var key = JSON.stringify(constraints);
+    var previous = captureUpdates.get(track);
+    if (previous && previous.key === key) return previous.pending;
+    // Serialize camera reconfiguration so a slow pressure response cannot
+    // finish after recovery or a camera/avatar switch and restore stale settings.
+    var update = { key: key, pending: null };
+    update.pending = (previous ? previous.pending : Promise.resolve()).then(function(){
+      if (track.readyState === 'ended') return;
+      return track.applyConstraints(constraints);
+    }).catch(function(e){
+      if (captureUpdates.get(track) === update) captureUpdates.delete(track);
       console.warn('[camera profile]', e && e.message);
     });
+    captureUpdates.set(track, update);
+    return update.pending;
   }
 
   function tuneSendQuality(maxQuality){
     var call = context.room.call;
     if (context.room.viewer || !call || typeof call.updateSendSettings !== 'function') return;
     var avatar = context.camConv.mode === 'avatar';
+    var busy = !!context.room.cpuHigh;
+    var cam = context.camConv.cam;
+    if (cam && cam.setPerformanceMode) cam.setPerformanceMode(busy);
+    if (cam) applyCaptureProfile(cam, avatar ? 'avatar' : 'camera');
     var settings = {
       video: {
-        maxQuality: maxQuality || 'high',
+        maxQuality: maxQuality || (busy ? 'medium' : 'high'),
         allowAdaptiveLayers: true,
         encodings: {
-          low: { maxBitrate: 180000, scaleResolutionDownBy: 4, maxFramerate: 15 },
-          medium: { maxBitrate: avatar ? 650000 : 800000, scaleResolutionDownBy: 2, maxFramerate: 24 },
+          low: { maxBitrate: 180000, scaleResolutionDownBy: busy && !avatar ? 2 : 4, maxFramerate: 15 },
+          medium: { maxBitrate: avatar ? 650000 : 800000, scaleResolutionDownBy: busy && !avatar ? 1 : 2, maxFramerate: busy ? 15 : 24 },
           high: { maxBitrate: avatar ? 1400000 : 2200000, scaleResolutionDownBy: 1, maxFramerate: 24 }
         }
       }

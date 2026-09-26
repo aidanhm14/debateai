@@ -10609,9 +10609,11 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     // pointer reaches the Avatar or Design button, so the mask is driven
     // by the face from its first second rather than after a 10-20s
     // download during which it runs on mic energy and reads as broken.
-    bar.addEventListener('pointerenter', function(){
-      if (window.DebateCam && window.DebateCam.warm) window.DebateCam.warm();
-    }, { once: true });
+    Array.prototype.forEach.call(bar.querySelectorAll('[data-m="avatar"],[data-m="design"]'), function(button){
+      function warmAvatar(){ if (window.DebateCam && window.DebateCam.warm) window.DebateCam.warm(); }
+      button.addEventListener('pointerenter', warmAvatar, { once: true });
+      button.addEventListener('focus', warmAvatar, { once: true });
+    });
     callGuidance(shell).appendChild(bar);
     camConv.bar = bar;
     buildCamHint(shell);

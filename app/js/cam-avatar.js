@@ -1751,16 +1751,13 @@
     if (vTracks.length) {
       videoEl.srcObject = new MediaStream(vTracks);
       try { await videoEl.play(); } catch (e) { /* camera modes just show off-tile */ }
-      // Start the tracker download now if this person is likely to want
-      // it, rather than the moment they press Avatar: anyone starting in
-      // avatar mode, or who has ever saved a look. Camera-mode joiners
-      // with no history pay nothing until they ask (or the page warms it).
-      let likely = mode === 'avatar' || opts.warm === true;
-      try { likely = likely || !!localStorage.getItem(DESIGN_KEY) || !!localStorage.getItem(LOOKS_KEY); } catch (e) {}
-      if (likely) loadTracker();
+      // A saved look is not a request to load a second ML model during
+      // an ordinary camera call. Explicit avatar intent still warms it.
+      if (mode === 'avatar' || opts.warm === true) loadTracker();
     }
 
-    const meter = makeMouthMeter(mediaStream);
+    let meter = null;
+    function mouthMeter() { if (!meter) meter = makeMouthMeter(mediaStream); return meter; }
 
     // Smoothed face state + the raw targets the smoother chases.
     const face = zeroFace();
@@ -1778,6 +1775,7 @@
     }
 
     let running = true;
+    let cpuHigh = false;
     let lastTick = performance.now();
     let nextBlink = performance.now() + 2500 + Math.random() * 4000;
     let blinkUntil = 0;
@@ -1789,7 +1787,7 @@
       if (tracker.status !== 'ready' || videoEl.readyState < 2) return;
       // ~15fps tracker budget: the landmarker is the most expensive step
       // in the loop, and smoothInto interpolates the gap invisibly.
-      if (now - lastDetect < 62) return;
+      if (now - lastDetect < (cpuHigh ? 125 : 62)) return;
       // Skip a frame the camera has not advanced, but never starve: Safari
       // has been seen holding currentTime still on a MediaStream video, and
       // a gate that waits for it leaves the mask on mic energy forever.
@@ -1917,7 +1915,7 @@
         drawCameraFrame(ctx, OUT_W, OUT_H, videoEl);
       } else if (mode === 'avatar') {
         staticKey = '';
-        const audio = meter.sample();
+        const audio = mouthMeter().sample();
         const lv = audio.level;
         let src;
         if (demoFace) { src = demoFace; }
@@ -1953,10 +1951,16 @@
         paintStatic();
       }
     }
-    // 42ms ≈ 24fps, matching the captureStream cap; painting faster than
-    // the capture rate was pure waste.
-    const drawTimer = setInterval(loop, 42);
-    loop();
+    // A passthrough camera only needs the thumbnail heartbeat. Do not
+    // wake the main thread 24 times per second to discover that again.
+    let drawTimer = null;
+    function restartLoop() {
+      clearInterval(drawTimer);
+      if (!running) return;
+      loop();
+      drawTimer = setInterval(loop, mode === 'off' || (mode === 'camera' && passthrough) ? 1000 : (cpuHigh ? 83 : 42));
+    }
+    restartLoop();
 
     const outVideo = canvas.captureStream(FPS).getVideoTracks()[0];
     const out = new MediaStream([outVideo].concat(mediaStream.getAudioTracks()));
@@ -1969,16 +1973,30 @@
       // NSFW guard (nsfw-guard.js) which samples the LOCAL feed only.
       videoEl: videoEl,
       srcStream: mediaStream,
-      setMode: function (m) { if (['camera', 'avatar', 'off'].indexOf(m) >= 0) mode = m; },
+      setMode: function (m) {
+        if (['camera', 'avatar', 'off'].indexOf(m) < 0 || m === mode) return;
+        mode = m; staticKey = ''; lastPass = 0;
+        if (mode !== 'avatar' && meter) { meter.close(); meter = null; }
+        // Paint before the caller can publish the canvas, so a switch
+        // to Avatar cannot briefly transmit its previous camera pixels.
+        restartLoop();
+      },
       // True when the room is receiving the raw camera track instead of
       // this canvas. Only meaningful in camera mode; avatar always
       // publishes the canvas, because the canvas IS the mask.
-      setPassthrough: function (on) { passthrough = !!on; lastPass = 0; },
+      setPassthrough: function (on) {
+        if (passthrough === !!on) return;
+        passthrough = !!on; lastPass = 0; restartLoop();
+      },
+      setPerformanceMode: function (high) {
+        if (cpuHigh === !!high) return;
+        cpuHigh = !!high; restartLoop();
+      },
       mode: function () { return mode; },
       setLabel: function (s) { label = String(s || '').slice(0, 3).toUpperCase(); },
       setDesign: function (d) { design = saveDesign(d); invalidateScene(); return Object.assign({}, design); },
       design: function () { return Object.assign({}, design); },
-      level: function () { return meter.level(); },
+      level: function () { return running ? mouthMeter().level() : 0; },
       debugFace: function (sig) { demoFace = sig ? Object.assign(zeroFace(), sig) : null; },
       // Is the mask actually mimicking a face, or is it running on mic
       // energy alone? These look nearly identical for a second or two and
@@ -1997,7 +2015,7 @@
       stop: function () {
         running = false; clearInterval(drawTimer);
         window.removeEventListener(DESIGN_EVENT, syncDesign);
-        outVideo.stop(); meter.close();
+        outVideo.stop(); if (meter) meter.close(); meter = null;
         videoEl.srcObject = null;
         // Terminal: release the source camera + mic too, so the recording
         // light goes off the moment the pipeline is stopped.
