@@ -11,15 +11,16 @@ let spectator=false, bodyObserver, mediaChange;
 const button={hidden:true,textContent:'Camera view',setAttribute(k,v){attrs[k]=v;},addEventListener(k,fn){events[k]=fn;},focus(){}};
 const state={phase:'round',room:'controlled-room',speechIdx:0,timerState:'ready',timerElapsed:0};
 const phone={matches:true,addEventListener(k,fn){mediaChange=fn;}};
+const resources={appendChild(node){node.parentNode=this;}};
 const ctx={state,isSpectator:()=>spectator,$:()=>button,
  window:{matchMedia:()=>phone,scrollY:240,scrollTo(){}},
- document:{body:{classList:{contains:c=>classes.has(c),toggle(c,on){if(on)classes.add(c);else classes.delete(c);}}},addEventListener(k,fn){events[k]=fn;}},
+ document:{querySelector:()=>resources,body:{appendChild(node){node.parentNode=this;},classList:{contains:c=>classes.has(c),toggle(c,on){if(on)classes.add(c);else classes.delete(c);}}},addEventListener(k,fn){events[k]=fn;}},
  MutationObserver:class{constructor(fn){bodyObserver=fn;}observe(){}}
 };
 vm.createContext(ctx);vm.runInContext(source.slice(start,end),ctx);
 ctx.updateRoundFocus();assert.equal(button.hidden,true,'No camera-only option before a speech starts');
 state.timerState='running';ctx.updateRoundFocus();assert.equal(button.hidden,false);assert.equal(attrs['aria-pressed'],'false','Speech start offers focus without forcing it');
-events.click();assert.equal(attrs['aria-pressed'],'true');assert.ok(classes.has('lr-camera-focus'));assert.equal(button.textContent,'Show details');
+events.click();assert.equal(button.parentNode,ctx.document.body,'Focus toggle remains accessible outside hidden details');assert.equal(attrs['aria-pressed'],'true');assert.ok(classes.has('lr-camera-focus'));assert.equal(button.textContent,'Show details');
 state.timerState='paused';ctx.updateRoundFocus();assert.equal(attrs['aria-pressed'],'true','Pausing preserves the chosen view');
 state.timerState='ready';state.speechIdx=1;ctx.updateRoundFocus();assert.equal(attrs['aria-pressed'],'true','The next speaker retains the view and real start control');
 events.keydown({key:'Escape'});assert.equal(attrs['aria-pressed'],'false');

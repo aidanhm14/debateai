@@ -90,7 +90,7 @@ const URLS = [
   // the typed round that used to live there stays retired).
   { path: '/practice',        changefreq: 'weekly',  priority: '0.90', lastmod: '2026-09-25' },
   // Submit only the canonical destination of each acquisition page.
-  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-09-20' },
+  { path: '/debate-online',                           changefreq: 'weekly',  priority: '0.92', lastmod: '2026-09-24' },
   // Politics acquisition cluster. /political-debate is the product-intent
   // landing page; /political-debate-topics is the distinct browsable index.
   // /contested was delisted as a 142-word shell on 2026-08-24 and returns

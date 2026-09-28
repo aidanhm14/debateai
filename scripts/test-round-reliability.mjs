@@ -33,7 +33,7 @@ check('preflight result is cached briefly', file.includes('Date.now() - prefligh
 
 const startAt = file.indexOf('var start = useCallback(async () => {');
 const preflightAt = file.indexOf('var preflightOkay = await runPreflight();', startAt);
-const mintAt = file.indexOf("setConnectStep('Minting session…');", startAt);
+const mintAt = file.indexOf("fetch('/api/realtime-session'", startAt);
 check('preflight runs before session minting', startAt > -1 && preflightAt > startAt && mintAt > preflightAt);
 
 check('setup exposes mic and connection test', file.includes('Test mic & connection'));

@@ -28,7 +28,7 @@ test('AI setup steps stay aligned on phones and support keyboard navigation',asy
  const markup=slice(voice,'      <ol class="wiz-progress"','    </div>\n\n    <!-- 1');
  await page.setContent('<section id="setup" class="on" style="width:100%">'+markup+'<div class="wiz-step" data-step="1"></div><div class="wiz-step" data-step="2"></div><div id="wizClaimEcho"></div></section>');
  await page.addStyleTag({content:[...voice.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m=>m[1]).join('\n')});
- await page.addScriptTag({content:`var $=id=>document.getElementById(id), talkItOut=false, wizStep=1, claimInput={value:''};function sanitizeTopic(s){return s;}function paintVoiceGrid(){}function paintWizSummary(){}
+ await page.addScriptTag({content:`var $=id=>document.getElementById(id), trainingRequested=false, talkItOut=false, wizStep=1, claimInput={value:''};function sanitizeTopic(s){return s;}function paintVoiceGrid(){}function paintWizSummary(){}
  ${slice(voice,'function goStep(n){','function paintWizSummary(){')}
  ${slice(voice,"document.addEventListener('click', (e) => {\n  const t = e.target", "$('voiceBackBtn').addEventListener")}`});
  for(const width of [320,390,1280]){

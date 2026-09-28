@@ -25,7 +25,7 @@ function check(label, ok) {
 ].forEach((key) => check('account sync includes ' + key, prefs.includes("'" + key + "'")));
 
 check('global AI pill is off the rail', !/label: 'Debate an AI'/.test(topbar));
-check('Explore menu routes the one public AI door to the /newvoice setup screen', topbar.includes("href: '/newvoice?handoff=topbar-ai'") && topbar.includes("label: 'Debate the AI'") && !topbar.includes('autostart=1'));
+check('Explore menu routes the one public AI door to the /newvoice setup screen', topbar.includes("href: '/newvoice?handoff=topbar-ai'") && topbar.includes("label: 'Solo practice'") && !topbar.includes('autostart=1'));
 check('default practice starts in casual 1v1', practice.includes("if (!COMPETITIVE_ENTRY) return 'quick';") && !practice.includes("localStorage.getItem('debateos-round-format')"));
 // 2026-09-07, Aidan: 1v1 only. The competitive entry still exists but its
 // picker offers only one-on-one structures; the parliamentary and US-circuit
@@ -48,24 +48,23 @@ check('voice trainer saves persona', voice.includes('rememberPersona(personaKey)
 check('quick voice saves side', newvoice.includes("localStorage.setItem('debateos-newvoice-side', side)"));
 
 check('human queue starts with a factual status', spar.includes('Searching the live queue'));
-check('queue promises no automatic AI switch', spar.includes('We will not switch you to AI.'));
-check('AI choice appears after the stated wait', spar.includes('var AI_OFFER_AFTER_SEC = 60') && /elapsed >= AI_OFFER_AFTER_SEC[^]*aiOpponentOffer/.test(spar));
+check('queue waits for mutual acceptance', spar.includes('The room opens when you both accept.'));
+check('waiting stage offers an explicit AI link', spar.includes('href="/newvoice?handoff=spar-wait-stage"') && spar.includes('data-cta="spar-wait-ai">Debate the AI'));
 check('AI option is explicit', spar.includes('Debate the AI'));
 check('human wait remains explicit', spar.includes('Keep waiting'));
-check('AI click opens the /newvoice setup screen', spar.includes("var VOICE_DEST = '/newvoice?handoff=spar-ai-choice'"));
-check('spar offers prep while waiting', spar.includes('prep while you wait'));
+check('AI click opens the /newvoice setup screen', /function aiOfferDest\(\)\{\s*return '\/newvoice\?handoff=spar-ai-choice'/.test(spar));
+check('the queue can be cancelled without a time limit', spar.includes('id="cancelBtn">Stop searching') && spar.includes('id="countdownNum">No time limit'));
 check('old unverifiable queue claims are gone', !spar.includes('Pinging recent sparrers') && !spar.includes('Searching active circuits'));
 check('no timer invokes fallback', !/setTimeout\s*\(\s*renderFallback/.test(spar));
 
 check('practice voice CTA opens the live room immediately',
   practice.includes("q.set('autostart', '1')") && practice.includes("return '/newvoice?' + q.toString()") && !practice.includes("return '/voice-debate?' + q.toString()"));
-// 2026-09-07: the third path is a plain "Timed round" chip; competitive
-// formats are retired from public copy (casual 1v1 only), so the guard
-// asserts the format list stays gone rather than present.
-check('direct newvoice names three real debate paths',
+// The AI setup offers two voice modes. Timed rounds and the old typed
+// competitive handoff have been retired from this door.
+check('direct newvoice offers its two supported voice modes',
   newvoice.includes('Casual back-and-forth') &&
   newvoice.includes('<b>Conversation</b>') &&
-  newvoice.includes('<b>Timed round</b>') &&
+  !newvoice.includes('<b>Timed round</b>') &&
   !newvoice.includes('For competitive debaters.') &&
   !newvoice.includes('Karl Popper') &&
   !newvoice.includes('3 types of debate out loud.'));
@@ -74,12 +73,9 @@ check('conversation path reaches the realtime prompt',
   newvoice.includes('debateStyle,') &&
   realtimeSession.includes("body.debateStyle === 'conversation'") &&
   realtimeSession.includes('CONVERSATION MODE:'));
-check('competitive voice path opens formats instead of realtime minting',
-  // 2026-09-07, Aidan: 1v1 only. The chip hands off to the typed page's
-  // default one-on-one structure (`quick`); apda is hidden from every picker.
-  newvoice.includes('/practice?entry=competitive&amp;format=quick&amp;handoff=newvoice'));
+check('AI setup has no retired typed-round handoff', !/href="\/practice\?entry=competitive/.test(newvoice));
 check('newvoice auto-starts only when the door handed a motion',
-  newvoice.includes("const autoStart = entryQuery.get('autostart') === '1'") &&
+  newvoice.includes("const autoStart = !trainingRequested && entryQuery.get('autostart') === '1'") &&
   newvoice.includes('if (autoStart && handedMotion && !previewMode) {') &&
   newvoice.includes("window.addEventListener('DOMContentLoaded', () =>"));
 check('generic doors carry no autostart', !topbar.includes('autostart=1') && !spar.includes('autostart=1'));

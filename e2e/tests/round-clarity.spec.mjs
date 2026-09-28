@@ -10,23 +10,26 @@ async function expectTopicInViewport(page){
 }
 
 for(const width of [320,390,1280]){
-  test(`conversation starts with one primary choice and visible own side at ${width}px`,async({page},testInfo)=>{
+  test(`preparation offers both modes and reachable start controls at ${width}px`,async({page},testInfo)=>{
     await page.setViewportSize({width,height:844});
     const fixture=await roomDesign(page);
     await page.goto('https://debatable.test/live-round?design=ready&mySide=con');
     await expect(page.locator('#startConvoBtn')).toBeVisible();
-    await expect(page.locator('#startFormalBtn')).toBeHidden();
-    await expect(page.locator('#roundReadiness')).toContainText('Connected');
+    await expect(page.locator('#startFormalBtn')).toBeVisible();
+    await expect(page.locator('#roundReadyBtn')).toBeVisible();
+    await expect(page.locator('#playPauseBtn')).toBeDisabled();
+    await expect(page.locator('#roundReadyStatus')).toContainText('Click Ready');
     if(width<761){
       await expect(page.locator('#roundFocusBtn')).toBeHidden();
-      await expect(page.locator('#roundMobileContext')).toBeInViewport();
-      await expect(page.locator('#roundMobileSide')).toHaveText('You’re arguing AGAINST');
-      await expect(page.locator('#startConvoBtn')).toBeInViewport();
-      await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
-      await expectTopicInViewport(page);
-      await expect(page.locator('#startConvoBtn')).toBeInViewport();
+      // Preparation scrolls in normal flow; the compact dock is for an active round.
+      await expect(page.locator('#roundMobileContext')).toBeHidden();
+      await expect(page.locator('#roundSidePair [data-side="con"]')).toHaveText('AGAINSTJordan');
+      await expect(page.locator('#callShell .is-self')).toContainText('Jordan (you)Against');
+      await page.locator('#roundReadyBtn').scrollIntoViewIfNeeded();
+      await expect(page.locator('#roundReadyBtn')).toBeInViewport();
+      await page.locator('#playPauseBtn').scrollIntoViewIfNeeded();
+      await expect(page.locator('#playPauseBtn')).toBeInViewport();
     }
-    await page.locator('.round-mode-options>summary').click();
     await expect(page.locator('#startFormalBtn')).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     expect(fixture.errors).toEqual([]);

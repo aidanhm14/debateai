@@ -18,7 +18,7 @@ for (const [name, src] of [['typed ballot', practice], ['voice ballot', voiceRfd
   check(name + ' has Rematch', src.includes('Rematch'));
   // 2026-09-07, Aidan: plain words on the loop buttons (topic, not motion).
   check(name + ' has New topic', src.includes('New topic'));
-  check(name + ' has Drill your weakest area', src.includes('Drill your weakest area'));
+  check(name + ' has a feedback practice action', src.includes(name === 'quick voice recap' ? 'Practice with your feedback' : 'Drill your weakest area'));
   // 2026-09-07, Aidan: one word per concept. The judge's output is "the decision".
   check(name + ' has Share decision', src.includes('Share decision'));
 }

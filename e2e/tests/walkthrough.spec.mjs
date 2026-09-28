@@ -19,11 +19,11 @@ for (const width of [390,834,1180]) test(`walkthrough layouts at ${width}px`, as
   expect(f.errors).toEqual([]);
 });
 
-test('saved age is reused, unknown age never becomes adult',async({page})=>{
-  const f=await offlineSite(page,{api:u=>u.pathname==='/api/age-band'?{json:{band:'minor'}}:undefined});
+test('legacy age-band mode reuses saved age without inventing adulthood',async({page})=>{
+  const f=await offlineSite(page,{document:()=>'<html><body></body></html>',api:u=>u.pathname==='/api/age-band'?{json:{band:'minor'}}:undefined});
   await page.goto('https://debatable.test/404');
   await page.evaluate(()=>{window.firebase={auth:()=>({currentUser:{uid:'one',getIdToken:async()=>'fixture'}})};localStorage.setItem('da-age-band','adult');});
-  await page.addScriptTag({content:readApp('js/age-gate.js')});
+  await page.addScriptTag({content:readApp('js/age-gate.js').replace('var PAIRING_BANDS = false;', 'var PAIRING_BANDS = true;')});
   expect(await page.evaluate(()=>new Promise(resolve=>daAskAgeBand(resolve)))).toBe('minor');
   await expect(page.locator('#daAgeGate')).toHaveCount(0);expect(f.requests.filter(r=>r.path==='/api/age-band'&&r.method==='POST')).toHaveLength(0);
   await page.route('**/api/age-band',route=>route.fulfill({json:{band:null}}));
@@ -82,7 +82,7 @@ test('Good chat example has no invented winner or score',async({page})=>{
 test('public standings show chosen viewpoint and an explicit profile link',async({page})=>{
   await offlineSite(page,{api:u=>u.pathname==='/api/leaderboard-top'?{json:{rows:[{uid:'fixtureaccount00000000001',name:'Lucas',kind:'rating',rank:1,rating:1620,games:6,publicIdeology:'Socialist'},{uid:'fixtureaccount00000000002',name:'Sam',kind:'rating',rank:2,rating:1600,games:6}],total:2}}:undefined});
   await page.goto('https://debatable.test/');await page.locator('#ranked-band').scrollIntoViewIfNeeded();
-  await expect(page.locator('.rb-ideology').first()).toHaveText('Socialist');await expect(page.locator('.rb-ideology').nth(1)).toHaveText('Not given');
+  await expect(page.locator('.rb-ideology').first()).toHaveText('Socialist');await expect(page.locator('.rb-ideology')).toHaveCount(1);
   await expect(page.locator('.rb-profile-link').first()).toHaveAttribute('href','/users?uid=fixtureaccount00000000001');
 });
 
@@ -105,6 +105,7 @@ for(const width of [390,834,1180])test(`queue and account settings components at
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   const profile=readApp('profile.html');doc='<!doctype html><html data-theme="light"><head>'+componentHead(profile)+'</head><body class="profile-page social-profile"><main id="fixture" style="max-width:850px;margin:auto"></main></body></html>';
   await page.goto('https://debatable.test/profile');
+  await page.addScriptTag({content:readApp('js/public-outlook.js')});
   await page.addScriptTag({content:sourceBetween(profile,'function renderSettings(','function wireSettings(')+'function escapeHtml(s){return String(s).replace(/[<>&"]/g,"");}document.getElementById("fixture").innerHTML=renderSettings({uid:"fixture"},{displayNameOverride:"Lucas",transcriptCapture:false,corpusAgeAttested:true,contributeToCorpus:false});document.getElementById("settings").open=true;'});
   await expect(page.locator('#setName')).toHaveValue('Lucas');await expect(page.locator('#setCapture')).not.toBeChecked();await expect(page.locator('#setCorpusAge')).toBeHidden();
   await expect(page.getByText('Always save my future rounds',{exact:true})).toBeVisible();

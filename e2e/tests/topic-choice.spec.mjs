@@ -13,7 +13,9 @@ for(const width of [390,1280])test(`empty room displays choices before Start at 
  await expect(page.locator('#rmbMotion')).toHaveText('Choose topic');
  await expect(page.locator('#rmbTools')).toBeVisible();
  for(const id of ['rmbRollBtn','rmbDifferBtn','rmbChangeBtn','rmbDraftBtn'])await expect(page.locator('#'+id)).toBeVisible();
- await expect(page.locator('#startConvoBtn')).toBeDisabled();
+ await expect(page.locator('#startConvoBtn')).toBeEnabled();
+ await expect(page.locator('#playPauseBtn')).toBeDisabled();
+ await expect(page.locator('#roundReadiness')).toHaveText('Choose a topic before starting.');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(fixture.errors).toEqual([]);
 });

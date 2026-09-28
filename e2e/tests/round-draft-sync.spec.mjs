@@ -58,6 +58,8 @@ async function world(browser, { signals = true } = {}) {
       function toast(s){ window.lastToast = s; }
       function liveJourney(){} function syncPlayBet(){} function syncTeamSeats(){} function gtag(){} function renderHouseGloss(){} function renderRound(){}
       function updateRoomStage(){} function syncJudgeLock(){} function enterAudienceMode(){}
+      function syncSpeechTiming(){ return false; }
+      function isMyTurn(){ return true; }
       function tournamentControlsLocked(){ return false; } function tournamentDraftMotion(){ return ''; }
       // This fixture exercises pre-round draft admission, with no finishing conversation.
       function conversationIsFinishing(){ return false; }

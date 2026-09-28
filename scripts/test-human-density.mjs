@@ -26,19 +26,12 @@ function check(name, condition) {
   }
 }
 
-const firstEvent = 'Date.UTC(2026, 6, 23, 0, 0, 0)';
-check('Spar Night schedule is shared across client and server',
-  sparNight.includes(firstEvent) && rsvp.includes(firstEvent) && reminder.includes(firstEvent));
-check('Spar Night has three Wednesday sessions',
-  sparNight.includes("{ hour: 7,  name: 'Asia-Pacific night'")
-  && sparNight.includes("{ hour: 15, name: 'Europe night'")
-  && sparNight.includes("{ hour: 20, name: 'US night'")
-  && rsvp.includes('for (const hour of [7, 15, 20])')
-  && reminder.includes('const SESSION_HOURS = [7, 15, 20]'));
-check('Spar Night has a ninety-minute live window',
-  sparNight.includes('90 * 60 * 1000')
-  && rsvp.includes('90 * 60 * 1000')
-  && reminder.includes('90 * 60 * 1000'));
+const sharedSchedule = read('app/js/clash-schedule.js');
+check('Clash Hours use one schedule in the browser and server',
+  sparNight.includes('window.DBClashSchedule') && rsvp.includes("import schedule from '../../js/clash-schedule.js'") && reminder.includes("import schedule from '../../js/clash-schedule.js'"));
+check('Clash Hours have three daily local evening sessions',
+  ['india', 'london', 'new-york'].every(id => sharedSchedule.includes("id: '" + id + "', hour: 21")));
+check('Clash Hours have a ninety-minute live window', sharedSchedule.includes('var LIVE_MS = 90 * 60 * 1000') && sparNight.includes('schedule.LIVE_MS'));
 check('anonymous reminder RSVP is wired',
   sparNight.includes("fetch('/api/spar-rsvp'")
   && sparNight.includes("var remindLabel = already ? 'You\\'re on the list' : 'Remind me'"));
@@ -48,7 +41,7 @@ check('RSVP endpoint validates and deduplicates email',
 check('RSVP endpoint has bot and rate controls',
   rsvp.includes("body['bot-field']") && rsvp.includes('RATE_LIMIT = 5'));
 check('scheduled reminder is configured weekly',
-  reminder.includes("schedule: '0 9 * * 3'")
+  reminder.includes("schedule: '0 2 * * 3'")
   && reminder.includes('MIN_GAP_RUN_MS = 5 * DAY_MS'));
 check('scheduled reminder makes no matching-time promise',
   !reminder.includes('match with a real opponent in\n    seconds')
@@ -59,28 +52,25 @@ check('scheduled reminder honors opt-out and deduplicates addresses',
   && reminder.includes('mailedAddrs.has(addr)'));
 
 check('background human matching requires an explicit toggle',
-  notifications.includes("b.addEventListener('click', function (e) { e.stopPropagation(); setAvailable(!available); });"));
+  notifications.includes("b.addEventListener('click', function (e) {") && notifications.includes('setAvailable(voiceDeclined || !available);'));
 check('notification permission is requested only on a real opt-in',
   notifications.includes('if (available && !quiet) daAskNotify()'));
 check('background queue status is honest',
-  notifications.includes('Keep this tab open and we will ping you when a human opponent is ready.'));
+  notifications.includes('Keep this tab open. Accept an invitation to join your own round.'));
 check('background matcher writes a real matchmaking queue record',
   notifications.includes("db.collection('matchmaking_queue').doc(myUid)")
   && notifications.includes("status: 'waiting'")
   && notifications.includes('background: true'));
 check('match notification names accept rather than auto-enter',
-  notifications.includes("new Notification('Match found'")
-  && notifications.includes("Tap to accept."));
+  notifications.includes("daShowDeviceNotification('Match found'")
+  && notifications.includes("Open the invitation to accept."));
 check('match card offers accept and decline',
   notifications.includes('da-match-btn--decline')
   && notifications.includes('da-match-btn--accept'));
-check('human queue never silently changes to AI',
-  spar.includes('We will not switch you to AI.')
-  && spar.includes('There is no time limit and no automatic AI fallback.'));
-check('AI opponent is an explicit user decision',
-  spar.includes('id="aiNowLink"') && spar.includes('Open Realtime Voice AI'));
-check('spar page offers prep while waiting',
-  spar.includes('Prep while waiting') && spar.includes('spar_prep_while_waiting'));
+const countdown = spar.slice(spar.indexOf('  function startCountdown(){'), spar.indexOf('  function requestPingPermission(){'));
+check('human queue never silently changes to AI', countdown.includes('function startCountdown(){') && !/triggerAIFallback\(|renderFallback\(|leaveQueueForAi\(/.test(countdown));
+check('AI opponent is an explicit user decision', spar.includes('href="/newvoice?handoff=spar-wait-stage"') && spar.includes('data-cta="spar-wait-ai">Debate the AI'));
+check('waiting has an explicit stop and no deadline', spar.includes('id="cancelBtn">Stop searching') && spar.includes('id="countdownNum">No time limit'));
 
 check('async board exposes open challenges and personal rounds',
   rounds.includes('Open challenges') && rounds.includes('My rounds'));

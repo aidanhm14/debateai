@@ -111,7 +111,9 @@ test('live swaps require the peer, support declining, and update both sides', as
 
 test('message composer waits for Send, preserves failed drafts, and addresses only the opponent', async ({ page }) => {
   const fixture = await liveFixture(page);
-  const dm = between(readApp('live-round.html'), '  function roundDmTarget(seat){', '  // Call card controls.');
+  const live = readApp('live-round.html');
+  const dm = between(live, '  function roundDmTarget(seat){', '  var roundFriendControls')
+    + between(live, '  // ── DM your opponent.', '  // Call card controls.');
   await page.evaluate(() => {
     window.dmWrites = []; window.failDm = false;
     window.mockDmDb = { collection: collection => ({ doc: thread => ({

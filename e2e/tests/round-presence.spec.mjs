@@ -24,6 +24,7 @@ test('a stale Ready nudge cannot announce an empty call, and reconnect clears th
     function isMyTurn(){return true;} function conversationIsFinishing(){return false;}
     function prepClockRunning(){return false;} function judgeLockKey(){return 'chair';}
     function modeDoorsVisible(){return false;} function openMode(){return false;}
+    function preparationEnabled(){return false;} function paintModeDoors(){}
     function callGuidance(host){return host;} function escHtml(s){return s;}
     function noShowOpponentUid(){return 'b';} function opponentHasLeft(){return false;}
     function getRoundDocRef(){return null;}
@@ -43,7 +44,7 @@ test('a stale Ready nudge cannot announce an empty call, and reconnect clears th
   await page.evaluate(()=>{ state.seatSeen.b=Date.now(); refresh(); });
   await expect(page.locator('#openBeatCard')).toHaveCount(0);
   await expect(page.locator('#playPauseBtn')).toBeDisabled();
-  await expect(page.locator('#startConvoBtn')).toBeDisabled();
+  await expect(page.locator('#startConvoBtn')).toBeEnabled(); // Mode choice is independent of Start.
   await page.clock.runFor(29000);
   await page.evaluate(()=>{ state.seatSeen.b=Date.now(); refresh(); });
   await expect(page.locator('#noShowPrompt')).toContainText('Jordan is not connected to the call.');

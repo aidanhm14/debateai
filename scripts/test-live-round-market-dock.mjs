@@ -39,7 +39,7 @@ check('live header carries spectator context',
   && /id="spectatorJudge"/.test(page)
   && /id="spectatorPrep"/.test(page));
 check('audience responses remain available after betting removal',
-  /id="audienceToolsLabel">Your take</.test(page)
+  /id="audienceToolsLabel">Your take(?: &middot; the viewer vote)?</.test(page)
   && /function svInitSpectator/.test(page)
   && !/viewer-bet-link|function syncPlayBet|round-bet\.js/.test(page)
   && !/audienceTokensBalance|pmRenderPanel|pmPlaceBet/.test(page));

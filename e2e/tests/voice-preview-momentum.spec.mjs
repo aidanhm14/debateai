@@ -15,7 +15,7 @@ async function boot(page) {
   await page.addScriptTag({ content: read('js/voice-preview-momentum.js') });
   await page.addScriptTag({ content: `
     var $=id=>document.getElementById(id);
-    var liveVoice=null,paceUpdatePending=false;
+    var trainingScenario=null, liveVoice=null,paceUpdatePending=false;
     var status='live', currentMotion='Public transport should be free', scopingRound=false, autoStartPending=false;
     var turns=[{who:'you',text:'Buses help everyone reach work.'},{who:'ai',text:'But who should pay for the service?'}];
     var startBtn=$('startBtn'),startLabel=$('startLabel'),statusText=$('statusText'),capYouText=$('capYouText'),capAiText=$('capAiText');

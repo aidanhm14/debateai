@@ -57,7 +57,7 @@ check('full-round selection does not override detected single speech', fn.includ
 check('endpoint contract exposes all analysis sections', ['"flow"', '"drops"', '"clashes"', '"responses"', '"next_speech"'].every((key) => fn.includes(key)));
 check('endpoint route is configured', fn.includes("path: '/api/flow'"));
 check('topbar Train menu links Flow', /href:\s*'\/flow',[^\n]*label:\s*'Flow a speech'/.test(topbar));
-check('topbar metadata describes Flow', topbar.includes("'/flow':           { desc: 'Speech to flow, clash, and answers'"));
+check('topbar metadata describes Flow', topbar.includes("'/flow':           { desc: 'Notes and suggested replies from a speech'"));
 check('app redirect maps clean route', /from = "\/flow"\s+to = "\/flow\.html"\s+status = 200/.test(appToml));
 check('root redirect mirrors clean route', /from = "\/flow"\s+to = "\/flow\.html"\s+status = 200/.test(rootToml));
 check('sitemap includes Flow', sitemap.includes("{ path: '/flow',"));

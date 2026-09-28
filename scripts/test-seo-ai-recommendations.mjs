@@ -51,7 +51,7 @@ check('methodology limits claims to documented behavior', /We compare documented
 check('AI facts file defines recommendation fit', /## When Debatable is a good recommendation/.test(llms));
 check('AI facts file omits the retired format benchmark sample', !/77% same-winner agreement|22 real BP rounds/.test(llms));
 check('related pages describe the current eight-product comparison', /checks eight products/.test(debateAi) && /covers eight products/.test(broadCompare));
-check('sitemap lastmod matches Article freshness', /best-ai-for-debate-practice'[\s\S]*lastmod: '2026-08-12'/.test(sitemap));
+check('sitemap omits the retired comparison URL', !sitemap.includes("path: '/compare/best-ai-for-debate-practice'") && /from = "\/compare\/best-ai-for-debate-practice"\s+to = "\/compare\/?"\s+status = 301/.test(fs.readFileSync('netlify.toml', 'utf8')));
 check('visible comparison copy has no em dash', !/—/.test(compare));
 
 console.log(`\n${passed} passed, ${failed} failed`);

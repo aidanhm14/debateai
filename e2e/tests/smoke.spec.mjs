@@ -74,7 +74,7 @@ test.describe('public pages', () => {
     await expect(page.locator('.fs-actions-row .fs-cta--watch, .mh-watch')).toHaveCount(0);
     for (const link of await page.locator('[data-fs-watch-live]').all()) await expect(link).toBeHidden();
     await page.getByRole('button', { name: 'Menu', exact: true }).click();
-    await expect(page.getByRole('menuitem', { name: 'Watch & clips', exact: true })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /^Watch & vote(?: Streams, replays, and clips)?$/ })).toBeVisible();
     await expect(actions.locator('.fs-cta--bet')).toHaveCount(0);
     await expect(page.getByRole('heading', {name:'Debate someone live.',exact:true})).toHaveCount(0);
     expect(errors, 'uncaught exceptions on the landing').toEqual([]);
@@ -172,10 +172,11 @@ test.describe('public pages', () => {
     expect(errors, 'uncaught exceptions on /watch').toEqual([]);
   });
 
-  test('/practice mounts the React app', async ({ page }) => {
+  test('/practice serves its guide and links to the AI setup', async ({ page }) => {
     const errors = trackErrors(page);
     await page.goto('/practice');
-    await expect(page.locator('#root > *').first()).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(/practice/i);
+    await expect(page.locator('main a[href^="/newvoice"]').first()).toBeVisible();
     expect(errors, 'uncaught exceptions on /practice').toEqual([]);
   });
 

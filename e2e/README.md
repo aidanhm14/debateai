@@ -7,7 +7,7 @@ the API contract checks still read the real public endpoints.
 push to `main` (`.github/workflows/e2e-smoke.yml`) once the Netlify deploy is
 live, and fails loudly if a promise the site makes to a stranger stops being
 true: the first screen's two debate doors and top-menu Watch (including returning visitors
-from the retired claim experiment), `/spar` optional topic/people choices followed by sign-in before matching, `/watch` static copy, `/practice` mounting, retired
+from the retired claim experiment), `/spar` optional topic/people choices followed by sign-in before matching, `/watch` static copy, `/practice` serving its guide and AI setup link, retired
 routes redirecting, `sw.js` parsing with a `CACHE_NAME`, `/api/claude`
 refusing a tokenless call, the public read endpoints, and the judge season
 calendar not having expired.
@@ -30,8 +30,8 @@ these tests do not need server credentials or a live database.
 The functions 500 locally without ~20 provider keys and App Check is
 hard-enforced, so a local run would only test the static HTML. Every test
 is read-only or stops at a gate that refuses before spending anything. No
-AI round is started. `/practice` does mint one anonymous Firebase user per
-run; anonymous uids are never counted as signups (soul.md section 8).
+AI round is started. `/practice` is now a static guide; the old React room
+is no longer the public destination of that route.
 
 ## Two things that will bite you
 
