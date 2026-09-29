@@ -28,6 +28,9 @@
     for (const [side, key] of [['FOR', swap ? 'debaterB' : 'debaterA'], ['AGAINST', swap ? 'debaterA' : 'debaterB']]) {
       const line = node('div'); line.append(node('strong', side + '  '), document.createTextNode(roles[key].model)); $('model-pair').append(line);
     }
+    for (const key of ['judgeA', 'judgeB']) {
+      const line = node('div'); line.append(node('strong', 'JUDGE  '), document.createTextNode(roles[key].model)); $('model-pair').append(line);
+    }
   }
   function selectedExample() {
     const custom = $('example').value === 'custom'; $('custom-fields').hidden = !custom;

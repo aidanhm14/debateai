@@ -165,20 +165,29 @@ function t(label, cond) {
   // Open: a council still carries on two matching votes through one
   // provider outage, and still refuses to break a 1-1.
   t('the live council lets two matching votes carry through one provider outage',
-    current.id === '2026-autumn-sol'
+    current.id === '2026-frontier-council'
       && current.panel.quorum === 2
       && current.panel.minimumVotes === 2);
-  const priorPanel = seasonById('2026-autumn-flex');
+  const priorPanel = seasonById('2026-autumn-sol');
+  const flexPanel = seasonById('2026-autumn-flex');
   t('historical flex season retains its Grok seat',
-    priorPanel.panel.jurors[1].provider === 'xai' && priorPanel.panel.jurors[1].model === 'grok-4.3');
-  t('new second seat pins the live-tested Sol model and effort',
-    jurors[1].provider === 'openai' && jurors[1].model === 'gpt-6-sol' && jurors[1].effort === 'low');
+    flexPanel.panel.jurors[1].provider === 'xai' && flexPanel.panel.jurors[1].model === 'grok-4.3');
+  t('historical Sol season retains its exact model and effort pins',
+    JSON.stringify(priorPanel.panel.jurors) === JSON.stringify([
+      { id: 'j1', provider: 'anthropic', model: 'claude-sonnet-5', effort: 'low' },
+      { id: 'j2', provider: 'openai', model: 'gpt-6-sol', effort: 'low' },
+      { id: 'j3', provider: 'google', model: 'gemini-3.6-flash' },
+    ]));
+  t('frontier council pins the tested models and reasoning effort',
+    JSON.stringify(jurors) === JSON.stringify([
+      { id: 'j1', provider: 'anthropic', model: 'claude-opus-5-5', effort: 'low' },
+      { id: 'j2', provider: 'openai', model: 'gpt-6-astra', effort: 'low' },
+      { id: 'j3', provider: 'google', model: 'gemini-3.8-flash' },
+    ]));
   t('model-only replacement preserves the rubric hash',
     rubricHash(current.rubricVersion) === rubricHash(priorPanel.rubricVersion));
   t('immediately before the replacement uses the historical panel',
     seasonFor(current.from - 1).id === priorPanel.id);
-  t('the other two provider seats are unchanged',
-    JSON.stringify([jurors[0], jurors[2]]) === JSON.stringify([priorPanel.panel.jurors[0], priorPanel.panel.jurors[2]]));
   t('juror ids are unique', new Set(jurors.map((j) => j.id)).size === jurors.length);
   // Effort changes how a ballot is reached, so an undisclosed effort is
   // the same quiet dial as an undisclosed model.
@@ -243,11 +252,11 @@ function t(label, cond) {
   const roundsPage = readPageSource(new URL('../app/rounds.html', import.meta.url), 'utf8');
   const liveRoundPage = readPageSource(new URL('../app/live-round.html', import.meta.url), 'utf8');
   t('published async ballots name the brains actually used',
-    roundsPage.includes('Brains used: ')
+    roundsPage.includes('Judging models: ')
       && roundsPage.includes('p.models')
       && roundsPage.includes('scorecard axes are panel medians'));
   t('live ballots name the brains and explain the persuasion score',
-    liveRoundPage.includes('Brains used: ')
+    liveRoundPage.includes('Judging models: ')
       && liveRoundPage.includes('ballotCouncilHtml(b)')
       && liveRoundPage.includes('human audience, not the AI score'));
 

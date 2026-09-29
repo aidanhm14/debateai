@@ -165,7 +165,10 @@ export function makeBallotParser(aKey, bKey, scoreScale = 30) {
 export async function runPanel(season, system, user, opts = {}) {
   const aKey = opts.aKey || 'prop';
   const bKey = opts.bKey || 'opp';
-  const singleModel = opts.singleModel || 'claude-sonnet-5';
+  const primary = season?.panel?.jurors?.find(j => j.provider === 'anthropic');
+  const singleModel = opts.singleModel || primary?.model || 'claude-sonnet-5';
+  const singleJuror = { id: 'single', provider: 'anthropic', model: singleModel,
+    ...(primary?.model === singleModel && primary.effort ? { effort: primary.effort } : {}) };
   const parseBallot = makeBallotParser(aKey, bKey, opts.scoreScale);
   // A synchronous live-room function has a harder wall-clock ceiling than
   // the async sweep. Callers may lower the per-juror ceiling so provider
@@ -232,7 +235,7 @@ export async function runPanel(season, system, user, opts = {}) {
     if (REQUIRE_PANEL && panelCfg) {
       throw new Error(`panel not constitutable: ${available.length} of ${wanted.length} jurors available, quorum ${quorum}`);
     }
-    const solo = { id: 'single', provider: 'anthropic', model: singleModel };
+    const solo = singleJuror;
     const r = await callOne(solo, system, user, JUROR_MAX_TOKENS, parseBallot, jurorTimeoutMs);
     if (!r.ok || !r.ballot) throw new Error(`single judge failed: ${r.error || 'no ballot'}`);
     return singleDecision(r, 'panel_not_constitutable', [r]);
@@ -257,7 +260,7 @@ export async function runPanel(season, system, user, opts = {}) {
     let fallbackResults = results;
     if (!fallback && allowRuntimeFallbackCall) {
       fallback = await callOne(
-        { id: 'single', provider: 'anthropic', model: singleModel },
+        singleJuror,
         system, user, JUROR_MAX_TOKENS, parseBallot, jurorTimeoutMs,
       );
       fallbackResults = [...results, fallback];
@@ -332,7 +335,8 @@ export async function runPanel(season, system, user, opts = {}) {
       decidingIssue: tally.decidingIssue,
       issuesNamed: tally.issuesNamed,
       issueAgreement: tally.issueAgreement,
-      models: available.map((j) => j.model),
+      models: votes.map((j) => j.model),
+      configuredModels: wanted.map((j) => j.model),
       jurorsWanted: wanted.length,
       jurorsAvailable: available.length,
       minimumVotes,

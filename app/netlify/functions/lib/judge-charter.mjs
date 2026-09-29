@@ -579,6 +579,26 @@ SEASONS.push({
   note: 'The second seat changes from Grok 4.3 to GPT-6 Sol at low reasoning effort after focused casual-conversation tests of question flooding, reply opportunities and reasoning. Anthropic and Google retain the other seats. The rubric, score weights, majority rule and human appeal policy are unchanged. These synthetic tests are regression evidence, not a broad accuracy guarantee.',
 });
 
+// Quality-first council requested 2026-09-28. Provider calls and full
+// explanations are retained in the frontier-model regression report.
+const FRONTIER_PANEL_FROM = Date.UTC(2026, 8, 29, 1, 25);
+const previousFrontierSeason = SEASONS[SEASONS.length - 1];
+const frontierPanelTo = previousFrontierSeason.to;
+previousFrontierSeason.to = FRONTIER_PANEL_FROM;
+SEASONS.push({
+  ...previousFrontierSeason,
+  id: '2026-frontier-council', from: FRONTIER_PANEL_FROM, to: frontierPanelTo,
+  panel: {
+    ...previousFrontierSeason.panel,
+    jurors: [
+      { id: 'j1', provider: 'anthropic', model: 'claude-opus-5-5', effort: 'low' },
+      { id: 'j2', provider: 'openai', model: 'gpt-6-astra', effort: 'low' },
+      { id: 'j3', provider: 'google', model: 'gemini-3.8-flash' },
+    ],
+  },
+  note: 'Claude Opus 5.5, GPT-6 Astra and Gemini 3.8 Flash replace the previous council after checks of substantive replies, question flooding, circular reasoning and judge-directed instructions. Anthropic and OpenAI retain explicit low reasoning effort. The three providers receive the same transcript and rubric. Score weights, majority rule and human appeals are unchanged. These synthetic checks do not establish general accuracy or identify AI-written speeches.',
+});
+
 export const SEASON_IDS = SEASONS.map((s) => s.id);
 
 // Which season governs a moment in time.

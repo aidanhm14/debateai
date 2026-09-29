@@ -3624,6 +3624,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
 <link rel="stylesheet" href="/css/live-room-clarity.css">
 <link rel="stylesheet" href="/css/live-room-entry.css">
 <link rel="stylesheet" href="/css/round-preparation.css">
+<script defer src="/js/judge-models.js"></script>
 </head>
 <body class="lr-setup">
 
@@ -3810,6 +3811,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
           <div class="label">Judge <span id="setupJudgeHint" style="opacity:.55;font-weight:500;text-transform:none;letter-spacing:0">· both sides use the same setting</span></div>
           <div class="setup-judge-grid" id="setupJudgeTypes" aria-label="Judge type"></div>
         </div>
+        <p class="jd-note"><span data-judge-models>Read the current judging models.</span> <a href="/judge-integrity" target="_blank" rel="noopener">Models and scoring rules</a></p>
         <div class="label">Round type</div>
         <div class="format-display" id="formatDisplay"></div>
       </div>
@@ -5532,7 +5534,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     if (tournamentControlsLocked()){
       host.innerHTML = '<div class="jd-card setup-judge-fixed is-agreed" aria-label="Three-judge tournament council fixed">' +
         '<div class="jd-card-name"><span class="jd-dot"></span>Three-judge council</div>' +
-        '<div class="jd-card-tag">All 3 must return. 2 matching votes decide. Fixed for this tournament.</div>' +
+        '<div class="jd-card-tag">Two matching votes decide. Missing judges are disclosed. Fixed for this tournament.</div>' +
       '</div>';
       return;
     }
@@ -18820,13 +18822,14 @@ window.DBLiveDraft.attach({
           '<div class="jd-head-main">' +
             '<div class="jd-eyebrow">Tournament judge</div>' +
             '<div class="jd-name">Three-judge council</div>' +
-            '<div class="jd-tag">All 3 must return. 2 matching votes decide.</div>' +
+            '<div class="jd-tag">Two matching votes decide. Missing judges are disclosed.</div>' +
           '</div>' +
           '<span class="jd-state jd-state--agreed">Fixed</span>' +
         '</div>' +
         '<div class="jd-body">' +
-          '<p class="jd-note">Claude, Grok, and Gemini judge independently. All three must return, and two matching votes decide. A missing seat retries. The council cannot be changed in this tournament room.</p>' +
+          '<p class="jd-note"><span data-judge-models>Read the current judging models.</span> Two matching votes decide. Missing judges and any fallback are disclosed on the ballot. <a href="/judge-integrity" target="_blank" rel="noopener">Models and scoring rules</a>.</p>' +
         '</div>';
+      if (window.DBJudgeModels) window.DBJudgeModels.paint(el);
       return;
     }
     maybeSeedJudgeFromUrl();
@@ -18840,26 +18843,10 @@ window.DBLiveDraft.attach({
       el.classList.add('is-open', 'is-agreed');
       var sj = $('spectatorJudge');
       if (sj) sj.textContent = 'Judge following the round';
-      el.innerHTML =
-        '<div class="jd-head">' +
-          '<div class="jd-seal">&#9878;</div>' +
-          '<div class="jd-head-main">' +
-            '<div class="jd-eyebrow">Judge</div>' +
-            '<div class="jd-name">Judge</div>' +
-            '<div class="jd-tag">Decides on what was said and how it was weighed. Same judge for both sides.</div>' +
-          '</div>' +
-          '<span class="jd-state jd-state--agreed">Set</span>' +
-        '</div>' +
-        '<div class="jd-body">' +
-          '<p class="jd-note">One judge, no options to agree on. It writes the decision when the round ends and names the reasons.</p>' +
-          judgeHowHtml('Round') +
-          (judgeDraftIsLive() ? '' : ballotLengthHtml()) +
-        '</div>';
-      // 2026-09-04, the founder: "get rid of these". With one judge and
-      // no choice to make, the card is a fact taking a whole block. The
-      // picks above are still set, so the speech-1 judge lock passes;
-      // only the paint is withheld. /judge-integrity carries the method.
-      el.style.display = 'none';
+      // Keep disclosure compact beside the round without restoring a judge picker.
+      el.innerHTML = '<p class="jd-note" style="margin:8px 0"><span data-judge-models>Read the current judging models.</span> <a href="/judge-integrity" target="_blank" rel="noopener">Models and scoring rules</a></p>';
+      el.style.display = '';
+      if (window.DBJudgeModels) window.DBJudgeModels.paint(el);
       return;
     }
 

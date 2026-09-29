@@ -56,7 +56,7 @@ import {
   TOURNAMENT_SPREAD_WPM,
 } from './lib/tournament-scoring.mjs';
 
-const JUDGE_MODEL = process.env.LIVE_JUDGE_MODEL || 'claude-sonnet-5';
+const JUDGE_MODEL = process.env.LIVE_JUDGE_MODEL || null;
 
 // Netlify's synchronous edge path can cut a request off around 30 seconds.
 // The shared panel ceiling is also 30 seconds, which leaves no time for

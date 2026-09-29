@@ -31,7 +31,7 @@ import {
 
 const SITE = process.env.SITE_ORIGIN || 'https://itsdebatable.com';
 const OPP_MODEL   = process.env.ASYNC_OPP_MODEL   || 'claude-sonnet-5';
-const JUDGE_MODEL = process.env.ASYNC_JUDGE_MODEL || 'claude-sonnet-5';
+const JUDGE_MODEL = process.env.ASYNC_JUDGE_MODEL || null;
 const CLASH_MODEL = process.env.ASYNC_CLASH_MODEL || 'claude-sonnet-5';
 const DEEP_MODEL  = process.env.ASYNC_DEEP_MODEL  || 'claude-sonnet-5';
 // One extra call per completed round. Set ASYNC_CLASH_ENABLED=0 to stop

@@ -35,6 +35,14 @@ reviewer notes are omitted from judge input. Same-family model bias remains
 possible; human review is required. API response IDs, actual models, usage,
 prompts, configuration and hashes stay with the private run.
 
+New runs use Claude Opus 5.5 (`claude-opus-5-5`) and GPT-6 Astra
+(`gpt-6-astra`) as the two judges, both with explicit low reasoning effort
+and an 8,000-token output budget. The setup displays these exact judge IDs
+beside the debate-generation models. Each saved run retains its own model
+configuration, including when resumed after a model change. Its judgment
+cards name those stored models, not the latest defaults. This two-judge
+research setup is separate from the three-provider public council.
+
 `synthetic-lab-core.mjs` builds research prompts around the current casual
 adjudication core without editing the production charter. A rubric/version
 change blocks resuming an older experiment; completed raw data remains

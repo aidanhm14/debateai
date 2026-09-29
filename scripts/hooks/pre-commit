@@ -1293,6 +1293,15 @@ if [ -f "$JUDGE_RUN_GUARD" ] && command -v node >/dev/null 2>&1; then
 fi
 
 # This is an offline harness check. Paid behavior evals remain manual.
+MODEL_DISCLOSURE_GUARD="$REPO_ROOT/scripts/test-judge-models.mjs"
+if [ -f "$MODEL_DISCLOSURE_GUARD" ] && command -v node >/dev/null 2>&1; then
+  if ! (cd "$REPO_ROOT" && node "$MODEL_DISCLOSURE_GUARD" >/tmp/judge-models-guard.log 2>&1); then
+    echo "[judge-models-guard] commit blocked:" >&2
+    tail -20 /tmp/judge-models-guard.log >&2
+    exit 1
+  fi
+fi
+
 BEHAVIOR_GUARD="$REPO_ROOT/scripts/test-conversation-behavior-eval.mjs"
 if [ -f "$BEHAVIOR_GUARD" ] && command -v node >/dev/null 2>&1; then
   if ! (cd "$REPO_ROOT" && node "$BEHAVIOR_GUARD" >/tmp/conversation-behavior-guard.log 2>&1); then

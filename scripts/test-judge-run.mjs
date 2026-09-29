@@ -181,6 +181,8 @@ const allAvailable = () => true;
   ok(judged.ballot.winner === null && judged.panel.resolution === 'unresolved',
     'a returned 1-1 panel split stays unresolved');
   ok(fallbackCalls === 0, 'Claude is never used to break a panel tie');
+  assert.deepEqual(judged.panel.models, ['claude-pinned', 'gpt-pinned'], 'only actual voters are called judging models');
+  assert.deepEqual(judged.panel.configuredModels, ['claude-pinned', 'gpt-pinned', 'gemini-pinned'], 'the complete configured panel remains available for disclosure');
 }
 
 {
@@ -201,6 +203,20 @@ const allAvailable = () => true;
     'two matching votes cannot present themselves as the three-judge council');
   ok(judged.panel.minimumVotes === 3 && judged.panel.votesCast === 2,
     'a short council reports the three-seat requirement and its actual vote count');
+}
+
+
+
+{
+  let seen;
+  const effortSeason = {panel:{...season.panel, jurors:[{...season.panel.jurors[0], effort:'low'}, ...season.panel.jurors.slice(1)]}};
+  const judged = await runPanel(effortSeason, 'system', 'user', {
+    aKey:'pro', bKey:'con', scoreScale:100, jurorAvailable:() => false,
+    callJuror: async juror => { seen=juror; return result(juror.id,juror.provider,juror.model,'pro'); },
+  });
+  assert.equal(seen.model,'claude-pinned','default fallback follows the season, never a retired cheaper model');
+  assert.equal(seen.effort,'low','fallback retains the published effort');
+  assert.deepEqual(judged.panel.models,['claude-pinned']);
 }
 
 console.log(`\njudge-run: ${pass} passed, ${fail} failed`);

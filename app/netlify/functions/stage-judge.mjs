@@ -46,7 +46,7 @@ import {
   transcriptFor,
 } from './lib/stage.mjs';
 
-const JUDGE_MODEL = process.env.LIVE_JUDGE_MODEL || 'claude-sonnet-5';
+const JUDGE_MODEL = process.env.LIVE_JUDGE_MODEL || null;
 const JUROR_TIMEOUT_MS = Number(process.env.LIVE_JUDGE_JUROR_TIMEOUT_MS || 22000);
 const LEASE_MS = 90000;
 

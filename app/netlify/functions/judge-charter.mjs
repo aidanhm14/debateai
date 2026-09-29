@@ -18,7 +18,7 @@ import { benchForSeason } from './lib/judge-bench.mjs';
 
 const PANEL_ENABLED = process.env.JUDGE_PANEL_ENABLED !== '0';
 const REQUIRE_PANEL = process.env.JUDGE_REQUIRE_PANEL === '1';
-const ASYNC_JUDGE_MODEL = process.env.ASYNC_JUDGE_MODEL || 'claude-sonnet-5';
+const ASYNC_JUDGE_MODEL = process.env.ASYNC_JUDGE_MODEL;
 
 function runningState(nowMs) {
   const season = seasonFor(nowMs);
@@ -27,6 +27,7 @@ function runningState(nowMs) {
     provider: j.provider,
     pinnedModel: j.model,
     available: jurorAvailable(j),
+    ...(j.effort ? { effort: j.effort } : {}),
   }));
   const available = jurors.filter((j) => j.available).length;
   const quorum = (season.panel && season.panel.quorum) || 2;
@@ -36,6 +37,7 @@ function runningState(nowMs) {
   // primary, that is an override and it is named here.
   const primary = ((season.panel && season.panel.jurors) || [])[0];
   const pinnedPrimary = primary ? primary.model : '';
+  const fallbackModel = ASYNC_JUDGE_MODEL || pinnedPrimary || 'claude-sonnet-5';
 
   return {
     panelEnabled: PANEL_ENABLED,
@@ -46,12 +48,12 @@ function runningState(nowMs) {
     // The honest headline. When this is false, ballots are being written
     // by a single judge and every audit record for them says so.
     panelConstitutable: PANEL_ENABLED && !!season.panel && available >= quorum,
-    fallbackModel: ASYNC_JUDGE_MODEL,
+    fallbackModel,
     runtimeFallback: true,
     fallbackPolicy: 'If provider failures leave fewer than two usable panel votes, one disclosed Claude ballot may finish the round. A returned panel split is never sent to the fallback.',
-    fallbackIsPinned: !pinnedPrimary || ASYNC_JUDGE_MODEL === pinnedPrimary,
-    ...(pinnedPrimary && ASYNC_JUDGE_MODEL !== pinnedPrimary
-      ? { override: { pinned: pinnedPrimary, running: ASYNC_JUDGE_MODEL, note: 'Single-judge fallback is running a model other than the season pin. Every ballot it writes is stamped as an override.' } }
+    fallbackIsPinned: !pinnedPrimary || fallbackModel === pinnedPrimary,
+    ...(pinnedPrimary && fallbackModel !== pinnedPrimary
+      ? { override: { pinned: pinnedPrimary, running: fallbackModel, note: 'Single-judge fallback is running a model other than the season pin. Every ballot it writes is stamped as an override.' } }
       : {}),
   };
 }
@@ -70,14 +72,14 @@ export default async (request) => {
   // meaning, and a client cannot mistake a persona for a pin.
   doc.bench = benchForSeason(seasonFor(now));
 
-  // Cacheable at the edge. The charter changes when a season changes,
-  // which is a deploy, so an hour of staleness is fine and it keeps a
-  // public unauthenticated endpoint from being a load surface.
+  // A published future boundary must also invalidate the cached model list.
+  const remaining = doc.season?.to == null ? 60 : Math.max(0, Math.floor((doc.season.to - now) / 1000));
+  const cacheSeconds = Math.min(60, remaining);
   return new Response(JSON.stringify(doc), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Cache-Control': 'public, max-age=300, s-maxage=3600',
+      'Cache-Control': `public, max-age=${cacheSeconds}, s-maxage=${cacheSeconds}`,
       'Access-Control-Allow-Origin': '*',
     },
   });

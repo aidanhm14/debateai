@@ -17,8 +17,8 @@ export const LAB_CONFIG = {
   roles: {
     debaterA: { provider: 'anthropic', model: 'claude-sonnet-5', maxOutputTokens: 1800 },
     debaterB: { provider: 'openai', model: 'gpt-4.1', maxOutputTokens: 1800 },
-    judgeA: { provider: 'anthropic', model: 'claude-sonnet-5', reasoningEffort: 'low', maxOutputTokens: 3500 },
-    judgeB: { provider: 'openai', model: 'gpt-5.5', reasoningEffort: 'low', maxOutputTokens: 6000 },
+    judgeA: { provider: 'anthropic', model: 'claude-opus-5-5', reasoningEffort: 'low', maxOutputTokens: 8000 },
+    judgeB: { provider: 'openai', model: 'gpt-6-astra', reasoningEffort: 'low', maxOutputTokens: 8000 },
     repair: { provider: 'anthropic', model: 'claude-sonnet-5', maxOutputTokens: 1800 },
   },
 };

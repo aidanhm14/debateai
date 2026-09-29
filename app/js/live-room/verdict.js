@@ -344,6 +344,7 @@
 
   function councilBrainName(model){
     var m = String(model || '');
+    if (window.DBJudgeModels) return window.DBJudgeModels.name(m) + ' (' + m + ')';
     if (/^claude/i.test(m)) return 'Anthropic Claude (' + m + ')';
     if (/^gpt/i.test(m)) return 'OpenAI GPT (' + m + ')';
     if (/^gemini/i.test(m)) return 'Google Gemini (' + m + ')';
@@ -359,7 +360,7 @@
       var models = Array.isArray(p.models) ? p.models.filter(Boolean) : [];
       var names = models.length ? models.map(councilBrainName).map(escHtml).join(' · ') : 'Model not recorded';
       if (p.resolution === 'single'){
-        return '<div class="ballot-council"><div class="bc-head">Single-brain decision</div>' +
+        return '<div class="ballot-council"><div class="bc-head">Single-model decision</div>' +
           '<p class="bc-models">' + names + '</p>' +
           '<p class="bc-method">' + (p.degraded ? 'The council could not reach quorum, so the stamped fallback wrote this decision.' : 'One brain wrote this decision.') +
           ' <a href="/judge-integrity">How judging works</a></p></div>';
@@ -378,7 +379,7 @@
           '<p>' + judgeHtml(d.rfd || 'No written dissent returned.') + '</p></div>';
       }).join('');
       return '<div class="ballot-council"><div class="bc-head">' + escHtml(head) + '</div>' +
-        '<p class="bc-models">Brains used: ' + names + '</p>' +
+        '<p class="bc-models">' + (p.configuredModels ? 'Judging models: ' : 'Recorded panel models: ') + names + '</p>' +
         '<p class="bc-method">Same transcript and rubric, one vote per brain. Two matching votes carry. Scores and scorecard axes are panel medians, and dissent is kept separate. <a href="/judge-integrity#decision">Read the method</a>.</p>' +
         dissentHtml + '</div>';
     } catch(e){ return ''; }
