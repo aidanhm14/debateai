@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { factCheckInput, reserveFactCheck } from '../app/netlify/functions/lib/fact-check-session.mjs';
+const round={format:'open',proUid:'a',conUid:'b',proName:'A',conName:'B',openSegs:{pro:[{text:'Their words',speakerUid:'a',at:1}],con:[{text:'My words',speakerUid:'b',at:2},{text:'Spoofed',speakerUid:'a',at:3}]}};
+assert.equal(factCheckInput(round,'a',{side:'con'}).text,'My words');
+assert.throws(()=>factCheckInput(round,'spectator',{side:'pro'}),/Participants/);
+assert.equal(factCheckInput({...round,format:'quick',speechIdx:1,currentTranscript:{speechIdx:1,text:'Actual speech'}},'a',{speechIdx:1,side:'pro'}).side,'Against');
+assert.equal(factCheckInput({...round,openSegs:{pro:[{text:'old '.repeat(4000)+'LAST CLAIM'}]}},'a',{side:'pro'}).text.endsWith('LAST CLAIM'),true);
+let saved={};const db={collection:()=>({doc:()=>({})}),runTransaction:fn=>fn({get:async()=>({data:()=>saved}),set:(_,d)=>saved=d})};
+const input={seat:'pro',speechIdx:0,text:'first claim'};
+assert.equal(await reserveFactCheck(db,'room',input,1000),'reserved');
+assert.equal(await reserveFactCheck(db,'room',input,2000),'already_checked');
+assert.equal(await reserveFactCheck(db,'room',{...input,text:'another'},2000),'checking');
+assert.equal(await reserveFactCheck(db,'room',{...input,seat:'con'},2000),'reserved');
+for(let i=1;i<16;i++)assert.equal(await reserveFactCheck(db,'room',{...input,text:String(i)},i*60000),'reserved');
+assert.equal(await reserveFactCheck(db,'room',{...input,text:'excess'},1000000),'limit');
+console.log('Fact-check session: authoritative attribution, fresh tails, dedupe, per-seat leases and budgets passed.');

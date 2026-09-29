@@ -1566,3 +1566,11 @@ TRIGGER_COUNT="$(printf '%s\n' "$TRIGGERS" | wc -l | tr -d ' ')"
 echo "[sw-bump] ${CURRENT} → ${NEW} (${TRIGGER_COUNT} client file$([ "$TRIGGER_COUNT" = "1" ] || echo s) changed)"
 
 exit 0
+
+# Attributed evidence and source-check budgets are release gates.
+for GUARD in test-judge-evidence.mjs test-fact-check-session.mjs; do
+  if ! (cd "$REPO_ROOT" && node "scripts/$GUARD"); then
+    echo "[$GUARD] failed. Fix the evidence boundary before committing." >&2
+    exit 1
+  fi
+done

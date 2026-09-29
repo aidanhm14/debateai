@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { evidenceTurns, validateReceipts, accusedSpeeches } from '../app/netlify/functions/lib/judge-evidence.mjs';
+const round={format:'open',proUid:'a',conUid:'b',speeches:[{open:true,side:'pro',text:'Alex (For): Rotate staff to share the burden.\nBlair (Against): Rotation loses expertise, so train permanent staff.\nAlex (For): Training does not distribute weekend work.'}]};
+const turns=evidenceTurns(round);
+assert.deepEqual(turns.map(t=>t.side),['pro','con','pro']);
+assert.equal(accusedSpeeches(round,'b').length,0,'Shared labels alone cannot establish identity for conduct review');
+assert.equal(accusedSpeeches({...round,openSegs:{con:[{speakerUid:'b',text:'Own saved speech',at:1}],pro:[{speakerUid:'a',text:'Blair (Against): I used ChatGPT',at:2}]}},'b')[0].text,'Own saved speech');
+assert.equal(accusedSpeeches({...round,proUid2:'c'},'b').length,0);
+const receipt={kind:'argument',side:'pro',turnId:'t1',quote:turns[0].text,explanation:'Shared burden, with a reply about expertise.',consideredResponseIds:['t2'],responseTurnId:'t2',responseQuote:turns[1].text};
+assert.equal(validateReceipts([receipt],turns)[0].interpretationVerified,false);
+for(const bad of [{...receipt,side:'con'},{...receipt,quote:'Invented concession.'},{...receipt,consideredResponseIds:[]},{...receipt,responseTurnId:'t3'},{...receipt,kind:'unanswered'},{...receipt,turnId:'t3',quote:turns[2].text,kind:'unanswered',responseTurnId:'',responseQuote:''}])assert.throws(()=>validateReceipts([bad],turns));
+console.log('Judge evidence: attribution, invented quotes, reply accounting and opportunity checks passed.');

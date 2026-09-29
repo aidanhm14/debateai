@@ -3759,7 +3759,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
           <p><b>Skill counts even when you lose.</b> The judge scores each speaker on their own, apart from the winner call, so a strong loss still reads as strong. Your rating (the number on the leaderboard) moves on who you beat and how settled it already is, not on one result, and your speaker scores build a picture over many rounds rather than one number. <a href="/support" target="_blank" rel="noopener">Contact us</a> if you want to know more about how it is built.</p>
           <p><b>Round notes summarize both sides.</b> They're bullet points of what was said, with no advice and no opinions from the judge, and the judge never reads them.</p>
           <p><b>The transcript cannot be edited.</b> What the judge reads is what the room heard. Text addressed to the judge, claims of a result, or instructions dressed up as speech are ignored for the decision and count against the speaker who tried it.</p>
-          <p><b>We try our best to detect people reading AI-written speeches.</b> Report an opponent for it and their speeches are screened for the marks of machine-written text, then a human reviews it; the judge itself never sees that screen, so an accusation can never tilt a decision. Human speech is imperfect in many ways, and that is fine here: the judge scores reasoning and responses, never polish or fluency, so a script gains less than it looks like it should.</p>
+          <p><b>AI-assistance reports require evidence.</b> Report an opponent for it and their attributed words are checked for reviewable evidence, then a human reviews the context; the judge itself never sees that screen, so an accusation can never tilt a decision. Human speech is imperfect in many ways, and that is fine here: the judge scores reasoning and responses, never polish or fluency, so a script gains less than it looks like it should.</p>
         </div>
       </details>
     </section>
@@ -4277,6 +4277,19 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
            that is empty until one of them has something to show. -->
       <div class="round-details lr-aides" id="moreOptions">
         <div class="rd-body">
+          <!-- Live fact check. Populated by renderFactChecks from the
+               round doc, so debaters and every spectator read the same
+               cards. -->
+          <div class="fact-checks" id="factChecks" hidden>
+            <div class="fc-head">
+              <span class="fc-dot" aria-hidden="true"></span>
+              <strong>Live fact check</strong>
+              <span id="fcSub">Listening for checkable claims. Corrections need linked sources.</span>
+              <button type="button" class="fc-off" id="fcOffBtn">Turn off</button>
+            </div>
+            <div id="fcList" aria-live="polite"></div>
+          </div>
+
           <!-- Shared, neutral bullet points of what each side said.
                The transcript is the source; the ballot never reads these. -->
           <div class="round-notes" id="roundNotes" hidden>
@@ -4289,18 +4302,6 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
             <div id="rnList" aria-live="polite"></div>
           </div>
 
-          <!-- Live fact check. Populated by renderFactChecks from the
-               round doc, so debaters and every spectator read the same
-               cards. -->
-          <div class="fact-checks" id="factChecks" hidden>
-            <div class="fc-head">
-              <span class="fc-dot" aria-hidden="true"></span>
-              <strong>Live fact check</strong>
-              <span id="fcSub">The AI listens in and tells the audience when a claim is flatly wrong.</span>
-              <button type="button" class="fc-off" id="fcOffBtn">Turn off</button>
-            </div>
-            <div id="fcList"></div>
-          </div>
 
         </div>
       </div>
@@ -6355,7 +6356,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     // on. Skipped outright rather than left to discover that on a timer.
     document.body.classList.toggle('lr-open', !!f.open);
     setupConversationPanel(!!f.open);
-    if (!f.open) try { startFactCheckLoop(); renderFactChecks(); } catch(e){}
+    try { startFactCheckLoop(); renderFactChecks(); } catch(e){}
     // Deterministic per-speech reset for the room-audio backstop. bkTick
     // carries the same guard, but it runs on a 3s timer and the flag it
     // clears (bk.owning) suppresses the local mic while it is set, so
@@ -12199,6 +12200,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     if (!sec || !list) return;
     var host = (state.phase === 'ballot' || state.phase === 'ballot-rendered' || state.phase === 'ballot-unresolved') ? $('ballotNotesHost') : (openMode() ? $('conversationNotes') : ($('moreOptions') || {}).firstElementChild);
     if (host && sec.parentNode !== host) host.appendChild(sec);
+    var checks = $('factChecks');
+    if (host && checks) host.insertBefore(checks,sec);
     var on = roundNotesOn();
     var btn = $('rnOffBtn');
     if (btn) btn.textContent = on ? 'Hide' : 'Show';   // never let the button disagree with the switch
@@ -12407,7 +12410,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   var FC_TICK_MS = 20000;        // one pass per 20s of speech at most
   var FC_MIN_NEW_WORDS = 55;     // and only when there is new material
   var FC_MIN_FINAL_WORDS = 12;   // catch the last claim after the speech ends
-  var FC_MAX_PER_ROUND = 16;     // periodic passes plus one final sweep per speech
+  var FC_MAX_PER_ROUND = 32;     // periodic passes plus one final sweep per speech
   var FC_MAX_CARDS = 4;          // newest four; older ones scroll off
 
   // The user's preference only. Whether the checker is CONFIGURED is
@@ -12424,6 +12427,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
   function isFactCheckDriver(speechIdx){
     if (!state.user || isSpectator()) return false;
     var f = FORMATS[state.formatKey];
+    if (f && f.open) return true; // Each seat checks only its own saved stream.
     var idx = (typeof speechIdx === 'number') ? speechIdx : state.speechIdx;
     var sp = f && f.speeches[idx];
     if (!sp) return false;
@@ -12462,7 +12466,8 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     }
     var idx = (typeof opts.speechIdx === 'number') ? opts.speechIdx : state.speechIdx;
     if (!isFactCheckDriver(idx)) return;
-    var text = String(opts.text != null ? opts.text : state.fcText || '').trim();
+    var conversation = openMode();
+    var text = conversation ? (openSeg.segs || []).map(function(s){ return s.text || ''; }).join(' ').trim() : String(opts.text != null ? opts.text : state.fcText || '').trim();
     if (!text) return;
     var words = text.split(/\s+/).length;
     var lastWords = Number.isFinite(Number(opts.lastWords)) ? Number(opts.lastWords) : (state.fcLastWords || 0);
@@ -12472,16 +12477,16 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     var f = FORMATS[state.formatKey];
     var sp = f && f.speeches[idx];
     if (!sp) return;
-    var speaker = speakerNameFor(f, idx);
-    var sideLabel = (f.sideLabels && f.sideLabels[sp.side]) || '';
+    var speaker = conversation ? (mySide() === 'pro' ? state.proName : state.conName) : speakerNameFor(f, idx);
+    var sideLabel = conversation ? (mySide() === 'pro' ? 'For' : 'Against') : (f.sideLabels && f.sideLabels[sp.side]) || '';
     state.fcInFlight = true;
+    state.fcStatus = 'Checking sources…'; renderFactChecks();
     if (idx === state.speechIdx) state.fcLastWords = words;
     state.fcCount = (state.fcCount || 0) + 1;
 
     var already = (state.factChecks || []).map(function(c){ return c.claim; });
     var body = JSON.stringify({
-      motion: state.motion, format: f.name, speaker: speaker,
-      side: sideLabel, text: text, checked: already,
+      room:state.room, speechIdx:idx, side:conversation ? myConversationKey() : sp.side,
     });
     var user = firebase.auth().currentUser;
     var withToken = user ? user.getIdToken().catch(function(){ return null; }) : Promise.resolve(null);
@@ -12493,36 +12498,14 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     }).then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){
         state.fcInFlight = false;
-        if (!j){ flushFinalFactCheck(); return; }
+        if (!j){ state.fcStatus='Check unavailable. Retrying as the conversation continues.'; renderFactChecks(); flushFinalFactCheck(); return; }
         // The endpoint reports itself unavailable rather than erroring on
         // every pass, so stop asking for the rest of the round.
         if (j.disabled){ state.fcDisabled = true; renderFactChecks(); flushFinalFactCheck(); return; }
-        var flags = Array.isArray(j.flags) ? j.flags : [];
-        if (flags.length) publishFactChecks(flags, idx, sp.code, speaker, sideLabel);
+        state.fcStatus = j.error ? 'Check unavailable. Retrying as the conversation continues.' : j.throttled || j.status === 'limit' ? 'Check limit reached. Existing source checks remain available.' : j.status === 'checked' ? 'Latest passage checked. No flag does not verify every claim.' : 'Listening for new claims.';
+        renderFactChecks();
         flushFinalFactCheck();
-      }).catch(function(){ state.fcInFlight = false; flushFinalFactCheck(); });
-  }
-
-  function publishFactChecks(flags, idx, code, speaker, sideLabel){
-    var ref = getRoundDocRef();
-    if (!ref) return;
-    var rows = flags.slice(0, 2).map(function(fl, i){
-      return {
-        id: idx + '_' + Date.now() + '_' + i,
-        speechIdx: idx, code: code || '', speaker: speaker || '', side: sideLabel || '',
-        quote: fl.quote, claim: fl.claim, correction: fl.correction,
-        severity: fl.severity, grounded: !!fl.grounded, absence: !!fl.absence,
-        sources: (fl.sources || []).slice(0, 2),
-        atMs: Date.now(),
-      };
-    });
-    // arrayUnion, not a rewrite: two clients can never race the array away
-    // from each other, and serverTimestamp is illegal inside an array so
-    // the row carries its own millis.
-    ref.update({
-      factChecks: firebase.firestore.FieldValue.arrayUnion.apply(null, rows),
-    }).catch(function(){});
-    try { gtag('event', 'live_round_fact_check', { format: state.formatKey, severity: rows[0].severity, grounded: rows[0].grounded }); } catch(e){}
+      }).catch(function(){ state.fcInFlight = false; state.fcStatus='Check unavailable. Retrying as the conversation continues.'; renderFactChecks(); flushFinalFactCheck(); });
   }
 
   function factCheckNoticeKey(c){
@@ -12536,22 +12519,9 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
       if (!key || state.fcNotified[key]) return;
       // The person speaking gets the card after they finish, never as
       // house coaching in the middle of a judged speech.
-      if (state.phase === 'round' && c.speechIdx === state.speechIdx && isMyTurn()) return;
+      if (!openMode() && state.phase === 'round' && c.speechIdx === state.speechIdx && isMyTurn()) return;
       state.fcNotified[key] = true;
-      var speaker = c.speaker || 'a speaker';
-      if (window.daNotify){
-        window.daNotify({
-          id: 'fact-' + key,
-          eyebrow: 'Live fact check',
-          title: 'Claim flagged in ' + speaker + '\'s speech',
-          body: c.correction || 'The fact-check notes are ready.',
-          href: '#factChecks',
-          glyph: '!',
-          duration: 8500
-        });
-      } else {
-        toast('Fact-check notes ready for ' + speaker + '.');
-      }
+
     });
   }
 
@@ -12561,7 +12531,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     setTimeout(function(){ try { window.__lrSyncSectionStatus(); } catch(e){} }, 0);
     var all = state.factChecks || [];
     var offBtn = document.getElementById('fcOffBtn');
-    if (state.fcDisabled || !all.length){ band.hidden = true; return; }
+    if (state.phase === 'setup'){ band.hidden = true; return; }
     // Turned off: keep one quiet line so it is discoverable again exactly
     // when it matters, rather than being a switch with no way back.
     if (!factCheckOn()){
@@ -12578,24 +12548,22 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     // including the audience, has them already.
     var held = 0;
     var show = all.filter(function(c){
-      if (c.speechIdx === state.speechIdx && state.phase === 'round' && isMyTurn()){ held++; return false; }
+      if (!openMode() && c.speechIdx === state.speechIdx && state.phase === 'round' && isMyTurn()){ held++; return false; }
       return true;
     }).slice(-FC_MAX_CARDS).reverse();
 
     var sub = document.getElementById('fcSub');
-    if (sub) sub.textContent = all.length === 1
-      ? '1 claim flagged this round.'
-      : all.length + ' claims flagged this round.';
+    if (sub) sub.textContent = state.fcDisabled ? 'Source checking is unavailable in this round.' : (state.fcStatus || 'Listening for checkable claims. Corrections need linked sources.') + (all.length ? ' ' + all.length + ' source check' + (all.length === 1 ? '' : 's') + '.' : '');
 
     var html = show.map(function(c){
       var cls = c.severity === 'distorted' ? ' is-distorted' : '';
-      var verdict = c.severity === 'distorted' ? 'Badly misstated' : 'Not what the record says';
+      var verdict = 'Source check';
       var who = [c.speaker, c.code].filter(Boolean).join(' · ');
-      var src = (c.sources || []).map(function(s){
+      var src = (c.sources || []).filter(function(s){ try { return new URL(s.url).protocol === 'https:'; } catch(e){ return false; } }).map(function(s){
         return '<a href="' + escHtml(s.url) + '" target="_blank" rel="noopener nofollow">' + escHtml(s.title || s.url) + '</a>';
       }).join('');
       var meta = !c.grounded ? '<span>Model knowledge, no live sources</span>'
-        : c.absence ? '<span>A live search found no such source</span>'
+        : c.absence ? '<span>Older search-only flag. Absence from search is not proof of nonexistence.</span>'
         : src ? '<span>Checked against</span>' + src
         : '<span>Checked against live sources</span>';
       return '<div class="fc-card' + cls + '">'
@@ -21755,7 +21723,7 @@ window.DBLiveDraft.attach({
       <option value="ai_use">Using AI to debate</option>
       <option value="other">Something else</option>
     </select>
-    <p class="dm-hint" id="safetyAiNote" hidden>Their transcript gets an automatic screen for AI-written text, and a human reviews the report with that evidence attached. The screen is advisory: it never decides this round or applies a penalty on its own, and the judge never sees it.</p>
+    <p class="dm-hint" id="safetyAiNote" hidden>Their attributed transcript is checked for quoted evidence, and a human reviews it in context. Wording alone cannot establish AI authorship. The screen is advisory: it never decides this round or applies a penalty on its own, and the judge never sees it.</p>
     <textarea id="safetyDetails" class="dm-text" maxlength="1000" placeholder="Add a short note for the reviewer. Optional."></textarea>
     <label class="safety-check"><input id="safetyBlock" type="checkbox" checked /><span>Block this person. They leave your matches immediately, cannot be matched with you again, and Debatable receives this report.</span></label>
     <div class="dm-row">
@@ -21840,7 +21808,7 @@ window.DBLiveDraft.attach({
           status.textContent =
             v === 'none' ? 'Report sent. The transcript screen found no clear AI signal; a human still reviews it.'
             : (v === 'weak' || v === 'moderate') ? 'Report sent with transcript signals attached. A human reviews it.'
-            : v === 'strong' ? 'Report sent. The screen found strong signals; a human reviews it with that evidence.'
+            : v === 'strong' ? 'Report sent with a historical machine screen. A human must verify its evidence.'
             : 'Report sent. A human reviews it.';
           if (result.blocked) setTimeout(function(){ closeSafety(); location.href = '/spar'; }, 4000);
         } else {

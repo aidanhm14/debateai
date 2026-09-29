@@ -331,7 +331,7 @@ service cloud.firestore {
                     && isSeated(request.resource.data)
                     && stringUnder('motion', 4096)
                     && validSpeechTiming(request.resource.data)
-                    && !request.resource.data.keys().hasAny(['topicStrikes', 'topicStrikesRevision'])
+                    && !request.resource.data.keys().hasAny(['topicStrikes', 'topicStrikesRevision', 'factChecks', 'openSegs', 'openLive'])
                     && !request.resource.data.keys().hasAny(['teamSize','teamHostUid','teamLockedAt','teamSeatsOpenedAt','teamEnding','teamFinished','teamFinishedAt','proUid2','conUid2','proName2','conName2']);
 
       // The consent map can only be touched by the consenting user
@@ -431,6 +431,8 @@ service cloud.firestore {
                     && seatsHeldOrTraded()
                     && teamSeatsHeld()
                     && teamCaptureAllowed()
+                    && ownTeamStreamOnly('openSegs') && ownTeamStreamOnly('openLive')
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['factChecks'])
                     && (
                       !('proUid' in resource.data)
                       || !('conUid' in resource.data)

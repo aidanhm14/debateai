@@ -1,8 +1,9 @@
+import { accusedSpeeches } from './lib/judge-evidence.mjs';
 import { verifyIdToken, extractBearerToken } from './lib/auth.mjs';
 import { getDb, FieldValue } from './lib/firestore.mjs';
 import { corsResponse, jsonResponse, errorResponse } from './lib/response.mjs';
 import { checkLayers, callerIp } from './lib/rate-limit.mjs';
-import { benchOfSide, heuristicScreen, analysisPrompt, parseAnalysis, combineVerdicts } from './lib/ai-use.mjs';
+import { heuristicScreen, analysisPrompt, parseAnalysis, combineVerdicts } from './lib/ai-use.mjs';
 
 const REASONS = new Set(['harassment', 'hate_or_threats', 'sexual_content', 'spam', 'ai_use', 'other']);
 
@@ -42,8 +43,7 @@ async function screenForAiUse({ db, roomId, reporterUid, reportedUid }) {
   if (!all.includes(reporterUid) || !all.includes(reportedUid)) return { skipped: 'not-participants' };
   const accusedBench = seats.pro.includes(reportedUid) ? 'pro' : 'con';
 
-  const speeches = (Array.isArray(round.speeches) ? round.speeches : [])
-    .filter((sp) => benchOfSide(sp && sp.side) === accusedBench);
+  const speeches = accusedSpeeches(round, reportedUid);
   const heur = heuristicScreen(speeches, round.format);
   if (!heur.stats.analyzedSpeeches) {
     return { skipped: 'no-transcript', note: 'The accused side has no usable transcript in this round; nothing to screen.' };
@@ -61,6 +61,7 @@ async function screenForAiUse({ db, roomId, reporterUid, reportedUid }) {
       });
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
+        signal: AbortSignal.timeout(12000),
         headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
         body: JSON.stringify({
           model: AI_MODEL,
@@ -72,14 +73,16 @@ async function screenForAiUse({ db, roomId, reporterUid, reportedUid }) {
       });
       if (res.ok) {
         const data = await res.json();
-        model = parseAnalysis((data.content || []).map((c) => c.text || '').join(''));
+        model = parseAnalysis((data.content || []).map((c) => c.text || '').join(''), speeches);
       }
     } catch (e) { /* heuristics stand alone; a dead model is not a dead report */ }
   }
 
   return {
+    version: 'evidence-review-v2',
+    authorship: 'undetermined',
     verdict: combineVerdicts(heur, model),
-    heuristics: { verdict: heur.verdict, hardArtifact: heur.hardArtifact, signals: heur.signals.map((s) => s.note).slice(0, 10), stats: heur.stats },
+    heuristics: { verdict: heur.verdict, hardArtifact: heur.hardArtifact, signals: heur.signals.slice(0, 10), coverage: heur.coverage, stats: heur.stats },
     model: model ? { verdict: model.verdict, signals: model.signals, summary: model.summary } : null,
     disclaimer: 'Advisory machine screen for the human reviewer. Never a verdict; never shown to the AI judge; no automatic penalty.',
   };

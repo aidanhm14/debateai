@@ -189,5 +189,13 @@ t('the speech reaches the model', grounded.user.includes(SPEECH));
 t('what is already on screen is passed back',
   factCheckPrompt({ ...d, checked: ['a prior claim'] }, true).user.includes('a prior claim'));
 
+// Current live publishing requires a linked URL returned by the search provider.
+const strict={grounded:true,requireSources:true,sources:[{title:'Record',url:'https://example.org/record'}]};
+t('unlinked provider sources cannot decorate an unrelated claim',parseFactChecks(json([good]),d,strict).length===0);
+t('invented links are rejected',parseFactChecks(json([{...good,sourceUrls:['https://fake.invalid']}]),d,strict).length===0);
+t('linked search source survives',parseFactChecks(json([{...good,sourceUrls:['https://example.org/record']}]),d,strict).length===1);
+t('absence from search never proves a citation false',parseFactChecks(json([{...good,correction:'No such study exists.',sourceUrls:['https://example.org/record']}]),d,strict).length===0);
+t('unsafe source scheme rejected',parseFactChecks(json([{...good,sourceUrls:['javascript:alert(1)']}]),d,{...strict,sources:[{url:'javascript:alert(1)'}]}).length===0);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

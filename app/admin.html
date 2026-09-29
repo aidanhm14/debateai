@@ -4009,11 +4009,12 @@ function srEvidence(a){
   const pill = (label, v) => v ? '<span style="display:inline-block;margin:0 6px 4px 0;padding:2px 9px;border-radius:8px;font-size:11px;font-weight:700;' + (SR_VERDICT_STYLE[v] || SR_VERDICT_STYLE.none) + '">' + esc(label) + ': ' + esc(v) + '</span>' : '';
   const sigs = (h.signals || []).concat(m.signals || []).slice(0, 8);
   return '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12px;color:var(--muted)">'
-    + 'Machine screen — evidence for you, never a verdict '
+    + 'Machine screen. Evidence for you, never a verdict '
     + pill('combined', a.verdict) + pill('mechanical', h.verdict) + (h.hardArtifact ? '<span style="font-size:11px;font-weight:700;color:#b91c1c">hard artifact</span>' : '')
     + '</summary><div style="padding:6px 0 0;font-size:12px;line-height:1.5">'
+    + (a.authorship ? '<div>AI authorship: ' + esc(a.authorship) + '. No automatic penalty.</div>' : '<div>Historical screen. Style-based signals are not proof of AI use.</div>')
     + (m.summary ? '<div style="margin-bottom:4px">' + esc(m.summary) + '</div>' : '')
-    + (sigs.length ? '<ul style="margin:0;padding-left:18px">' + sigs.map(s => '<li>' + esc(typeof s === 'string' ? s : (s && s.note) || '') + '</li>').join('') + '</ul>' : '<div class="meta">No individual signals recorded.</div>')
+    + (sigs.length ? '<ul style="margin:0;padding-left:18px">' + sigs.map(s => '<li>' + (typeof s === 'string' ? esc(s) : '<b>' + esc(s.speechId || '') + '</b> ' + esc(s.note || s.kind || '') + (s.quote ? '<blockquote>' + esc(s.quote) + '</blockquote>' : '') + esc(s.context || '') + (s.alternative ? '<div>Alternative explanation: ' + esc(s.alternative) + '</div>' : '')) + '</li>').join('') + '</ul>' : '<div class="meta">No individual signals recorded.</div>')
     + '</div></details>';
 }
 async function loadSafetyReports(){
