@@ -26,6 +26,7 @@ for(const width of [390,1280]){
     await expect(page.locator('#workspace')).toBeVisible();
     await page.getByText('Saved attack cases',{exact:true}).click();await page.locator('#attack-runs button').click();
     await expect(page.locator('#attack-output')).toContainText('12/12 panel runs');
+    await expect(page.locator('#attack-output')).toContainText(job.example.turns[0].text);
     await expect(page.locator('#attack-output')).toContainText('Investigate 2 verdict changes');
     await expect(page.locator('#attack-output')).toContainText('gpt-6-astra');
     await page.locator('#attack-reviewer').fill('Human reviewer');await page.locator('#attack-notes').fill('The preserved speech qualifies the admission. Both samples misread it.');await page.locator('#attack-checked').check();await page.locator('#attack-failure').selectOption('reasoning');

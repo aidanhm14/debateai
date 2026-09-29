@@ -13,10 +13,16 @@
     $('attack-output').replaceChildren();if(!job)return;
     $('attack-output').append(node('h3',job.example.motion),node('p',job.status+' · '+job.results.length+'/12 panel runs · '+job.season.id));
     $('attack-output').append(node('p','Council: '+job.season.panel.jurors.map(j=>j.model+(j.effort?' ('+j.effort+')':'')).join(' · ')));
+    const transcript=node('details');transcript.open=true;transcript.append(node('summary','Saved case transcript'));
+    for(const [i,t] of job.example.turns.entries()){const turn=node('article');turn.append(node('strong',(i+1)+'. '+(t.side==='pro'?'For':'Against')),node('p',t.text));transcript.append(turn);}
+    $('attack-output').append(transcript);
     if(job.attackText){const d=node('details');d.append(node('summary','Attacking speech'),node('p',job.attackText));$('attack-output').append(d);}
     for(const r of job.results){
       const d=node('details');d.append(node('summary',r.kind+' #'+r.repetition+' · '+(r.result.ballot?.winner||'incomplete')+' · '+r.result.panel.votesCast+' votes'));
-      for(const j of r.result.jurorResults || [])d.append(node('h4',j.model+(j.effort?' · '+j.effort:'')),node('p',j.ballot?.rfd || j.error));
+      for(const j of r.result.jurorResults || []){
+        d.append(node('h4',j.model+(j.effort?' · '+j.effort:'')),node('p',j.ballot?.rfd || j.error));
+        for(const receipt of j.ballot?.receipts || []){d.append(node('strong',receipt.side+' · '+receipt.turnId),node('blockquote',receipt.quote),node('p',receipt.explanation));if(receipt.responseQuote)d.append(node('p','Reply · '+receipt.responseTurnId),node('blockquote',receipt.responseQuote));}
+      }
       $('attack-output').append(d);
     }
     $('attack-review').hidden=job.status!=='complete'||!!job.review;
