@@ -1018,7 +1018,6 @@ window.watchLive = (function () {
 </script>
 <script defer src="/js/landing-entry.js"></script>
 
-<script defer src="/js/judge-models.js"></script>
 </head>
 <body class="homepage-red-wordmark">
 
@@ -1331,8 +1330,6 @@ window.watchLive = (function () {
       <button type="button" class="mh-signin-btn" data-fs-signin data-cta="mhome-signin">Sign in or create account</button>
       <p class="mh-signin-why">Keep your rounds and climb the leaderboard.</p>
     </div>
-
-    <p class="home-judge-models" style="grid-column:1/-1;max-width:100%;margin:12px 0;font-size:13px;line-height:1.6;color:var(--text-dim)"><span data-judge-models>Read the current judging models.</span> <a href="/judge-integrity">Models and scoring rules</a></p>
 
     <nav class="mh-more" data-landing-piece="mobile-links" aria-label="More">
       <a href="/leaderboard">Leaderboard</a>
@@ -1720,8 +1717,6 @@ window.watchLive = (function () {
       <p class="fs-signin-why">Keep your rounds and climb the leaderboard.</p>
     </div>
 
-    <p class="home-judge-models" style="grid-column:1/-1;max-width:100%;margin:12px 0;font-size:13px;line-height:1.6;color:var(--text-dim)"><span data-judge-models>Read the current judging models.</span> <a href="/judge-integrity">Models and scoring rules</a></p>
-
     <!-- ── Live chats ── 2026-08-29 founder sketch, remixed 2026-08-31
          (founder: make it "a mix of all the public chats going on
          rtight now and have a smal title to it about which chat its
@@ -1817,7 +1812,7 @@ window.watchLive = (function () {
         if (window.__fsChatterLoading) return;
         window.__fsChatterLoading = true;
         var s = document.createElement('script');
-        s.src = '/js/landing-chatter.js?v=20260925-politics';
+        s.src = '/js/landing-chatter.js?v=20260929-starters';
         s.async = true;
         document.head.appendChild(s);
       }
@@ -3179,7 +3174,7 @@ window.watchLive = (function () {
       <div class="lp-trust-grid">
         <article class="lp-trust-card">
           <h3>Three AI judges, from three different companies.</h3>
-          <p><span data-judge-models>Read the current models in the published council.</span> Each model judges independently. Two matching votes decide the round. A missing judge is disclosed on the ballot. <a href="/judge-integrity">See the models and scoring rules</a>.</p>
+          <p>Each model judges independently. Two matching votes decide the round. A missing judge is disclosed on the ballot. <a href="/judge-integrity">See the models and scoring rules</a>.</p>
         </article>
         <article class="lp-trust-card">
           <h3>The scoring rules are published before you speak.</h3>
@@ -3977,7 +3972,7 @@ window.watchLive = (function () {
     var droppedEps = {};
     var acceptedEps = {};
     var echoes = {};
-    var TAIL_MAX = 28;
+    var TAIL_MAX = 2;
     function echoKey(handle, text){ return String(handle || '').toLowerCase() + '\n' + String(text || '').trim(); }
     function chatterRow(m, scripted){
       var a = document.createElement('a');
@@ -4013,17 +4008,20 @@ window.watchLive = (function () {
       return document.hidden || (mq && !mq.matches) || hovering || panel.contains(document.activeElement) || panel.classList.contains('is-paused');
     }
     function placeScripted(line, full){
-      var item = chatterRow({ room:'commons', label:'The Commons', handle:line.handle, text:line.text }, true);
+      var room = line.ep % 2 ? 'discord' : 'commons';
+      var label = room === 'discord' ? 'Discord preview' : 'The Commons preview';
+      var item = chatterRow({ room:room, label:label, handle:line.handle, text:line.text }, true);
       item.scripted = true;
       item.ep = line.ep;
       acceptedEps[line.ep] = true;
       if (full) item.text.textContent = item.chars.join('');
       tail.appendChild(item.node);
       tailItems.push(item);
+      trimTail();
       return item;
     }
     function trimTail(){
-      var scripted = tailItems.filter(function(item){ return item.scripted && item !== typing; });
+      var scripted = tailItems.filter(function(item){ return item.scripted; });
       while (scripted.length > TAIL_MAX){
         var old = scripted.shift();
         old.node.remove();
@@ -4065,9 +4063,11 @@ window.watchLive = (function () {
         typing.offset = 0;
         typing.text.textContent = '';
         typing.node.classList.add('is-typing');
+        arrivalTimer = setTimeout(typeArrival, 600);
+        return;
       }
       if (chatterBlocked()){ arrivalTimer = setTimeout(typeArrival, 250); return; }
-      typing.offset = Math.min(typing.chars.length, typing.offset + Math.max(1, Math.ceil(typing.chars.length / 100)));
+      typing.offset = Math.min(typing.chars.length, typing.offset + 1);
       typing.text.textContent = typing.chars.slice(0, typing.offset).join('');
       follow();
       if (typing.offset >= typing.chars.length){
@@ -4075,7 +4075,10 @@ window.watchLive = (function () {
         typing = null;
         trimTail();
         arrivalTimer = setTimeout(typeArrival, 500);
-      } else arrivalTimer = setTimeout(typeArrival, 28);
+      } else {
+        var char = typing.chars[typing.offset - 1];
+        arrivalTimer = setTimeout(typeArrival, /[.!?]/.test(char) ? 180 : char === ' ' ? 80 : 45);
+      }
     }
     function kickArrivals(){
       if (arrivals.length && !typing && arrivalTimer === null) typeArrival();
@@ -4083,7 +4086,7 @@ window.watchLive = (function () {
     function chatterClock(){
       if (!chatter || document.hidden || (mq && !mq.matches)) return;
       var now = Date.now();
-      var from = Math.max(clockAt, now - 5 * 60000);
+      var from = Math.max(clockAt, now - 15000);
       clockAt = now;
       var due;
       try { due = chatter.between(from, now); } catch (e) { return; }
@@ -4097,23 +4100,16 @@ window.watchLive = (function () {
         return !!acceptedEps[line.ep];
       });
       if (!due.length) return;
-      // Back from another tab with several lines due: they are already
-      // said, so they land whole, and only the newest types in.
-      if (due.length > 2 && !typing && !arrivals.length){
-        var last = due.pop();
-        due.forEach(function(line){ placeScripted(line, true); });
-        trimTail();
-        follow();
-        due = [last];
-      }
-      due.forEach(function(line){ arrivals.push({ line: line }); });
+      // Reading or returning to the tab must never release a scripted backlog.
+      arrivals = arrivals.filter(function(a){ return !a.line; });
+      arrivals.push({ line: due[due.length - 1] });
       kickArrivals();
     }
     function mountChatter(){
       var c = window.DBLandingChatter;
       var now = Date.now();
       c.setAvoid((window.__fsChatsCache || []).map(function(m){ return m && m.handle; }));
-      var lines = c.backlog(now, { minLines: 9 });
+      var lines = c.backlog(now, { minLines: 1 }).slice(-1);
       chatter = c;
       mountAt = now;
       clockAt = now;
@@ -4123,7 +4119,8 @@ window.watchLive = (function () {
       tail = document.createElement('div');
       tail.className = 'fs-chats-group';
       list.appendChild(tail);
-      lines.forEach(function(line){ placeScripted(line, true); });
+      lines.forEach(function(line){ arrivals.push({ line: line }); });
+      arrivalTimer = setTimeout(typeArrival, 1200);
       panel.classList.add('is-live');
       following = true;
       follow();
@@ -4193,7 +4190,7 @@ window.watchLive = (function () {
       arrivals = arrivals.filter(function(a){ return !a.item || items.indexOf(a.item) !== -1; });
       items.forEach(function(item){ if (!item.inTail) group.appendChild(item.node); });
       if (fresh.length){
-        quietChatter(25000);
+        quietChatter(120000);
         fresh.forEach(function(item){ arrivals.push({ item: item }); });
         kickArrivals();
       }

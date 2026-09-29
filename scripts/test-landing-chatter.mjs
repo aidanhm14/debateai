@@ -39,7 +39,7 @@ for (const forbidden of [/\bfetch\s*\(/, /XMLHttpRequest/, /localStorage/, /sess
 
 const C = loadModule();
 const bank = C._bank();
-assert.ok(bank.episodes.length >= 150, 'the bank needs real variety, found ' + bank.episodes.length);
+assert.ok(bank.episodes.length >= 12, 'the bank needs real variety, found ' + bank.episodes.length);
 assert.ok(bank.people.length >= 40, 'the cast needs real variety');
 
 // ── 2. The cast cannot be mistaken for a real account's alias ─────────
@@ -107,6 +107,7 @@ function checkLine(text, where) {
   assert.doesNotMatch(text, JARGON, 'retired format jargon at ' + where + ': ' + text);
   assert.doesNotMatch(text, URLISH, 'link at ' + where + ': ' + text);
   assert.doesNotMatch(text, /@/, 'mention at ' + where + ': ' + text);
+  assert.doesNotMatch(text, /\b(bored|boring|dead chat|anyone even here|panic|brain melts|im rusty|im leaving)\b/i, 'no boredom or complaint filler: ' + text);
   assert.equal(isSensitiveMotion(text), false, 'site motion boundary at ' + where + ': ' + text);
   const guard = checkContent({ text, kind: 'message' });
   assert.ok(guard.ok, 'content guard (' + guard.category + ') at ' + where + ': ' + text);
@@ -140,7 +141,7 @@ const FILL = { topic: 'tipping', topicQ: 'should tipping be replaced with higher
   city: 'lisbon', time: '4pm', weekday: 'friday', mdays: '39', A: 'tiago', B: 'dele', C: 'mira', D: 'ayo' };
 const fill = t => t.replace(/\{(\w+)\}/g, (_, k) => { assert.ok(k in FILL, 'unknown placeholder {' + k + '}'); return FILL[k]; });
 for (const ep of bank.episodes) {
-  assert.ok(ep.lines.length >= 1 && ep.lines.length <= 6, 'episode ' + ep.index + ' length');
+  assert.equal(ep.lines.length, 1, 'each preview is one invitation, never a scripted reply chain');
   assert.equal(ep.lines[0].role, 'A', 'episode ' + ep.index + ' must open with role A');
   const bound = ep.lines.some(l => TIMEBOUND.test(l.text));
   if (bound) assert.ok(ep.until, 'episode ' + ep.index + ' only makes sense before a date and needs an until: ' + ep.lines[0].text);
@@ -168,9 +169,9 @@ for (let h = 0; h < 72; h++) lines.push(...C.between(T0 + h * 3600000, T0 + (h +
 const perHour = [];
 for (let h = 0; h < 72; h++) perHour.push(lines.filter(l => l.at > T0 + h * 3600000 && l.at <= T0 + (h + 1) * 3600000).length);
 const avg = perHour.reduce((a, b) => a + b, 0) / perHour.length;
-assert.ok(avg >= 45 && avg <= 170, 'lines per hour should read as a lively room, not a machine: ' + avg.toFixed(1));
+assert.ok(avg >= 18 && avg <= 21, 'about one invitation every three minutes: ' + avg.toFixed(1));
 assert.ok(Math.min(...perHour) >= 10, 'no dead hours');
-assert.ok(Math.max(...perHour) <= 230, 'no hour so busy it reads as a machine: ' + Math.max(...perHour));
+assert.ok(Math.max(...perHour) <= 21, 'no hour so busy it reads as a machine: ' + Math.max(...perHour));
 for (const l of lines) checkLine(l.text, 'scheduled ' + l.id);
 // Conversations never interleave: once a later episode starts, an
 // earlier one has said its last line.
@@ -178,36 +179,7 @@ for (let i = 1; i < lines.length; i++) {
   assert.ok(lines[i].at >= lines[i - 1].at, 'between() must be ordered');
   if (lines[i].ep !== lines[i - 1].ep) assert.equal(lines[i].i, 0, 'episode ' + lines[i].ep + ' interleaves with ' + lines[i - 1].ep);
 }
-// Lines tied to a date: every until= tag parsed (a malformed date would
-// parse as "forever"), the countdown is right on the line's own clock,
-// they run before the date and never after it.
-const untilTags = (MODULE.match(/`#[^`\n]*\buntil=/g) || []).length;
-const dated = bank.episodes.filter(ep => ep.until);
-assert.equal(dated.length, untilTags, 'every until= tag must parse to a date');
-assert.ok(dated.length >= 3, 'the midterm lines are dated');
-const MIDTERMS = Date.UTC(2026, 10, 3, 12);
-let datedSeen = 0, countdowns = 0;
-for (const l of lines) {
-  if (bank.episodes[l.e].until) datedSeen++;
-  const m = /^(\d+) days until the midterms/.exec(l.text);
-  if (!m) continue;
-  countdowns++;
-  assert.equal(+m[1], Math.ceil((MIDTERMS - l.at) / 86400000), 'countdown is wrong: ' + l.text);
-}
-assert.ok(datedSeen > 0 && countdowns > 0, 'dated lines run before their date');
-const LATE = Date.UTC(2026, 9, 31, 0, 0, 0);
-let lateCountdown = 0;
-for (let h = 0; h < 144; h++) {
-  for (const l of C.between(LATE + h * 3600000, LATE + (h + 1) * 3600000)) {
-    const ep = bank.episodes[l.e];
-    if (!ep.until) continue;
-    assert.ok(!(l.i === 0 && l.at >= ep.until + 60000), 'episode ' + l.e + ' opened after its date: ' + l.text);
-    assert.ok(l.at < ep.until + 3600000, 'episode ' + l.e + ' still talking an hour after its date: ' + l.text);
-    const m = /^(\d+) days until/.exec(l.text);
-    if (m) { lateCountdown++; assert.ok(+m[1] >= 2, 'countdown reached ' + m[1] + ': ' + l.text); }
-  }
-}
-assert.ok(lateCountdown > 0, 'the countdown still runs in the last days before it retires');
+assert.ok(bank.episodes.every(ep => !ep.until), 'invitations do not depend on dated claims');
 // Fresh module, same clock, same room: a reload must not reshuffle.
 const C2 = loadModule();
 for (const t of [T0, T0 + 3.7e6, T0 + 9.1e6, T0 + 86400000 * 2 + 1234567]) {
@@ -251,7 +223,7 @@ for (const l of lines) {
   assert.ok(ok, 'episode ' + l.e + ' role ' + role + ' (' + rule + ') spoken by ' + l.handle + ' at ' + l.h + ':00 local: ' + l.text);
   if (/late|night|morning|day|evening/.test(rule)) timedChecked++;
 }
-assert.ok(timedChecked > 50, 'time-bound lines were actually exercised: ' + timedChecked);
+assert.equal(timedChecked, 0, 'starters do not claim a time or someone being available');
 // A real name that matches no persona must not reshuffle the room, or two
 // visitors with different real rows would see different conversations.
 {
@@ -368,9 +340,9 @@ function assertConversationsWhole(w, rows, since) {
     used.add(line.id);
     return line;
   });
-  // The tail keeps 28 scripted rows; only a full tail can have lost an
+  // The tail keeps two scripted rows; only a full tail can have lost an
   // opener off the top, and only the rows nearest the top can be missing one.
-  const full = rows.filter(r => r.scripted).length >= 28;
+  const full = rows.filter(r => r.scripted).length >= 2;
   let lastReal = -1;
   mapped.forEach((line, pos) => {
     if (!line) { lastReal = pos; return; }
@@ -385,8 +357,7 @@ function assertConversationsWhole(w, rows, since) {
   });
 }
 
-// 6a. With the module: the room is there on the first frame, even while
-// the real feed has not answered.
+// 6a. Entry types one invitation instead of dumping a scripted history.
 {
   const w = makeWorld({ payload: new Error('offline') });
   await w.flush();
@@ -394,12 +365,19 @@ function assertConversationsWhole(w, rows, since) {
   assert.equal(w.list.children.length, 2, 'real group above, scripted tail below');
   const [group, tail] = w.list.children;
   assert.equal(group.children.length, 0, 'no real rows invented while the feed is down');
+  assert.equal(tail.children.length, 0, 'no scripted history is painted on entry');
+  await w.advance(2000);
+  const partial = rowsOf(tail);
+  assert.equal(partial.length, 1, 'one preview begins typing');
+  assert.ok(partial[0].typing && partial[0].text.length > 0, 'characters visibly arrive');
+  const earlyText = partial[0].text;
+  await w.advance(8000);
   const first = rowsOf(tail);
-  assert.ok(first.length >= 9 && first.every(r => r.scripted && r.text.length > 0), 'the backlog paints whole');
+  assert.ok(first[0].text.length > earlyText.length && !first[0].typing, 'typing completes');
   assert.equal(w.list.scrollTop, w.list.scrollHeight, 'opens at the newest line');
   await w.advance(8 * 60000);
   const later = rowsOf(tail);
-  assert.ok(later.length > first.length, 'new lines arrive on the schedule');
+  assert.equal(later.length, 2, 'new starters arrive but at most two stay visible');
   assert.ok(later.every(r => r.text.length > 0), 'every arrival finishes typing');
   assertConversationsWhole(w, later, T0);
   assert.ok(w.fetches.every(u => u === '/api/live-chats'), 'the only request is the real feed: ' + w.fetches.join(', '));
@@ -447,6 +425,7 @@ function assertConversationsWhole(w, rows, since) {
   const w = makeWorld({ payload: new Error('offline') });
   await w.flush();
   const tail = w.list.children[1];
+  await w.advance(10000);
   const victimRow = rowsOf(tail)[0];
   w.setPayload({ messages: [{ room: 'commons', label: 'The Commons', handle: victimRow.handle, text: 'I am a real person with this name', at: T0 - 3600000 }] });
   await w.advance(61000);
@@ -490,100 +469,62 @@ function assertConversationsWhole(w, rows, since) {
   assert.ok(rowsOf(tail).every(r => r.text.length > 0 && !r.node.classList.contains('is-typing')), 'reduced motion shows whole lines');
 }
 
-// The next three scenarios are built from the schedule itself, so each one
-// is guaranteed to contain the situation it tests rather than hoping the
-// clock happens to produce it.
-const probe = loadModule();
-const byEp = list => { const m = new Map(); for (const l of list) { if (!m.has(l.ep)) m.set(l.ep, []); m.get(l.ep).push(l); } return m; };
-const schedRows = list => Array.from(list, l => l);
-
-// 6e2. Back from a long hidden stretch, a reply whose opener fell outside
-// the catch-up window must not land on its own.
+// Long reading sessions never build a wall of scripted messages. Both
+// destinations stay links; no simulated clock tick can post a message.
 {
-  let m = null;
-  for (let n = 420; n < 1400 && m === null; n++) {
-    const x = T0 + n * 1000 - 300000;
-    for (const lines of byEp(schedRows(probe.between(x - 150000, x + 150000))).values()) {
-      const o = lines.find(l => l.i === 0), r = lines.find(l => l.i === 1);
-      if (o && r && o.at > T0 + 1000 && o.at <= x && r.at > x) { m = n; break; }
-    }
-  }
-  assert.ok(m !== null, 'found an episode straddling the catch-up edge');
-  const w = makeWorld({ payload: new Error('offline') });
+  const w = makeWorld({ payload: { messages: [] } });
   await w.flush();
-  w.ctx.document.hidden = true;
-  await w.advance(m * 1000 - 500);
-  w.ctx.document.hidden = false;
-  await w.advance(3000);
-  assertConversationsWhole(w, rowsOf(w.list.children[1]), T0);
-  await w.advance(2 * 60000);
-  assertConversationsWhole(w, rowsOf(w.list.children[1]), T0);
-}
-
-// 6b2. A real message that lands while scripted lines are still queued
-// (the reader is hovering, so nothing types) ends those conversations too.
-{
-  let plan = null;
-  for (let n = 3; n < 30 && !plan; n++) {
-    const poll = T0 + n * 60000;
-    for (const lines of byEp(schedRows(probe.between(poll - 90000, poll + 150000))).values()) {
-      const o = lines.find(l => l.i === 0);
-      if (o && o.at > poll - 50000 && o.at < poll - 3000 && lines.some(l => l.at > poll + 3000)) { plan = { poll, hoverFrom: poll - 55000 }; break; }
-    }
-  }
-  assert.ok(plan, 'found a conversation queued across a poll');
-  const w = makeWorld({ payload: new Error('offline') });
-  await w.flush();
-  await w.advance(plan.hoverFrom - T0);
-  w.panel.handlers.mouseenter();
-  w.setPayload({ messages: [{ room: 'commons', label: 'The Commons', handle: 'Real Person Four', text: 'anyone up for a round on bike lanes', at: plan.poll - 1000 }] });
-  await w.advance(plan.poll - plan.hoverFrom + 5000);
-  w.panel.handlers.mouseleave();
-  await w.advance(4 * 60000);
-  const rows = rowsOf(w.list.children[1]);
-  assert.ok(rows.some(r => r.handle === 'Real Person Four'), 'the real message arrived');
-  assertConversationsWhole(w, rows, T0);
-}
-
-// 6c2. A real name that recasts a conversation in flight ends it, rather
-// than finishing it with other people and possibly another topic.
-{
-  let plan = null;
-  for (let n = 2; n < 40 && !plan; n++) {
-    const poll = T0 + n * 60000;
-    for (const [ep, lines] of byEp(schedRows(probe.between(poll - 150000, poll + 150000)))) {
-      const o = lines.find(l => l.i === 0);
-      if (!o || o.at > poll - 3000) continue;
-      const before = new Set(lines.filter(l => l.at <= poll).map(l => l.handle));
-      const later = lines.find(l => l.at > poll + 3000 && !before.has(l.handle));
-      if (!later) continue;
-      const recast = loadModule();
-      recast.setAvoid([later.handle]);
-      const continues = Array.from(recast.between(poll + 5000, poll + 150000)).some(l => l.ep === ep && l.i > 0);
-      if (continues) { plan = { poll, ep, victim: later.handle }; break; }
-    }
-  }
-  assert.ok(plan, 'found a conversation a real name would recast');
-  const w = makeWorld({ payload: new Error('offline') });
-  await w.flush();
-  await w.advance(plan.poll - 30000 - T0);
-  w.setPayload({ messages: [{ room: 'commons', label: 'The Commons', handle: plan.victim, text: 'hello i am a real person', at: T0 - 7200000 }] });
-  await w.advance(30000 + 2000);
   const tail = w.list.children[1];
-  // By node, not by count: the tail is capped, so old rows leave the top
-  // while new ones arrive and an index would point at nothing.
-  const onScreenAtPoll = new Set(tail.children);
-  await w.advance(4 * 60000);
-  const fresh = rowsOf(tail).filter(r => !onScreenAtPoll.has(r.node));
-  const after = fresh.filter(r => r.scripted);
-  assert.ok(after.length > 0, 'the room carried on after the recast');
-  const recastSchedule = Array.from(w.ctx.DBLandingChatter.between(plan.poll - 60000, w.now() + 1));
-  for (const r of after) {
-    const line = recastSchedule.find(l => l.handle === r.handle && (l.text === r.text || (r.typing && l.text.startsWith(r.text))));
-    assert.ok(line, 'row maps to the recast schedule: ' + r.text);
-    assert.notEqual(line.ep, plan.ep, 'a recast conversation does not continue: ' + r.handle + ': ' + r.text);
+  const destinations = new Set();
+  for (let n = 0; n < 120; n++) {
+    await w.advance(30000);
+    const rows = rowsOf(tail);
+    assert.ok(rows.filter(r => r.scripted).length <= 2, 'scripted previews never exceed two');
+    rows.filter(r => r.scripted).forEach(r => {
+      destinations.add(r.node.href);
+      assert.match(r.node.children[0].children[0].textContent, /preview/, 'scripted rows are labelled as previews');
+      if (r.node.href.startsWith('https:')) assert.equal(r.node.rel, 'noopener');
+    });
   }
-  assertConversationsWhole(w, fresh, plan.poll);
+  assert.deepEqual([...destinations].sort(), ['/community', 'https://discord.gg/WMHZW9BKvJ']);
+  assert.ok(w.fetches.every(u => u === '/api/live-chats'), 'previews never write into a channel');
+}
+
+// Hovering or leaving the tab never releases a burst of missed previews.
+{
+  const w = makeWorld({ payload: { messages: [] } });
+  await w.flush();
+  await w.advance(10000);
+  const tail = w.list.children[1];
+  const before = new Set(tail.children);
+  w.panel.handlers.mouseenter();
+  await w.advance(20 * 60000);
+  assert.ok(tail.children.every(row => before.has(row)), 'hover preserves the text being read');
+  w.panel.handlers.mouseleave();
+  await w.advance(15000);
+  assert.ok(tail.children.filter(row => !before.has(row)).length <= 1, 'at most the latest held preview types on resume');
+  const resumed = new Set(tail.children);
+  w.ctx.document.hidden = true;
+  await w.advance(20 * 60000);
+  w.ctx.document.hidden = false;
+  await w.advance(15000);
+  assert.ok(tail.children.filter(row => !resumed.has(row)).length <= 1, 'hidden time never produces a catch-up dump');
+}
+
+// A real arrival clears held scripted invitations, even while hovering.
+{
+  const w = makeWorld({ payload: { messages: [] } });
+  await w.flush();
+  w.panel.handlers.mouseenter();
+  await w.advance(4 * 60000);
+  const arrivedAt = w.now() + 1000;
+  w.setPayload({ messages: [{ room: 'commons', label: 'The Commons', handle: 'Real Person Four', text: 'anyone up for a round on bike lanes', at: arrivedAt }] });
+  await w.advance(60000);
+  w.panel.handlers.mouseleave();
+  await w.advance(15000);
+  const rows = rowsOf(w.list.children[1]);
+  assert.equal(rows.length, 1, 'held previews yield to the real arrival');
+  assert.equal(rows[0].handle, 'Real Person Four');
 }
 
 // 6f. Without the module the renderer is the real-only panel.
