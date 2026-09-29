@@ -90,3 +90,9 @@ assert.ok(maxParallel <= 3, 'global worker limit remains bounded');
 assert.equal([...f.data].filter(([k,v]) => k.startsWith('live_rounds/b') && v.ballot).length, 50);
 assert.ok(WORKER_LEASE_MS > 2 * 90_000, 'worker lease covers patient panel and fallback');
 console.log('[test-ballot-recovery-worker] dispatch, auth, duplicate delivery, slow panels, backoff, lost jobs and 50-room backlog passed');
+
+f=setup();jobs=[];
+assert.equal((await f.queue.enqueue('room',sendTo(jobs))).queued,false,'an unfrozen room cannot use immediate dispatch');
+f.data.set('judge_inputs/room',{round:pending()});
+await Promise.all(Array.from({length:12},()=>f.queue.enqueue('room',sendTo(jobs))));
+assert.equal(jobs.length,1,'immediate dispatch still obeys global slots and durable deduplication');

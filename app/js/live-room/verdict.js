@@ -353,6 +353,13 @@
     return m || 'model not named';
   }
 
+  function receiptHtml(receipts){
+    if (!Array.isArray(receipts) || !receipts.length) return '';
+    return '<details class="ballot-receipts"><summary>Transcript receipts</summary><p>Quoted words and side attribution were checked. The interpretation can still be appealed.</p>' + receipts.map(function(r){
+      return '<article><strong>' + escHtml((r.side === 'pro' ? 'For' : 'Against') + ' · ' + r.turnId) + '</strong><blockquote>' + escHtml(r.quote) + '</blockquote><p>' + escHtml(r.explanation) + '</p>' + (r.responseQuote ? '<p>Reply · ' + escHtml(r.responseTurnId) + '</p><blockquote>' + escHtml(r.responseQuote) + '</blockquote>' : '') + '</article>';
+    }).join('') + '</details>';
+  }
+
   function ballotCouncilHtml(b){
     try {
       var p = b && b.panel;
@@ -376,7 +383,7 @@
       var dissentHtml = dissents.map(function(d){
         var side = d.winner === 'pro' ? (context.state.proName || 'For') : (context.state.conName || 'Against');
         return '<div class="bc-dissent"><strong>Dissent · ' + escHtml(councilBrainName(d.model)) + ' · for ' + escHtml(side) + '</strong>' +
-          '<p>' + judgeHtml(d.rfd || 'No written dissent returned.') + '</p></div>';
+          '<p>' + judgeHtml(d.rfd || 'No written dissent returned.') + '</p>' + receiptHtml(d.receipts) + '</div>';
       }).join('');
       return '<div class="ballot-council"><div class="bc-head">' + escHtml(head) + '</div>' +
         '<p class="bc-models">' + (p.configuredModels ? 'Judging models: ' : 'Recorded panel models: ') + names + '</p>' +
@@ -701,7 +708,7 @@
         '<div class="verdict-headline">' + escHtml(winnerName) + (context.state.isDuo ? ' win</div>' : ' wins</div>') +
         '<div class="verdict-sub">' + escHtml(winnerSide) + ' over ' + escHtml(loserSide) + ' (' + escHtml(loserName) + ')</div>' +
       '</div>' +
-      ballotCouncilHtml(b) +
+      ballotCouncilHtml(b) + receiptHtml(b.receipts) +
       // Current public ballots always use the 1-100 scale.
       '<div class="points-grid ballot-section" data-stage="1">' +
         '<div class="points-card">' +

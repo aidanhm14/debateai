@@ -102,6 +102,10 @@ export const BULK_QUERIES = [
   { collection: 'room_topic_talks', field: 'uids', op: 'array-contains' },
   { collection: 'private_judge_receipts', field: 'uids', op: 'array-contains' },
   { collection: 'judge_explanation_sources', field: 'uids', op: 'array-contains' },
+  { collection: 'judge_inputs', field: 'uids', op: 'array-contains' },
+  { collection: 'round_followups', field: 'uids', op: 'array-contains' },
+  { collection: 'judge_challenge_submissions', field: 'uid' },
+  { collection: 'judge_challenge_badges', field: 'uid' },
   { collection: 'round_finishes', field: 'uids', op: 'array-contains' },
 ];
 

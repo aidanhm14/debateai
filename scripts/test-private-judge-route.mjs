@@ -2,13 +2,14 @@
 // Firestore and provider boundaries. No credentials or paid API calls.
 import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
+process.env.INTERNAL_JUDGE_KEY='test-internal-judge-key-long';
 const values = new Map(); let queue = Promise.resolve();
 const ref = path => ({ path, update: async value => { values.set(path,{...values.get(path),...structuredClone(value)}); }, get: async () => ({ exists: values.has(path), data: () => structuredClone(values.get(path)) }) });
 const db = { collection: c => ({ doc: id => ref(c + '/' + id) }), runTransaction(fn) {
   const result = queue.then(async () => {
     const staged = new Map([...values].map(([k,v])=>[k,structuredClone(v)]));
     let wrote = false;
-    const pending = fn({ get: async r => { assert.equal(wrote,false);return {exists:staged.has(r.path),data:()=>structuredClone(staged.get(r.path))}; }, set: (r,v) => {wrote=true;staged.set(r.path,structuredClone(v));}, update:(r,v)=>{wrote=true;staged.set(r.path,{...staged.get(r.path),...structuredClone(v)});} });
+    const pending = fn({ get: async r => { assert.equal(wrote,false);return {exists:staged.has(r.path),data:()=>structuredClone(staged.get(r.path))}; }, create: (r,v) => {assert.equal(staged.has(r.path),false);wrote=true;staged.set(r.path,structuredClone(v));}, set: (r,v) => {wrote=true;staged.set(r.path,structuredClone(v));}, update:(r,v)=>{wrote=true;staged.set(r.path,{...staged.get(r.path),...structuredClone(v)});} });
     assert.equal(typeof pending?.then,'function','Firestore transaction callbacks must return a Promise');
     const result = await pending;
     values.clear();for(const [k,v] of staged)values.set(k,v);return result;
@@ -31,6 +32,7 @@ globalThis.__privateJudgeRouteTest={db,
 const hooks=registerHooks({load(url,context,next){
   if(url.endsWith('/lib/firestore.mjs'))return {format:'module',shortCircuit:true,source:'export const getDb=()=>globalThis.__privateJudgeRouteTest.db;export const getUserTeam=uid=>globalThis.__privateJudgeRouteTest.team(uid);export const withDeadline=p=>p;export const FieldValue={serverTimestamp:()=>Date.now(),increment:n=>n,delete:()=>null};export const FieldPath={documentId:()=>"id"};'};
   const effectMocks = {
+    'ballot-recovery.mjs': 'export const createRecoveryQueue=()=>({enqueue:async()=>({queued:true})});',
     'rate-limit.mjs': 'export const callerIp=()=>"test";export const checkLayers=async()=>({ok:true});',
     'judge-run.mjs': 'export const runPanel=async(...args)=>globalThis.__privateJudgeRouteTest.panel(...args);',
     'judge-audit.mjs': 'export const auditRecord=x=>x;export const writeAudit=async()=>{};',
@@ -98,9 +100,18 @@ assert.equal(early.status,409);assert.equal((await early.json()).code,'round_not
 assert.equal(panelCalls,beforeEarlyPanel,'a forged UI projection cannot start the panel');
 assert.equal(used('finishing-user'),0,'unfinished conversations never consume judging allowance');
 values.set('live_rounds/Spar-public',{...round('public-user','public-peer'),isPrivate:false});
-const publicJudgment=await liveCall('public-user','Spar-public');assert.equal(publicJudgment.status,200);assert.equal((await publicJudgment.json()).ballot.rfd,'Original live verdict');assert.equal(used('public-user'),0,'public ballot still commits without private usage');
+const queuedPublic=await liveCall('public-user','Spar-public');assert.equal(queuedPublic.status,202);assert.equal((await queuedPublic.json()).code,'judge_queued');
+const publicJudgment=await liveCall('','Spar-public',true);assert.equal(publicJudgment.status,200);assert.equal((await publicJudgment.json()).ballot.rfd,'Original live verdict');assert.equal(used('public-user'),0,'public ballot still commits without private usage');
+const beforePublicReplay=panelCalls;
+values.get('live_rounds/Spar-public').ballot=null;values.get('live_rounds/Spar-public').serverJudgeState='';
+const restoredPublic=await liveCall('public-user','Spar-public');assert.equal(restoredPublic.status,200);assert.equal((await restoredPublic.json()).ballot.rfd,'Original live verdict');assert.equal(panelCalls,beforePublicReplay,'erasing a public projection never rerolls the panel');
 values.set('live_rounds/Private-attacker',round('attacker'));
-const judged=await liveCall('attacker','Private-attacker');assert.equal(judged.status,200);assert.equal((await judged.json()).ballot.rfd,'Original live verdict');
+const beforeQueue=panelCalls;
+const queued=await liveCall('attacker','Private-attacker');assert.equal(queued.status,202);assert.equal(panelCalls,beforeQueue,'HTTP queue request makes no provider call');assert.equal(used('attacker'),0,'queue acceptance does not charge');
+const duplicate=await liveCall('attacker','Private-attacker');assert.equal(duplicate.status,202);assert.equal(panelCalls,beforeQueue,'repeated queue request never buys another panel');
+const accepted=structuredClone(values.get('judge_inputs/Private-attacker'));
+values.get('live_rounds/Private-attacker').speeches[0].text='CHANGED after the queue accepted the original evidence';
+const judged=await liveCall('','Private-attacker',true);assert.deepEqual(values.get('judge_inputs/Private-attacker').round,accepted.round,'accepted evidence is immutable across execution');assert.equal(judged.status,200);assert.equal((await judged.json()).ballot.rfd,'Original live verdict');
 assert.equal(used('attacker'),1);assert.equal(used('victim'),0,"a client-written peer UID never consumes that person's allowance");
 const immutableKey=privateJudgeKey('live:Private-attacker');
 assert.equal(values.get('private_judge_receipts/'+immutableKey).uids[0],'attacker');

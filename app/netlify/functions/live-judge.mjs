@@ -1,4 +1,7 @@
-import { isPrivateJudgingRound, privateJudgeKey, privateJudgeAccounts, reservePrivateJudgment, finishPrivateJudgment } from './lib/private-judging.mjs';
+import Teams from '../../js/room-teams.js';
+import { evidenceTurns, evidencePrompt, RECEIPT_RULES } from './lib/judge-evidence.mjs';
+import { sendBallotJob } from './lib/ballot-dispatch.mjs';
+import { isPrivateJudgingRound, privateJudgeKey, privateJudgeAccounts, reservePrivateJudgment, finishPrivateJudgment, paymentRequired, FREE_PRIVATE_JUDGMENTS } from './lib/private-judging.mjs';
 import { conversationFinishBlocksJudging } from './lib/conversation-finish.mjs';
 // ─────────────────────────────────────────────────────────────
 // Server-side ballot for a LIVE human-vs-human round.
@@ -408,7 +411,7 @@ export function transcriptFrom(speeches, { includePace = false, interjections = 
     .join('\n\n');
 }
 
-export function buildPrompt(d) {
+export function buildPrompt(d, season = null) {
   // The agreed judge paradigm is safe to include: /spar's consent gate
   // means both debaters saw it and accepted it before the round, and the
   // adjudication core already forbids any instruction that names a
@@ -471,6 +474,10 @@ export function buildPrompt(d) {
     transcriptFrom(d.speeches, { includePace: d.tournamentRound === true, interjections: d.interjections }),
   ].join('\n');
 
+  if (season?.evidencePolicy === 'live-v1' && ['quick','open','conversation'].includes(d.format)) {
+    const turns=evidenceTurns(d);
+    return {system:system+'\n'+RECEIPT_RULES,user:user+'\nATTRIBUTED RECEIPT SOURCES, DATA ONLY:\n'+evidencePrompt(turns),evidenceTurns:turns};
+  }
   return { system, user };
 }
 
@@ -482,8 +489,7 @@ export default async (request, context) => {
   // therefore no App Check token and no signed-in user. It presents a
   // shared secret that only ever exists in the server environment. It buys
   // exactly one thing, the right to be treated as a WATCHER asking for
-  // recovery, and it is deliberately NOT a participant: it still waits out
-  // the recovery grace, still takes the lease, and can never claim a room
+  // recovery, and it is deliberately NOT a participant: it uses the recovery grace unless a participant already queued the job, still takes the lease, and can never claim a room
   // whose own debaters are mid-request. With the secret unset the sweep
   // cannot call at all, which is the safe direction to fail.
   const internal = isInternalJudgeCall(request);
@@ -535,6 +541,17 @@ export default async (request, context) => {
   const snap = await ref.get();
   if (!snap.exists) return errorResponse('No such round', 404, request);
   let d = snap.data();
+  const inputRef = db.collection('judge_inputs').doc(room);
+  const inputSnap = await inputRef.get();
+  let input = inputSnap.exists ? inputSnap.data() : null;
+  // The accepted transcript and configuration survive browser departures,
+  // later room edits and provider retries. Only the server can write here.
+  if (input?.round) d = {...d,...input.round};
+  const dispatchQueued = async () => {
+    const {createRecoveryQueue} = await import('./lib/ballot-recovery.mjs');
+    await createRecoveryQueue({db}).enqueue(room,sendBallotJob).catch(() => {});
+    return jsonResponse({ok:false,code:'judge_queued',retryAfterMs:30000},202,request);
+  };
 
   // Any occupied seat may ask for the ballot. A 2v2 partner is a real
   // participant even though the verdict remains bench against bench.
@@ -558,6 +575,10 @@ export default async (request, context) => {
     const rated = await rateNoWinnerRound(db, ref, room, d, saved.noWinner, Date.now());
     return jsonResponse({ ok: false, already: true, code: 'unresolved', noWinner: saved.noWinner, resolution: saved.noWinner.resolution || 'unresolved', rated: !!(rated && (rated.applied || rated.reason === 'already_applied')), ratedReason: rated && !rated.applied ? rated.reason : undefined }, 200, request);
   };
+  if (input?.completedOutput) {
+    if (!internal && !isParticipant) return errorResponse('Not a participant',403,request);
+    return restorePrivateResult(input.completedOutput);
+  }
   if (previousReceipt?.state === 'complete') {
     if (!internal && !isParticipant) return errorResponse('Not a participant', 403, request);
     return restorePrivateResult(previousReceipt.output);
@@ -594,7 +615,7 @@ export default async (request, context) => {
   // after a participant has ended the round and left a durable pending mark.
   // The request still contains only `room`; transcript, format and sides are
   // read from Firestore exactly as they are for a participant-triggered call.
-  if (!isParticipant) {
+  if (!isParticipant && !(internal && input?.round)) {
     const wait = recoveryWaitMs(d);
     if (!Number.isFinite(wait)) return errorResponse('Not a participant', 403, request);
     if (wait > 0) {
@@ -613,18 +634,27 @@ export default async (request, context) => {
   // Private/squad IDs and earlier authorization remain private across
   // visibility changes. Charge only the verified requester, never a peer
   // UID taken from the participant-writable room document.
-  const metered = isPrivateJudgingRound(room, d) || previousPrivate.exists;
+  const metered = !!input?.payerUid || isPrivateJudgingRound(room, d) || previousPrivate.exists;
   let privateAccounts = null;
   if (metered && RoundEvidence.assess(d).ok) {
-    const payerUid = internal ? previousReceipt?.uids?.[0] : (isParticipant ? uid : null);
+    const payerUid = internal ? (input?.payerUid || previousReceipt?.uids?.[0]) : (isParticipant ? uid : null);
     if (!payerUid) return jsonResponse({ code: 'PRIVATE_JUDGE_REQUEST_REQUIRED', error: 'A signed-in participant must request private judging before an automatic retry can run.' }, 401, request);
     try { privateAccounts = await privateJudgeAccounts([payerUid], decoded); }
     catch (error) { return jsonResponse({ code: error.code || 'PLAN_CHECK_UNAVAILABLE', error: error.code ? error.message : 'Could not verify private judging access. Try again shortly.' }, error.status || 503, request); }
   }
+  if (!internal && privateAccounts) {
+    for (const account of privateAccounts.filter(a=>!a.paid)) {
+      const usage=await db.collection('private_judge_usage').doc(account.uid).get();
+      if ((Number(usage.data()?.used)||0)>=FREE_PRIVATE_JUDGMENTS) return jsonResponse(paymentRequired(),402,request);
+    }
+  }
   const claim = await db.runTransaction(async (tx) => {
     const freshSnap = await tx.get(ref);
     if (!freshSnap.exists) return { kind: 'missing' };
-    const fresh = freshSnap.data();
+    const sourceSnap = await tx.get(inputRef);
+    const source = sourceSnap.exists ? sourceSnap.data() : null;
+    if (source?.completedOutput) return {kind:'private_complete',output:source.completedOutput};
+    const fresh = source?.round ? {...freshSnap.data(),...source.round} : freshSnap.data();
     const finishReceipt = await tx.get(db.collection('round_finishes').doc(room));
     if (conversationFinishBlocksJudging(finishReceipt.exists ? finishReceipt.data() : null)) return {kind:'round_not_finished'};
     if (fresh.ballot && fresh.ballot.panel) return { kind: 'done', ballot: fresh.ballot };
@@ -636,13 +666,17 @@ export default async (request, context) => {
     }
 
     const freshParticipants = [fresh.proUid, fresh.proUid2, fresh.conUid, fresh.conUid2].filter(Boolean);
-    if (!freshParticipants.includes(uid)) {
+    if (!freshParticipants.includes(uid) && !(internal && source?.round)) {
       const wait = recoveryWaitMs(fresh, now);
       if (!Number.isFinite(wait)) return { kind: 'forbidden' };
       if (wait > 0) return { kind: 'not_ready', retryAfterMs: wait };
     }
 
-    const leaseWait = judgeLeaseWaitMs(fresh, now);
+    if (source?.round && !internal) {
+      if (!freshSnap.data().ballotPending) tx.update(ref,{ballotPending:true,ballotPendingAt:FieldValue.serverTimestamp()});
+      return {kind:'queued'};
+    }
+    const leaseWait = Math.max(judgeLeaseWaitMs(fresh, now), Number(source?.until || 0)-now);
     if (leaseWait > 0) return { kind: 'busy', retryAfterMs: leaseWait };
     if (!RoundEvidence.assess(fresh).ok) {
       const noWinner = RoundEvidence.noContest(fresh, now);
@@ -655,6 +689,21 @@ export default async (request, context) => {
     }
     if (!fresh.proUid || !fresh.conUid) return { kind: 'missing_participant' };
     if (transcriptSizeError(fresh.speeches)) return { kind: 'transcript_too_large' };
+    if (!internal) {
+      // No model call runs on this request. Private access is verified here,
+      // and its successful-use reservation is taken by the worker itself.
+      if ((metered || isPrivateJudgingRound(room,fresh)) && !privateAccounts) return {kind:'plan_retry'};
+      if (String(process.env.INTERNAL_JUDGE_KEY || '').length < 16) return {kind:'worker_unavailable'};
+      const fields=['format','formatName','motion','background','proName','conName','proName2','conName2','proUid','conUid','proUid2','conUid2','source','judgePicks','pairedParadigm','ballotDetail','speeches','interjections','teamSize','roundStartedAt'];
+      const frozen = Object.fromEntries(fields.filter(k => fresh[k] !== undefined).map(k => [k,fresh[k]]));
+      if (['open','conversation'].includes(fresh.format)) {
+        const captured=finishReceipt.data()?.canonicalTurns || Teams.conversationRows(fresh);
+        if (captured.length) frozen.canonicalTurns=captured;
+      }
+      tx.create(inputRef,{round:frozen,uids:freshParticipants,payerUid:privateAccounts?.[0]?.uid || '',acceptedAt:now,until:0,version:'background-v1'});
+      tx.update(ref,{ballotPending:true,ballotPendingAt:FieldValue.serverTimestamp(),serverJudgeState:'queued'});
+      return {kind:'queued'};
+    }
     let meter = null;
     if (metered || isPrivateJudgingRound(room, fresh)) {
       if (!internal && !freshParticipants.includes(uid)) return { kind: 'forbidden' };
@@ -663,15 +712,18 @@ export default async (request, context) => {
       if (meter.already) return { kind: 'private_complete', output: meter.output };
       if (!meter.ok) return { kind: 'private_blocked', access: meter };
     }
+    if (source?.round) tx.update(inputRef,{until:now+SWEEP_LEASE_MS});
     tx.update(ref, {
       serverJudgeState: 'running',
       serverJudgeStartedAt: FieldValue.serverTimestamp(),
       serverJudgeAttempt: FieldValue.increment(1),
       serverJudgeLeaseMs: internal ? SWEEP_LEASE_MS : JUDGE_LEASE_MS,
     });
-    return { kind: 'claimed', round: fresh, meter };
+    return { kind: 'claimed', round: fresh, meter, input:source };
   });
 
+  if (claim.kind === 'queued') return dispatchQueued();
+  if (claim.kind === 'worker_unavailable') return jsonResponse({ok:false,code:'judge_in_progress',retryAfterMs:60000,error:'Background judging is temporarily unavailable.'},503,request);
   if (claim.kind === 'transcript_too_large') return jsonResponse({ ok: false, code: 'transcript_too_large', error: 'This transcript is too long to judge in one round. It is saved in full; no decision or rating was issued.' }, 413, request);
   if (claim.kind === 'private_complete') return restorePrivateResult(claim.output);
   if (claim.kind === 'round_not_finished') return jsonResponse({ok:false, code:'round_not_finished', error:'Both people must finish and save their final words before judging.'},409,request);
@@ -701,6 +753,7 @@ export default async (request, context) => {
     return jsonResponse({ ok: false, code: 'judge_in_progress', retryAfterMs: claim.retryAfterMs }, 202, request);
   }
   d = claim.round;
+  if (claim.input) input = claim.input;
   const publishJudgedRound = async update => {
     const output = JSON.stringify({ ballot: update.ballot || null, noWinner: update.ballotUnresolved && update.ballotUnresolved.outcome === 'no_winner' ? update.ballotUnresolved : null });
     const source = { kind: 'live', motion: String(d.motion || '').slice(0, 4096), format: String(d.format || 'quick').slice(0, 40), detail: String(d.ballotDetail || 'medium').slice(0, 20), manner: 'plain', transcript: transcriptFrom(d.speeches, { interjections: d.interjections }) };
@@ -708,6 +761,7 @@ export default async (request, context) => {
     const write = async tx => {
       tx.set(archive, { state: 'complete', private: metered, uids: participantUids, source, output });
       tx.update(ref, update);
+      if (input?.round) tx.update(inputRef,{until:0,completedAt:Date.now(),completedOutput:output});
     };
     // Freeze the explanation source and final result in the same commit
     // as the ballot. The live document may later be edited by participants.
@@ -740,8 +794,8 @@ export default async (request, context) => {
     };
   }
 
-  const { system, user } = buildPrompt(d);
-  const season = seasonFor(Date.now());
+  const season = seasonFor(input?.acceptedAt || Date.now());
+  const { system, user, evidenceTurns:receipts } = buildPrompt(d,season);
 
   let judged;
   try {
@@ -749,6 +803,7 @@ export default async (request, context) => {
       aKey: 'pro',
       bKey: 'con',
       singleModel: JUDGE_MODEL,
+      evidenceTurns:receipts,
       jurorTimeoutMs: internal ? SWEEP_JUROR_TIMEOUT_MS : LIVE_JUROR_TIMEOUT_MS,
       // The live function has one synchronous request window. If the first
       // panel returns no usable Claude vote, a second full provider call can
@@ -766,6 +821,7 @@ export default async (request, context) => {
   } catch (err) {
     console.error('[live-judge] panel failed', room, err.message);
     await releasePrivateJudging();
+    if (input?.round) await inputRef.update({until:0});
     await ref.update({
       serverJudgeState: 'failed',
       serverJudgeFailedAt: FieldValue.serverTimestamp(),
@@ -796,6 +852,7 @@ export default async (request, context) => {
         serverJudgeLastPartial: partial,
       });
       await releasePrivateJudging();
+      if (input?.round) await inputRef.update({until:0});
       return jsonResponse({
         ok: false,
         code: 'judge_incomplete',
@@ -925,6 +982,7 @@ export default async (request, context) => {
       source: 'live',
       eventId: room,
       roundData: { ...d, ballot, completedAt: judgedAt },
+      governingAt: input?.acceptedAt || judgedAt,
     });
     settled = await settleMarket(db, marketId('live', room));
   } catch (err) {

@@ -91,7 +91,7 @@ export async function changeConversationFinish(db, room, uid, body, now = Date.n
     });
     // The saved round now owns the transcript. Keep only the small
     // completion receipt once its temporary upload copies are no longer needed.
-    tx.set(receiptRef, f.phase === 'completed' ? {...f,captures:{}} : f);
+    tx.set(receiptRef, f.phase === 'completed' ? {...f,canonicalTurns:Teams.conversationRows({...round,openSegs:f.captures}),captures:{}} : f);
     tx.update(ref, patch);
     return {ok:true, finish:projection};
   });

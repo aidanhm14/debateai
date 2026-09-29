@@ -123,15 +123,16 @@ const hooks = registerHooks({ load(url, context, next) {
     'settle.mjs': 'export const settleMarket=async()=>{};',
     'tournament-round.mjs': 'export const verifyTournamentPairing=async()=>null;',
     'tournament-ledger.mjs': 'export const applyTournamentResult=async()=>null;',
-    'private-judging.mjs': 'export const isPrivateJudgingRound=room=>!room.startsWith("real-");export const privateJudgeKey=s=>s;export const privateJudgeAccounts=async()=>globalThis.__noSpeechTest.meter();export const reservePrivateJudgment=async()=>globalThis.__noSpeechTest.meter();export const finishPrivateJudgment=async()=>{};',
+    'private-judging.mjs': 'export const FREE_PRIVATE_JUDGMENTS=2;export const paymentRequired=()=>({code:"PRIVATE_JUDGE_PAYMENT_REQUIRED"});export const isPrivateJudgingRound=room=>!room.startsWith("real-");export const privateJudgeKey=s=>s;export const privateJudgeAccounts=async()=>globalThis.__noSpeechTest.meter();export const reservePrivateJudgment=async()=>globalThis.__noSpeechTest.meter();export const finishPrivateJudgment=async()=>{};',
   };
   const name = Object.keys(mocks).find(n => url.endsWith('/lib/' + n));
   return name ? { format: 'module', shortCircuit: true, source: mocks[name] } : next(url, context);
 } });
 const { default: judge } = await import('../app/netlify/functions/live-judge.mjs');
-const call = async (id, uid = 'p') => {
+process.env.INTERNAL_JUDGE_KEY='test-no-speech-background-key';
+const call = async (id, uid = 'p', internal=false) => {
   const response = await judge(new Request('https://itsdebatable.com/api/live-judge', {
-    method: 'POST', headers: { authorization: uid, 'content-type': 'application/json' }, body: JSON.stringify({ room: id }),
+    method: 'POST', headers: { authorization: uid, 'content-type': 'application/json',...(internal?{'x-internal-judge-key':process.env.INTERNAL_JUDGE_KEY}:{}) }, body: JSON.stringify({ room: id }),
   }), {});
   return { status: response.status, body: await response.json() };
 };
@@ -155,8 +156,8 @@ assert.equal(panels, 0);
 assert.equal(meters, 0);
 assert.equal([...records.keys()].every(k => k.startsWith('live_rounds/')), true, 'no judgment, rating or billing rows');
 for (const [i, round] of [valid, conversation].entries()) {
-  records.set('live_rounds/real-' + i, { ...round, proUid: 'p', conUid: 'c' });
-  assert.equal((await call('real-' + i)).body.code, 'judge_failed', 'real speech reaches the deliberately failing test panel');
+  records.set('live_rounds/real-' + i, { ...round, proUid: 'p', conUid: 'c',ballotPending:true,ballotPendingAt:Date.now()-100000 });
+  assert.equal((await call('real-' + i,'p',true)).body.code, 'judge_failed', 'real speech reaches the deliberately failing test panel');
 }
 assert.equal(panels, 2, 'both timed and single-entry conversation rounds reach judging');
 hooks.deregister();

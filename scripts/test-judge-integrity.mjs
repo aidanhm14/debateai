@@ -165,7 +165,7 @@ function t(label, cond) {
   // Open: a council still carries on two matching votes through one
   // provider outage, and still refuses to break a 1-1.
   t('the live council lets two matching votes carry through one provider outage',
-    current.id === '2026-frontier-council'
+    current.id === '2026-receipt-council'
       && current.panel.quorum === 2
       && current.panel.minimumVotes === 2);
   const priorPanel = seasonById('2026-autumn-sol');
@@ -185,9 +185,10 @@ function t(label, cond) {
       { id: 'j3', provider: 'google', model: 'gemini-3.8-flash' },
     ]));
   t('model-only replacement preserves the rubric hash',
-    rubricHash(current.rubricVersion) === rubricHash(priorPanel.rubricVersion));
+    rubricHash(seasonById('2026-frontier-council').rubricVersion) === rubricHash(priorPanel.rubricVersion));
   t('immediately before the replacement uses the historical panel',
-    seasonFor(current.from - 1).id === priorPanel.id);
+    seasonFor(seasonById('2026-frontier-council').from - 1).id === priorPanel.id);
+  t('new receipts policy is versioned without changing effort', current.evidencePolicy === 'live-v1' && current.rubricVersion === 'adjudication-2026-09-receipts' && seasonFor(current.from-1).id === '2026-frontier-council');
   t('juror ids are unique', new Set(jurors.map((j) => j.id)).size === jurors.length);
   // Effort changes how a ballot is reached, so an undisclosed effort is
   // the same quiet dial as an undisclosed model.

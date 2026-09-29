@@ -1468,6 +1468,14 @@ if [ -f "$IMPORT_GUARD" ] && command -v node >/dev/null 2>&1; then
   fi
 fi
 
+# Attributed evidence and source-check budgets are release gates.
+for GUARD in test-judge-evidence.mjs test-fact-check-session.mjs test-judge-attacks.mjs test-judge-challenge-routes.mjs; do
+  if ! (cd "$REPO_ROOT" && node "scripts/$GUARD"); then
+    echo "[$GUARD] failed. Fix the evidence boundary before committing." >&2
+    exit 1
+  fi
+done
+
 # ──────────────────────────────────────────────────────────────────
 # Precompile inline <script data-precompile="es5"> blocks before
 # anything else. Why first: the precompile may mutate staged HTML,
@@ -1566,11 +1574,3 @@ TRIGGER_COUNT="$(printf '%s\n' "$TRIGGERS" | wc -l | tr -d ' ')"
 echo "[sw-bump] ${CURRENT} → ${NEW} (${TRIGGER_COUNT} client file$([ "$TRIGGER_COUNT" = "1" ] || echo s) changed)"
 
 exit 0
-
-# Attributed evidence and source-check budgets are release gates.
-for GUARD in test-judge-evidence.mjs test-fact-check-session.mjs; do
-  if ! (cd "$REPO_ROOT" && node "scripts/$GUARD"); then
-    echo "[$GUARD] failed. Fix the evidence boundary before committing." >&2
-    exit 1
-  fi
-done

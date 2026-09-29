@@ -153,7 +153,7 @@ for (const format of ['quick', 'casual', 'open', 'conversation']) {
   for (const line of ['Concessions have scope', 'Interpreting the resolution', 'Missing capture is not a concession', 'Follow the conversation over time']) assert.ok(prompt.includes(line), format + ': ' + line);
   assert.ok(!prompt.includes('"Fine, but" and "sure, though" are real concessions'));
 }
-assert.equal(SEASONS.at(-1).rubricVersion, 'adjudication-2026-09-flex');
+assert.equal(SEASONS.find(s=>s.id==='2026-autumn-flex').rubricVersion, 'adjudication-2026-09-flex');
 assert.deepEqual(RUBRICS['adjudication-2026-09-flex'].dimensions, RUBRICS['adjudication-2026-08c'].dimensions);
 // The flexibility rollout preserved its predecessor's panel. Later model
 // seasons may deliberately change seats without changing that historical fact.

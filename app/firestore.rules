@@ -330,6 +330,8 @@ service cloud.firestore {
                     && request.resource.data.isPrivate is bool
                     && isSeated(request.resource.data)
                     && stringUnder('motion', 4096)
+                    && !hasServerPanel(request.resource.data)
+                    && !request.resource.data.keys().hasAny(serverJudgeFields())
                     && validSpeechTiming(request.resource.data)
                     && !request.resource.data.keys().hasAny(['topicStrikes', 'topicStrikesRevision', 'factChecks', 'openSegs', 'openLive'])
                     && !request.resource.data.keys().hasAny(['teamSize','teamHostUid','teamLockedAt','teamSeatsOpenedAt','teamEnding','teamFinished','teamFinishedAt','proUid2','conUid2','proName2','conName2']);
@@ -414,6 +416,22 @@ service cloud.firestore {
               || resource.data.get('teamLockedAt', 0) > 0));
       }
 
+      function hasServerPanel(data) {
+        let ballot = data.get('ballot', null);
+        return ballot is map && 'panel' in ballot;
+      }
+      function serverJudgeFields() {
+        return ['serverJudgeState','serverJudgeStartedAt','serverJudgeFinishedAt',
+          'serverJudgeFailedAt','serverJudgeLastPartial','serverJudgeAttempt'];
+      }
+      function clientBallotAllowed() {
+        let changed = request.resource.data.diff(resource.data).affectedKeys();
+        return !changed.hasAny(serverJudgeFields())
+          && (!changed.hasAny(['ballot','ballotUnresolved','ballotPending','ballotPendingAt'])
+            || (!hasServerPanel(resource.data) && !hasServerPanel(request.resource.data)
+              && !exists(/databases/$(database)/documents/judge_inputs/$(roomId))));
+      }
+
       // Participant-only writes once the round has both UIDs locked
       // in (i.e., a posted+accepted challenge). Spectators land here
       // signed-in but match neither side, so they can read the round
@@ -431,6 +449,7 @@ service cloud.firestore {
                     && seatsHeldOrTraded()
                     && teamSeatsHeld()
                     && teamCaptureAllowed()
+                    && clientBallotAllowed()
                     && ownTeamStreamOnly('openSegs') && ownTeamStreamOnly('openLive')
                     && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['factChecks'])
                     && (

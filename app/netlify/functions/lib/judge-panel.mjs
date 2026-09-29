@@ -80,6 +80,7 @@ export function normalizeVote(juror, ballot, aKey, bKey) {
     // REASON and not just on the name at the top of the ballot.
     decidingIssue: String(ballot.decidingIssue || '').slice(0, 160),
     rfd: String(ballot.rfd || '').slice(0, MAX_RFD_CHARS),
+    ...(Array.isArray(ballot.receipts) ? {receipts:ballot.receipts} : {}),
   };
 }
 

@@ -99,6 +99,7 @@ export function createRecoveryQueue({ db, documentId, now = Date.now, uuid = ran
       const [s, j] = await Promise.all([tx.get(slotRef(slot)), tx.get(jobRef(room))]);
       const t = now();
       if ((s.data()?.expiresAt || 0) > t || (j.data()?.nextAttemptAt || 0) > t) return null;
+      if ((j.data()?.attempts || 0) >= MAX_ATTEMPTS) return null;
       const attempts = (j.data()?.attempts || 0) + 1;
       const expiresAt = t + DISPATCH_LEASE_MS;
       tx.set(slotRef(slot), { room, token, state: 'queued', expiresAt });
@@ -134,6 +135,21 @@ export function createRecoveryQueue({ db, documentId, now = Date.now, uuid = ran
       }
     }));
     return { due: selected.due.length, skipped: selected.skipped, results };
+  }
+
+  // Called only after live-judge durably validates and freezes the input.
+  // Capacity exhaustion leaves the pending record for the minute sweep.
+  async function enqueue(room, send) {
+    const input = await db.collection('judge_inputs').doc(room).get();
+    if (!input.exists || input.data()?.completedAt) return {queued:false};
+    for (let slot=0;slot<concurrency;slot++) {
+      const claim=await reserve(room,slot);
+      if (!claim) continue;
+      try { await send({slot:claim.slot,token:claim.token}); }
+      catch { /* A lost acknowledgment must not double-dispatch. */ }
+      return {queued:true};
+    }
+    return {queued:false};
   }
 
   async function run({ slot, token }, judge) {
@@ -177,5 +193,5 @@ export function createRecoveryQueue({ db, documentId, now = Date.now, uuid = ran
     }
     return { room: claim.room, code, status, ms: now() - started };
   }
-  return { dispatch, run };
+  return { dispatch, run, enqueue };
 }

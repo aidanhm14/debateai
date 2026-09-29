@@ -42,6 +42,7 @@ function auditJuror(result, pinnedModel) {
     provider: result.provider || '',
     model: result.model || '',
     promptHash: result.promptHash || '',
+    ...(result.effort ? {effort:result.effort} : {}),
     ok: !!result.ok,
     ms: Number(result.ms) || 0,
   };
@@ -59,6 +60,7 @@ function auditJuror(result, pinnedModel) {
       oppPoints: numOrNull(result.ballot.oppPoints),
     };
     j.rfd = String(result.ballot.rfd || '').slice(0, 1200);
+    if (Array.isArray(result.ballot.receipts)) j.receipts=result.ballot.receipts;
   } else if (!result.ok) {
     j.error = String(result.error || '').slice(0, 200);
   }

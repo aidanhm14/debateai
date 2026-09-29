@@ -228,9 +228,12 @@ function numOr(v, d) {
 // Write the judgment once. Idempotent: a judgment is a historical fact,
 // so a second write never overwrites the first. If you need to change a
 // verdict, that is a dispute, not an update.
-export async function recordJudgment(db, { source, eventId, roundData }) {
+export async function recordJudgment(db, { source, eventId, roundData, governingAt }) {
   const j = fromRound(source, eventId, roundData);
   if (!j.ok) return { recorded: false, reason: j.reason };
+  // A durable live job keeps the season accepted by the server even if
+  // it finishes after the next season starts. Never take this from a client body.
+  if (source === 'live' && Number.isFinite(governingAt) && governingAt > 0) Object.assign(j.value,charterStamp(governingAt));
 
   const ref = db.collection('judgments').doc(j.value.id);
   return db.runTransaction(async (tx) => {

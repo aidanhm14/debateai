@@ -67,7 +67,7 @@ export default async (request) => {
 
   if (!uid) return errorResponse('Sign in to check this round.',401,request);
   const room = String(body.room || '');
-  if (!/^[a-zA-Z0-9-]{3,80}$/.test(room)) return errorResponse('Invalid room.',400,request);
+  if (!/^[a-zA-Z0-9_-]{3,80}$/.test(room)) return errorResponse('Invalid room.',400,request);
   const db = getDb(), ref = db.collection('live_rounds').doc(room);
   let d;
   try {

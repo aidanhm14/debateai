@@ -647,6 +647,7 @@ body.lr-open #extRow,body.lr-open #speakerSide,body.lr-open #overtimeNote{displa
    amber = real thing badly misstated (state semantics, not decoration). */
 .fact-checks{padding:0 22px 18px;display:flex;flex-direction:column;gap:10px}
 .fact-checks[hidden]{display:none}
+.ballot-receipts{padding:16px;border:1px solid var(--border);margin:14px 0;overflow-wrap:anywhere}.ballot-receipts article{padding:12px 0;border-bottom:1px solid var(--border)}.ballot-receipts blockquote,#roundFollowups blockquote{margin:10px 0;padding-left:12px;border-left:2px solid var(--accent)}#roundFollowups{border:1px solid var(--border);padding:16px;margin:12px 0}#roundFollowups article{padding:12px 0;border-top:1px solid var(--border)}
 .fc-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;font-size:.72rem;color:var(--text-dim)}
 .fc-head strong{
   font-size:.62rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--text);
@@ -4063,6 +4064,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
              guestHold stamp, hidden the moment it clears. -->
         <div class="round-quiet guest-hold" id="guestHold" hidden></div>
       </div>
+      <section id="roundFollowups" class="round-notes" hidden aria-label="Follow-up questions"><strong>Answer their point</strong><p>Both people get the same question about a point from the other side. Answer aloud when ready. Substance counts, not speed, pauses or polished wording.</p><div id="followupQuestions"></div></section>
       <div id="conversationNotes" hidden><p id="conversationNotesEmpty">Say early what the key words mean to you. The judge scores you on your meaning, not the dictionary. Shared round notes appear here as the conversation develops.</p></div>
       <!-- Set the context (US / world). Shown before Speech 1 only when the
            AI decides the motion depends on where it applies. Both debaters
@@ -12440,10 +12442,24 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
     return state.user.uid === pool.slice().sort()[0];
   }
 
+  var followupsRoom = '', followupsBusy = false;
+  function requestRoundFollowups(){
+    if (state.phase !== 'round' || isSpectator() || !state.user || !state.room || followupsRoom === state.room || followupsBusy) return;
+    followupsBusy=true;
+    state.user.getIdToken().then(function(token){return fetch('/api/round-followups',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({room:state.room})});})
+      .then(function(r){if(!r.ok)throw Error('unavailable');return r.json();})
+      .then(function(j){
+        if(!Array.isArray(j.questions) || j.questions.length !== 2)return;
+        followupsRoom=state.room;
+        $('followupQuestions').innerHTML=j.questions.map(function(q){return '<article><strong>For ' + escHtml(q.side === 'pro' ? state.proName : state.conName) + '</strong><blockquote>' + escHtml(q.quote) + (q.context.length>q.quote.length?'…':'') + '</blockquote><p>' + escHtml(q.question) + '</p><details><summary>Read the captured passage</summary><p>' + escHtml(q.context) + '</p></details></article>';}).join('');
+        $('roundFollowups').hidden=false;
+      }).catch(function(){}).finally(function(){followupsBusy=false;});
+  }
+
   function startFactCheckLoop(){
     if (state.fcLoop) return;
     state.fcLoop = setInterval(function(){
-      if (!document.hidden) factCheckTick();
+      if (!document.hidden) { factCheckTick(); requestRoundFollowups(); }
     }, FC_TICK_MS);
   }
 
@@ -13810,7 +13826,7 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
         renderUnresolvedBallot(res.noWinner || { resolution: res.resolution || 'unresolved' });
         return;
       }
-      if (res && (res.code === 'judge_in_progress' || res.code === 'recovery_not_ready' || res.code === 'judge_incomplete')){
+      if (res && (res.code === 'judge_queued' || res.code === 'judge_in_progress' || res.code === 'recovery_not_ready' || res.code === 'judge_incomplete')){
         if (res.code === 'judge_incomplete'){
           var missing = Math.max(1, Number(res.missing) || 1);
           if (state.ballotRecoveryAttempts >= BALLOT_RECOVERY_MAX_ATTEMPTS){
@@ -14320,10 +14336,10 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
           return;
         }
         if (handlePrivateJudgeAccess(res)) return;
-        if (res && (res.code === 'judge_in_progress' || res.code === 'recovery_not_ready')){
+        if (res && (res.code === 'judge_queued' || res.code === 'judge_in_progress' || res.code === 'recovery_not_ready')){
           state.serverJudgeTried = false;
           var retryMs = Math.max(3000, Math.min(Number(res.retryAfterMs) || 10000, 45000));
-          ballotStatus('The judging panel is already working. Checking again in ' + Math.round(retryMs / 1000) + 's.');
+          ballotStatus(res.code === 'judge_queued' ? 'The round is saved. The judges are working in the background.' : 'The judging panel is already working. Checking again in ' + Math.round(retryMs / 1000) + 's.');
           setTimeout(function(){ generateBallot(attempt); }, retryMs);
           return;
         }
@@ -14367,6 +14383,12 @@ body:has(#roundOwnSide:not([hidden])) #sidesGuide{display:none}
           });
         } catch(e){}
       }).catch(function(err){
+        if (state.proUid && state.conUid && ['quick','open','conversation'].indexOf(state.formatKey) !== -1){
+          state.serverJudgeTried=false;
+          ballotStatus('The round is saved. Reconnecting to the background judges.');
+          scheduleBallotRecovery({ballotPendingAt:Date.now()-BALLOT_RECOVERY_GRACE_MS},15000);
+          return;
+        }
         console.warn('[ballot] server judge unavailable (' + (err && err.message) + '), falling back to the client path');
         try { gtag('event', 'live_round_server_judge_fallback', { format: state.formatKey, reason: (err && err.message) || '' }); } catch(e){}
         generateBallot(attempt);

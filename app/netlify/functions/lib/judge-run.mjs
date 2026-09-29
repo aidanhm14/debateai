@@ -19,6 +19,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { callJuror, callPanel, jurorAvailable } from './judge-jurors.mjs';
+import { validateReceipts } from './judge-evidence.mjs';
 import { normalizeVote, tallyPanel, MAX_RFD_CHARS } from './judge-panel.mjs';
 
 // DEGRADED MODE, disclosed rather than silent. If a provider key is unset
@@ -111,7 +112,7 @@ export function parseDims(raw, aKey, bKey) {
  * score scale. Legacy callers default to 30. New casual callers pass
  * 100, so an in-flight old round is never silently reinterpreted.
  */
-export function makeBallotParser(aKey, bKey, scoreScale = 30) {
+export function makeBallotParser(aKey, bKey, scoreScale = 30, evidence = null) {
   const aPts = `${aKey}Points`;
   const bPts = `${bKey}Points`;
   const scale100 = Number(scoreScale) === 100;
@@ -135,6 +136,7 @@ export function makeBallotParser(aKey, bKey, scoreScale = 30) {
     const dimensions = parseDims(j.dimensions, aKey, bKey);
     return {
       winner,
+      ...(evidence ? {receipts:validateReceipts(j.receipts,evidence)} : {}),
       [aPts]: aPoints,
       [bPts]: bPoints,
       // The one clash this juror says decided the round. Optional on
@@ -169,7 +171,7 @@ export async function runPanel(season, system, user, opts = {}) {
   const singleModel = opts.singleModel || primary?.model || 'claude-sonnet-5';
   const singleJuror = { id: 'single', provider: 'anthropic', model: singleModel,
     ...(primary?.model === singleModel && primary.effort ? { effort: primary.effort } : {}) };
-  const parseBallot = makeBallotParser(aKey, bKey, opts.scoreScale);
+  const parseBallot = makeBallotParser(aKey, bKey, opts.scoreScale, opts.evidenceTurns || null);
   // A synchronous live-room function has a harder wall-clock ceiling than
   // the async sweep. Callers may lower the per-juror ceiling so provider
   // aborts become disclosed missing votes before the edge kills the whole
@@ -194,6 +196,7 @@ export async function runPanel(season, system, user, opts = {}) {
   const allowRuntimeFallbackCall = opts.allowRuntimeFallbackCall !== false;
 
   const panelCfg = PANEL_ENABLED ? (season && season.panel) : null;
+  if (opts.evidenceTurns && !panelCfg) throw new Error('Receipt-enabled judging requires the published panel');
   const wanted = (panelCfg && panelCfg.jurors) || [];
   const available = wanted.filter(isAvailable);
   const quorum = (panelCfg && panelCfg.quorum) || 2;
@@ -232,7 +235,7 @@ export async function runPanel(season, system, user, opts = {}) {
 
   // Not enough jurors to constitute the panel the season promised.
   if (!panelCfg || available.length < quorum) {
-    if (REQUIRE_PANEL && panelCfg) {
+    if ((REQUIRE_PANEL || opts.evidenceTurns) && panelCfg) {
       throw new Error(`panel not constitutable: ${available.length} of ${wanted.length} jurors available, quorum ${quorum}`);
     }
     const solo = singleJuror;
@@ -255,7 +258,7 @@ export async function runPanel(season, system, user, opts = {}) {
   // is the same disclosed single-judge posture used when the panel cannot
   // be constituted before calls begin. It is never a panel tie-break: a
   // returned 1-1 or 2-2 split has reached quorum and remains unresolved.
-  if (tally.votesCast < quorum && !REQUIRE_PANEL) {
+  if (tally.votesCast < quorum && !REQUIRE_PANEL && !opts.evidenceTurns) {
     let fallback = results.find((r) => r && r.ok && r.ballot && r.provider === 'anthropic');
     let fallbackResults = results;
     if (!fallback && allowRuntimeFallbackCall) {
@@ -283,7 +286,7 @@ export async function runPanel(season, system, user, opts = {}) {
   // reasons like neither juror, so a dissent is shown as a dissent.
   const dissents = votes
     .filter((v) => decidedWinner && v.winner !== decidedWinner)
-    .map((v) => ({ jurorId: v.jurorId, model: v.model, winner: v.winner === 'a' ? aKey : bKey, rfd: v.rfd }));
+    .map((v) => ({ jurorId: v.jurorId, model: v.model, winner: v.winner === 'a' ? aKey : bKey, rfd: v.rfd, ...(v.receipts ? {receipts:v.receipts} : {}) }));
 
   const ballot = {
     winner: decidedWinner === 'a' ? aKey : (decidedWinner === 'b' ? bKey : null),
@@ -294,6 +297,7 @@ export async function runPanel(season, system, user, opts = {}) {
     // panel actually converged on rather than whichever juror was first.
     ...(tally.decidingIssue ? { decidingIssue: tally.decidingIssue } : {}),
     rfd: lead ? lead.rfd : '',
+    ...(lead?.receipts ? {receipts:lead.receipts} : {}),
     ...(tally.dimensions ? {
       dimensions: Object.fromEntries(
         Object.entries(tally.dimensions).map(([axis, v]) => [axis, { [aKey]: v.a, [bKey]: v.b }]),
