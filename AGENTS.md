@@ -950,6 +950,18 @@ Run `scripts/test-live-voice.mjs` and `scripts/test-live-voice-handler.mjs`.
 Official contract: https://developers.openai.com/api/docs/guides/live .
 The Realtime-specific details below still apply to legacy callers.
 
+**Ultrafast voice trial (2026-09-30):** `/newvoice?ultrafast=1` opts the
+verified owner into GPT-6 Astra with `service_tier: 'ultrafast'` as the
+GPT-Live reasoning backend. Each substantive argument is delegated; GPT-Live
+still handles speech and interruptions. Normal sessions keep their existing
+backend. The server permits two trial starts per UTC day, stored privately
+in `voice_ultrafast_trials`, and the client closes each trial at the original
+two-minute deadline, including across voice switches. The backend retains
+its 1,200 output-token cap. These are trial bounds, not a hard dollar budget;
+managed Live delegates directly to OpenAI. `ULTRAFAST_VOICE_ENABLED=0`
+disables new trial admissions. No BYOK, training, preview, or judge changes.
+Run `scripts/test-ultrafast-voice.mjs` with the existing Live tests.
+
 `/newvoice` is the public "Debate the AI" door. As of 2026-09-03 its setup
 is one choice per screen (how, topic, side, voice, go), and the round can
 start with NO topic: "Talk it through with the AI" opens the room, the

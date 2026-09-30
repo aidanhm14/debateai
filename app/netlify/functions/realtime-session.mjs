@@ -32,6 +32,7 @@
 
 import { parseTraining, trainingTitle, trainingInstructions } from './lib/training-scenario.mjs';
 import { LIVE_MODEL, validLiveOffer, liveVoiceConfig, createLiveVoice } from './lib/live-voice.mjs';
+import { checkUltrafastAccess, reserveUltrafastVoice, ULTRAFAST_VOICE_MODEL } from './lib/ultrafast-voice.mjs';
 import { checkAppCheck } from './lib/appcheck.mjs';
 import { verifyIdToken, extractBearerToken, isOwnerEmail } from './lib/auth.mjs';
 import { checkLayers, callerIp } from './lib/rate-limit.mjs';
@@ -1001,6 +1002,17 @@ export default async (request, context) => {
     });
   }
   const { apiKey, byok } = funding;
+  const ultrafast = body.ultrafast === true;
+  if (ultrafast) {
+    try {
+      checkUltrafastAccess({ decoded: earlyDecoded, owner: isOwnerEmail(earlyDecoded?.email), live: useLive, byok, training,
+        enabled: process.env.ULTRAFAST_VOICE_ENABLED !== '0' });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: error.message, code: error.code }), {
+        status: error.status, headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
+  }
   const continueSecret = fundingSecret(process.env.VOICE_CONTINUE_SECRET || process.env.EMAIL_UNSUB_SECRET || '', byok);
   let continued = false;
   let continuedIat = 0;
@@ -1659,16 +1671,27 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
     ];
 
     let upstream = null;
+    let ultrafastTrial = null;
     let lastErrText = '';
     let lastLabel = '';
     let model = modelCandidates[0];
     // (endpoint × model) try-matrix. First combination that returns
     // 2xx wins. Auth failures short-circuit the whole thing.
     if (useLive) {
+      if (ultrafast) {
+        try {
+          ultrafastTrial = await reserveUltrafastVoice(getDb(), signedInUid, { continued, iat: continuedIat });
+        } catch (error) {
+          const known = typeof error.code === 'string' && error.code.startsWith('ULTRAFAST_');
+          return new Response(JSON.stringify({ error: known ? error.message : 'Could not check the Ultrafast trial allowance. Try standard voice.', code: known ? error.code : 'ULTRAFAST_METER_UNAVAILABLE' }), {
+            status: known ? error.status : 503, headers: { 'Content-Type': 'application/json', ...CORS },
+          });
+        }
+      }
       model = LIVE_MODEL;
       lastLabel = 'Live /sessions';
       upstream = await createLiveVoice({ apiKey, uid: signedInUid, sdp: body.sdp, config: liveVoiceConfig({
-        instructions, motion, side, voice, language: body.aiLanguage, scoping, difficulty, debateStyle, priorTranscript, training,
+        instructions, motion, side, voice, language: body.aiLanguage, scoping, difficulty, debateStyle, priorTranscript, training, ultrafast,
       }) });
       if (!upstream.ok) lastErrText = JSON.stringify({ error: { message: 'GPT-Live could not connect. Check OpenAI model access, API balance, and permissions, then try again.' } });
     }
@@ -1805,6 +1828,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       ...(useLive ? { transport: 'live', sdp: session.transport.sdp } : { client_secret: clientSecret }),
       session_id: sessionId,
       model,
+      ...(ultrafastTrial ? { ultrafastTrial: { model: ULTRAFAST_VOICE_MODEL, serviceTier: 'ultrafast', expiresAt: ultrafastTrial.expiresAt } } : {}),
       voice,
       mode,
       // The page re-sends these in session.update (which replaces `tools`
@@ -1815,7 +1839,7 @@ The user identified as new to debate or just curious. Use intelligent, accessibl
       // Lets the page reconnect for a voice switch without a second charge.
       // Re-signed with the FIRST mint's clock, so a chain expires together.
       roundToken: (signedInUid && continueSecret)
-        ? signContinuation(continueSecret, signedInUid, continued ? continuedIat : Date.now())
+        ? signContinuation(continueSecret, signedInUid, continued ? continuedIat : (ultrafastTrial?.iat || Date.now()))
         : null,
       // Null unless the negotiated model actually supports reasoning
       // effort — the client only echoes it into session.update when set,

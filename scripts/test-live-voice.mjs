@@ -30,13 +30,14 @@ assert.equal(request.body.includes('secret-test-key'), false);
 assert.equal(JSON.parse(request.body).transport.sdp, 'v=0\r\noffer');
 const browser = {};
 vm.runInNewContext(readFileSync('app/js/live-voice.js','utf8'), { window: browser, setTimeout, clearTimeout });
-const sent = [], rows = [], committed = [], executed = [];
+const sent = [], rows = [], committed = [], executed = [], backendUsage = [];
 let ready = false, usage = null;
 const adapter = browser.DBLiveVoice.create({
  send: event => sent.push(event), onReady: () => { ready = true; },
  onRow: row => rows.push(row), onTranscript: () => {}, onCommit: row => committed.push(row.text),
  onTool: async call => { executed.push(call.call_id); adapter.toolOutput(call.call_id, {ok:true}); },
  onUsage: value => { usage = value.seconds; },
+ onBackendUsage: value => backendUsage.push(value),
 });
 assert.equal(adapter.instruct('too early'), false);
 await adapter.handle({type:'session.started',event_id:'start',session:{id:'live_test'}});
@@ -73,13 +74,19 @@ assert.equal(executed.length, 0);
 await nested({type:'response.output_item.done',item:{type:'function_call',name:'set_claim',call_id:'c1',arguments:'{}'}});
 await nested({type:'response.output_item.done',item:{type:'function_call',name:'set_claim',call_id:'c1',arguments:'{}'}});
 assert.equal(executed.length, 0, 'no control action before backend completion');
-await nested({type:'response.completed',response:{id:'r1',output:[]}});
+await nested({type:'response.completed',response:{id:'r1',output:[],model:'gpt-6-astra',service_tier:'ultrafast',usage:{input_tokens:100,output_tokens:20,input_tokens_details:{cached_tokens:60,cache_write_tokens:40}}}});
 assert.deepEqual(executed, ['c1']);
+assert.equal(backendUsage.length,1);
+assert.equal(backendUsage[0].tier,'ultrafast');
+assert.equal(backendUsage[0].input_tokens,100);
+assert.equal(backendUsage[0].cached_input_tokens,60);
+assert.equal(backendUsage[0].cache_write_tokens,40);
 assert.equal(sent.at(-2).type, 'response.item.create');
 assert.equal(sent.at(-1).type, 'response.create');
 assert.equal(sent.at(-1).response, undefined);
 await nested({type:'response.completed',response:{id:'r1',output:[]}});
 assert.equal(executed.length,1);
+assert.equal(backendUsage.length,1,'duplicate terminal events do not duplicate usage');
 await adapter.handle({type:'session.usage.updated',usage:{seconds:5}});
 await adapter.handle({type:'session.usage.updated',usage:{seconds:8}});
 assert.equal(usage,8,'usage snapshots are not added together');
@@ -136,4 +143,12 @@ state.applyVoiceSession({transport:'live',model:'gpt-live-1',session_id:'live_tw
 assert.equal(state.voiceSessionId,'live_two');
 assert.equal(state.roundToken,'round1');
 assert.equal(state.roundCapMs,120000);
+state.applyVoiceSession({transport:'live',model:'gpt-live-1',ultrafastTrial:{expiresAt:123456},tools:[]});
+assert.equal(state.ultrafastTrial.expiresAt,123456);
+state.applyVoiceSession({transport:'live',model:'gpt-live-1',tools:[]});
+assert.equal(state.ultrafastTrial,null,'normal sessions clear a previous trial');
+const clockSource=page.slice(page.indexOf('timerIv = setInterval(() => {'),page.indexOf('bargeMs = 0;',page.indexOf('timerIv = setInterval(() => {')));
+let tick,ended=false;
+const clockState={setInterval:fn=>{tick=fn;},Date:{now:()=>2000},startedAt:1900,statusText:{},previewRound:false,voiceByok:false,roundCapMs:480000,ultrafastTrial:{expiresAt:2000},endRound:()=>{ended=true;},fmtTime:()=> '0:00'};
+vm.runInNewContext(clockSource,clockState);tick();assert.equal(ended,true,'the absolute trial deadline ends even a recently reconnected session');
 console.log('GPT-Live: config, key isolation, timed overlapping transcripts, tool completion/deduplication, usage, graceful shutdown and reconnect metering passed.');

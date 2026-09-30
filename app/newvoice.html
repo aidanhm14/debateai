@@ -1270,6 +1270,7 @@ html[data-training] .tune[hidden]{display:none}
       <span id="startLabel">Start debating</span>
     </button>
       <div class="setup-err" id="setupErr"></div>
+      <p id="ultrafastNotice" class="wiz-status" hidden>Owner trial: Ultrafast voice, two minutes per round, two starts per day. <a href="/newvoice">Use standard voice</a></p>
       <p class="setup-note" id="roundOutcomeNote">Headphones help. When you finish you get a score out of 100, and signed-in rounds count on the leaderboard.</p>
       <div class="wiz-nav wiz-nav-solo">
         <button type="button" class="wiz-back" id="goBackBtn">Back</button>
@@ -1797,6 +1798,9 @@ const HARD_CAP_MS = 8 * 60_000;    // realtime audio is billed by the minute
 let roundCapMs = HARD_CAP_MS;
 let voiceSessionId = '';
 let analyticsRoundId = '';
+const ultrafastRequested = new URLSearchParams(location.search).get('ultrafast') === '1';
+let ultrafastTrial = null;
+$('ultrafastNotice').hidden = !ultrafastRequested;
 function trackVoiceEvent(name, metadata) {
   try {
     if (window.track) window.track('app_event', { ...metadata, name, surface: 'newvoice' });
@@ -2383,6 +2387,7 @@ async function waitForLiveIce(connection, signal){
 }
 
 function applyVoiceSession(session){
+    ultrafastTrial = session.ultrafastTrial || null;
     voiceByok = session.byok === true;
     activeVoiceKey = voiceByok ? voiceKeyBody().openaiApiKey || '' : '';
     $('openaiVoiceKey').disabled = voiceByok;
@@ -2458,6 +2463,7 @@ async function openPeer(session, onOpen, signal){
         if (afterResponseDone) { const action = afterResponseDone; afterResponseDone = null; setTimeout(action, 80); }
       },
       onUsage: usage => { liveUsageSeconds = Number(usage && usage.seconds) || 0; },
+      onBackendUsage: info => trackVoiceEvent('voice_backend_response', { round_id: analyticsRoundId, ...info }),
       onError: () => {
         capAiText.textContent = 'A voice control could not finish. Please try it again.';
         capAiText.classList.add('idle');
@@ -2538,6 +2544,12 @@ async function openPeer(session, onOpen, signal){
 let autoStartPending = false;
 async function start(){
   if (status !== 'idle') return;
+  if (ultrafastRequested && !hasVoiceAccount()) {
+    openSignInDoor('login'); fail('Sign in to the owner account to start the Ultrafast trial.'); return;
+  }
+  if (ultrafastRequested && (trainingScenario || voiceKeyBody().openaiApiKey)) {
+    fail('The Ultrafast trial is for a regular voice debate using the platform key.'); return;
+  }
   if (trainingRequested && !trainingScenario) { fail('Your scenario is missing. Use Edit scenario to set it up again.'); return; }
   previewRound = !hasVoiceAccount();
   if (previewRound && (previewUsed || voiceKeyBody().openaiApiKey)) {
@@ -2628,6 +2640,7 @@ async function start(){
       body: JSON.stringify({
         ...voiceKeyBody(),
         transport: 'live', sdp,
+        ultrafast: ultrafastRequested,
         mode: 'clash',
         ...trainingBody(),
         motion: scopingRound ? '' : motion,
@@ -2645,6 +2658,7 @@ async function start(){
     if (!mintRes.ok) {
       const raw = await mintRes.text().catch(() => '');
       let body = {}; try { body = JSON.parse(raw); } catch (e) {}
+      if (String(body.code || '').startsWith('ULTRAFAST_')) throw new Error(body.error);
       if (mintRes.status === 429) throw new Error('Too many rounds from this network right now. Give it a few minutes.');
       if (mintRes.status === 402 && body.upgrade) {
         const err = new Error('cap');
@@ -2751,20 +2765,20 @@ async function start(){
   renderTs();
   statusPill.classList.remove('connecting');
   $('stage').classList.remove('is-connecting');
-  statusText.textContent = previewRound ? 'LIVE' : 'LIVE · 0:00';
+  statusText.textContent = previewRound ? 'LIVE' : (ultrafastTrial ? 'ULTRAFAST TRIAL · 0:00' : 'LIVE · 0:00');
   show('stage');
   startArena();
   timerIv = setInterval(() => {
     const el = Date.now() - startedAt;
     statusText.textContent = previewRound
       ? 'LIVE'
-      : 'LIVE · ' + fmtTime(el);
+      : (ultrafastTrial ? 'ULTRAFAST TRIAL · ' : 'LIVE · ') + fmtTime(el);
     if (previewRound) {
       if (previewMomentum && previewMomentum.ready(Date.now())) finishPreview('exchange_complete');
       return;
     }
     if (voiceByok && !switching && !aiTalking && !awaitingResponse && !vadSpeechActive && Date.now() - peerStartedAt > 50 * 60_000) switchVoice(currentVoice, 'renewal');
-    if (el > roundCapMs) endRound('cap');
+    if (el > roundCapMs || (ultrafastTrial && Date.now() >= ultrafastTrial.expiresAt)) endRound('cap');
   }, 500);
   bargeMs = 0;
   bargeIv = setInterval(bargeTick, 50);
@@ -3337,6 +3351,7 @@ function reportSessionEnd(){
 window.addEventListener('pagehide', reportSessionEnd);
 window.addEventListener('pagehide', () => { if (liveVoice) liveVoice.close(1000); });
 function cleanup(){
+  ultrafastTrial = null;
   paceUpdatePending = false;
   if (liveVoice) { liveVoice.flush(); liveVoice = null; }
   $('openaiVoiceKey').disabled = false; activeVoiceKey = '';
@@ -4210,6 +4225,7 @@ async function reconnectSession(v, renewal){
       body: JSON.stringify({
         ...(voiceByok ? { openaiApiKey: activeVoiceKey } : {}),
         transport: 'live', sdp,
+        ultrafast: ultrafastRequested,
         mode: 'clash',
         ...trainingBody(),
         motion: currentMotion,

@@ -5,13 +5,14 @@ import { trainingInstructions } from './training-scenario.mjs';
 import { createHash } from 'node:crypto';
 import { REALTIME_TOOLS } from './realtime-tools.mjs';
 import { SENSITIVE_MOTION_POLICY } from './content-guard.mjs';
+import { ULTRAFAST_VOICE_MODEL } from './ultrafast-voice.mjs';
 
 export const LIVE_MODEL = 'gpt-live-1';
 export function validLiveOffer(sdp) {
   return typeof sdp === 'string' && sdp.startsWith('v=0') && sdp.length <= 100_000;
 }
 
-export function liveVoiceConfig({ instructions, motion, side, voice, language, scoping, difficulty, debateStyle, priorTranscript, training }) {
+export function liveVoiceConfig({ instructions, motion, side, voice, language, scoping, difficulty, debateStyle, priorTranscript, training, ultrafast = false }) {
   const userSide = side === 'gov' ? 'for' : 'against';
   return {
     model: LIVE_MODEL,
@@ -31,9 +32,9 @@ Backend tools:
 - Argument reasoning: assess a difficult rebuttal using the debate instructions.
 Delegate to the backend when:
 - The person agrees to a claim and side, or explicitly asks to change the topic or voice.
-- An argument needs careful reasoning beyond a short conversational reply.
+- ${ultrafast ? 'You need any substantive argument or rebuttal. Delegate each new argument before speaking it, then express the returned reasoning naturally and briefly. Wait silently for the result; do not invent a substitute.' : 'An argument needs careful reasoning beyond a short conversational reply.'}
 Do not delegate to the backend when:
-- You can reply from the current conversation or a still-current result.
+- ${ultrafast ? 'You are giving a brief acknowledgment or expressing the result you just received.' : 'You can reply from the current conversation or a still-current result.'}
 - You need a brief clarification before agreeing on a claim.
 Do not announce a topic or voice change until the backend confirms success. Never invent facts, citations, or a tool result.
 ${SENSITIVE_MOTION_POLICY}`,
@@ -42,7 +43,8 @@ ${SENSITIVE_MOTION_POLICY}`,
     delegation: {
       type: 'responses',
       responses: {
-        model: process.env.OPENAI_LIVE_BACKEND_MODEL || 'gpt-5.6-luna',
+        model: ultrafast ? ULTRAFAST_VOICE_MODEL : process.env.OPENAI_LIVE_BACKEND_MODEL || 'gpt-5.6-luna',
+        ...(ultrafast ? { service_tier: 'ultrafast' } : {}),
         instructions: training ? instructions + '\n\nYou are the private reasoning backend for this roleplay. Use set_voice when asked to change voice. Otherwise return concise, fact-bound reasoning for the assigned role. Do not choose a debate claim, switch roles, score, or announce a winner.' : instructions + '\n\nYou are the private backend for a spoken opponent. Use set_claim only after the person agrees to that claim and side; use set_voice when asked. The voice model handles speech. Return concise reasoning or confirmed tool results, not a scripted speech. Never claim a tool succeeded before receiving its result.',
         tools: (training ? REALTIME_TOOLS.filter(tool => tool.name === 'set_voice') : REALTIME_TOOLS).map(tool => ({ ...tool, strict: true, parameters: { ...tool.parameters, additionalProperties: false } })),
         tool_choice: 'auto',

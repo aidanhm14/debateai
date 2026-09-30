@@ -6,11 +6,12 @@ import * as rt from '../app/netlify/functions/lib/realtime-tools.mjs';
 import * as guard from '../app/netlify/functions/lib/content-guard.mjs';
 import * as topic from '../app/netlify/functions/lib/topic-isolation.mjs';
 import * as funding from '../app/netlify/functions/lib/realtime-funding.mjs';
+import * as ultrafast from '../app/netlify/functions/lib/ultrafast-voice.mjs';
 const source=readFileSync('app/netlify/functions/realtime-session.mjs','utf8').replace(/^import\b[\s\S]*?from ['"][^'"]+['"];\s*/gm,'').replace('export default async','globalThis.handler = async').replace('export const config','const config');
 const requests=[],charges=[];
 let decoded={sub:'uid-test',email:'test@example.invalid',firebase:{sign_in_provider:'password'}};
 let allowed=true,upstreamStatus=201;
-const context={...live,...rt,...guard,...topic,...funding,
+const context={...live,...rt,...guard,...topic,...funding,...ultrafast,
  Request,Response,Headers,AbortSignal,FormData,console:{log(){},warn(){},error(){}},
  process:{env:{OPENAI_API_KEY:'platform-test-key',VOICE_CONTINUE_SECRET:'continuation-test'}},
  setTimeout:(fn,ms)=>{const t=setTimeout(fn,ms);t.unref();return t;},clearTimeout,
@@ -49,6 +50,26 @@ allowed=true;upstreamStatus=403;const before=requests.length;
 result=await call(body);assert.equal(result.status,502);assert.equal(requests.length,before+1,'no fallback session on Live failure');assert.equal(charges.length,2,'failed Live request does not charge');
 assert.equal(requests.at(-1).url,'https://api.openai.com/v1/live/sessions');
 console.log('Live handler: guest/content/quota gates, exact Live transport, no secret exposure, metering, signed continuation and failed-mint no-charge passed.');
+upstreamStatus=201;
+const beforeTrial = requests.length;
+result=await call({...body,ultrafast:true});assert.equal(result.status,403);assert.equal(requests.length,beforeTrial);
+context.isOwnerEmail=()=>true;
+decoded={...decoded,email_verified:true};
+const trialIat=Date.now();
+context.reserveUltrafastVoice=async()=>({iat:trialIat,expiresAt:trialIat+120000});
+result=await call({...body,ultrafast:true});assert.equal(result.status,200);
+const trialSession=await result.json();
+assert.equal(trialSession.ultrafastTrial.expiresAt,trialIat+120000);
+assert.equal(rt.verifyContinuation('continuation-test',trialSession.roundToken,decoded.sub).iat,trialIat);
+assert.equal(JSON.parse(requests.at(-1).init.body).session.delegation.responses.service_tier,'ultrafast');
+context.reserveUltrafastVoice=async(_db,_uid,options)=>{assert.equal(options.continued,true);assert.equal(options.iat,trialIat);return {iat:trialIat,expiresAt:trialIat+120000};};
+result=await call({...body,ultrafast:true,continuation:trialSession.roundToken});assert.equal(result.status,200);
+assert.equal((await result.json()).roundToken,trialSession.roundToken);
+context.reserveUltrafastVoice=async()=>{throw Error('offline');};
+const beforeOffline=requests.length;
+result=await call({...body,ultrafast:true});assert.equal(result.status,503);assert.equal(requests.length,beforeOffline);
+context.isOwnerEmail=()=>false;
+console.log('Ultrafast handler: unauthorized requests and unavailable meter never start a provider session; owner trial binds its original deadline.');
 // The tool proposal is screened before it can be displayed or scored.
 const claimSource=readFileSync('app/netlify/functions/voice-claim.mjs','utf8').replace(/^import\b[^\n]+\n/gm,'').replace('export default async','globalThis.handler = async').replace('export const config','const config');
 let claimUser=true;

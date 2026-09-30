@@ -61,7 +61,10 @@ check('both walls read the one decision', /if \(walled && !callerIsNamed\)\{/.te
 check('a platform-funded continuation still opens a metered session', /if \(signedInUid && !isPro && !byok\)\{\s*try \{\s*openInfo = await withTimeout\(openVoiceSession\(/.test(realtime));
 check('a continuation spends no tokens', /if \(tokenFunded && signedInUid && !continued && !byok\)\{/.test(realtime));
 check('the token is bound to the verified caller, never the body', !/verifyContinuation\([^)]*body\.uid/.test(realtime));
-check('a continuation is re-signed with the FIRST mint time', /signContinuation\(continueSecret, signedInUid, continued \? continuedIat : Date\.now\(\)\)/.test(realtime));
+const signingTime = realtime.match(/signContinuation\(continueSecret, signedInUid, ([^\n]+)\)/);
+const mintTime = signingTime ? new Function('continued', 'continuedIat', 'ultrafastTrial', 'return ' + signingTime[1]) : () => null;
+check('a continuation is re-signed with the FIRST mint time', mintTime(true, t0, null) === t0 && mintTime(true, t0, {iat:t0 + 1000}) === t0);
+check('a fresh trial uses its server admission clock', mintTime(false, 0, {iat:t0}) === t0);
 check('the token is only issued to a caller with a uid', /roundToken: \(signedInUid && continueSecret\)/.test(realtime));
 check('the prior transcript is sanitized and only read on a continuation', /const priorTranscript = continued \? sanitizePriorTranscript\(body\.priorTranscript\) : ''/.test(realtime));
 check('scoping needs an EMPTY motion', /const scoping = mode === 'clash' && body\.scoping === true && !motion;/.test(realtime));

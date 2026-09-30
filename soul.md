@@ -268,6 +268,14 @@ continues the same round through a new session. The bounded signed-out
 preview stays on its existing Realtime transport and server hangup policy.
 The post-round judge and rating rules are unchanged.
 
+**Ultrafast voice trial (2026-09-30, Aidan):** The owner can open
+`/newvoice?ultrafast=1` to try GPT-6 Astra Ultrafast for argument reasoning
+inside the existing GPT-Live conversation. Two starts per UTC day; each
+auto-ends after two minutes, without extending on a voice switch. Normal
+voice, public pricing, and the judge stay unchanged. This is a measured
+trial of reply quality, backend latency, and token usage before any broader
+rollout. It is not a promise of faster end-to-end speech or a hard dollar cap.
+
 **AI door invitations (2026-09-10, Aidan):** The homepage's AI button has
 a voice waveform on hover or during playback and says "Hey, wanna debate me?"
 on hover. The waveform and subtitle stay hidden while idle, and the subtitle

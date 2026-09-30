@@ -87,10 +87,10 @@
       } else if (event.type === 'response.event' && !closing) {
         const inner = event.event || {};
         const key = event.delegation_id;
-        if (inner.type === 'response.created') responses.set(key, { id: inner.response?.id, calls: [] });
+        if (inner.type === 'response.created') responses.set(key, { id: inner.response?.id, calls: [], startedAt: Date.now() });
         let response = responses.get(key);
         if (inner.type === 'response.output_item.done' && inner.item?.type === 'function_call') {
-          if (!response) { response = { id: inner.response_id, calls: [] }; responses.set(key, response); }
+          if (!response) { response = { id: inner.response_id, calls: [], startedAt: Date.now() }; responses.set(key, response); }
           if (inner.item.call_id && !calls.has(inner.item.call_id)) {
             calls.add(inner.item.call_id);
             response.calls.push(inner.item);
@@ -98,6 +98,16 @@
         }
         if (['response.completed', 'response.failed', 'response.incomplete', 'response.cancelled'].includes(inner.type)) {
           responses.delete(key);
+          if (response && options.onBackendUsage) {
+            const usage = inner.response?.usage;
+            options.onBackendUsage({
+              model: inner.response?.model || '', tier: inner.response?.service_tier || '',
+              status: inner.type.slice('response.'.length), latency_ms: Date.now() - response.startedAt,
+              input_tokens: usage?.input_tokens ?? null, output_tokens: usage?.output_tokens ?? null,
+              cached_input_tokens: usage?.input_tokens_details?.cached_tokens ?? null,
+              cache_write_tokens: usage?.input_tokens_details?.cache_write_tokens ?? null,
+            });
+          }
           if (inner.type !== 'response.completed') {
             if (options.onError) options.onError({ message: 'The voice control could not finish. Please try again.' });
             return;
