@@ -276,9 +276,37 @@ html.dbnative .page-head{padding-top:20px}
   .vr-track u{animation-duration:.01s;animation-delay:0s}
 }
 .player-card.on{display:block}
+.player-card,.round-overview,#playerWrap{scroll-margin-top:132px}
+@media(max-width:720px){.player-card,.round-overview,#playerWrap{scroll-margin-top:64px}}
 .player-head{display:flex;align-items:flex-start;gap:12px;padding:16px 18px;flex-wrap:wrap}
 .player-head h2{font-size:20px;font-weight:800;flex:1;min-width:220px}
 .player-meta{color:var(--faint);font-size:14px;width:100%}
+.round-overview{padding:22px 24px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);overflow-wrap:anywhere}
+.overview-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:16px}
+.overview-head h3{margin:0;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.overview-head a{font-size:14px;color:var(--text);text-underline-offset:4px}
+.overview-grid{display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,2fr);gap:32px}
+.overview-result{font-size:clamp(22px,3vw,30px);font-weight:800;line-height:1.15;margin:0 0 16px}
+.overview-scores{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.overview-score{border-top:2px solid var(--border);padding-top:10px;min-width:0}
+.overview-score.winner{border-color:var(--red)}
+.overview-score span,.overview-score small{display:block;font-size:13px;color:var(--faint)}
+.overview-score strong{display:block;font-size:16px;margin:3px 0 8px}
+.overview-score b{display:block;font-size:30px;font-variant-numeric:tabular-nums;line-height:1.15}
+.overview-score small{margin-top:4px}
+.overview-reason h4{font-size:16px;margin:0 0 8px}
+.overview-reason p,.overview-details p{font-size:15px;line-height:1.65;margin:0 0 12px;white-space:pre-wrap}
+.overview-issue{color:var(--faint)}
+.overview-state{font-size:15px;color:var(--faint);margin:0;line-height:1.6}
+.overview-state+.btn{margin-top:12px}
+.overview-details{border-top:1px solid var(--border);margin-top:18px;padding-top:14px}
+.overview-details summary{cursor:pointer;font-size:14px;font-weight:700;padding:4px 0}
+.overview-details[open] summary{margin-bottom:14px}
+.overview-table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.overview-table th,.overview-table td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--border)}
+.overview-table th:first-child{text-align:left}
+.overview-table caption{text-align:left;color:var(--faint);font-size:13px;margin-bottom:8px}
+@media(max-width:640px){.round-overview{padding:18px 16px}.overview-grid{grid-template-columns:1fr;gap:22px}.overview-head{align-items:baseline}.overview-head a{font-size:13px}.overview-table th,.overview-table td{padding:8px 5px}}
 video{width:100%;max-height:66vh;display:block;background:#000}
 .clip-note{display:none;padding:10px 18px;background:rgba(239,68,68,.12);border-top:1px solid rgba(239,68,68,.3);font-size:15px}
 .clip-note.on{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -881,6 +909,10 @@ footer a{color:var(--dim)}
       <button class="btn" id="closePlayer" type="button">Close</button>
       <div class="player-meta" id="playerMeta"></div>
     </div>
+    <section class="round-overview" aria-labelledby="overviewTitle">
+      <div class="overview-head"><h3 id="overviewTitle">Round overview</h3><a href="#playerWrap">Watch recording &darr;</a></div>
+      <div id="roundOverview" aria-live="polite" aria-busy="false"></div>
+    </section>
     <div class="player-wrap" id="playerWrap">
       <video id="player" controls playsinline preload="metadata"></video>
       <div class="buffer-note" id="bufferNote" aria-live="polite"></div>
@@ -1671,6 +1703,7 @@ footer a{color:var(--dim)}
   // ── Replay player ────────────────────────────────────────────────
   var current = null;       // recording object
   var currentLink = null;   // { link, expires }
+  var playerLoadId = 0, overviewRequest = null;
   var activeClip = null;    // clip object while clip playback is clamped
   var marks = { start: null, end: null };
   var viewNodes = {};
@@ -1838,10 +1871,82 @@ footer a{color:var(--dim)}
     if (vrTimer){ clearTimeout(vrTimer); vrTimer = 0; }
   }
   function esc(t){ var d=document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
+  function overviewParagraphs(text){
+    return String(text || '').split(/\n{2,}/).filter(function(p){ return p.trim(); })
+      .map(function(p){ return '<p>' + esc(p.trim()) + '</p>'; }).join('');
+  }
+  function renderOverview(rec, status){
+    var host = $('roundOverview'), b = rec.ballot;
+    status = status || rec.overviewStatus || (b ? 'ready' : 'loading');
+    host.setAttribute('aria-busy', status === 'loading' ? 'true' : 'false');
+    if (status !== 'ready' || !b){
+      var message = status === 'loading' ? 'Loading the overview. You do not need to play the recording.'
+        : status === 'pending' ? 'The judge\'s decision is not ready yet. Check again for the result and points.'
+        : status === 'error' ? 'The overview could not load. Try again without reloading the video.'
+        : 'No public judge\'s decision is saved for this round. Points and reasoning are not available.';
+      host.innerHTML = '<p class="overview-state">' + esc(message) + '</p>'
+        + (status === 'error' || status === 'pending' ? '<button class="btn" type="button" data-overview-retry>Check again</button>' : '');
+      return;
+    }
+    var names = { pro: rec.proName || 'For', con: rec.conName || 'Against' };
+    var result = b.winner === 'pro' || b.winner === 'con' ? names[b.winner] + ' wins'
+      : b.outcome === 'no_contest' ? 'No contest' : 'No winner';
+    var scale = b.scoreScale || (Number(b.proPoints) > 30 || Number(b.conPoints) > 30 ? 100 : null);
+    var scores = ['pro','con'].map(function(side){
+      var value = b[side + 'Points'];
+      var hasScore = value != null && value !== '' && isFinite(Number(value));
+      return '<div class="overview-score' + (b.winner === side ? ' winner' : '') + '">'
+        + '<span>' + (side === 'pro' ? 'For' : 'Against') + '</span><strong>' + esc(names[side]) + '</strong>'
+        + '<b>' + (hasScore ? esc(value) : 'Not scored') + '</b><small>'
+        + (hasScore ? (scale ? 'Points out of ' + scale : 'Points') : 'No points recorded') + '</small></div>';
+    }).join('');
+    var axes = [['reasoning','Reasoning'],['responsiveness','Clash'],['weighing','Weighing'],['clarity','Clarity'],['strategy','Strategy'],['persuasion','Persuasion']];
+    var rows = axes.map(function(axis){
+      var row = b.dimensions && b.dimensions[axis[0]];
+      if (!row || row.pro == null || row.con == null || !isFinite(Number(row.pro)) || !isFinite(Number(row.con))) return '';
+      return '<tr><th scope="row">' + axis[1] + '</th><td>' + esc(row.pro) + '</td><td>' + esc(row.con) + '</td></tr>';
+    }).join('');
+    host.innerHTML = '<div class="overview-grid"><div><p class="overview-result">' + esc(result) + '</p>'
+      + '<div class="overview-scores">' + scores + '</div></div><div class="overview-reason">'
+      + '<h4>Judge\'s reasoning</h4>'
+      + (b.decidingIssue ? '<p class="overview-issue"><strong>Deciding issue:</strong> ' + esc(b.decidingIssue) + '</p>' : '')
+      + (overviewParagraphs(b.rfd) || '<p class="overview-state">No written reason was saved with this decision.</p>')
+      + '</div></div>'
+      + (rows ? '<details class="overview-details"><summary>Score breakdown</summary><table class="overview-table">'
+        + '<caption>Each category is scored out of 10.</caption><thead><tr><th scope="col">Category</th><th scope="col">'
+        + esc(names.pro) + ' · For</th><th scope="col">' + esc(names.con) + ' · Against</th></tr></thead><tbody>' + rows + '</tbody></table></details>' : '')
+      + (b.rfdDeep ? '<details class="overview-details"><summary>Read the full reasoning</summary>' + overviewParagraphs(b.rfdDeep) + '</details>' : '')
+      + (b.judgeReasons && b.judgeReasons.length ? '<details class="overview-details"><summary>Read each judge\'s reason</summary>'
+        + b.judgeReasons.map(function(j, i){ return '<h4>Judge ' + (i + 1) + (j.winner ? ': ' + esc(names[j.winner]) : '') + '</h4>' + overviewParagraphs(j.rfd); }).join('') + '</details>' : '');
+  }
+  function loadOverview(rec, loadId){
+    if (overviewRequest) overviewRequest.abort();
+    var controller = new AbortController();
+    overviewRequest = controller;
+    renderOverview(rec, 'loading');
+    var timeout = setTimeout(function(){ controller.abort(); }, 12000);
+    fetch('/api/recordings?id=' + encodeURIComponent(rec.id), { signal: controller.signal })
+      .then(function(r){ if (!r.ok) throw new Error('overview'); return r.json(); })
+      .then(function(j){
+        if (loadId !== playerLoadId || current !== rec) return;
+        if (!j || !j.recording) throw new Error('overview');
+        rec.ballot = j.recording.ballot || null;
+        rec.overviewStatus = j.recording.overviewStatus || (rec.ballot ? 'ready' : 'unavailable');
+        renderOverview(rec);
+      }).catch(function(){
+        if (loadId === playerLoadId && current === rec) renderOverview(rec, 'error');
+      }).finally(function(){
+        clearTimeout(timeout);
+        if (overviewRequest === controller) overviewRequest = null;
+      });
+  }
+  $('roundOverview').addEventListener('click', function(ev){
+    if (ev.target.closest('[data-overview-retry]') && current) loadOverview(current, playerLoadId);
+  });
   function showVerdict(rec){
     var el = $('verdictReveal');
     var b = rec && rec.ballot;
-    if (!el || !b) return;
+    if (!el || !b || (b.winner !== 'pro' && b.winner !== 'con')) return;
     var proName = rec.proName || 'Proposition';
     var conName = rec.conName || 'Opposition';
     var winner  = b.winner === 'pro' ? proName : conName;
@@ -1951,9 +2056,12 @@ footer a{color:var(--dim)}
   }
 
   function openRecording(rec, clip){
+    var loadId = ++playerLoadId;
+    if (overviewRequest) overviewRequest.abort();
     hideVerdict();
     hideGate();
     current = rec;
+    currentLink = null;
     activeClip = clip || null;
     marks = { start: null, end: null };
     $('startMark').textContent = 'start --:--';
@@ -1981,19 +2089,9 @@ footer a{color:var(--dim)}
     $('thumbMark').textContent = '';
     $('thumbPreview').classList.remove('on');
     $('thumbPreview').removeAttribute('src');
-    // The list shape has no ballot: attaching one per card would be an
-    // extra Firestore read for every card on the page. Pull the full
-    // recording alongside the link so the reveal has something to play.
-    if (!rec.ballot){
-      fetch('/api/recordings?id=' + encodeURIComponent(rec.id))
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(j){
-          if (j && j.recording && j.recording.ballot && current && current.id === rec.id){
-            current.ballot = j.recording.ballot;
-          }
-        })
-        .catch(function(){ /* no verdict card, playback is unaffected */ });
-    }
+    // Read the saved decision independently of the media or its sign-in gate.
+    if (rec.overviewStatus === 'ready' || rec.overviewStatus === 'unavailable' || rec.ballot) renderOverview(rec);
+    else loadOverview(rec, loadId);
     // A held-back round never reaches the network: it has no file, so a
     // request would 404 and the gate would ask for an account that
     // unlocks nothing. Reachable by deep link (/watch?r={id}) rather than
@@ -2003,6 +2101,7 @@ footer a{color:var(--dim)}
         'This round is queued for release. It plays here when it goes up.',
         null);
     } else fetchLink(rec.id).then(function(l){
+      if (loadId !== playerLoadId) return;
       currentLink = l;
       hideGate();
       // Anonymous CORS mode, so the owner thumbnail picker can read the
@@ -2028,6 +2127,7 @@ footer a{color:var(--dim)}
       if (seekTo > 0){
         player.addEventListener('loadedmetadata', function seekOnce(){
           player.removeEventListener('loadedmetadata', seekOnce);
+          if (loadId !== playerLoadId) return;
           player.currentTime = seekTo;
           if (clip) player.play().catch(function(){});
         });
@@ -2038,6 +2138,7 @@ footer a{color:var(--dim)}
       }
       player.load();
     }).catch(function(e){
+      if (loadId !== playerLoadId) return;
       if (e && e.needsSignIn){
         showGate('Sign in to watch the round',
           'Create a free account or sign in to watch full rounds and save your own results.',
@@ -2140,9 +2241,15 @@ footer a{color:var(--dim)}
   });
 
   function closePlayer(){
+    playerLoadId++;
+    if (overviewRequest) overviewRequest.abort();
+    currentLink = null;
+    bufClear();
     hideVerdict();
     hideGate();
     $('player').pause();
+    $('player').removeAttribute('src');
+    $('player').load();
     $('playerCard').classList.remove('on');
     $('clipsSec').style.display = 'none';
     current = null; activeClip = null;
