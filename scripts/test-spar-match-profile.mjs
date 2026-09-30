@@ -155,16 +155,22 @@ const activityContext = vm.createContext({
   presenceLive: null,
   presenceLoaded: false,
   DESK_QUEUE_POLL_MS: 10000,
+  state: { named: false },
+  AbortController,
+  stampMs: value => value,
+  queuePeerCanMatch: doc => doc.id !== 'me' && !doc.data().declined,
   document: {
     hidden: false,
+    addEventListener(){},
+    removeEventListener(){},
     documentElement: { contains: () => true },
     querySelector: (selector) => selector.endsWith('live-count') ? activityCount : activityLabel,
   },
-  fetch: async () => ({ ok: true, json: async () => ({ waiting: 0 }) }),
+  fetch: async () => ({ ok: true, json: async () => ({ waiting: 0, at: Date.now() }) }),
   setTimeout: () => 1,
   clearTimeout(){},
 });
-for (const name of ['renderMatchProfileActivity', 'paintMatchProfileLive']) {
+for (const name of ['renderMatchProfileActivity', 'matchDeskWaitingCount', 'paintMatchProfileLive']) {
   const source = spar.match(new RegExp('  function ' + name + '\\([^)]*\\)\\{[\\s\\S]*?\\n  \\}'))?.[0];
   assert.ok(source, `${name} must exist`);
   vm.runInContext(source, activityContext);
@@ -188,6 +194,84 @@ await new Promise(setImmediate);
 assert.equal(activityCount.textContent, '3', 'queue polling must preserve the sitewide 30-minute count');
 assert.equal(activityLabel.textContent, ' active · last 30m');
 assert.equal(queueOfferCount, 0, 'the immediate-match offer must still receive the real queue count');
+
+// Availability must be fresh, measured and about someone else.
+for (const value of [null, {}, { waiting: 1 }, { waiting: '1', at: Date.now() },
+  { waiting: 1, at: Date.now() - 31000 }, { waiting: 1, at: Date.now(), error: 'unavailable' },
+  { waiting: -1, at: Date.now() }, { waiting: Infinity, at: Date.now() }]) {
+  assert.equal(activityContext.matchDeskWaitingCount(value), 0, 'unusable readings cannot advertise a person');
+}
+assert.equal(activityContext.matchDeskWaitingCount({ waiting: 1, at: Date.now() }), 1);
+activityContext.state = { named: true, queueSnapshotAt: Date.now(), queueSnapshot: { docs: [] } };
+const peer = (id, joinedAt = Date.now(), declined = false) => ({ id, data: () => ({ joinedAt, declined }) });
+activityContext.state.queueSnapshot.docs = [peer('me'), peer('old', Date.now() - 121000), peer('declined', Date.now(), true)];
+assert.equal(activityContext.matchDeskWaitingCount({ waiting: 12, at: Date.now() }), 0, 'self, stale and declined peers never trigger the offer');
+activityContext.state.queueSnapshot.docs.push(peer('other'));
+assert.equal(activityContext.matchDeskWaitingCount(null), 1, 'a real fresh other candidate triggers the signed-in offer');
+activityContext.state.queueSnapshotAt = Date.now() - 46000;
+assert.equal(activityContext.matchDeskWaitingCount(null), 0, 'a disconnected queue snapshot expires');
+
+activityContext.state = { named: false };
+let queueResponse = { waiting: 1, at: Date.now() }, failRead = false, releaseRead;
+activityContext.fetch = async () => {
+  if (failRead) throw new Error('offline');
+  return { ok: true, json: async () => queueResponse };
+};
+activityContext.paintMatchProfileLive(n => { queueOfferCount = n; });
+await new Promise(setImmediate);
+assert.equal(queueOfferCount, 1);
+failRead = true;
+activityContext.paintMatchProfileLive(n => { queueOfferCount = n; });
+await new Promise(setImmediate);
+assert.equal(queueOfferCount, 0, 'network failure clears an existing live claim');
+activityContext.fetch = () => new Promise(resolve => { releaseRead = resolve; });
+let lateUpdates = 0;
+const stopPoll = activityContext.paintMatchProfileLive(() => { lateUpdates++; });
+stopPoll();
+releaseRead({ ok: true, json: async () => ({ waiting: 1, at: Date.now() }) });
+await new Promise(setImmediate);
+assert.equal(lateUpdates, 0, 'closed questionnaires cannot receive late availability updates');
+
+// The notice updates without a modal or focus grab, and dismissal lasts
+// through positive polls but resets after the queue has actually emptied.
+function element() {
+  return { hidden: false, textContent: '', children: [], events: {},
+    appendChild(n){ this.children.push(n); },
+    setAttribute(){},
+    addEventListener(name, fn){ this.events[name] = fn; } };
+}
+const title = element(), hint = element(), root = element();
+const bar = { querySelector: selector => selector.endsWith(' b') ? title : hint,
+  insertBefore(n){ this.notice = n; } };
+activityContext.mpEl = (tag, cls, text) => Object.assign(element(), { textContent: text || '' });
+vm.runInContext(spar.match(/  function deskWaitingOffer\([^)]*\)\{[\s\S]*?\n  \}/)[0], activityContext);
+const offer = activityContext.deskWaitingOffer(root, bar, false);
+assert.equal(title.textContent, 'Skip questionnaire', 'skip is explicit even with no one waiting');
+offer.onCount(1);
+assert.equal(title.textContent, 'Skip and meet someone');
+assert.equal(bar.notice.hidden, false, 'signed-out visitors see the live notice');
+assert.match(hint.textContent, /Sign in/);
+bar.notice.children[1].events.click();
+offer.onCount(2);
+assert.equal(bar.notice.hidden, true, 'keep answering is respected across polls');
+assert.equal(title.textContent, 'Skip and meet someone', 'dismissal keeps the available exit visible');
+offer.onCount(0);
+assert.equal(title.textContent, 'Skip questionnaire');
+assert.equal(bar.notice.children[0].textContent, '', 'the stale claim disappears');
+activityContext.state.named = true;
+offer.onCount(1);
+assert.equal(bar.notice.hidden, false, 'a new arrival can notify again');
+assert.doesNotMatch(hint.textContent, /Sign in/);
+activityContext.deskWaitingOffer(root, bar, true).onCount(0);
+assert.equal(title.textContent, 'Skip remaining questions', 'the queue editor also has an explicit exit');
+
+vm.runInContext(spar.match(/  function matchProfileSteps\([^)]*\)\{[\s\S]*?\n  \}/)[0], profileContext);
+const steps = profileContext.matchProfileSteps(profileContext.defaultMatchProfile());
+assert.deepEqual(Array.from(steps.slice(0, 4), step => step.key), ['topics', 'agree', 'interest', 'mode']);
+assert.ok(steps.filter(step => ['economy', 'immigration', 'speech', 'democracy'].includes(step.key)).every(step => step.default === 'skip'));
+assert.equal(steps.find(step => step.key === 'clipIntent').default, 'private', 'skip never opts into sharing');
+assert.match(spar, /waitingOffer = deskWaitingOffer\(root, bar, opts.editing\)/, 'the notice is enabled before sign-in and in the queue editor');
+assert.match(spar, /run.close = function\(\)\{ cleanup\(\); closeRun\(\); \}/, 'a real match closing the editor stops its polling');
 
 const pair = fs.readFileSync(new URL('../app/netlify/functions/spar-pair.mjs', import.meta.url), 'utf8');
 const rules = fs.readFileSync(new URL('../app/firestore.rules', import.meta.url), 'utf8');
