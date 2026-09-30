@@ -31,6 +31,8 @@ the newer layout adjusted around it.
 
 ## Index
 
+- [2026-09-30: motion-review decisions](2026-09-30-motion-review-cuts.md): explicit swipe cuts and one unresolved rewrite withdrawn from suggestions.
+
 - [2026-09-29: homepage council and dense chatter](2026-09-29-homepage-council-and-chatter.md): model details moved to judging surfaces; scripted conversation chains replaced by sparse typing previews.
 
 - [2026-09-26: homepage debate types](2026-09-26-homepage-debate-types.md): the four training cards removed from the landing page.

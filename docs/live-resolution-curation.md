@@ -1,4 +1,16 @@
-# Live-resolution curation, 24 September 2026
+# Live-resolution curation
+
+## September 30: saved swipe decisions
+
+Aidan asked to implement his saved choices and build a fresh questionnaire. Review version 33 contains 16 keeps, 16 cuts and one unresolved rewrite, with two notes asking for concrete case studies. Fourteen cuts appeared in the 62-entry live pool. They are removed from that pool, its generated server copy, and matching quick-pool and authored homepage entries. The two source-only cuts, Batman and pineapple, were never public suggestions. The pay-rise/privacy motion is withheld pending its requested specific rewrite, leaving 47 casual suggestions. Sixteen explicit keeps remain; untouched entries are not endorsements.
+
+The private review now starts with 24 new candidates and seven optional preference questions. The pay-rise/privacy and boycott case-study proposals come first. They are proposals, not silently substituted approved wording. Source-inspired cases distinguish newly supplied assumptions from the APDA or Oyaple source. Saved decisions are preserved by stable IDs; new candidates start undecided.
+
+**Explicit correction:** resolutions may be long. A scenario, assumptions and definitions may need several sentences. Do not infer a preference for brevity from word counts, and do not force a resolution into a one-line motion. Prefer a clear decision with two credible opposing cases. Explicit questionnaire answers and contextual notes outrank statistical patterns. Keeps and cuts are editorial choices, not the reviewer's beliefs.
+
+Removed source is preserved in `graveyard/2026-09-30-motion-review-cuts.md`. Never alter agreed or historical rounds while changing suggestions. Regenerate `draft-motions.mjs` from the canonical sources.
+
+## September 24: previous curation
 
 Aidan asked to identify patterns in his choices and change the live-round resolution options accordingly. He explicitly described relationship questions as good candidates for the front page. The current change concerns the casual live-room pool.
 

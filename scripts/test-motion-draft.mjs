@@ -242,8 +242,8 @@ function assertSideInvariant(d, label) {
     for (let i = 0; i < 12; i++) seen.add(autoResolve(sideBeat).side);
     eq(seen.size, 1, 'the timeout side is derived, never rolled');
   }
-  // The September 24 checked deletions change this seed's topic, not its side.
-  eq(r1.table.find((m) => m.id === r1.motionId).text, 'Sanctions hurt ordinary people more than the governments they target.',
+  // September 30's three explicit quick-pool cuts change this seed's topic, not its side.
+  eq(r1.table.find((m) => m.id === r1.motionId).text, 'Workers need unions more as AI takes over jobs.',
      'the seeded motion for this fixture is stable across runs');
   eq(r1.phase, 'done', 'an expired draft still finishes');
   ok(r1.autoOffer && r1.autoResponse && r1.autoSide, 'the board can say a clock made each call');
