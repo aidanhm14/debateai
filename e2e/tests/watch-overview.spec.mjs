@@ -70,6 +70,7 @@ test('missing decisions, failed reads and retries stay distinct', async ({ page 
     if (url.pathname === '/api/recordings' && url.searchParams.has('id') && !url.searchParams.has('link')) {
       if (mode === 'fail') return { status: 503, json: {} };
       if (mode === 'missing') return { json: { recording: { ...recording, overviewStatus: 'unavailable' } } };
+      if (mode === 'delayed') return { json: { recording: { ...recording, overviewStatus: 'delayed' } } };
     }
   });
   await page.goto('https://debatable.test/watch?r=round-one');
@@ -78,6 +79,10 @@ test('missing decisions, failed reads and retries stay distinct', async ({ page 
   mode = 'fail';
   await page.locator('.replay-card').click();
   await expect(page.locator('#roundOverview')).toContainText('could not load');
+  mode = 'delayed';
+  await page.getByRole('button', { name: 'Check again', exact: true }).click();
+  await expect(page.locator('#roundOverview')).toContainText('could not finish this decision');
+  await expect(page.locator('.overview-scores')).toHaveCount(0);
   mode = 'ready';
   await page.getByRole('button', { name: 'Check again', exact: true }).click();
   await expect(page.locator('.overview-result')).toHaveText('Alex wins');

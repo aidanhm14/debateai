@@ -26,6 +26,9 @@ for (const value of [null, undefined, '', ' ', false, {}, 'NaN']) {
 assert.equal(publicRecordingOverview({ ballot: { winner: 'pro', proPoints: 0 } }).ballot.proPoints, 0);
 assert.deepEqual(publicRecordingOverview({}), { overviewStatus: 'unavailable' });
 assert.deepEqual(publicRecordingOverview({ ballotPending: true }), { overviewStatus: 'pending' });
+for (const serverJudgeState of ['failed','incomplete']) assert.deepEqual(
+  publicRecordingOverview({ballotPending:true,serverJudgeState}),{overviewStatus:'delayed'},
+  'A failed judging attempt must not look like ordinary pending work');
 const draw = publicRecordingOverview({ serverJudgeState: 'unresolved', ballotUnresolved: {
   outcome: 'no_winner', missing: 0, reason: 'The panel split 2 to 2.', proPoints: 72, conPoints: 74,
   judgeReasons: [{ winner: 'con', rfd: 'Saved disagreement', model: 'private metadata' }],
@@ -35,7 +38,7 @@ assert.equal(draw.ballot.rfd, 'The panel split 2 to 2.');
 assert.equal(draw.ballot.conPoints, 74);
 assert.deepEqual(draw.ballot.judgeReasons, [{ winner: 'con', decidingIssue: '', rfd: 'Saved disagreement' }]);
 assert.equal(publicRecordingOverview({ serverJudgeState: 'incomplete', ballotPending: true,
-  ballotUnresolved: { outcome: 'no_winner', missing: 1 } }).overviewStatus, 'pending');
+  ballotUnresolved: { outcome: 'no_winner', missing: 1 } }).overviewStatus, 'delayed');
 const noContest = publicRecordingOverview({ ballotUnresolved: {
   outcome: 'no_contest', reason: 'No captured speech.', proPoints: 90, conPoints: 80,
   dimensions: round.ballot.dimensions,

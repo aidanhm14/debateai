@@ -13,8 +13,9 @@ export function publicRecordingOverview(round = {}) {
     && Number(unresolved.missing || 0) === 0;
   const b = decided ? round.ballot : (noContest || draw) ? unresolved : null;
   if (!b) return {
-    overviewStatus: round.ballotPending || ['queued', 'running', 'incomplete'].includes(round.serverJudgeState)
-      ? 'pending' : 'unavailable',
+    overviewStatus: ['failed', 'incomplete'].includes(round.serverJudgeState) ? 'delayed'
+      : round.ballotPending || ['queued', 'running'].includes(round.serverJudgeState)
+        ? 'pending' : 'unavailable',
   };
   const dimensions = {};
   if (!noContest) for (const key of AXES) {
