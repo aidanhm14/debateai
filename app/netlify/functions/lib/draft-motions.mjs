@@ -15,6 +15,10 @@
 export const DRAFT_MOTIONS = {
 
   casual: [
+    'Experiencing romantic love is worth the pain of losing it.',
+    'The United States should move half its military budget to the State Department.',
+    'Facing its 2025 decision, Kenya should extend its IMF program rather than restructure its debt.',
+    'Government bond contracts should require collective negotiations with creditors after a default.',
     'All drugs should be legal.',
     'Cheating on your partner is justified if they cheated on you first.',
     'You should forgive a partner who cheats once.',
