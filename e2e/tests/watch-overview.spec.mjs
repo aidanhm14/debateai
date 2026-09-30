@@ -101,6 +101,26 @@ test('draws cannot turn into an Against win and missing scores stay unscored', a
   expect(await page.evaluate(() => window.injected)).toBeUndefined();
 });
 
+test('long saved reasons stay complete behind a readable excerpt', async ({ page }) => {
+  await fixture(page, async url => {
+    if (url.pathname === '/api/recordings' && url.searchParams.has('id') && !url.searchParams.has('link')) {
+      return { json: { recording: { ...recording, overviewStatus: 'ready', ballot: {
+        ...ballot, rfd: 'The judge compared access and cost. '.repeat(30)
+          + '\n\n**The final deciding point.** <img src=x onerror="window.injected=true">',
+      } } } };
+    }
+  });
+  await page.goto('https://debatable.test/watch?r=round-one');
+  await expect(page.locator('.overview-reason h4')).toHaveText("Judge's reasoning");
+  const full = page.locator('.overview-reason details');
+  await expect(full.locator('strong')).toBeHidden();
+  expect((await page.locator('.overview-reason > p').last().innerText()).length).toBeLessThanOrEqual(650);
+  await full.locator('summary').click();
+  await expect(full.locator('strong')).toHaveText('The final deciding point.');
+  await expect(full.locator('img')).toHaveCount(0);
+  expect(await page.evaluate(() => window.injected)).toBeUndefined();
+});
+
 test('switching or closing rounds ignores late metadata and playback links', async ({ page }) => {
   let releaseFirst;
   const firstWait = new Promise(resolve => { releaseFirst = resolve; });

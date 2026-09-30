@@ -1873,7 +1873,7 @@ footer a{color:var(--dim)}
   function esc(t){ var d=document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
   function overviewParagraphs(text){
     return String(text || '').split(/\n{2,}/).filter(function(p){ return p.trim(); })
-      .map(function(p){ return '<p>' + esc(p.trim()) + '</p>'; }).join('');
+      .map(function(p){ return '<p>' + esc(p.trim()).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>') + '</p>'; }).join('');
   }
   function renderOverview(rec, status){
     var host = $('roundOverview'), b = rec.ballot;
@@ -1906,11 +1906,19 @@ footer a{color:var(--dim)}
       if (!row || row.pro == null || row.con == null || !isFinite(Number(row.pro)) || !isFinite(Number(row.con))) return '';
       return '<tr><th scope="row">' + axis[1] + '</th><td>' + esc(row.pro) + '</td><td>' + esc(row.con) + '</td></tr>';
     }).join('');
+    var reason = String(b.rfd || ''), excerpt = reason.replace(/\*\*([^*]+)\*\*/g, '$1');
+    var longReason = excerpt.length > 650;
+    if (longReason){
+      var cut = excerpt.slice(0, 600);
+      var stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
+      excerpt = stop > 250 ? cut.slice(0, stop + 1) : cut.slice(0, cut.lastIndexOf(' ')) + '…';
+    }
     host.innerHTML = '<div class="overview-grid"><div><p class="overview-result">' + esc(result) + '</p>'
       + '<div class="overview-scores">' + scores + '</div></div><div class="overview-reason">'
       + '<h4>Judge\'s reasoning</h4>'
       + (b.decidingIssue ? '<p class="overview-issue"><strong>Deciding issue:</strong> ' + esc(b.decidingIssue) + '</p>' : '')
-      + (overviewParagraphs(b.rfd) || '<p class="overview-state">No written reason was saved with this decision.</p>')
+      + (overviewParagraphs(excerpt) || '<p class="overview-state">No written reason was saved with this decision.</p>')
+      + (longReason ? '<details class="overview-details"><summary>Read the complete decision</summary>' + overviewParagraphs(reason) + '</details>' : '')
       + '</div></div>'
       + (rows ? '<details class="overview-details"><summary>Score breakdown</summary><table class="overview-table">'
         + '<caption>Each category is scored out of 10.</caption><thead><tr><th scope="col">Category</th><th scope="col">'
