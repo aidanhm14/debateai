@@ -315,10 +315,24 @@
     if (_daLiveAlertsError) return 'error';
     return daGetLiveAlerts() && daDevicePushReady() ? 'on' : 'ready';
   }
+  function daBlockedAlertsSteps(){
+    var ua = navigator.userAgent || '';
+    var steps;
+    if (daIosDeviceName()) {
+      steps = ['Open your device Settings, then Notifications.', 'Choose Debatable and turn on Allow Notifications.'];
+    } else if (/Firefox\//.test(ua)) {
+      steps = ['Open Firefox Settings, then Privacy & Security.', 'Under Permissions, open Notifications settings. Allow itsdebatable.com and save.'];
+    } else if (/Safari\//.test(ua) && !/Chrome\/|Chromium\/|Edg\//.test(ua)) {
+      steps = ['Open Safari Settings, then Websites and Notifications.', 'Find itsdebatable.com and choose Allow.'];
+    } else {
+      steps = ['Open the site controls beside the address bar, then Site settings or Permissions.', 'Set Notifications for itsdebatable.com to Allow.'];
+    }
+    return steps;
+  }
   function daLiveAlertsHelp(){
     var state = daGetLiveAlertsState();
     if (state === 'install') return 'On iPhone or iPad, tap Share, then Add to Home Screen. Open Debatable from that icon to turn on alerts.';
-    if (state === 'denied') return 'Allow notifications for Debatable in your browser site settings, then try again.';
+    if (state === 'denied') return 'Notifications are blocked. ' + daBlockedAlertsSteps().join(' ') + ' Live matching still works while this tab is open.';
     if (state === 'unsupported') return 'This browser cannot receive push alerts. Try Chrome, Edge, Firefox or Safari on a supported device.';
     if (state === 'guest') return 'Sign in to receive alerts on your devices.';
     return _daLiveAlertsError || 'Get a notification when someone joins the live queue. Tap it to meet them.';
@@ -461,6 +475,15 @@
     actions.querySelector('button').addEventListener('click', function () { daCloseIosOffer(key, 'install_steps_done'); });
     daTrackIosOffer('show_install_steps', device.toLowerCase());
   }
+  function daPaintBlockedAlerts(card){
+    var steps = daBlockedAlertsSteps().map(function (step) { return '<li>' + escHtml(step) + '</li>'; }).join('');
+    card.setAttribute('data-state', 'denied');
+    card.querySelector('.da-ios-live-offer__title').textContent = 'Notifications are blocked';
+    card.querySelector('.da-ios-live-offer__copy').innerHTML =
+      'Live matching still works with this tab open. To get alerts outside this tab:' +
+      '<ol class="da-ios-live-offer__steps">' + steps + '<li>Return here and check permission.</li></ol>';
+    card.querySelector('.da-ios-live-offer__primary').textContent = 'Check permission';
+  }
   function daMountIosOffer(state, device){
     if (_daIosOfferShown || document.getElementById('daIosLiveOffer')) return;
     var key = state === 'install' ? DA_IOS_INSTALL_OFFER_KEY : DA_IOS_ENABLE_OFFER_KEY;
@@ -479,7 +502,7 @@
       '<div class="da-ios-live-offer__main">' +
         '<span class="da-ios-live-offer__eyebrow">Live debate alerts</span>' +
         '<strong class="da-ios-live-offer__title" id="daIosLiveOfferTitle">' + (install ? 'Get live alerts on your ' + device : 'Know when someone is ready to debate') + '</strong>' +
-        '<span class="da-ios-live-offer__copy">' + (install
+        '<span class="da-ios-live-offer__copy" aria-live="polite">' + (install
           ? 'Add Debatable to your Home Screen. Then it can ping you when someone is looking for a round, even after you leave the browser.'
           : 'Get a notification on this ' + device + ' when someone joins the live queue. Tap it to meet them.') + '</span>' +
         '<span class="da-ios-live-offer__actions"><button type="button" class="da-ios-live-offer__primary">' + (install ? 'Show setup' : 'Turn on alerts') + '</button><button type="button" class="da-ios-live-offer__later">Not now</button></span>' +
@@ -491,6 +514,9 @@
     card.querySelector('.da-ios-live-offer__later').addEventListener('click', function () { daCloseIosOffer(key, 'not_now'); });
     card.querySelector('.da-ios-live-offer__primary').addEventListener('click', function () {
       if (install) { daPaintIosInstallSteps(card, key, device); return; }
+      // A denied permission cannot be requested again by the page. Explain
+      // the actual setting and recheck it only on this explicit gesture.
+      if (daGetLiveAlertsState() === 'denied') { daPaintBlockedAlerts(card); return; }
       var btn = card.querySelector('.da-ios-live-offer__primary');
       btn.disabled = true;
       btn.textContent = 'Setting up alerts...';
@@ -499,6 +525,11 @@
         card.classList.remove('is-working');
         btn.disabled = false;
         if (error || !on) {
+          if (daGetLiveAlertsState() === 'denied') {
+            daPaintBlockedAlerts(card);
+            daTrackIosOffer('setup_blocked', state);
+            return;
+          }
           card.querySelector('.da-ios-live-offer__copy').textContent = daLiveAlertsHelp();
           btn.textContent = 'Try again';
           daTrackIosOffer('setup_failed', state);
@@ -512,6 +543,7 @@
         daTrackIosOffer('enabled', state);
       });
     });
+    if (!install && daGetLiveAlertsState() === 'denied') daPaintBlockedAlerts(card);
     daTrackIosOffer('impression', state);
   }
   function maybeOfferDeviceLiveAlerts(user){
@@ -520,7 +552,9 @@
     var native = daIsNative();
     var install = !!(ios && !daStandalone() && !native);
     if (!install && !native && (!window.Notification || !('PushManager' in window) || !('serviceWorker' in navigator))) return;
-    if (daGetLiveAlertsState() === 'on') return;
+    // Respect an earlier browser denial. Recovery remains available through
+    // the explicit notification controls; do not repeatedly offer permission.
+    if (/^(on|denied)$/.test(daGetLiveAlertsState())) return;
     var device = ios || (/Android/i.test(navigator.userAgent) || native ? 'phone' : 'computer');
     var state = install ? 'install' : 'enable';
     var key = install ? DA_IOS_INSTALL_OFFER_KEY : DA_IOS_ENABLE_OFFER_KEY;
@@ -530,7 +564,7 @@
     _daIosOfferTimer = setTimeout(function () {
       _daIosOfferTimer = null;
       var current = daCurrentUser();
-      if (current && current.uid === user.uid && daGetLiveAlertsState() !== 'on' && !document.hidden && !daBusyRound() && !daVisibleModalUp()) daMountIosOffer(state, device);
+      if (current && current.uid === user.uid && !/^(on|denied)$/.test(daGetLiveAlertsState()) && !document.hidden && !daBusyRound() && !daVisibleModalUp()) daMountIosOffer(state, device);
     }, 2200);
   }
   // Broadcast side: tell the pool a debater just went live. Server enforces a
@@ -912,7 +946,7 @@
       '.da-bell-toast__eyebrow{font-size:.58rem;font-weight:900;letter-spacing:.11em;text-transform:uppercase;color:var(--dab-accent)}' +
       '.da-bell-toast__name{font-size:.86rem;font-weight:800;color:var(--dab-text)}' +
       '.da-bell-toast__preview{font-size:.78rem;color:var(--dab-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
-      '.da-ios-live-offer{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:99990;display:flex;align-items:flex-start;gap:13px;width:min(440px,calc(100vw - 24px));padding:17px 42px 17px 17px;background:var(--dab-surface);border:1px solid rgba(34,197,94,.42);border-radius:18px;box-shadow:var(--dab-shadow);color:var(--dab-text);font-family:inherit;text-align:left;opacity:0;transform:translate(-50%,18px) scale(.98);transition:opacity .2s ease,transform .24s cubic-bezier(.2,.8,.2,1)}' +
+      '.da-ios-live-offer{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:99990;display:flex;align-items:flex-start;gap:13px;box-sizing:border-box;width:min(440px,calc(100vw - 24px));max-height:calc(100dvh - 32px - env(safe-area-inset-bottom,0px));overflow-y:auto;padding:17px 42px 17px 17px;background:var(--dab-surface);border:1px solid rgba(34,197,94,.42);border-radius:18px;box-shadow:var(--dab-shadow);color:var(--dab-text);font-family:inherit;text-align:left;opacity:0;transform:translate(-50%,18px) scale(.98);transition:opacity .2s ease,transform .24s cubic-bezier(.2,.8,.2,1)}' +
       '.da-ios-live-offer.is-in{opacity:1;transform:translate(-50%,0) scale(1)}' +
       '.da-ios-live-offer__close{position:absolute;top:4px;right:5px;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;border:0;background:transparent;color:var(--dab-ghost);font:400 24px/1 system-ui;cursor:pointer}' +
       '.da-ios-live-offer__icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 40px;width:40px;height:40px;border-radius:12px;background:rgba(34,197,94,.14);color:#22c55e}' +
@@ -921,7 +955,7 @@
       '.da-ios-live-offer__title{font-size:1rem;font-weight:850;line-height:1.25;color:var(--dab-text)}' +
       '.da-ios-live-offer__copy{margin-top:5px;font-size:.82rem;line-height:1.48;color:var(--dab-dim)}' +
       '.da-ios-live-offer__steps{margin:5px 0 0;padding-left:20px}.da-ios-live-offer__steps li{margin:5px 0}' +
-      '.da-ios-live-offer__actions{display:flex;align-items:center;gap:9px;margin-top:13px}' +
+      '.da-ios-live-offer__actions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-top:13px}' +
       '.da-ios-live-offer__actions button{min-height:44px;padding:0 15px;border-radius:10px;font-family:inherit;font-size:.8rem;font-weight:800;cursor:pointer}' +
       '.da-ios-live-offer__primary{border:0;background:#22c55e;color:#06210f}' +
       '.da-ios-live-offer__later{border:1px solid var(--dab-border);background:transparent;color:var(--dab-dim)}' +
@@ -1796,7 +1830,7 @@
     // from the "Available" pill, which makes YOU matchable.
     function liveAlertRowHtml() {
       var on = daGetLiveAlerts();
-      var help = _daLiveAlertsError || (on ? (daDevicePushReady() ? 'Alerts are on for this device. Tap to turn them off.' : 'Alerts are on for your account. Set up this device below.') : daLiveAlertsHelp());
+      var help = _daLiveAlertsError ? daLiveAlertsHelp() : (on ? (daDevicePushReady() ? 'Alerts are on for this device. Tap to turn them off.' : 'Alerts are on for your account. Set up this device below.') : daLiveAlertsHelp());
       return '<button type="button" id="daLiveAlertToggle" class="ui-bell-la" aria-pressed="' + (on ? 'true' : 'false') + '" ' +
         'style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--dab-border);background:transparent;color:inherit;cursor:pointer;text-align:left;font-family:inherit">' +
         '<span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;background:' + (on ? 'rgba(34,197,94,.14)' : 'var(--dab-elev)') + ';color:' + (on ? '#22c55e' : 'var(--dab-dim)') + '">' +
@@ -2604,20 +2638,19 @@
     }
 
     // ── availability ──
-    // Lazy-load the one-time age question for a manual opt-in without a
-    // recorded band. Without it the queue doc is a phantom: spar-pair
-    // refuses every pair with AGE_BAND_REQUIRED, so real waiters see an
-    // entry they can never meet. age-gate.js is not loaded on most
-    // topbar pages, so pull it in on demand; if the script fails to
-    // load, do nothing rather than enqueue an unpairable doc.
+    // The shared age API may finish without storing a band (the retired
+    // question returns 'everyone'). Completion is per click, not a claim
+    // about age, and must not recurse back into the missing-storage check.
     function askBandThen(cb) {
       if (window.daAskAgeBand) { window.daAskAgeBand(function () { cb(); }); return; }
       var s = document.createElement('script');
       s.src = '/js/age-gate.js';
-      s.onload = function () { if (window.daAskAgeBand) window.daAskAgeBand(function () { cb(); }); };
+      function failed() { sparNote('Could not start live matching. Please try Spar live again.'); }
+      s.onload = function () { if (window.daAskAgeBand) window.daAskAgeBand(function () { cb(); }); else failed(); };
+      s.onerror = failed;
       document.head.appendChild(s);
     }
-    function setAvailable(on, quiet) {
+    function setAvailable(on, quiet, ageChecked) {
       // quiet=true is the programmatic path (the landing live-pull
       // auto-enlist): no OS-permission ask (needs a real gesture), no
       // go-live broadcast to the opted-in pool, no "Matchable" toast.
@@ -2632,8 +2665,9 @@
       // quiet (programmatic) path never asks — its callers are gated on
       // a recorded band instead, because the modal has no dismiss and
       // must only ever appear on a real click.
-      if (on && !quiet && myUid && !agBand()) {
-        askBandThen(function () { setAvailable(true, quiet); });
+      if (on && !quiet && !ageChecked && myUid && !agBand()) {
+        var checkingUid = myUid;
+        askBandThen(function () { if (myUid === checkingUid) setAvailable(true, quiet, true); });
         return;
       }
       available = !!on;
